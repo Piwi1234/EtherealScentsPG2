@@ -167,8 +167,7 @@ async function seedCatalog() {
     create: {
       name: "Samsung Galaxy S24",
       productCode: "SAMS24A",
-      price: 899.99,
-      stock: 25,
+      purchasePrice: 650,
       utility: 150,
       brandId: samsung.id,
       categoryId: celulares.id,
@@ -180,8 +179,7 @@ async function seedCatalog() {
     create: {
       name: "iPhone 15",
       productCode: "APLIP15",
-      price: 1099,
-      stock: 15,
+      purchasePrice: 800,
       utility: 200,
       brandId: apple.id,
       categoryId: celulares.id,
@@ -193,8 +191,7 @@ async function seedCatalog() {
     create: {
       name: "MacBook Air M3",
       productCode: "APLMBA1",
-      price: 1299,
-      stock: 10,
+      purchasePrice: 950,
       utility: 180,
       brandId: apple.id,
       categoryId: laptops.id,

@@ -4,7 +4,7 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
-import { withTotalCost } from "../product-cost";
+import { withPrice } from "../product-price";
 
 const includeDetails = {
   brand: true,
@@ -58,7 +58,7 @@ export class CatalogBrowseService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items: items.map(withTotalCost), total, page, pageSize };
+    return { items: items.map(withPrice), total, page, pageSize };
   }
 
   /** Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones. */

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min, ValidateNested } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, ValidateNested } from "class-validator";
 import { ProductAttributeValueInputDto } from "./product-attribute-value.dto";
 
 export class CreateProductDto {
@@ -9,16 +9,10 @@ export class CreateProductDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: 899.99 })
+  @ApiProperty({ example: 650, description: "Precio de compra (costo de adquisición). Base de la fórmula de precio $." })
   @IsNumber()
   @IsPositive()
-  price!: number;
-
-  @ApiPropertyOptional({ example: 25, default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  stock?: number;
+  purchasePrice!: number;
 
   @ApiPropertyOptional({ example: 50, default: 0, description: "Utilidad cargada manualmente." })
   @IsOptional()

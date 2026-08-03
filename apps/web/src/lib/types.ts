@@ -54,11 +54,10 @@ export type Product = {
   id: string;
   name: string;
   productCode: string;
-  price: string;
-  stock: number;
+  purchasePrice: string;
   utility: string;
-  /** Calculado en vivo por el backend: logisticsCost + shippingCost + securityCost (de category) + utility. */
-  totalCost: number;
+  /** Calculado en vivo por el backend: purchasePrice + logisticsCost + shippingCost + securityCost (de category) + utility. */
+  price: number;
   brandId: string | null;
   categoryId: string;
   brand: Brand | null;

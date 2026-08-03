@@ -9,7 +9,7 @@ import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
 import { generateProductCode } from "./product-code";
-import { withTotalCost } from "../product-cost";
+import { withPrice } from "../product-price";
 
 const includeDetails = {
   brand: true,
@@ -120,8 +120,7 @@ export class ProductService {
         data: {
           name: dto.name,
           productCode,
-          price: dto.price,
-          stock: dto.stock ?? 0,
+          purchasePrice: dto.purchasePrice,
           utility: dto.utility ?? 0,
           brandId: dto.brandId,
           categoryId: dto.categoryId,
@@ -129,7 +128,7 @@ export class ProductService {
         },
         include: includeDetails,
       });
-      return withTotalCost(product);
+      return withPrice(product);
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -150,7 +149,7 @@ export class ProductService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items: items.map(withTotalCost), total, page, pageSize };
+    return { items: items.map(withPrice), total, page, pageSize };
   }
 
   async findOne(id: string) {
@@ -158,7 +157,7 @@ export class ProductService {
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
     }
-    return withTotalCost(product);
+    return withPrice(product);
   }
 
   async update(id: string, dto: UpdateProductDto) {
@@ -197,8 +196,7 @@ export class ProductService {
           where: { id },
           data: {
             name: dto.name,
-            price: dto.price,
-            stock: dto.stock,
+            purchasePrice: dto.purchasePrice,
             utility: dto.utility,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
@@ -206,7 +204,7 @@ export class ProductService {
           include: includeDetails,
         });
       });
-      return withTotalCost(product);
+      return withPrice(product);
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }

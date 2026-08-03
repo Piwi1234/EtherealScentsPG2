@@ -5,14 +5,6 @@ import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "../../../lib/api
 import type { Attribute, Brand, Category, Page, Product } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
-function attributeValueLabel(value: Product["attributeValues"][number]): string {
-  if (value.option) return value.option.value;
-  if (value.valueText !== null) return value.valueText;
-  if (value.valueNumber !== null) return value.valueNumber;
-  if (value.valueBoolean !== null) return value.valueBoolean ? "Sí" : "No";
-  return "—";
-}
-
 export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -24,8 +16,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("0");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [utility, setUtility] = useState("0");
   const [brandId, setBrandId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -69,8 +60,7 @@ export default function ProductsPage() {
   async function openCreate() {
     setEditing(null);
     setName("");
-    setPrice("");
-    setStock("0");
+    setPurchasePrice("");
     setUtility("0");
     setBrandId("");
     setAttributeValues({});
@@ -84,8 +74,7 @@ export default function ProductsPage() {
   async function openEdit(product: Product) {
     setEditing(product);
     setName(product.name);
-    setPrice(product.price);
-    setStock(String(product.stock));
+    setPurchasePrice(product.purchasePrice);
     setUtility(product.utility);
     setBrandId(product.brandId ?? "");
     setCategoryId(product.categoryId);
@@ -136,8 +125,7 @@ export default function ProductsPage() {
 
       const payload = {
         name,
-        price: Number(price),
-        stock: Number(stock || 0),
+        purchasePrice: Number(purchasePrice),
         utility: Number(utility || 0),
         brandId: brandId || undefined,
         categoryId,
@@ -158,12 +146,14 @@ export default function ProductsPage() {
     }
   }
 
-  // Vista previa en vivo: misma fórmula que calcula el backend (categoría actual + utilidad).
+  // Vista previa en vivo: misma fórmula que calcula el backend.
+  // Precio $ = Precio de compra + costos heredados de la categoría + utilidad.
   const selectedCategory = categories.find((cat) => cat.id === categoryId);
   const logisticsCostPreview = Number(selectedCategory?.logisticsCost ?? 0);
   const shippingCostPreview = Number(selectedCategory?.shippingCost ?? 0);
   const securityCostPreview = Number(selectedCategory?.securityCost ?? 0);
-  const totalCostPreview = logisticsCostPreview + shippingCostPreview + securityCostPreview + Number(utility || 0);
+  const pricePreview =
+    Number(purchasePrice || 0) + logisticsCostPreview + shippingCostPreview + securityCostPreview + Number(utility || 0);
 
   return (
     <div className="card">
@@ -201,36 +191,24 @@ export default function ProductsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Nombre</th>
                 <th>ID Producto</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th>Utilidad</th>
-                <th>Costo $</th>
-                <th>Categoría</th>
                 <th>Marca</th>
-                <th>Atributos</th>
+                <th>Nombre</th>
+                <th>Precio de compra</th>
+                <th>Utilidad</th>
+                <th>Precio $</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {page.items.map((product) => (
                 <tr key={product.id}>
-                  <td>{product.name}</td>
                   <td>{product.productCode}</td>
-                  <td>${product.price}</td>
-                  <td>{product.stock}</td>
-                  <td>${product.utility}</td>
-                  <td>${product.totalCost.toFixed(2)}</td>
-                  <td>{product.category.name}</td>
                   <td>{product.brand?.name ?? "—"}</td>
-                  <td>
-                    {product.attributeValues.length === 0
-                      ? "—"
-                      : product.attributeValues
-                          .map((value) => `${value.attribute.name}: ${attributeValueLabel(value)}`)
-                          .join(" · ")}
-                  </td>
+                  <td>{product.name}</td>
+                  <td>${product.purchasePrice}</td>
+                  <td>${product.utility}</td>
+                  <td>${product.price.toFixed(2)}</td>
                   <td>
                     <button type="button" className="link-button" onClick={() => openEdit(product)}>Editar</button>
                     <button type="button" className="link-button danger" onClick={() => handleDelete(product)}>Eliminar</button>
@@ -260,12 +238,16 @@ export default function ProductsPage() {
             )}
             <div style={{ display: "flex", gap: 14 }}>
               <div style={{ flex: 1 }}>
-                <label>Precio</label>
-                <input className="field" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label>Stock</label>
-                <input className="field" type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)} />
+                <label>Precio de compra</label>
+                <input
+                  className="field"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  required
+                />
               </div>
               <div style={{ flex: 1 }}>
                 <label>Utilidad</label>
@@ -300,7 +282,9 @@ export default function ProductsPage() {
                   Logística: ${logisticsCostPreview.toFixed(2)} · Envío: ${shippingCostPreview.toFixed(2)} · Seguridad: $
                   {securityCostPreview.toFixed(2)}
                 </p>
-                <p style={{ margin: 0, fontWeight: 600 }}>Costo $ total: ${totalCostPreview.toFixed(2)}</p>
+                <p style={{ margin: 0, fontWeight: 600 }}>
+                  Precio $ = Precio de compra + costos + utilidad = ${pricePreview.toFixed(2)}
+                </p>
               </div>
             )}
 
