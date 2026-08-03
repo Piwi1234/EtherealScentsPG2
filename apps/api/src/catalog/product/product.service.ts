@@ -1,3 +1,5 @@
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AttributeType, Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
@@ -10,6 +12,7 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
 import { generateProductCode } from "./product-code";
 import { withPrice } from "../product-price";
+import { PRODUCT_IMAGES_DIR } from "./product-image.multer";
 
 const includeDetails = {
   brand: true,
@@ -210,10 +213,40 @@ export class ProductService {
     }
   }
 
+  async setImage(id: string, file: Express.Multer.File) {
+    const existing = await this.findOne(id);
+
+    try {
+      const updated = await this.prisma.product.update({
+        where: { id },
+        data: { imageUrl: `/uploads/products/${file.filename}` },
+        include: includeDetails,
+      });
+
+      // Best-effort: borra el archivo anterior para no acumular huérfanos en disco.
+      if (existing.imageUrl) {
+        const previousFilename = existing.imageUrl.split("/").pop();
+        if (previousFilename) {
+          await unlink(join(PRODUCT_IMAGES_DIR, previousFilename)).catch(() => {});
+        }
+      }
+
+      return withPrice(updated);
+    } catch (error) {
+      rethrowPrismaError(error, "Producto");
+    }
+  }
+
   async remove(id: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     try {
       await this.prisma.product.delete({ where: { id } });
+      if (existing.imageUrl) {
+        const filename = existing.imageUrl.split("/").pop();
+        if (filename) {
+          await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
+        }
+      }
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }

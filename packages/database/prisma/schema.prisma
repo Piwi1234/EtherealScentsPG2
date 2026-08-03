@@ -138,6 +138,7 @@ model Product {
   brand         Brand?   @relation(fields: [brandId], references: [id])
   categoryId    String   @map("category_id") @db.Uuid
   category      Category @relation(fields: [categoryId], references: [id])
+  imageUrl      String?  @map("image_url")
 
   attributeValues ProductAttributeValue[]
 

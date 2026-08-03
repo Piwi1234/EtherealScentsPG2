@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
@@ -6,7 +8,11 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
+  // Carpeta de imágenes de producto: debe existir antes de que multer/estáticos la usen.
+  mkdirSync(join(process.cwd(), "uploads", "products"), { recursive: true });
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
   // Express 5 cambió el parser de query por defecto a "simple" (querystring nativo), que no
   // entiende notación de corchetes. La volvemos a "extended" (qs) para poder recibir filtros
   // dinámicos de catálogo como `?attr[<attributeId>]=valor`.

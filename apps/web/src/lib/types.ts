@@ -58,6 +58,7 @@ export type Product = {
   utility: string;
   /** Calculado en vivo por el backend: purchasePrice + logisticsCost + shippingCost + securityCost (de category) + utility. */
   price: number;
+  imageUrl: string | null;
   brandId: string | null;
   categoryId: string;
   brand: Brand | null;

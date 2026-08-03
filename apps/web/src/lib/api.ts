@@ -2,6 +2,9 @@ const DEFAULT_API_HOST = "http://localhost:4100";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_HOST;
 const API_BASE = typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL ? "/api" : `${API_URL}/api`;
 
+/** Origen del backend (sin /api), para construir URLs de archivos estáticos como /uploads/... */
+export const API_ORIGIN = API_URL;
+
 export class ApiError extends Error {
   status: number;
 
@@ -62,4 +65,11 @@ export function apiPatch<T>(path: string, data: unknown): Promise<T> {
 
 export function apiDelete<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "DELETE" });
+}
+
+export function apiUpload<T>(path: string, file: File): Promise<T> {
+  const formData = new FormData();
+  formData.append("file", file);
+  // Sin Content-Type manual: el browser arma el boundary multipart correcto.
+  return apiRequest<T>(path, { method: "POST", body: formData });
 }

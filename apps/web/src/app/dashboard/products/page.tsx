@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "../../../lib/api";
+import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
 import type { Attribute, Brand, Category, Page, Product } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
+
+function productImageSrc(imageUrl: string | null): string | null {
+  return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
+}
 
 export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -22,8 +26,16 @@ export default function ProductsPage() {
   const [categoryId, setCategoryId] = useState("");
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  function handleImageSelect(file: File | null) {
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImagePreview(file ? URL.createObjectURL(file) : null);
+  }
 
   function loadProducts() {
     const params = new URLSearchParams();
@@ -64,6 +76,7 @@ export default function ProductsPage() {
     setUtility("0");
     setBrandId("");
     setAttributeValues({});
+    handleImageSelect(null);
     const firstCategory = categories[0]?.id ?? "";
     setCategoryId(firstCategory);
     await loadAttributesFor(firstCategory);
@@ -78,6 +91,8 @@ export default function ProductsPage() {
     setUtility(product.utility);
     setBrandId(product.brandId ?? "");
     setCategoryId(product.categoryId);
+    setImageFile(null);
+    setImagePreview(productImageSrc(product.imageUrl));
     await loadAttributesFor(product.categoryId);
     const values: Record<string, string> = {};
     for (const pv of product.attributeValues) {
@@ -132,11 +147,14 @@ export default function ProductsPage() {
         attributeValues: attributeValuesPayload,
       };
 
-      if (editing) {
-        await apiPatch(`/products/${editing.id}`, payload);
-      } else {
-        await apiPost("/products", payload);
+      const saved = editing
+        ? await apiPatch<Product>(`/products/${editing.id}`, payload)
+        : await apiPost<Product>("/products", payload);
+
+      if (imageFile) {
+        await apiUpload(`/products/${saved.id}/image`, imageFile);
       }
+
       setModalOpen(false);
       loadProducts();
     } catch (e) {
@@ -191,6 +209,7 @@ export default function ProductsPage() {
           <table className="table">
             <thead>
               <tr>
+                <th>Imagen</th>
                 <th>ID Producto</th>
                 <th>Marca</th>
                 <th>Nombre</th>
@@ -203,6 +222,17 @@ export default function ProductsPage() {
             <tbody>
               {page.items.map((product) => (
                 <tr key={product.id}>
+                  <td>
+                    {productImageSrc(product.imageUrl) ? (
+                      <img
+                        src={productImageSrc(product.imageUrl)!}
+                        alt={product.name}
+                        style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                      />
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                    )}
+                  </td>
                   <td>{product.productCode}</td>
                   <td>{product.brand?.name ?? "—"}</td>
                   <td>{product.name}</td>
@@ -236,6 +266,24 @@ export default function ProductsPage() {
                 <input className="field" value={editing.productCode} disabled />
               </div>
             )}
+            <div>
+              <label>Imagen</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Vista previa"
+                    style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }}
+                  />
+                )}
+                <input
+                  className="field"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 14 }}>
               <div style={{ flex: 1 }}>
                 <label>Precio de compra</label>
