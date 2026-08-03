@@ -35,3 +35,127 @@ model User {
 
   @@map("users")
 }
+
+enum AttributeType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+
+  @@map("attribute_type")
+}
+
+model Category {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String     @unique
+  parentId  String?    @map("parent_id") @db.Uuid
+  parent    Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Category[] @relation("CategoryToParent")
+
+  brands     BrandCategory[]
+  attributes Attribute[]
+  products   Product[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Brand {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+  slug String @unique
+
+  categories BrandCategory[]
+  products   Product[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("brands")
+}
+
+model BrandCategory {
+  brandId    String   @map("brand_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@id([brandId, categoryId])
+  @@map("brand_categories")
+}
+
+model Attribute {
+  id           String        @id @default(uuid()) @db.Uuid
+  categoryId   String        @map("category_id") @db.Uuid
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name         String
+  type         AttributeType
+  isFilterable Boolean       @default(false) @map("is_filterable")
+  isRequired   Boolean       @default(false) @map("is_required")
+
+  options            AttributeOption[]
+  productValues      ProductAttributeValue[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([categoryId, name])
+  @@map("attributes")
+}
+
+model AttributeOption {
+  id          String    @id @default(uuid()) @db.Uuid
+  attributeId String    @map("attribute_id") @db.Uuid
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value       String
+
+  productValues ProductAttributeValue[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([attributeId, value])
+  @@map("attribute_options")
+}
+
+model Product {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  sku        String   @unique
+  price      Decimal  @db.Decimal(12, 2)
+  stock      Int      @default(0)
+  brandId    String?  @map("brand_id") @db.Uuid
+  brand      Brand?   @relation(fields: [brandId], references: [id])
+  categoryId String   @map("category_id") @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  attributeValues ProductAttributeValue[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("products")
+}
+
+model ProductAttributeValue {
+  id          String    @id @default(uuid()) @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeId String    @map("attribute_id") @db.Uuid
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  valueText    String?  @map("value_text")
+  valueNumber  Decimal? @map("value_number") @db.Decimal(14, 4)
+  valueBoolean Boolean? @map("value_boolean")
+  optionId     String?  @map("option_id") @db.Uuid
+  option       AttributeOption? @relation(fields: [optionId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, attributeId])
+  @@map("product_attribute_values")
+}

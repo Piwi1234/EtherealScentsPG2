@@ -1,0 +1,30 @@
+import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { CatalogBrowseService } from "./browse.service";
+
+@ApiTags("catalog")
+@Controller("catalog")
+export class CatalogBrowseController {
+  constructor(private readonly browse: CatalogBrowseService) {}
+
+  /**
+   * Listado de productos con filtros dinámicos.
+   * Filtros de atributo: `?attr[<attributeId>]=valor1,valor2` (OR entre valores del mismo
+   * atributo, AND entre atributos distintos). Para 'select' el valor es el id de la opción.
+   */
+  @Get("products")
+  findProducts(
+    @Query("categoryId") categoryId?: string,
+    @Query("brandId") brandId?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("attr") attr?: Record<string, string>,
+  ) {
+    return this.browse.findProducts({ categoryId, brandId, page, pageSize, attr });
+  }
+
+  @Get("categories/:categoryId/filters")
+  getFilters(@Param("categoryId", ParseUUIDPipe) categoryId: string) {
+    return this.browse.getFiltersForCategory(categoryId);
+  }
+}

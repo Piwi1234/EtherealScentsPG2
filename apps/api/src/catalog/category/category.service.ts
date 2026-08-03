@@ -1,0 +1,163 @@
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Category } from "@app/database";
+import { slugify } from "@app/shared";
+import { PrismaService } from "../../common/prisma.service";
+import { rethrowPrismaError } from "../../common/prisma-errors";
+import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
+
+export interface CategoryTreeNode extends Category {
+  children: CategoryTreeNode[];
+}
+
+@Injectable()
+export class CategoryService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreateCategoryDto) {
+    if (dto.parentId) {
+      await this.findOne(dto.parentId);
+    }
+
+    try {
+      return await this.prisma.category.create({
+        data: {
+          name: dto.name,
+          slug: dto.slug ?? slugify(dto.name),
+          parentId: dto.parentId,
+        },
+      });
+    } catch (error) {
+      rethrowPrismaError(error, "Categoría");
+    }
+  }
+
+  async findAll(options: { tree?: boolean } = {}) {
+    const categories = await this.prisma.category.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    if (!options.tree) {
+      return categories;
+    }
+
+    return this.buildTree(categories);
+  }
+
+  private buildTree(categories: Category[]): CategoryTreeNode[] {
+    const byId = new Map<string, CategoryTreeNode>(
+      categories.map((category) => [category.id, { ...category, children: [] }]),
+    );
+    const roots: CategoryTreeNode[] = [];
+
+    for (const category of byId.values()) {
+      if (category.parentId) {
+        const parent = byId.get(category.parentId);
+        parent ? parent.children.push(category) : roots.push(category);
+      } else {
+        roots.push(category);
+      }
+    }
+
+    return roots;
+  }
+
+  async findOne(id: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: { parent: true, children: true },
+    });
+    if (!category) {
+      throw new NotFoundException("Categoría no encontrada.");
+    }
+    return category;
+  }
+
+  /** Cadena de ids desde la categoría hasta la raíz, incluyendo la propia categoría. */
+  async getAncestorChain(categoryId: string): Promise<string[]> {
+    const chain: string[] = [];
+    let currentId: string | null = categoryId;
+
+    while (currentId) {
+      const category: { id: string; parentId: string | null } | null = await this.prisma.category.findUnique({
+        where: { id: currentId },
+        select: { id: true, parentId: true },
+      });
+      if (!category) {
+        if (chain.length === 0) {
+          throw new NotFoundException("Categoría no encontrada.");
+        }
+        break;
+      }
+      chain.push(category.id);
+      currentId = category.parentId;
+    }
+
+    return chain;
+  }
+
+  /** La categoría y todos sus ids descendientes (subcategorías en cualquier nivel). */
+  async getDescendantIds(categoryId: string): Promise<string[]> {
+    await this.findOne(categoryId);
+
+    const all = await this.prisma.category.findMany({ select: { id: true, parentId: true } });
+    const childrenByParent = new Map<string, string[]>();
+    for (const category of all) {
+      if (!category.parentId) continue;
+      const siblings = childrenByParent.get(category.parentId) ?? [];
+      siblings.push(category.id);
+      childrenByParent.set(category.parentId, siblings);
+    }
+
+    const result: string[] = [];
+    const stack = [categoryId];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      result.push(current);
+      stack.push(...(childrenByParent.get(current) ?? []));
+    }
+    return result;
+  }
+
+  async update(id: string, dto: UpdateCategoryDto) {
+    await this.findOne(id);
+
+    if (dto.parentId) {
+      if (dto.parentId === id) {
+        throw new BadRequestException("Una categoría no puede ser su propio padre.");
+      }
+      const ancestors = await this.getAncestorChain(dto.parentId);
+      if (ancestors.includes(id)) {
+        throw new BadRequestException("No se puede asignar como padre a una subcategoría de sí misma.");
+      }
+    }
+
+    try {
+      return await this.prisma.category.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          slug: dto.slug,
+          parentId: dto.parentId,
+        },
+      });
+    } catch (error) {
+      rethrowPrismaError(error, "Categoría");
+    }
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+
+    const childrenCount = await this.prisma.category.count({ where: { parentId: id } });
+    if (childrenCount > 0) {
+      throw new ConflictException("No se puede eliminar una categoría que tiene subcategorías.");
+    }
+
+    try {
+      await this.prisma.category.delete({ where: { id } });
+    } catch (error) {
+      rethrowPrismaError(error, "Categoría");
+    }
+  }
+}
