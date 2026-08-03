@@ -2,6 +2,15 @@ const DEFAULT_API_HOST = "http://localhost:4100";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_HOST;
 const API_BASE = typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL ? "/api" : `${API_URL}/api`;
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
 
@@ -20,12 +29,22 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${url} — ${String(error)}`);
   }
 
+  const text = await response.text();
+
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`API ${response.status}: ${url} ${text}`);
+    let message = `${response.status} ${response.statusText}`;
+    if (text) {
+      try {
+        const body = JSON.parse(text) as { message?: string | string[] };
+        if (Array.isArray(body.message)) message = body.message.join(", ");
+        else if (body.message) message = body.message;
+      } catch {
+        message = text;
+      }
+    }
+    throw new ApiError(response.status, message);
   }
 
-  const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
@@ -35,4 +54,12 @@ export function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function apiPost<T>(path: string, data: unknown): Promise<T> {
   return apiRequest<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+
+export function apiPatch<T>(path: string, data: unknown): Promise<T> {
+  return apiRequest<T>(path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+
+export function apiDelete<T>(path: string): Promise<T> {
+  return apiRequest<T>(path, { method: "DELETE" });
 }

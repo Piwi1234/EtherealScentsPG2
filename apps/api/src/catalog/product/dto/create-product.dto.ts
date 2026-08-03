@@ -9,11 +9,6 @@ export class CreateProductDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: "SAM-S24-128" })
-  @IsString()
-  @IsNotEmpty()
-  sku!: string;
-
   @ApiProperty({ example: 899.99 })
   @IsNumber()
   @IsPositive()
@@ -24,6 +19,11 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   stock?: number;
+
+  @ApiPropertyOptional({ example: 50, default: 0, description: "Utilidad cargada manualmente." })
+  @IsOptional()
+  @IsNumber()
+  utility?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

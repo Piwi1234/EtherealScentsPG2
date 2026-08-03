@@ -8,6 +8,8 @@ import { AttributeService } from "../attribute/attribute.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
+import { generateProductCode } from "./product-code";
+import { withTotalCost } from "../product-cost";
 
 const includeDetails = {
   brand: true,
@@ -95,6 +97,15 @@ export class ProductService {
     }
   }
 
+  private async generateUniqueProductCode(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateProductCode();
+      const existing = await this.prisma.product.findUnique({ where: { productCode: code }, select: { id: true } });
+      if (!existing) return code;
+    }
+    throw new Error("No se pudo generar un código de producto único, reintentá de nuevo.");
+  }
+
   async create(dto: CreateProductDto) {
     await this.categories.findOne(dto.categoryId);
     if (dto.brandId) {
@@ -102,20 +113,23 @@ export class ProductService {
     }
 
     const attributeValuesData = await this.buildAttributeValuesData(dto.categoryId, dto.attributeValues);
+    const productCode = await this.generateUniqueProductCode();
 
     try {
-      return await this.prisma.product.create({
+      const product = await this.prisma.product.create({
         data: {
           name: dto.name,
-          sku: dto.sku,
+          productCode,
           price: dto.price,
           stock: dto.stock ?? 0,
+          utility: dto.utility ?? 0,
           brandId: dto.brandId,
           categoryId: dto.categoryId,
           attributeValues: { create: attributeValuesData },
         },
         include: includeDetails,
       });
+      return withTotalCost(product);
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -136,7 +150,7 @@ export class ProductService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items, total, page, pageSize };
+    return { items: items.map(withTotalCost), total, page, pageSize };
   }
 
   async findOne(id: string) {
@@ -144,7 +158,7 @@ export class ProductService {
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
     }
-    return product;
+    return withTotalCost(product);
   }
 
   async update(id: string, dto: UpdateProductDto) {
@@ -169,7 +183,7 @@ export class ProductService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const product = await this.prisma.$transaction(async (tx) => {
         if (attributeValuesData) {
           await tx.productAttributeValue.deleteMany({ where: { productId: id } });
           if (attributeValuesData.length > 0) {
@@ -183,15 +197,16 @@ export class ProductService {
           where: { id },
           data: {
             name: dto.name,
-            sku: dto.sku,
             price: dto.price,
             stock: dto.stock,
+            utility: dto.utility,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
           },
           include: includeDetails,
         });
       });
+      return withTotalCost(product);
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }

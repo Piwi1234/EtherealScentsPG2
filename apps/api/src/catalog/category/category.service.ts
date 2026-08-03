@@ -14,9 +14,16 @@ export interface CategoryTreeNode extends Category {
 export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private hasCostFields(dto: { logisticsCost?: number; shippingCost?: number; securityCost?: number }) {
+    return dto.logisticsCost !== undefined || dto.shippingCost !== undefined || dto.securityCost !== undefined;
+  }
+
   async create(dto: CreateCategoryDto) {
     if (dto.parentId) {
       await this.findOne(dto.parentId);
+    }
+    if (this.hasCostFields(dto) && !dto.parentId) {
+      throw new BadRequestException("Los costos logísticos solo se pueden definir en subcategorías.");
     }
 
     try {
@@ -25,6 +32,9 @@ export class CategoryService {
           name: dto.name,
           slug: dto.slug ?? slugify(dto.name),
           parentId: dto.parentId,
+          logisticsCost: dto.logisticsCost,
+          shippingCost: dto.shippingCost,
+          securityCost: dto.securityCost,
         },
       });
     } catch (error) {
@@ -120,7 +130,7 @@ export class CategoryService {
   }
 
   async update(id: string, dto: UpdateCategoryDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     if (dto.parentId) {
       if (dto.parentId === id) {
@@ -132,6 +142,13 @@ export class CategoryService {
       }
     }
 
+    const effectiveParentId = dto.parentId !== undefined ? dto.parentId : existing.parentId;
+    if (this.hasCostFields(dto) && !effectiveParentId) {
+      throw new BadRequestException("Los costos logísticos solo se pueden definir en subcategorías.");
+    }
+    // Si deja de tener padre, no queda como categoría raíz con costos huérfanos.
+    const clearingParent = dto.parentId === null;
+
     try {
       return await this.prisma.category.update({
         where: { id },
@@ -139,6 +156,9 @@ export class CategoryService {
           name: dto.name,
           slug: dto.slug,
           parentId: dto.parentId,
+          logisticsCost: clearingParent ? null : dto.logisticsCost,
+          shippingCost: clearingParent ? null : dto.shippingCost,
+          securityCost: clearingParent ? null : dto.securityCost,
         },
       });
     } catch (error) {

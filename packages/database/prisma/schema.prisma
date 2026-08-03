@@ -53,6 +53,11 @@ model Category {
   parent    Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Restrict)
   children  Category[] @relation("CategoryToParent")
 
+  // Costos heredados por los productos de esta subcategoría (solo aplican a subcategorías, no a categorías raíz).
+  logisticsCost Decimal? @map("logistics_cost") @db.Decimal(12, 2)
+  shippingCost  Decimal? @map("shipping_cost") @db.Decimal(12, 2)
+  securityCost  Decimal? @map("security_cost") @db.Decimal(12, 2)
+
   brands     BrandCategory[]
   attributes Attribute[]
   products   Product[]
@@ -122,15 +127,17 @@ model AttributeOption {
 }
 
 model Product {
-  id         String   @id @default(uuid()) @db.Uuid
-  name       String
-  sku        String   @unique
-  price      Decimal  @db.Decimal(12, 2)
-  stock      Int      @default(0)
-  brandId    String?  @map("brand_id") @db.Uuid
-  brand      Brand?   @relation(fields: [brandId], references: [id])
-  categoryId String   @map("category_id") @db.Uuid
-  category   Category @relation(fields: [categoryId], references: [id])
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  productCode String   @unique @map("product_code") @db.VarChar(7)
+  price       Decimal  @db.Decimal(12, 2)
+  stock       Int      @default(0)
+  // Utilidad cargada manualmente; los 3 costos heredados NO se guardan acá, se leen en vivo desde `category`.
+  utility     Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
+  brandId     String?  @map("brand_id") @db.Uuid
+  brand       Brand?   @relation(fields: [brandId], references: [id])
+  categoryId  String   @map("category_id") @db.Uuid
+  category    Category @relation(fields: [categoryId], references: [id])
 
   attributeValues ProductAttributeValue[]
 

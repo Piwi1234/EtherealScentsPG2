@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, IsUUID, Matches } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
 
 export class CreateCategoryDto {
   @ApiProperty({ example: "Celulares" })
@@ -17,4 +17,22 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @ApiPropertyOptional({ description: "Solo válido en subcategorías: costo logístico heredado por sus productos." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  logisticsCost?: number;
+
+  @ApiPropertyOptional({ description: "Solo válido en subcategorías: costo de envío heredado por sus productos." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  shippingCost?: number;
+
+  @ApiPropertyOptional({ description: "Solo válido en subcategorías: costo de seguridad heredado por sus productos." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  securityCost?: number;
 }

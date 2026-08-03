@@ -3,6 +3,10 @@ export type Category = {
   name: string;
   slug: string;
   parentId: string | null;
+  // Solo se usan en subcategorías; los productos los heredan en vivo desde su categoría.
+  logisticsCost: string | null;
+  shippingCost: string | null;
+  securityCost: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -49,9 +53,12 @@ export type ProductAttributeValue = {
 export type Product = {
   id: string;
   name: string;
-  sku: string;
+  productCode: string;
   price: string;
   stock: number;
+  utility: string;
+  /** Calculado en vivo por el backend: logisticsCost + shippingCost + securityCost (de category) + utility. */
+  totalCost: number;
   brandId: string | null;
   categoryId: string;
   brand: Brand | null;

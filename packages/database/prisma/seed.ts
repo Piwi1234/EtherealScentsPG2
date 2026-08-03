@@ -37,13 +37,27 @@ async function seedCatalog() {
   const celulares = await prisma.category.upsert({
     where: { slug: "celulares" },
     update: {},
-    create: { name: "Celulares", slug: "celulares", parentId: electronica.id },
+    create: {
+      name: "Celulares",
+      slug: "celulares",
+      parentId: electronica.id,
+      logisticsCost: 15,
+      shippingCost: 8,
+      securityCost: 3,
+    },
   });
 
   const laptops = await prisma.category.upsert({
     where: { slug: "laptops" },
     update: {},
-    create: { name: "Laptops", slug: "laptops", parentId: electronica.id },
+    create: {
+      name: "Laptops",
+      slug: "laptops",
+      parentId: electronica.id,
+      logisticsCost: 25,
+      shippingCost: 12,
+      securityCost: 5,
+    },
   });
 
   // Atributo definido en la categoría padre: heredado por celulares y laptops.
@@ -148,37 +162,40 @@ async function seedCatalog() {
   ]);
 
   const galaxyS24 = await prisma.product.upsert({
-    where: { sku: "SAM-S24-128" },
+    where: { productCode: "SAMS24A" },
     update: {},
     create: {
       name: "Samsung Galaxy S24",
-      sku: "SAM-S24-128",
+      productCode: "SAMS24A",
       price: 899.99,
       stock: 25,
+      utility: 150,
       brandId: samsung.id,
       categoryId: celulares.id,
     },
   });
   const iphone15 = await prisma.product.upsert({
-    where: { sku: "APL-IP15-256" },
+    where: { productCode: "APLIP15" },
     update: {},
     create: {
       name: "iPhone 15",
-      sku: "APL-IP15-256",
+      productCode: "APLIP15",
       price: 1099,
       stock: 15,
+      utility: 200,
       brandId: apple.id,
       categoryId: celulares.id,
     },
   });
   const macbookAir = await prisma.product.upsert({
-    where: { sku: "APL-MBA-M3" },
+    where: { productCode: "APLMBA1" },
     update: {},
     create: {
       name: "MacBook Air M3",
-      sku: "APL-MBA-M3",
+      productCode: "APLMBA1",
       price: 1299,
       stock: 10,
+      utility: 180,
       brandId: apple.id,
       categoryId: laptops.id,
     },

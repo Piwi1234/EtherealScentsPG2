@@ -13,16 +13,24 @@ const includeCategories = {
 export class BrandService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Una marca solo se asigna a subcategorías (categorías con padre), no a categorías raíz. */
   private async assertCategoriesExist(categoryIds: string[]) {
     if (categoryIds.length === 0) return;
     const found = await this.prisma.category.findMany({
       where: { id: { in: categoryIds } },
-      select: { id: true },
+      select: { id: true, name: true, parentId: true },
     });
     const foundIds = new Set(found.map((c) => c.id));
     const missing = categoryIds.filter((id) => !foundIds.has(id));
     if (missing.length > 0) {
       throw new BadRequestException(`Categorías inexistentes: ${missing.join(", ")}`);
+    }
+
+    const notSubcategories = found.filter((c) => c.parentId === null);
+    if (notSubcategories.length > 0) {
+      throw new BadRequestException(
+        `Una marca solo puede asignarse a subcategorías: ${notSubcategories.map((c) => c.name).join(", ")} no tiene categoría padre.`,
+      );
     }
   }
 
