@@ -20,13 +20,13 @@ function attributeValueLabel(pv: Product["attributeValues"][number]): string {
 }
 
 function productAttributeCell(product: Product, attributeId: string): string {
-  // Los atributos "con precio propio" (ej. Tamaño) no guardan ProductAttributeValue: su valor
-  // vive en las variantes del producto, una por cada combinación creada.
+  // Los atributos con variante (MULTI_VALUE/PRICED_VARIANT) no guardan ProductAttributeValue: sus
+  // valores propios del producto viven en variantOptionValues.
   const fromValues = product.attributeValues.filter((pv) => pv.attributeId === attributeId).map(attributeValueLabel);
-  const fromVariants = product.variants.flatMap((variant) =>
-    variant.options.filter((o) => o.attributeId === attributeId).map((o) => o.option.value),
-  );
-  const values = Array.from(new Set([...fromValues, ...fromVariants]));
+  const fromVariantValues = product.variantOptionValues
+    .filter((v) => v.attributeId === attributeId)
+    .map((v) => v.value);
+  const values = Array.from(new Set([...fromValues, ...fromVariantValues]));
   return values.length > 0 ? values.join(", ") : "—";
 }
 
@@ -145,12 +145,11 @@ export default function ProductsPage() {
           map.set(pv.attributeId, { id: pv.attributeId, name: pv.attribute.name, type: pv.attribute.type, variantMode: pv.attribute.variantMode });
         }
       }
-      // Atributos con precio propio (ej. Tamaño): su valor vive en las variantes, no en attributeValues.
-      for (const variant of product.variants) {
-        for (const o of variant.options) {
-          if (o.attribute.showInProductList) {
-            map.set(o.attributeId, { id: o.attributeId, name: o.attribute.name, type: o.attribute.type, variantMode: o.attribute.variantMode });
-          }
+      // Atributos con variante (MULTI_VALUE/PRICED_VARIANT): sus valores propios del producto viven
+      // en variantOptionValues, no en attributeValues.
+      for (const v of product.variantOptionValues) {
+        if (v.attribute.showInProductList) {
+          map.set(v.attributeId, { id: v.attributeId, name: v.attribute.name, type: v.attribute.type, variantMode: v.attribute.variantMode });
         }
       }
     }
@@ -171,7 +170,7 @@ export default function ProductsPage() {
     if (column.variantMode === "PRICED_VARIANT") {
       if (product.variants.length === 0) return "—";
       const options = product.variants
-        .map((v) => ({ variantId: v.id, label: v.options.find((o) => o.attributeId === column.id)?.option.value }))
+        .map((v) => ({ variantId: v.id, label: v.options.find((o) => o.optionValue.attributeId === column.id)?.optionValue.value }))
         .filter((o): o is { variantId: string; label: string } => Boolean(o.label));
       if (options.length === 0) return "—";
       const selected = getSelectedVariant(product);
@@ -184,6 +183,25 @@ export default function ProductsPage() {
         >
           {options.map((o) => (
             <option key={o.variantId} value={o.variantId}>{o.label}</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (column.variantMode === "MULTI_VALUE") {
+      const matches = product.variantOptionValues.filter((v) => v.attributeId === column.id);
+      if (matches.length === 0) return "—";
+      const cellKey = `${product.id}:${column.id}`;
+      const selectedValueId = selectedMultiValueByCell[cellKey] ?? matches[0].id;
+      return (
+        <select
+          className="field"
+          style={{ minWidth: 110 }}
+          value={selectedValueId}
+          onChange={(e) => setSelectedMultiValueByCell((prev) => ({ ...prev, [cellKey]: e.target.value }))}
+        >
+          {matches.map((v) => (
+            <option key={v.id} value={v.id}>{v.value}</option>
           ))}
         </select>
       );

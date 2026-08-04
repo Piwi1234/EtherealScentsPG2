@@ -12,6 +12,7 @@ import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
+import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { generateUniqueEntityCode } from "../entity-code";
 import { withPrice } from "../product-price";
 import { PRODUCT_IMAGES_DIR } from "./product-image.multer";
@@ -20,7 +21,8 @@ const includeDetails = {
   brand: true,
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
-  variants: { include: { options: { include: { attribute: true, option: true } } } },
+  variantOptionValues: { include: { attribute: true } },
+  variants: { include: { options: { include: { optionValue: { include: { attribute: true } } } } } },
 } as const;
 
 type AttributeValueWrite = {
@@ -42,9 +44,9 @@ export class ProductService {
 
   /**
    * Valida que los atributos enviados pertenezcan a la categoría del producto (propios o
-   * heredados de un ancestro), que estén los requeridos, que el campo de valor usado coincida
-   * con el `type` del atributo, y que los MULTI_VALUE puedan traer más de un valor mientras que
-   * el resto solo admite uno. Los PRICED_VARIANT no se manejan acá: van por /products/:id/variants.
+   * heredados de un ancestro), que estén los requeridos, y que el campo de valor usado coincida
+   * con el `type` del atributo. Los atributos con variante (MULTI_VALUE o PRICED_VARIANT) no se
+   * manejan acá: van por /products/:id/variant-options y /products/:id/variants.
    */
   private async buildAttributeValuesData(
     categoryId: string,
@@ -61,18 +63,17 @@ export class ProductService {
     }
 
     for (const definition of definitions) {
-      if (definition.variantMode === AttributeVariantMode.PRICED_VARIANT) continue;
+      if (definition.variantMode !== AttributeVariantMode.NONE) continue;
       const provided = inputsByAttribute.get(definition.id) ?? [];
       if (definition.isRequired && provided.length === 0) {
         throw new BadRequestException(`Falta el atributo requerido '${definition.name}'.`);
       }
-      if (definition.variantMode !== AttributeVariantMode.MULTI_VALUE && provided.length > 1) {
+      if (provided.length > 1) {
         throw new BadRequestException(`El atributo '${definition.name}' no admite más de un valor.`);
       }
     }
 
     const result: AttributeValueWrite[] = [];
-    const seenOptionsByAttribute = new Map<string, Set<string>>();
 
     for (const input of inputs) {
       const definition = byId.get(input.attributeId);
@@ -81,9 +82,9 @@ export class ProductService {
           `El atributo ${input.attributeId} no está definido para esta categoría ni sus categorías padre.`,
         );
       }
-      if (definition.variantMode === AttributeVariantMode.PRICED_VARIANT) {
+      if (definition.variantMode !== AttributeVariantMode.NONE) {
         throw new BadRequestException(
-          `El atributo '${definition.name}' tiene precio propio por valor: se administra desde las variantes del producto.`,
+          `El atributo '${definition.name}' se administra por producto (POST /products/:id/variant-options), no en 'attributeValues'.`,
         );
       }
 
@@ -114,12 +115,6 @@ export class ProductService {
           if (!validOption) {
             throw new BadRequestException(`'optionId' inválido para el atributo '${definition.name}'.`);
           }
-          const seen = seenOptionsByAttribute.get(definition.id) ?? new Set<string>();
-          if (seen.has(input.optionId)) {
-            throw new BadRequestException(`Valor repetido para el atributo '${definition.name}'.`);
-          }
-          seen.add(input.optionId);
-          seenOptionsByAttribute.set(definition.id, seen);
           result.push({ attributeId: definition.id, optionId: input.optionId });
           break;
         }
@@ -259,9 +254,11 @@ export class ProductService {
             });
           }
         }
-        // Si cambia de categoría, las variantes con precio quedan atadas a atributos que ya no aplican.
+        // Si cambia de categoría, las variantes con precio y los valores propios de variante quedan
+        // atados a atributos de la categoría anterior que ya no aplican.
         if (categoryChanged) {
           await tx.productVariant.deleteMany({ where: { productId: id } });
+          await tx.productVariantOptionValue.deleteMany({ where: { productId: id } });
         }
 
         return tx.product.update({
@@ -309,40 +306,46 @@ export class ProductService {
   }
 
   /**
-   * Valida y arma las opciones (attributeId+optionId) de una variante con precio propio:
-   * cada atributo debe ser PRICED_VARIANT de la categoría del producto (propio o heredado),
-   * la opción debe pertenecerle, y no puede repetirse el atributo dentro de la misma variante.
+   * Valida las opciones (ids de ProductVariantOptionValue) de una variante con precio propio: cada
+   * valor debe ser propio de ESTE producto y pertenecer a un atributo PRICED_VARIANT de su
+   * categoría, y no puede repetirse el atributo dentro de la misma variante.
    */
-  private async buildVariantOptions(categoryId: string, options: { attributeId: string; optionId: string }[]) {
-    if (options.length === 0) {
+  private async buildVariantOptions(productId: string, categoryId: string, optionValueIds: string[]) {
+    if (optionValueIds.length === 0) {
       throw new BadRequestException("Una variante necesita al menos un valor de atributo con precio propio.");
     }
 
     const definitions = await this.attributes.listForCategory(categoryId, true);
-    const byId = new Map(definitions.map((attr) => [attr.id, attr]));
+    const pricedVariantIds = new Set(
+      definitions.filter((attr) => attr.variantMode === AttributeVariantMode.PRICED_VARIANT).map((attr) => attr.id),
+    );
+
+    const values = await this.prisma.productVariantOptionValue.findMany({
+      where: { id: { in: optionValueIds }, productId },
+    });
+    const byId = new Map(values.map((value) => [value.id, value]));
 
     const seenAttributes = new Set<string>();
-    for (const { attributeId, optionId } of options) {
-      const definition = byId.get(attributeId);
-      if (!definition || definition.variantMode !== AttributeVariantMode.PRICED_VARIANT) {
-        throw new BadRequestException(`El atributo ${attributeId} no es un atributo con precio propio de esta categoría.`);
+    for (const optionValueId of optionValueIds) {
+      const value = byId.get(optionValueId);
+      if (!value || !pricedVariantIds.has(value.attributeId)) {
+        throw new BadRequestException(
+          `optionValueId inválido: ${optionValueId} no es un valor con precio propio de este producto.`,
+        );
       }
-      if (seenAttributes.has(attributeId)) {
-        throw new BadRequestException(`Valor repetido para el atributo '${definition.name}' en la variante.`);
+      if (seenAttributes.has(value.attributeId)) {
+        throw new BadRequestException("No puede repetirse el mismo atributo dentro de una variante.");
       }
-      seenAttributes.add(attributeId);
-      if (!definition.options.some((option) => option.id === optionId)) {
-        throw new BadRequestException(`'optionId' inválido para el atributo '${definition.name}'.`);
-      }
+      seenAttributes.add(value.attributeId);
     }
 
-    return options;
+    return optionValueIds.map((optionValueId) => ({ optionValueId }));
   }
 
   /** Ninguna otra variante del producto puede tener exactamente la misma combinación de valores. */
   private async assertVariantCombinationIsUnique(
     productId: string,
-    options: { attributeId: string; optionId: string }[],
+    optionValueIds: string[],
     excludeVariantId?: string,
   ) {
     const existingVariants = await this.prisma.productVariant.findMany({
@@ -350,14 +353,10 @@ export class ProductService {
       include: { options: true },
     });
 
-    const key = (opts: { attributeId: string; optionId: string }[]) =>
-      opts
-        .map((o) => `${o.attributeId}:${o.optionId}`)
-        .sort()
-        .join("|");
-    const newKey = key(options);
+    const key = (ids: string[]) => [...ids].sort().join("|");
+    const newKey = key(optionValueIds);
 
-    const clash = existingVariants.some((variant) => key(variant.options) === newKey);
+    const clash = existingVariants.some((variant) => key(variant.options.map((o) => o.optionValueId)) === newKey);
     if (clash) {
       throw new BadRequestException("Ya existe una variante con esa misma combinación de valores.");
     }
@@ -365,8 +364,8 @@ export class ProductService {
 
   async createVariant(productId: string, dto: CreateProductVariantDto) {
     const product = await this.findOne(productId);
-    const options = await this.buildVariantOptions(product.categoryId, dto.options);
-    await this.assertVariantCombinationIsUnique(productId, options);
+    const options = await this.buildVariantOptions(productId, product.categoryId, dto.optionValueIds);
+    await this.assertVariantCombinationIsUnique(productId, dto.optionValueIds);
     const variantCode = await this.generateVariantCode();
 
     try {
@@ -394,10 +393,10 @@ export class ProductService {
       throw new NotFoundException("Variante no encontrada.");
     }
 
-    let options: { attributeId: string; optionId: string }[] | undefined;
-    if (dto.options) {
-      options = await this.buildVariantOptions(product.categoryId, dto.options);
-      await this.assertVariantCombinationIsUnique(productId, options, variantId);
+    let options: { optionValueId: string }[] | undefined;
+    if (dto.optionValueIds) {
+      options = await this.buildVariantOptions(productId, product.categoryId, dto.optionValueIds);
+      await this.assertVariantCombinationIsUnique(productId, dto.optionValueIds, variantId);
     }
 
     try {
@@ -431,6 +430,65 @@ export class ProductService {
       await this.prisma.productVariant.delete({ where: { id: variantId } });
     } catch (error) {
       rethrowPrismaError(error, "Variante de producto");
+    }
+  }
+
+  /** El atributo debe ser MULTI_VALUE o PRICED_VARIANT de la categoría del producto (propia o heredada). */
+  private async assertVariantAttribute(categoryId: string, attributeId: string) {
+    const definitions = await this.attributes.listForCategory(categoryId, true);
+    const definition = definitions.find((attr) => attr.id === attributeId);
+    if (!definition || definition.variantMode === AttributeVariantMode.NONE) {
+      throw new BadRequestException(
+        `El atributo ${attributeId} no es un atributo con variantes (múltiple o con precio propio) de esta categoría.`,
+      );
+    }
+    return definition;
+  }
+
+  private async getVariantOptionValueOrThrow(productId: string, optionValueId: string) {
+    const value = await this.prisma.productVariantOptionValue.findFirst({ where: { id: optionValueId, productId } });
+    if (!value) {
+      throw new NotFoundException("Valor de variante no encontrado.");
+    }
+    return value;
+  }
+
+  /** Agrega un valor propio del producto para un atributo MULTI_VALUE o PRICED_VARIANT (ej. un sabor o un tamaño). */
+  async addVariantOptionValue(productId: string, dto: CreateVariantOptionValueDto) {
+    const product = await this.findOne(productId);
+    await this.assertVariantAttribute(product.categoryId, dto.attributeId);
+    try {
+      await this.prisma.productVariantOptionValue.create({
+        data: { productId, attributeId: dto.attributeId, value: dto.value },
+      });
+      return this.findOne(productId);
+    } catch (error) {
+      rethrowPrismaError(error, "Valor de variante");
+    }
+  }
+
+  async updateVariantOptionValue(productId: string, optionValueId: string, dto: UpdateVariantOptionValueDto) {
+    await this.getVariantOptionValueOrThrow(productId, optionValueId);
+    try {
+      await this.prisma.productVariantOptionValue.update({ where: { id: optionValueId }, data: { value: dto.value } });
+      return this.findOne(productId);
+    } catch (error) {
+      rethrowPrismaError(error, "Valor de variante");
+    }
+  }
+
+  async removeVariantOptionValue(productId: string, optionValueId: string) {
+    await this.getVariantOptionValueOrThrow(productId, optionValueId);
+    const usedByVariant = await this.prisma.productVariantOption.findFirst({ where: { optionValueId } });
+    if (usedByVariant) {
+      throw new BadRequestException(
+        "No se puede eliminar: este valor está siendo usado por una variante del producto. Eliminá primero esa variante.",
+      );
+    }
+    try {
+      await this.prisma.productVariantOptionValue.delete({ where: { id: optionValueId } });
+    } catch (error) {
+      rethrowPrismaError(error, "Valor de variante");
     }
   }
 

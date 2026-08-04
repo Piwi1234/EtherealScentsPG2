@@ -18,6 +18,7 @@ import { ProductService } from "./product.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
+import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { productImageMulterOptions } from "./product-image.multer";
 
 @ApiTags("products")
@@ -78,6 +79,28 @@ export class ProductController {
   @Delete(":id/variants/:variantId")
   removeVariant(@Param("id", ParseUUIDPipe) id: string, @Param("variantId", ParseUUIDPipe) variantId: string) {
     return this.products.removeVariant(id, variantId);
+  }
+
+  @Post(":id/variant-options")
+  addVariantOptionValue(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CreateVariantOptionValueDto) {
+    return this.products.addVariantOptionValue(id, dto);
+  }
+
+  @Patch(":id/variant-options/:optionValueId")
+  updateVariantOptionValue(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("optionValueId", ParseUUIDPipe) optionValueId: string,
+    @Body() dto: UpdateVariantOptionValueDto,
+  ) {
+    return this.products.updateVariantOptionValue(id, optionValueId, dto);
+  }
+
+  @Delete(":id/variant-options/:optionValueId")
+  removeVariantOptionValue(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("optionValueId", ParseUUIDPipe) optionValueId: string,
+  ) {
+    return this.products.removeVariantOptionValue(id, optionValueId);
   }
 
   @Delete(":id")

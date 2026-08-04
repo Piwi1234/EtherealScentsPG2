@@ -14,13 +14,21 @@ export class AttributeService {
     private readonly categories: CategoryService,
   ) {}
 
-  private validateOptionsForType(type: AttributeType, options?: string[]) {
-    if (type === AttributeType.SELECT) {
+  private validateOptionsForType(type: AttributeType, variantMode: AttributeVariantMode | undefined, options?: string[]) {
+    const isPlainSelect = type === AttributeType.SELECT && (variantMode ?? AttributeVariantMode.NONE) === AttributeVariantMode.NONE;
+    if (isPlainSelect) {
       if (!options || options.length === 0) {
         throw new BadRequestException("Un atributo de tipo 'select' necesita al menos una opción.");
       }
-    } else if (options && options.length > 0) {
-      throw new BadRequestException("Las opciones solo aplican a atributos de tipo 'select'.");
+      return;
+    }
+    if (options && options.length > 0) {
+      if (type !== AttributeType.SELECT) {
+        throw new BadRequestException("Las opciones solo aplican a atributos de tipo 'select'.");
+      }
+      throw new BadRequestException(
+        "Los atributos con variantes (múltiples o con precio propio) no definen opciones al crearse: los valores se cargan por producto.",
+      );
     }
   }
 
@@ -32,8 +40,11 @@ export class AttributeService {
 
   async create(categoryId: string, dto: CreateAttributeDto) {
     await this.categories.findOne(categoryId);
-    this.validateOptionsForType(dto.type, dto.options);
     this.validateVariantMode(dto.type, dto.variantMode);
+    this.validateOptionsForType(dto.type, dto.variantMode, dto.options);
+
+    const variantMode = dto.variantMode ?? AttributeVariantMode.NONE;
+    const isPlainSelect = dto.type === AttributeType.SELECT && variantMode === AttributeVariantMode.NONE;
 
     try {
       return await this.prisma.attribute.create({
@@ -44,8 +55,8 @@ export class AttributeService {
           isFilterable: dto.isFilterable ?? false,
           isRequired: dto.isRequired ?? false,
           showInProductList: dto.showInProductList ?? false,
-          variantMode: dto.variantMode ?? AttributeVariantMode.NONE,
-          options: dto.type === AttributeType.SELECT ? { create: dto.options!.map((value) => ({ value })) } : undefined,
+          variantMode,
+          options: isPlainSelect ? { create: dto.options!.map((value) => ({ value })) } : undefined,
         },
         include: { options: true },
       });
@@ -100,11 +111,22 @@ export class AttributeService {
     }
   }
 
+  /** Las opciones compartidas de categoría solo existen para atributos normales (variantMode NONE):
+   * los de variante (múltiple o con precio propio) cargan sus valores por producto. */
+  private assertPlainSelectAttribute(attribute: { variantMode: AttributeVariantMode }) {
+    if (attribute.variantMode !== AttributeVariantMode.NONE) {
+      throw new BadRequestException(
+        "Este atributo tiene variantes: sus valores se cargan por producto (POST /products/:id/variant-options), no acá.",
+      );
+    }
+  }
+
   async addOption(attributeId: string, dto: CreateAttributeOptionDto) {
     const attribute = await this.findOne(attributeId);
     if (attribute.type !== AttributeType.SELECT) {
       throw new BadRequestException("Solo los atributos de tipo 'select' admiten opciones.");
     }
+    this.assertPlainSelectAttribute(attribute);
     try {
       return await this.prisma.attributeOption.create({ data: { attributeId, value: dto.value } });
     } catch (error) {
@@ -113,6 +135,8 @@ export class AttributeService {
   }
 
   async updateOption(attributeId: string, optionId: string, dto: UpdateAttributeOptionDto) {
+    const attribute = await this.findOne(attributeId);
+    this.assertPlainSelectAttribute(attribute);
     await this.getOptionOrThrow(attributeId, optionId);
     try {
       return await this.prisma.attributeOption.update({ where: { id: optionId }, data: { value: dto.value } });
@@ -122,6 +146,8 @@ export class AttributeService {
   }
 
   async removeOption(attributeId: string, optionId: string) {
+    const attribute = await this.findOne(attributeId);
+    this.assertPlainSelectAttribute(attribute);
     await this.getOptionOrThrow(attributeId, optionId);
     try {
       await this.prisma.attributeOption.delete({ where: { id: optionId } });

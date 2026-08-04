@@ -1,16 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsPositive, IsUUID, Min, ValidateNested } from "class-validator";
-
-export class VariantOptionInputDto {
-  @ApiProperty({ description: "Id de un atributo con precio propio (variantMode='PRICED_VARIANT') de la categoría." })
-  @IsUUID()
-  attributeId!: string;
-
-  @ApiProperty({ description: "Id de la opción elegida para ese atributo." })
-  @IsUUID()
-  optionId!: string;
-}
+import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
 
 export class CreateProductVariantDto {
   @ApiProperty({ example: 12, description: "Precio de compra propio de esta variante." })
@@ -36,14 +25,15 @@ export class CreateProductVariantDto {
   discountBs?: number;
 
   @ApiProperty({
-    type: [VariantOptionInputDto],
-    description: "Combinación de valores (uno por cada atributo con precio propio) que define esta variante.",
+    type: [String],
+    description:
+      "IDs de ProductVariantOptionValue (propios de este producto, uno por cada atributo con precio " +
+      "propio de su categoría) que definen esta variante.",
   })
   @IsArray()
   @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => VariantOptionInputDto)
-  options!: VariantOptionInputDto[];
+  @IsUUID(undefined, { each: true })
+  optionValueIds!: string[];
 }
 
 export class UpdateProductVariantDto extends PartialType(CreateProductVariantDto) {}

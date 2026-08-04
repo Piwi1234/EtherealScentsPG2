@@ -57,9 +57,15 @@ function AttributesTable({
             <td>{attr.isFilterable ? "Sí" : "No"}</td>
             <td>{attr.isRequired ? "Sí" : "No"}</td>
             <td>{attr.showInProductList ? "Sí" : "No"}</td>
-            <td>{attr.options.length > 0 ? attr.options.map((o) => o.value).join(", ") : "—"}</td>
             <td>
-              {attr.type === "SELECT" && (
+              {attr.variantMode !== "NONE"
+                ? "Se definen por producto"
+                : attr.options.length > 0
+                  ? attr.options.map((o) => o.value).join(", ")
+                  : "—"}
+            </td>
+            <td>
+              {attr.type === "SELECT" && attr.variantMode === "NONE" && (
                 <button type="button" className="link-button" onClick={() => onManageOptions(attr)}>Opciones</button>
               )}
               <button type="button" className="link-button" onClick={() => onEdit(attr)}>Editar</button>
@@ -188,6 +194,7 @@ export default function AttributesPage() {
       if (editing) {
         await apiPatch(`/attributes/${editing.id}`, { name, isFilterable, isRequired, showInProductList });
       } else {
+        const isPlainSelect = type === "SELECT" && variantMode === "NONE";
         const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
         await apiPost(`/categories/${createForCategoryId}/attributes`, {
           name,
@@ -196,7 +203,10 @@ export default function AttributesPage() {
           isRequired,
           showInProductList,
           variantMode: type === "SELECT" ? variantMode : undefined,
-          options: type === "SELECT" ? cleanOptions : undefined,
+          // Las opciones solo aplican a atributos normales (sin variante): las de variante cargan
+          // sus valores por producto. Hay que omitir el campo (no mandar []), porque el backend
+          // valida `options` como mínimo 1 elemento cuando el campo está presente.
+          options: isPlainSelect ? cleanOptions : undefined,
         });
       }
       setModalOpen(false);
@@ -348,7 +358,7 @@ export default function AttributesPage() {
               />
               Mostrar como columna en la tabla de Productos
             </label>
-            {!editing && type === "SELECT" && (
+            {!editing && type === "SELECT" && variantMode === "NONE" && (
               <div>
                 <label>Opciones</label>
                 {options.map((opt, i) => (
@@ -373,6 +383,11 @@ export default function AttributesPage() {
                   + Agregar opción
                 </button>
               </div>
+            )}
+            {!editing && type === "SELECT" && variantMode !== "NONE" && (
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
+                Los valores se cargan por producto (no acá): cada producto arma su propia lista al editarlo.
+              </p>
             )}
             {formError && <p className="error-text">{formError}</p>}
             <div className="form-actions">

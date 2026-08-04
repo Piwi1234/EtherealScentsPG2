@@ -60,11 +60,18 @@ export type ProductAttributeValue = {
   option: AttributeOption | null;
 };
 
-export type ProductVariantOption = {
+/** Valor propio de UN producto para un atributo MULTI_VALUE o PRICED_VARIANT (ej. "Menta" de un
+ * vape puntual, "50 ML" de un perfume puntual). No se comparte con otros productos. */
+export type ProductVariantOptionValue = {
+  id: string;
   attributeId: string;
-  optionId: string;
+  value: string;
   attribute: Attribute;
-  option: AttributeOption;
+};
+
+export type ProductVariantOption = {
+  optionValueId: string;
+  optionValue: ProductVariantOptionValue;
 };
 
 export type ProductVariant = {
@@ -105,6 +112,7 @@ export type Product = {
   brand: Brand | null;
   category: Category;
   attributeValues: ProductAttributeValue[];
+  variantOptionValues: ProductVariantOptionValue[];
   variants: ProductVariant[];
 };
 

@@ -128,9 +128,9 @@ model Attribute {
   // Solo aplica (y solo tiene sentido) cuando type = SELECT.
   variantMode  AttributeVariantMode @default(NONE) @map("variant_mode")
 
-  options            AttributeOption[]
-  productValues      ProductAttributeValue[]
-  variantOptions      ProductVariantOption[]
+  options             AttributeOption[]
+  productValues       ProductAttributeValue[]
+  variantOptionValues ProductVariantOptionValue[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -145,8 +145,7 @@ model AttributeOption {
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value       String
 
-  productValues  ProductAttributeValue[]
-  variantOptions ProductVariantOption[]
+  productValues ProductAttributeValue[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -174,8 +173,9 @@ model Product {
   category      Category @relation(fields: [categoryId], references: [id])
   imageUrl      String?  @map("image_url")
 
-  attributeValues ProductAttributeValue[]
-  variants        ProductVariant[]
+  attributeValues     ProductAttributeValue[]
+  variantOptionValues ProductVariantOptionValue[]
+  variants            ProductVariant[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -227,16 +227,35 @@ model ProductVariant {
   @@map("product_variants")
 }
 
-model ProductVariantOption {
-  id          String         @id @default(uuid()) @db.Uuid
-  variantId   String         @map("variant_id") @db.Uuid
-  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  attributeId String         @map("attribute_id") @db.Uuid
-  attribute   Attribute      @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  optionId    String         @map("option_id") @db.Uuid
-  option      AttributeOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+/// Valor propio de un producto para un atributo MULTI_VALUE o PRICED_VARIANT (ej. "Menta" para el
+/// Sabor de este vape puntual, "50 ML" para el Tamaño de este perfume puntual). A diferencia de
+/// AttributeOption (compartido a nivel de categoría, solo para atributos NONE), estos valores no se
+/// comparten entre productos: cada producto arma su propia lista.
+model ProductVariantOptionValue {
+  id          String    @id @default(uuid()) @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeId String    @map("attribute_id") @db.Uuid
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value       String
 
-  // Una variante no puede fijar dos valores distintos para el mismo atributo.
-  @@unique([variantId, attributeId])
+  // Poblado solo si attribute.variantMode = PRICED_VARIANT (una variante referencia 1 de estos
+  // valores por cada atributo con precio propio de la categoría).
+  variantOptions ProductVariantOption[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([productId, attributeId, value], map: "product_variant_option_values_unique")
+  @@map("product_variant_option_values")
+}
+
+model ProductVariantOption {
+  id            String                    @id @default(uuid()) @db.Uuid
+  variantId     String                    @map("variant_id") @db.Uuid
+  variant       ProductVariant            @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionValueId String                    @map("option_value_id") @db.Uuid
+  optionValue   ProductVariantOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, optionValueId])
   @@map("product_variant_options")
 }

@@ -46,7 +46,6 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [exchangeRate, setExchangeRate] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
-  const [multiValues, setMultiValues] = useState<Record<string, Set<string>>>({});
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(productImageSrc(editing?.imageUrl ?? null));
   const [formError, setFormError] = useState("");
@@ -58,8 +57,24 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [variantError, setVariantError] = useState("");
   const [variantSubmitting, setVariantSubmitting] = useState(false);
 
+  // Valores propios del producto para atributos MULTI_VALUE ("Sabor") y PRICED_VARIANT ("Tamaño"):
+  // inputs de "agregar valor" (por atributo) y su error, separados por sección.
+  const [newMultiValue, setNewMultiValue] = useState<Record<string, string>>({});
+  const [multiValueError, setMultiValueError] = useState("");
+  const [newVariantValue, setNewVariantValue] = useState<Record<string, string>>({});
+  const [variantValueError, setVariantValueError] = useState("");
+
   const rootCategoryOptions = categories.filter((cat) => cat.parentId === null);
   const subCategoryOptions = categories.filter((cat) => cat.parentId === rootCategoryId);
+
+  // Las marcas solo se asignan a subcategorías (nunca a categorías raíz). Si ya se eligió una
+  // subcategoría puntual, se filtra por esa; si solo hay categoría raíz, por cualquiera de sus
+  // subcategorías.
+  const isSubCategorySelected = Boolean(categoryId) && categoryId !== rootCategoryId;
+  const relevantCategoryIdsForBrands = isSubCategorySelected ? [categoryId] : subCategoryOptions.map((cat) => cat.id);
+  const availableBrands = rootCategoryId
+    ? brands.filter((brand) => brand.categories.some((bc) => relevantCategoryIdsForBrands.includes(bc.categoryId)))
+    : [];
 
   // Atributos normales (un valor), múltiples sin precio (ej. sabores) y con precio propio (ej. tamaño).
   const regularAttrs = attributeDefs.filter((def) => def.variantMode === "NONE");
@@ -94,27 +109,19 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   }
 
   // Carga inicial (modo edición): atributos de la categoría del producto + valores ya guardados.
+  // Los MULTI_VALUE/PRICED_VARIANT no pasan por acá: viven en editing.variantOptionValues, que ya
+  // está embebido en `currentProduct` desde el arranque.
   useEffect(() => {
     if (!editing) return;
     loadAttributesFor(editing.categoryId).then(() => {
       const values: Record<string, string> = {};
-      const multi: Record<string, Set<string>> = {};
       for (const pv of editing.attributeValues) {
-        if (pv.attribute.variantMode === "MULTI_VALUE") {
-          if (pv.optionId) {
-            const set = multi[pv.attributeId] ?? new Set<string>();
-            set.add(pv.optionId);
-            multi[pv.attributeId] = set;
-          }
-          continue;
-        }
         if (pv.optionId) values[pv.attributeId] = pv.optionId;
         else if (pv.valueText !== null) values[pv.attributeId] = pv.valueText;
         else if (pv.valueNumber !== null) values[pv.attributeId] = pv.valueNumber;
         else if (pv.valueBoolean !== null) values[pv.attributeId] = String(pv.valueBoolean);
       }
       setAttributeValues(values);
-      setMultiValues(multi);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing?.id]);
@@ -125,19 +132,13 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     setImagePreview(file ? URL.createObjectURL(file) : productImageSrc(editing?.imageUrl ?? null));
   }
 
-  function toggleMultiValue(attributeId: string, optionId: string) {
-    setMultiValues((prev) => {
-      const next = new Set(prev[attributeId] ?? []);
-      next.has(optionId) ? next.delete(optionId) : next.add(optionId);
-      return { ...prev, [attributeId]: next };
-    });
-  }
-
   async function handleRootCategoryChange(id: string) {
     setRootCategoryId(id);
     setAttributeValues({});
-    setMultiValues({});
     setVariantForm(EMPTY_VARIANT_FORM);
+    setNewMultiValue({});
+    setNewVariantValue({});
+    setBrandId("");
     const children = categories.filter((cat) => cat.parentId === id);
     if (children.length === 0) {
       // Categoría raíz sin subcategorías: se usa directamente.
@@ -152,8 +153,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   async function handleSubCategoryChange(id: string) {
     setCategoryId(id);
     setAttributeValues({});
-    setMultiValues({});
     setVariantForm(EMPTY_VARIANT_FORM);
+    setNewMultiValue({});
+    setNewVariantValue({});
+    setBrandId("");
     await loadAttributesFor(id);
   }
 
@@ -167,9 +170,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
 
     const missing = regularAttrs.filter((def) => def.isRequired && !attributeValues[def.id]);
-    const missingMulti = multiValueAttrs.filter((def) => def.isRequired && !(multiValues[def.id]?.size));
-    if (missing.length > 0 || missingMulti.length > 0) {
-      setFormError(`Falta completar: ${[...missing, ...missingMulti].map((m) => m.name).join(", ")}`);
+    if (missing.length > 0) {
+      setFormError(`Falta completar: ${missing.map((m) => m.name).join(", ")}`);
       return;
     }
 
@@ -184,9 +186,6 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           if (def.type === "BOOLEAN") return { attributeId: def.id, valueBoolean: raw === "true" };
           return { attributeId: def.id, valueText: raw };
         });
-      const multiPayload = multiValueAttrs.flatMap((def) =>
-        Array.from(multiValues[def.id] ?? []).map((optionId) => ({ attributeId: def.id, optionId })),
-      );
 
       // Si la categoría tiene atributos con precio propio, el precio (tanto $ como Bs) se carga por
       // variante: pedirlo acá también sería redundante. Ojo: hay que OMITIR purchasePrice (no mandar
@@ -200,7 +199,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         discountBs: usesPricedVariants ? undefined : Number(discountBs || 0),
         brandId: brandId || undefined,
         categoryId,
-        attributeValues: [...regularPayload, ...multiPayload],
+        attributeValues: regularPayload,
       };
 
       const saved = editing
@@ -213,9 +212,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
       setFlashMessage(editing ? "Producto editado correctamente." : "Producto creado correctamente.");
 
-      // Si el producto usa variantes con precio propio y recién se creó, seguimos en la edición
-      // para poder cargarlas de una: si volviéramos al listado, habría que volver a entrar a mano.
-      if (usesPricedVariants && !editing) {
+      // Si el producto usa atributos con variante (múltiple o con precio propio) y recién se creó,
+      // seguimos en la edición para poder cargarle sus propios valores de una: esos valores necesitan
+      // que el producto ya exista, así que si volviéramos al listado, habría que volver a entrar a mano.
+      const usesVariants = usesPricedVariants || multiValueAttrs.length > 0;
+      if (usesVariants && !editing) {
         router.push(`/dashboard/products/${saved.id}/edit`);
       } else {
         router.push("/dashboard/products");
@@ -227,14 +228,42 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
+  /** Agrega un valor propio del producto (sabor, tamaño, etc.) para un atributo con variante. */
+  async function handleAddVariantValue(attributeId: string, rawValue: string, onSuccess: () => void, setError: (msg: string) => void) {
+    if (!currentProduct || !rawValue.trim()) return;
+    setError("");
+    try {
+      const updated = await apiPost<Product>(`/products/${currentProduct.id}/variant-options`, {
+        attributeId,
+        value: rawValue.trim(),
+      });
+      setCurrentProduct(updated);
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleRemoveVariantValue(optionValueId: string, setError: (msg: string) => void) {
+    if (!currentProduct) return;
+    setError("");
+    try {
+      await apiDelete(`/products/${currentProduct.id}/variant-options/${optionValueId}`);
+      const updated = await apiGet<Product>(`/products/${currentProduct.id}`);
+      setCurrentProduct(updated);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function handleAddVariant() {
     if (!currentProduct) return;
     setVariantError("");
 
-    const options = pricedVariantAttrs
+    const optionValueIds = pricedVariantAttrs
       .filter((def) => variantForm.optionsByAttribute[def.id])
-      .map((def) => ({ attributeId: def.id, optionId: variantForm.optionsByAttribute[def.id] }));
-    if (options.length === 0) {
+      .map((def) => variantForm.optionsByAttribute[def.id]);
+    if (optionValueIds.length === 0) {
       setVariantError("Elegí al menos un valor para la variante.");
       return;
     }
@@ -250,7 +279,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         utility: Number(variantForm.utility || 0),
         minPriceBs: variantForm.minPriceBs ? Number(variantForm.minPriceBs) : undefined,
         discountBs: Number(variantForm.discountBs || 0),
-        options,
+        optionValueIds,
       });
       setCurrentProduct(updated);
       setVariantForm(EMPTY_VARIANT_FORM);
@@ -357,15 +386,23 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </div>
         </div>
 
-        {/* 2. Marca */}
+        {/* 2. Marca: depende de la categoría/subcategoría elegida arriba */}
         <div className="form-section">
           <h2 className="section-label">Marca</h2>
-          <select className="field" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+          <select
+            className="field"
+            value={brandId}
+            onChange={(e) => setBrandId(e.target.value)}
+            disabled={!rootCategoryId}
+          >
             <option value="">— Sin marca —</option>
-            {brands.map((brand) => (
+            {availableBrands.map((brand) => (
               <option key={brand.id} value={brand.id}>{brand.name}</option>
             ))}
           </select>
+          {!rootCategoryId && (
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Elegí una categoría primero.</p>
+          )}
         </div>
 
         {/* 3. Nombre */}
@@ -450,26 +487,67 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
             )}
 
             {multiValueAttrs.length > 0 && (
-              <div className="grid-2" style={{ marginBottom: pricedVariantAttrs.length > 0 ? 14 : 0 }}>
-                {multiValueAttrs.map((def) => (
-                  <div key={def.id}>
-                    <label>
-                      {def.name}{def.isRequired ? " *" : ""} <span className="badge badge-muted">Múltiple</span>
-                    </label>
-                    <div className="checkbox-group-items">
-                      {def.options.map((opt) => (
-                        <label key={opt.id} className="checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={multiValues[def.id]?.has(opt.id) ?? false}
-                            onChange={() => toggleMultiValue(def.id, opt.id)}
-                          />
-                          {opt.value}
-                        </label>
-                      ))}
-                    </div>
+              <div className="subsection" style={{ marginBottom: pricedVariantAttrs.length > 0 ? 14 : 0 }}>
+                <p className="subsection-title">Valores múltiples (sin precio)</p>
+                {!currentProduct ? (
+                  <p className="subsection-hint" style={{ marginBottom: 0 }}>
+                    Guardá el producto primero; después vas a poder agregarle sus propios valores acá mismo (editando).
+                  </p>
+                ) : (
+                  <div className="grid-2">
+                    {multiValueAttrs.map((def) => {
+                      const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
+                      return (
+                        <div key={def.id}>
+                          <label>
+                            {def.name}{def.isRequired ? " *" : ""} <span className="badge badge-muted">Múltiple</span>
+                          </label>
+                          <div className="checkbox-group-items" style={{ marginBottom: 8 }}>
+                            {values.length === 0 && (
+                              <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin valores todavía.</span>
+                            )}
+                            {values.map((v) => (
+                              <span key={v.id} className="badge">
+                                {v.value}
+                                <button
+                                  type="button"
+                                  className="link-button danger"
+                                  style={{ marginLeft: 6, fontSize: 12 }}
+                                  onClick={() => handleRemoveVariantValue(v.id, setMultiValueError)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                              className="field"
+                              value={newMultiValue[def.id] ?? ""}
+                              onChange={(e) => setNewMultiValue((prev) => ({ ...prev, [def.id]: e.target.value }))}
+                              placeholder="Ej: Menta"
+                            />
+                            <button
+                              type="button"
+                              className="button"
+                              onClick={() =>
+                                handleAddVariantValue(
+                                  def.id,
+                                  newMultiValue[def.id] ?? "",
+                                  () => setNewMultiValue((prev) => ({ ...prev, [def.id]: "" })),
+                                  setMultiValueError,
+                                )
+                              }
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {multiValueError && <p className="error-text" style={{ gridColumn: "1 / -1" }}>{multiValueError}</p>}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -483,12 +561,65 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
                 {!currentProduct && (
                   <p className="subsection-hint" style={{ marginBottom: 0 }}>
-                    Guardá el producto primero; después vas a poder agregarle variantes acá mismo (editando).
+                    Guardá el producto primero; después vas a poder agregarle sus propios valores y variantes acá mismo (editando).
                   </p>
                 )}
 
                 {currentProduct && (
                   <>
+                    {/* Valores propios por atributo con precio propio (ej. Tamaño: 50 ML, 100 ML) */}
+                    <div className="grid-2" style={{ marginBottom: 14 }}>
+                      {pricedVariantAttrs.map((def) => {
+                        const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
+                        return (
+                          <div key={def.id}>
+                            <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
+                            <div className="checkbox-group-items" style={{ marginBottom: 8 }}>
+                              {values.length === 0 && (
+                                <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin valores todavía.</span>
+                              )}
+                              {values.map((v) => (
+                                <span key={v.id} className="badge">
+                                  {v.value}
+                                  <button
+                                    type="button"
+                                    className="link-button danger"
+                                    style={{ marginLeft: 6, fontSize: 12 }}
+                                    onClick={() => handleRemoveVariantValue(v.id, setVariantValueError)}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input
+                                className="field"
+                                value={newVariantValue[def.id] ?? ""}
+                                onChange={(e) => setNewVariantValue((prev) => ({ ...prev, [def.id]: e.target.value }))}
+                                placeholder="Ej: 50 ML"
+                              />
+                              <button
+                                type="button"
+                                className="button"
+                                onClick={() =>
+                                  handleAddVariantValue(
+                                    def.id,
+                                    newVariantValue[def.id] ?? "",
+                                    () => setNewVariantValue((prev) => ({ ...prev, [def.id]: "" })),
+                                    setVariantValueError,
+                                  )
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {variantValueError && <p className="error-text" style={{ gridColumn: "1 / -1" }}>{variantValueError}</p>}
+                    </div>
+
                     {currentProduct.variants.length > 0 && (
                       <div style={{ overflowX: "auto", marginBottom: 14 }}>
                         <table className="table" style={{ background: "var(--surface)" }}>
@@ -510,7 +641,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                             {currentProduct.variants.map((variant) => (
                               <tr key={variant.id}>
                                 <td>{variant.variantCode}</td>
-                                <td>{variant.options.map((o) => `${o.attribute.name}: ${o.option.value}`).join(" · ")}</td>
+                                <td>
+                                  {variant.options
+                                    .map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`)
+                                    .join(" · ")}
+                                </td>
                                 <td>${variant.purchasePrice}</td>
                                 <td>${variant.utility}</td>
                                 <td>${variant.price.toFixed(2)}</td>
@@ -535,26 +670,29 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                     )}
 
                     <div className="grid-2" style={{ background: "var(--surface)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
-                      {pricedVariantAttrs.map((def) => (
-                        <div key={def.id}>
-                          <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
-                          <select
-                            className="field"
-                            value={variantForm.optionsByAttribute[def.id] ?? ""}
-                            onChange={(e) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                optionsByAttribute: { ...prev.optionsByAttribute, [def.id]: e.target.value },
-                              }))
-                            }
-                          >
-                            <option value="">— Elegir —</option>
-                            {def.options.map((opt) => (
-                              <option key={opt.id} value={opt.id}>{opt.value}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
+                      {pricedVariantAttrs.map((def) => {
+                        const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
+                        return (
+                          <div key={def.id}>
+                            <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
+                            <select
+                              className="field"
+                              value={variantForm.optionsByAttribute[def.id] ?? ""}
+                              onChange={(e) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  optionsByAttribute: { ...prev.optionsByAttribute, [def.id]: e.target.value },
+                                }))
+                              }
+                            >
+                              <option value="">— Elegir —</option>
+                              {values.map((v) => (
+                                <option key={v.id} value={v.id}>{v.value}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
                       <div>
                         <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
                         <input

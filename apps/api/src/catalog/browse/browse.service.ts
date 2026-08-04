@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { AttributeType, Prisma } from "@app/database";
+import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { CategoryService } from "../category/category.service";
@@ -11,7 +11,8 @@ const includeDetails = {
   brand: true,
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
-  variants: { include: { options: { include: { attribute: true, option: true } } } },
+  variantOptionValues: { include: { attribute: true } },
+  variants: { include: { options: { include: { optionValue: { include: { attribute: true } } } } } },
 } as const;
 
 export interface FindCatalogProductsQuery {
@@ -106,6 +107,12 @@ export class CatalogBrowseService {
         .filter(Boolean);
       if (rawValues.length === 0) {
         throw new BadRequestException(`Valor vacío para el filtro de atributo '${definition.name}'.`);
+      }
+
+      if (definition.variantMode !== AttributeVariantMode.NONE) {
+        // MULTI_VALUE / PRICED_VARIANT: los valores son propios de cada producto (no hay
+        // AttributeOption compartida), así que se filtra por el texto del valor.
+        return { variantOptionValues: { some: { attributeId, value: { in: rawValues } } } };
       }
 
       if (definition.type === AttributeType.SELECT) {
