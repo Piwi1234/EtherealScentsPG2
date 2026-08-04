@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { API_ORIGIN, apiDelete, apiGet } from "../../../lib/api";
 import { consumeFlashMessage } from "../../../lib/flash";
 import type { AttributeType, AttributeVariantMode, Brand, Category, Page, Product, ProductVariant } from "../../../lib/types";
@@ -39,6 +40,7 @@ function defaultVariantId(product: Product): string | undefined {
 }
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
@@ -61,9 +63,23 @@ export default function ProductsPage() {
   // con sus columnas variables, apenas se entra a la página).
   const hasAnyFilter = Boolean(effectiveCategoryFilter || brandFilter || debouncedSearch.trim());
 
+  // Las marcas solo se asignan a subcategorías (nunca a categorías raíz), así que si todavía no
+  // se eligió una subcategoría puntual, se consideran válidas las de cualquier subcategoría de la
+  // categoría raíz elegida.
+  const relevantCategoryIdsForBrands = subCategoryFilter ? [subCategoryFilter] : subCategoryOptions.map((cat) => cat.id);
+  const availableBrands = effectiveCategoryFilter
+    ? brands.filter((brand) => brand.categories.some((bc) => relevantCategoryIdsForBrands.includes(bc.categoryId)))
+    : [];
+
   function handleRootCategoryFilterChange(id: string) {
     setRootCategoryFilter(id);
     setSubCategoryFilter("");
+    setBrandFilter("");
+  }
+
+  function handleSubCategoryFilterChange(id: string) {
+    setSubCategoryFilter(id);
+    setBrandFilter("");
   }
 
   function loadProducts() {
@@ -110,6 +126,13 @@ export default function ProductsPage() {
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  // Doble click en la fila abre editar, salvo que el doble click haya sido sobre un control
+  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar).
+  function handleRowDoubleClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
+    if ((e.target as HTMLElement).closest("select, button, a, input")) return;
+    router.push(`/dashboard/products/${product.id}/edit`);
   }
 
   // Columnas extra: atributos marcados "Mostrar en tabla de productos", solo los que
@@ -192,7 +215,9 @@ export default function ProductsPage() {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Productos</h1>
-        <Link href="/dashboard/products/new" className="button">+ Nuevo producto</Link>
+        <Link href="/dashboard/products/new" className="btn-cta">
+          <span className="btn-cta-icon">+</span> Nuevo producto
+        </Link>
       </div>
       {flashMessage && (
         <div className="success-banner">
@@ -204,9 +229,9 @@ export default function ProductsPage() {
       )}
       {error && <p className="error-text">{error}</p>}
 
-      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ minWidth: 200 }}>
-          <label>Categoría</label>
+      <div className="filters-bar">
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Categoría</label>
           <select className="field" value={rootCategoryFilter} onChange={(e) => handleRootCategoryFilterChange(e.target.value)}>
             <option value="">Todas</option>
             {rootCategoryOptions.map((cat) => (
@@ -214,12 +239,12 @@ export default function ProductsPage() {
             ))}
           </select>
         </div>
-        <div style={{ minWidth: 200 }}>
-          <label>Subcategoría</label>
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Subcategoría</label>
           <select
             className="field"
             value={subCategoryFilter}
-            onChange={(e) => setSubCategoryFilter(e.target.value)}
+            onChange={(e) => handleSubCategoryFilterChange(e.target.value)}
             disabled={!rootCategoryFilter}
           >
             <option value="">Todas</option>
@@ -228,23 +253,28 @@ export default function ProductsPage() {
             ))}
           </select>
         </div>
-        <div style={{ minWidth: 200 }}>
-          <label>Marca</label>
-          <select className="field" value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}>
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Marca</label>
+          <select
+            className="field"
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            disabled={!effectiveCategoryFilter}
+          >
             <option value="">Todas</option>
-            {brands.map((brand) => (
+            {availableBrands.map((brand) => (
               <option key={brand.id} value={brand.id}>{brand.name}</option>
             ))}
           </select>
         </div>
-        <div style={{ minWidth: 240, flex: 1 }}>
-          <label>Buscar (nombre o marca)</label>
+        <div className="filter-field" style={{ minWidth: 240, flex: 1 }}>
+          <label className="filter-label">Realiza tu búsqueda aquí . . .</label>
           <input
             className="field"
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Ej: Galaxy, Samsung..."
+            placeholder="Nombre o marca"
           />
         </div>
       </div>
@@ -256,69 +286,83 @@ export default function ProductsPage() {
       {hasAnyFilter && page && page.items.length === 0 && <p>No hay productos con esos filtros.</p>}
       {page && page.items.length > 0 && (
         <>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Imagen</th>
-                <th>ID Producto</th>
-                <th>Marca</th>
-                <th>Nombre</th>
-                {extraAttributeColumns.map((column) => (
-                  <th key={column.id}>{column.name}</th>
-                ))}
-                <th>Precio de compra</th>
-                <th>Utilidad</th>
-                <th>Precio $</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.items.map((product) => {
-                const selectedVariant = getSelectedVariant(product);
-                return (
-                  <tr key={product.id}>
-                    <td>
-                      {productImageSrc(product.imageUrl) ? (
-                        <img
-                          src={productImageSrc(product.imageUrl)!}
-                          alt={product.name}
-                          style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
-                        />
-                      ) : (
-                        <span style={{ color: "var(--muted)" }}>—</span>
-                      )}
-                    </td>
-                    <td>{product.productCode}</td>
-                    <td>{product.brand?.name ?? "—"}</td>
-                    <td>{product.name}</td>
-                    {extraAttributeColumns.map((column) => (
-                      <td key={column.id}>{renderAttributeCell(product, column)}</td>
-                    ))}
-                    <td>{selectedVariant ? `$${selectedVariant.purchasePrice}` : `$${product.purchasePrice}`}</td>
-                    <td>{selectedVariant ? `$${selectedVariant.utility}` : `$${product.utility}`}</td>
-                    <td>
-                      {selectedVariant ? (
-                        <>
-                          ${selectedVariant.price.toFixed(2)}
-                          {product.variants.length > 1 && (
-                            <span style={{ color: "var(--muted)", fontSize: 12, marginLeft: 4 }}>
-                              (de {product.variants.length})
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        `$${product.price.toFixed(2)}`
-                      )}
-                    </td>
-                    <td>
-                      <Link href={`/dashboard/products/${product.id}/edit`} className="link-button">Editar</Link>
-                      <button type="button" className="link-button danger" onClick={() => handleDelete(product)}>Eliminar</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="table table-minimal">
+              <thead>
+                <tr>
+                  <th>Imagen</th>
+                  <th>ID Producto</th>
+                  <th>Marca</th>
+                  <th>Nombre</th>
+                  {extraAttributeColumns.map((column) => (
+                    <th key={column.id}>{column.name}</th>
+                  ))}
+                  <th className="num">Compra $</th>
+                  <th className="num">Utilidad $</th>
+                  <th className="num">Precio $</th>
+                  <th className="num col-group-start">May Bs</th>
+                  <th className="num">Min Bs</th>
+                  <th className="num">Desc. Bs</th>
+                  <th className="num">Final Bs</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.items.map((product) => {
+                  const selectedVariant = getSelectedVariant(product);
+                  // Product y ProductVariant comparten la misma forma para estos campos de precio,
+                  // así que alcanza con elegir la fuente (variante seleccionada o producto base) una vez.
+                  const priceSource = selectedVariant ?? product;
+                  const variantCount = product.variants.length;
+                  return (
+                    <tr key={product.id} onDoubleClick={(e) => handleRowDoubleClick(e, product)} style={{ cursor: "pointer" }}>
+                      <td>
+                        {productImageSrc(product.imageUrl) ? (
+                          <img
+                            src={productImageSrc(product.imageUrl)!}
+                            alt={product.name}
+                            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                          />
+                        ) : (
+                          <span className="cell-muted">—</span>
+                        )}
+                      </td>
+                      <td className="cell-code">{product.productCode}</td>
+                      <td className="cell-muted">{product.brand?.name ?? "—"}</td>
+                      <td className="cell-primary">{product.name}</td>
+                      {extraAttributeColumns.map((column) => (
+                        <td key={column.id}>{renderAttributeCell(product, column)}</td>
+                      ))}
+                      <td className="num"><span className="unit">$</span>{priceSource.purchasePrice}</td>
+                      <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
+                      <td className="num">
+                        <span className="unit">$</span>{priceSource.price.toFixed(2)}
+                        {variantCount > 1 && <span className="cell-muted" style={{ fontSize: 12, marginLeft: 4 }}>(de {variantCount})</span>}
+                      </td>
+                      <td className="num col-group-start"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
+                      <td className="num">
+                        {priceSource.minPriceBs !== null ? (
+                          <><span className="unit">Bs</span> {priceSource.minPriceBs}</>
+                        ) : (
+                          <span className="cell-muted">—</span>
+                        )}
+                      </td>
+                      <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
+                      <td className="num cell-primary">
+                        <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <Link href={`/dashboard/products/${product.id}/edit`} className="action-btn">Editar</Link>
+                          <button type="button" className="action-btn danger" onClick={() => handleDelete(product)}>Eliminar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
           <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 0 }}>
             {page.total} producto{page.total === 1 ? "" : "s"} en total.
           </p>
