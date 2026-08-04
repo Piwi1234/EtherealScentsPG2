@@ -18,25 +18,83 @@ const VARIANT_MODE_LABELS: Record<AttributeVariantMode, string> = {
   PRICED_VARIANT: "Con precio propio",
 };
 
+function AttributesTable({
+  attributes,
+  onEdit,
+  onDelete,
+  onManageOptions,
+}: {
+  attributes: Attribute[];
+  onEdit: (attr: Attribute) => void;
+  onDelete: (attr: Attribute) => void;
+  onManageOptions: (attr: Attribute) => void;
+}) {
+  if (attributes.length === 0) {
+    return <p style={{ color: "var(--muted)" }}>Sin atributos definidos.</p>;
+  }
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Variante</th>
+          <th>Filtrable</th>
+          <th>Requerido</th>
+          <th>En tabla productos</th>
+          <th>Opciones</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {attributes.map((attr) => (
+          <tr key={attr.id}>
+            <td>{attr.name}</td>
+            <td>{TYPE_LABELS[attr.type]}</td>
+            <td>
+              {attr.variantMode === "NONE" ? "—" : <span className="badge">{VARIANT_MODE_LABELS[attr.variantMode]}</span>}
+            </td>
+            <td>{attr.isFilterable ? "Sí" : "No"}</td>
+            <td>{attr.isRequired ? "Sí" : "No"}</td>
+            <td>{attr.showInProductList ? "Sí" : "No"}</td>
+            <td>{attr.options.length > 0 ? attr.options.map((o) => o.value).join(", ") : "—"}</td>
+            <td>
+              {attr.type === "SELECT" && (
+                <button type="button" className="link-button" onClick={() => onManageOptions(attr)}>Opciones</button>
+              )}
+              <button type="button" className="link-button" onClick={() => onEdit(attr)}>Editar</button>
+              <button type="button" className="link-button danger" onClick={() => onDelete(attr)}>Eliminar</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function AttributesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [rootCategoryId, setRootCategoryId] = useState("");
-  const [subCategoryId, setSubCategoryId] = useState("");
-  const [attributes, setAttributes] = useState<Attribute[] | null>(null);
+  const [attributesByCategory, setAttributesByCategory] = useState<Record<string, Attribute[]>>({});
   const [error, setError] = useState("");
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   const subcategories = categories.filter((cat) => cat.parentId === rootCategoryId);
-  // Sin subcategoría elegida, se administran los atributos de la categoría raíz.
-  const effectiveCategoryId = subCategoryId || rootCategoryId;
+  const rootCategory = categories.find((cat) => cat.id === rootCategoryId);
+  // Categoría raíz elegida + todas sus subcategorías, cada una con su propia sección.
+  const sections = rootCategory
+    ? [{ ...rootCategory, isRoot: true }, ...subcategories.map((sub) => ({ ...sub, isRoot: false }))]
+    : [];
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Attribute | null>(null);
+  const [createForCategoryId, setCreateForCategoryId] = useState("");
   const [name, setName] = useState("");
   const [type, setType] = useState<AttributeType>("TEXT");
   const [variantMode, setVariantMode] = useState<AttributeVariantMode>("NONE");
   const [isFilterable, setIsFilterable] = useState(false);
   const [isRequired, setIsRequired] = useState(false);
+  const [showInProductList, setShowInProductList] = useState(false);
   const [options, setOptions] = useState<string[]>([""]);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -56,34 +114,46 @@ export default function AttributesPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
-  function loadAttributes() {
-    if (!effectiveCategoryId) return;
-    apiGet<Attribute[]>(`/categories/${effectiveCategoryId}/attributes`)
-      .then((attrs) => {
-        setAttributes(attrs);
-        setOptionsFor((prev) => (prev ? attrs.find((a) => a.id === prev.id) ?? null : null));
+  function loadAllSections() {
+    if (sections.length === 0) return;
+    Promise.all(
+      // Sin heredados: los de la categoría padre ya se muestran en su propia sección, arriba.
+      sections.map((section) =>
+        apiGet<Attribute[]>(`/categories/${section.id}/attributes?includeInherited=false`).then(
+          (attrs) => [section.id, attrs] as const,
+        ),
+      ),
+    )
+      .then((entries) => {
+        setAttributesByCategory(Object.fromEntries(entries));
+        setOptionsFor((prev) => {
+          if (!prev) return prev;
+          const refreshed = entries.flatMap(([, attrs]) => attrs).find((a) => a.id === prev.id);
+          return refreshed ?? null;
+        });
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
 
   useEffect(() => {
-    setAttributes(null);
-    loadAttributes();
+    setAttributesByCategory({});
+    loadAllSections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveCategoryId]);
+  }, [rootCategoryId, categories.length]);
 
   function handleRootCategoryChange(id: string) {
     setRootCategoryId(id);
-    setSubCategoryId("");
   }
 
-  function openCreate() {
+  function openCreate(categoryId: string) {
     setEditing(null);
+    setCreateForCategoryId(categoryId);
     setName("");
     setType("TEXT");
     setVariantMode("NONE");
     setIsFilterable(false);
     setIsRequired(false);
+    setShowInProductList(false);
     setOptions([""]);
     setFormError("");
     setModalOpen(true);
@@ -95,6 +165,7 @@ export default function AttributesPage() {
     setType(attr.type);
     setIsFilterable(attr.isFilterable);
     setIsRequired(attr.isRequired);
+    setShowInProductList(attr.showInProductList);
     setFormError("");
     setModalOpen(true);
   }
@@ -103,7 +174,7 @@ export default function AttributesPage() {
     if (!confirm(`¿Eliminar el atributo "${attr.name}"?`)) return;
     try {
       await apiDelete(`/attributes/${attr.id}`);
-      loadAttributes();
+      loadAllSections();
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
     }
@@ -115,20 +186,21 @@ export default function AttributesPage() {
     setSubmitting(true);
     try {
       if (editing) {
-        await apiPatch(`/attributes/${editing.id}`, { name, isFilterable, isRequired });
+        await apiPatch(`/attributes/${editing.id}`, { name, isFilterable, isRequired, showInProductList });
       } else {
         const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
-        await apiPost(`/categories/${effectiveCategoryId}/attributes`, {
+        await apiPost(`/categories/${createForCategoryId}/attributes`, {
           name,
           type,
           isFilterable,
           isRequired,
+          showInProductList,
           variantMode: type === "SELECT" ? variantMode : undefined,
           options: type === "SELECT" ? cleanOptions : undefined,
         });
       }
       setModalOpen(false);
-      loadAttributes();
+      loadAllSections();
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
@@ -142,7 +214,7 @@ export default function AttributesPage() {
     try {
       await apiPost(`/attributes/${optionsFor.id}/options`, { value: newOptionValue.trim() });
       setNewOptionValue("");
-      loadAttributes();
+      loadAllSections();
     } catch (e) {
       setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     }
@@ -153,7 +225,7 @@ export default function AttributesPage() {
     if (!value || !optionsFor) return;
     try {
       await apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, { value: value.trim() });
-      loadAttributes();
+      loadAllSections();
     } catch (e) {
       setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     }
@@ -163,7 +235,7 @@ export default function AttributesPage() {
     if (!optionsFor || !confirm(`¿Eliminar la opción "${option.value}"?`)) return;
     try {
       await apiDelete(`/attributes/${optionsFor.id}/options/${option.id}`);
-      loadAttributes();
+      loadAllSections();
     } catch (e) {
       setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     }
@@ -171,86 +243,48 @@ export default function AttributesPage() {
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 20 }}>Atributos</h1>
-        <button type="button" className="button" onClick={openCreate} disabled={!effectiveCategoryId}>+ Nuevo atributo</button>
-      </div>
+      <h1 style={{ marginTop: 0, fontSize: 20 }}>Atributos</h1>
       {error && <p className="error-text">{error}</p>}
 
-      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ minWidth: 220 }}>
-          <label>Categoría</label>
-          <select className="field" value={rootCategoryId} onChange={(e) => handleRootCategoryChange(e.target.value)}>
-            {rootCategories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
-        </div>
-        <div style={{ minWidth: 220 }}>
-          <label>Subcategoría</label>
-          <select className="field" value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)}>
-            <option value="">— Ninguna (ver la categoría) —</option>
-            {subcategories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
-        </div>
+      <div style={{ marginBottom: 16, maxWidth: 300 }}>
+        <label>Categoría</label>
+        <select className="field" value={rootCategoryId} onChange={(e) => handleRootCategoryChange(e.target.value)}>
+          {rootCategories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
       </div>
 
-      {!attributes && !error && <p>Cargando...</p>}
-      {attributes && attributes.length === 0 && <p>Esta categoría no tiene atributos definidos.</p>}
-      {attributes && attributes.length > 0 && (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Tipo</th>
-              <th>Variante</th>
-              <th>Filtrable</th>
-              <th>Requerido</th>
-              <th>Origen</th>
-              <th>Opciones</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {attributes.map((attr) => (
-              <tr key={attr.id}>
-                <td>{attr.name}</td>
-                <td>{TYPE_LABELS[attr.type]}</td>
-                <td>
-                  {attr.variantMode === "NONE" ? (
-                    "—"
-                  ) : (
-                    <span className="badge">{VARIANT_MODE_LABELS[attr.variantMode]}</span>
-                  )}
-                </td>
-                <td>{attr.isFilterable ? "Sí" : "No"}</td>
-                <td>{attr.isRequired ? "Sí" : "No"}</td>
-                <td>
-                  <span className={`badge${attr.inherited ? " badge-muted" : ""}`}>
-                    {attr.inherited ? "Heredado" : "Propio"}
-                  </span>
-                </td>
-                <td>{attr.options.length > 0 ? attr.options.map((o) => o.value).join(", ") : "—"}</td>
-                <td>
-                  {!attr.inherited && (
-                    <>
-                      {attr.type === "SELECT" && (
-                        <button type="button" className="link-button" onClick={() => { setOptionsFor(attr); setOptionError(""); }}>
-                          Opciones
-                        </button>
-                      )}
-                      <button type="button" className="link-button" onClick={() => openEdit(attr)}>Editar</button>
-                      <button type="button" className="link-button danger" onClick={() => handleDelete(attr)}>Eliminar</button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {sections.map((section, i) => (
+        <div
+          key={section.id}
+          style={{
+            borderTop: i === 0 ? "none" : "1px solid var(--line)",
+            paddingTop: i === 0 ? 0 : 20,
+            marginTop: i === 0 ? 0 : 20,
+            paddingLeft: section.isRoot ? 0 : 14,
+            borderLeft: section.isRoot ? "none" : "3px solid var(--gold)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>
+              {section.name}
+              {!section.isRoot && <span className="badge badge-accent" style={{ marginLeft: 8 }}>Subcategoría</span>}
+            </h2>
+            <button type="button" className="button" onClick={() => openCreate(section.id)}>+ Nuevo atributo</button>
+          </div>
+          {attributesByCategory[section.id] === undefined ? (
+            <p>Cargando...</p>
+          ) : (
+            <AttributesTable
+              attributes={attributesByCategory[section.id]}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onManageOptions={(attr) => { setOptionsFor(attr); setOptionError(""); }}
+            />
+          )}
+        </div>
+      ))}
 
       {modalOpen && (
         <Modal title={editing ? "Editar atributo" : "Nuevo atributo"} onClose={() => setModalOpen(false)}>
@@ -305,6 +339,14 @@ export default function AttributesPage() {
             <label className="checkbox-row">
               <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} />
               Requerido al cargar un producto
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={showInProductList}
+                onChange={(e) => setShowInProductList(e.target.checked)}
+              />
+              Mostrar como columna en la tabla de Productos
             </label>
             {!editing && type === "SELECT" && (
               <div>

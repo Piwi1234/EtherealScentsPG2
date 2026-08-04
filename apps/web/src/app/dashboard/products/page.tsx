@@ -9,6 +9,20 @@ function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
 }
 
+function attributeValueLabel(pv: Product["attributeValues"][number]): string {
+  if (pv.option) return pv.option.value;
+  if (pv.valueText !== null) return pv.valueText;
+  if (pv.valueNumber !== null) return pv.valueNumber;
+  if (pv.valueBoolean !== null) return pv.valueBoolean ? "Sí" : "No";
+  return "—";
+}
+
+function productAttributeCell(product: Product, attributeId: string): string {
+  const matches = product.attributeValues.filter((pv) => pv.attributeId === attributeId);
+  if (matches.length === 0) return "—";
+  return matches.map(attributeValueLabel).join(", ");
+}
+
 type VariantFormState = { optionsByAttribute: Record<string, string>; purchasePrice: string; utility: string };
 
 const EMPTY_VARIANT_FORM: VariantFormState = { optionsByAttribute: {}, purchasePrice: "", utility: "0" };
@@ -256,6 +270,18 @@ export default function ProductsPage() {
     }
   }
 
+  // Columnas extra: atributos marcados "Mostrar en tabla de productos", solo los que
+  // efectivamente aparecen en los productos listados (evita columnas vacías de otras categorías).
+  const extraAttributeColumns = (() => {
+    const map = new Map<string, string>();
+    for (const product of page?.items ?? []) {
+      for (const pv of product.attributeValues) {
+        if (pv.attribute.showInProductList) map.set(pv.attributeId, pv.attribute.name);
+      }
+    }
+    return Array.from(map.entries());
+  })();
+
   // Vista previa en vivo: misma fórmula que calcula el backend.
   // Precio $ = Precio de compra + costos heredados de la categoría + utilidad.
   const selectedCategory = categories.find((cat) => cat.id === categoryId);
@@ -305,6 +331,9 @@ export default function ProductsPage() {
                 <th>ID Producto</th>
                 <th>Marca</th>
                 <th>Nombre</th>
+                {extraAttributeColumns.map(([attributeId, name]) => (
+                  <th key={attributeId}>{name}</th>
+                ))}
                 <th>Precio de compra</th>
                 <th>Utilidad</th>
                 <th>Precio $</th>
@@ -328,6 +357,9 @@ export default function ProductsPage() {
                   <td>{product.productCode}</td>
                   <td>{product.brand?.name ?? "—"}</td>
                   <td>{product.name}</td>
+                  {extraAttributeColumns.map(([attributeId]) => (
+                    <td key={attributeId}>{productAttributeCell(product, attributeId)}</td>
+                  ))}
                   <td>{product.variants.length > 0 ? "—" : `$${product.purchasePrice}`}</td>
                   <td>{product.variants.length > 0 ? "—" : `$${product.utility}`}</td>
                   <td>

@@ -43,6 +43,7 @@ export class AttributeService {
           type: dto.type,
           isFilterable: dto.isFilterable ?? false,
           isRequired: dto.isRequired ?? false,
+          showInProductList: dto.showInProductList ?? false,
           variantMode: dto.variantMode ?? AttributeVariantMode.NONE,
           options: dto.type === AttributeType.SELECT ? { create: dto.options!.map((value) => ({ value })) } : undefined,
         },

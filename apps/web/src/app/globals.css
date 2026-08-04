@@ -144,6 +144,13 @@ a {
   color: var(--muted);
 }
 
+.badge-accent {
+  background: rgba(201, 169, 110, 0.16);
+  border-color: var(--gold);
+  color: #8a6d3b;
+  font-weight: 600;
+}
+
 .link-button {
   border: 0;
   background: none;

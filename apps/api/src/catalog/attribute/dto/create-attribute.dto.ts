@@ -23,6 +23,14 @@ export class CreateAttributeDto {
   isRequired?: boolean;
 
   @ApiPropertyOptional({
+    default: false,
+    description: "Si se muestra como columna extra en la tabla de Productos del panel (además de las de siempre).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  showInProductList?: boolean;
+
+  @ApiPropertyOptional({
     enum: AttributeVariantMode,
     default: AttributeVariantMode.NONE,
     description:

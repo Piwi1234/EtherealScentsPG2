@@ -42,6 +42,8 @@ export type Attribute = {
   type: AttributeType;
   isFilterable: boolean;
   isRequired: boolean;
+  /** Si se muestra como columna extra en la tabla de Productos del panel. */
+  showInProductList: boolean;
   variantMode: AttributeVariantMode;
   options: AttributeOption[];
   inherited: boolean;

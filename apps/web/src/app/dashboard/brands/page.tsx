@@ -113,7 +113,6 @@ export default function BrandsPage() {
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>Slug</th>
               <th>Subcategorías asignadas</th>
               <th></th>
             </tr>
@@ -122,7 +121,6 @@ export default function BrandsPage() {
             {brands.map((brand) => (
               <tr key={brand.id}>
                 <td>{brand.name}</td>
-                <td>{brand.slug}</td>
                 <td>
                   {brand.categories.length === 0
                     ? "—"
