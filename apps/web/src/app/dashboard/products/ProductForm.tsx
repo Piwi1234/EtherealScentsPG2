@@ -46,6 +46,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [exchangeRate, setExchangeRate] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
+  // Atributos SELECT normales con allowMultiple (ej. Acordes): el producto elige 1+ opciones de la
+  // lista compartida de la categoría. Botones coloreados, no un <select>.
+  const [multiSelectValues, setMultiSelectValues] = useState<Record<string, Set<string>>>({});
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(productImageSrc(editing?.imageUrl ?? null));
   const [formError, setFormError] = useState("");
@@ -115,13 +118,23 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     if (!editing) return;
     loadAttributesFor(editing.categoryId).then(() => {
       const values: Record<string, string> = {};
+      const multiSelect: Record<string, Set<string>> = {};
       for (const pv of editing.attributeValues) {
+        if (pv.attribute.allowMultiple) {
+          if (pv.optionId) {
+            const set = multiSelect[pv.attributeId] ?? new Set<string>();
+            set.add(pv.optionId);
+            multiSelect[pv.attributeId] = set;
+          }
+          continue;
+        }
         if (pv.optionId) values[pv.attributeId] = pv.optionId;
         else if (pv.valueText !== null) values[pv.attributeId] = pv.valueText;
         else if (pv.valueNumber !== null) values[pv.attributeId] = pv.valueNumber;
         else if (pv.valueBoolean !== null) values[pv.attributeId] = String(pv.valueBoolean);
       }
       setAttributeValues(values);
+      setMultiSelectValues(multiSelect);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing?.id]);
@@ -132,9 +145,18 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     setImagePreview(file ? URL.createObjectURL(file) : productImageSrc(editing?.imageUrl ?? null));
   }
 
+  function toggleMultiSelectValue(attributeId: string, optionId: string) {
+    setMultiSelectValues((prev) => {
+      const next = new Set(prev[attributeId] ?? []);
+      next.has(optionId) ? next.delete(optionId) : next.add(optionId);
+      return { ...prev, [attributeId]: next };
+    });
+  }
+
   async function handleRootCategoryChange(id: string) {
     setRootCategoryId(id);
     setAttributeValues({});
+    setMultiSelectValues({});
     setVariantForm(EMPTY_VARIANT_FORM);
     setNewMultiValue({});
     setNewVariantValue({});
@@ -153,6 +175,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   async function handleSubCategoryChange(id: string) {
     setCategoryId(id);
     setAttributeValues({});
+    setMultiSelectValues({});
     setVariantForm(EMPTY_VARIANT_FORM);
     setNewMultiValue({});
     setNewVariantValue({});
@@ -169,15 +192,21 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       return;
     }
 
-    const missing = regularAttrs.filter((def) => def.isRequired && !attributeValues[def.id]);
-    if (missing.length > 0) {
-      setFormError(`Falta completar: ${missing.map((m) => m.name).join(", ")}`);
+    const missing = regularAttrs
+      .filter((def) => !def.allowMultiple)
+      .filter((def) => def.isRequired && !attributeValues[def.id]);
+    const missingMultiSelect = regularAttrs
+      .filter((def) => def.allowMultiple)
+      .filter((def) => def.isRequired && !(multiSelectValues[def.id]?.size));
+    if (missing.length > 0 || missingMultiSelect.length > 0) {
+      setFormError(`Falta completar: ${[...missing, ...missingMultiSelect].map((m) => m.name).join(", ")}`);
       return;
     }
 
     setSubmitting(true);
     try {
       const regularPayload = regularAttrs
+        .filter((def) => !def.allowMultiple)
         .filter((def) => attributeValues[def.id])
         .map((def) => {
           const raw = attributeValues[def.id];
@@ -186,6 +215,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           if (def.type === "BOOLEAN") return { attributeId: def.id, valueBoolean: raw === "true" };
           return { attributeId: def.id, valueText: raw };
         });
+      const multiSelectPayload = regularAttrs
+        .filter((def) => def.allowMultiple)
+        .flatMap((def) => Array.from(multiSelectValues[def.id] ?? []).map((optionId) => ({ attributeId: def.id, optionId })));
 
       // Si la categoría tiene atributos con precio propio, el precio (tanto $ como Bs) se carga por
       // variante: pedirlo acá también sería redundante. Ojo: hay que OMITIR purchasePrice (no mandar
@@ -199,7 +231,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         discountBs: usesPricedVariants ? undefined : Number(discountBs || 0),
         brandId: brandId || undefined,
         categoryId,
-        attributeValues: regularPayload,
+        attributeValues: [...regularPayload, ...multiSelectPayload],
       };
 
       const saved = editing
@@ -438,12 +470,30 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
             {regularAttrs.length > 0 && (
               <div className="grid-2" style={{ marginBottom: multiValueAttrs.length > 0 || pricedVariantAttrs.length > 0 ? 14 : 0 }}>
                 {regularAttrs.map((def) => (
-                  <div key={def.id}>
+                  <div key={def.id} style={def.allowMultiple ? { gridColumn: "1 / -1" } : undefined}>
                     <label>
                       {def.name}{def.isRequired ? " *" : ""}
                       {def.inherited ? <span className="badge badge-muted" style={{ marginLeft: 6 }}>Heredado</span> : null}
                     </label>
-                    {def.type === "SELECT" && (
+                    {def.type === "SELECT" && def.allowMultiple && (
+                      <div className="pill-group">
+                        {def.options.map((opt) => {
+                          const selected = multiSelectValues[def.id]?.has(opt.id) ?? false;
+                          return (
+                            <button
+                              type="button"
+                              key={opt.id}
+                              className={`color-pill${selected ? " selected" : ""}`}
+                              style={selected ? { background: opt.color ?? "#c9a96e" } : undefined}
+                              onClick={() => toggleMultiSelectValue(def.id, opt.id)}
+                            >
+                              {opt.value}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {def.type === "SELECT" && !def.allowMultiple && (
                       <select
                         className="field"
                         value={attributeValues[def.id] ?? ""}
@@ -736,13 +786,20 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, discountBs: e.target.value }))}
                         />
                       </div>
-                      <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)", gridColumn: "1 / -1" }}>
-                        Precio $ de esta variante (compra + costos + utilidad): ${variantPricePreview.toFixed(2)} · Precio
-                        May Bs: Bs {variantWholesaleBsPreview.toFixed(2)}
-                      </p>
-                      <p style={{ margin: 0, fontWeight: 600, gridColumn: "1 / -1" }}>
-                        Precio Final Bs = (Precio Min Bs o May Bs) - Descuento = Bs {variantFinalBsPreview.toFixed(2)}
-                      </p>
+                      <div className="price-stats" style={{ gridColumn: "1 / -1", marginTop: 4 }}>
+                        <div className="price-stat">
+                          <span className="price-stat-label">Precio $</span>
+                          <span className="price-stat-value">${variantPricePreview.toFixed(2)}</span>
+                        </div>
+                        <div className="price-stat">
+                          <span className="price-stat-label">May Bs</span>
+                          <span className="price-stat-value">Bs {variantWholesaleBsPreview.toFixed(2)}</span>
+                        </div>
+                        <div className="price-stat price-stat-final">
+                          <span className="price-stat-label">Final Bs</span>
+                          <span className="price-stat-value">Bs {variantFinalBsPreview.toFixed(2)}</span>
+                        </div>
+                      </div>
                       {variantError && <p className="error-text" style={{ gridColumn: "1 / -1" }}>{variantError}</p>}
                       <button
                         type="button"
@@ -761,30 +818,18 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </div>
         )}
 
-        {/* 6. Tabla de costos heredados */}
+        {/* 6. Costos y precios */}
         {selectedCategory && (
           <div className="form-section">
-            <h2 className="section-label">Costos heredados de &quot;{selectedCategory.name}&quot;</h2>
-            <table className="table" style={{ marginBottom: pricedVariantAttrs.length === 0 ? 14 : 0 }}>
-              <thead>
-                <tr>
-                  <th>Logística</th>
-                  <th>Envío</th>
-                  <th>Seguridad</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${logisticsCostPreview.toFixed(2)}</td>
-                  <td>${shippingCostPreview.toFixed(2)}</td>
-                  <td>${securityCostPreview.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
+            <h2 className="section-label">Costos y precios de &quot;{selectedCategory.name}&quot;</h2>
+            <p className="cost-breakdown-line">
+              Costos heredados — Logística: ${logisticsCostPreview.toFixed(2)} · Envío: ${shippingCostPreview.toFixed(2)} ·
+              Seguridad: ${securityCostPreview.toFixed(2)}
+            </p>
 
             {pricedVariantAttrs.length === 0 ? (
               <>
-                <div className="grid-2" style={{ marginBottom: 10 }}>
+                <div className="grid-2" style={{ marginTop: 14, marginBottom: 10 }}>
                   <div>
                     <label>Precio de compra</label>
                     <input
@@ -808,51 +853,51 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                     />
                   </div>
                 </div>
-                <p style={{ margin: 0, fontWeight: 600 }}>
-                  Precio $ = Precio de compra + costos + utilidad = ${pricePreview.toFixed(2)}
-                </p>
-
-                <div className="subsection">
-                  <p className="subsection-title">Precios en Bs</p>
-                  <p className="subsection-hint">
-                    Tipo de cambio actual: 1 $ = {exchangeRate} Bs. Precio May Bs se calcula solo; Precio Min Bs y
-                    Descuento son manuales.
-                  </p>
-                  <p style={{ margin: "0 0 12px", fontSize: 13 }}>
-                    Precio May Bs = Precio $ × tipo de cambio = <strong>Bs {wholesaleBsPreview.toFixed(2)}</strong>
-                  </p>
-                  <div className="grid-2" style={{ marginBottom: 10 }}>
-                    <div>
-                      <label>Precio Min Bs</label>
-                      <input
-                        className="field"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={minPriceBs}
-                        onChange={(e) => setMinPriceBs(e.target.value)}
-                        placeholder="Opcional"
-                      />
-                    </div>
-                    <div>
-                      <label>Descuento Bs</label>
-                      <input
-                        className="field"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={discountBs}
-                        onChange={(e) => setDiscountBs(e.target.value)}
-                      />
-                    </div>
+                <div className="grid-2">
+                  <div>
+                    <label>Precio Min Bs</label>
+                    <input
+                      className="field"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={minPriceBs}
+                      onChange={(e) => setMinPriceBs(e.target.value)}
+                      placeholder="Opcional"
+                    />
                   </div>
-                  <p style={{ margin: 0, fontWeight: 600 }}>
-                    Precio Final Bs = (Precio Min Bs o May Bs) - Descuento = Bs {finalBsPreview.toFixed(2)}
-                  </p>
+                  <div>
+                    <label>Descuento Bs</label>
+                    <input
+                      className="field"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discountBs}
+                      onChange={(e) => setDiscountBs(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="cost-breakdown-line" style={{ marginTop: 10 }}>
+                  Tipo de cambio: 1 $ = {exchangeRate} Bs
+                </p>
+                <div className="price-stats">
+                  <div className="price-stat">
+                    <span className="price-stat-label">Precio $</span>
+                    <span className="price-stat-value">${pricePreview.toFixed(2)}</span>
+                  </div>
+                  <div className="price-stat">
+                    <span className="price-stat-label">May Bs</span>
+                    <span className="price-stat-value">Bs {wholesaleBsPreview.toFixed(2)}</span>
+                  </div>
+                  <div className="price-stat price-stat-final">
+                    <span className="price-stat-label">Final Bs</span>
+                    <span className="price-stat-value">Bs {finalBsPreview.toFixed(2)}</span>
+                  </div>
                 </div>
               </>
             ) : (
-              <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)" }}>
                 El precio de compra, la utilidad y los precios en Bs se cargan por variante (sección Atributos, arriba).
               </p>
             )}

@@ -127,6 +127,10 @@ model Attribute {
   showInProductList Boolean  @default(false) @map("show_in_product_list")
   // Solo aplica (y solo tiene sentido) cuando type = SELECT.
   variantMode  AttributeVariantMode @default(NONE) @map("variant_mode")
+  // Solo aplica cuando type = SELECT y variantMode = NONE: el producto puede elegir 1+ opciones de
+  // la lista compartida de la categoría (ej. Acordes de un perfume), a diferencia de MULTI_VALUE
+  // (valores propios por producto, para variantes tipo sabor).
+  allowMultiple Boolean @default(false) @map("allow_multiple")
 
   options             AttributeOption[]
   productValues       ProductAttributeValue[]
@@ -144,6 +148,8 @@ model AttributeOption {
   attributeId String    @map("attribute_id") @db.Uuid
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value       String
+  // Color hex (ej. "#c9a96e") para el botón de esta opción en el formulario de producto. Opcional.
+  color       String?
 
   productValues ProductAttributeValue[]
 

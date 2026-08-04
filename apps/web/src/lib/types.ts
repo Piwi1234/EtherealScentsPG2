@@ -33,6 +33,8 @@ export type AttributeOption = {
   id: string;
   attributeId: string;
   value: string;
+  /** Color hex (ej. "#c9a96e") del botón de esta opción en el formulario de producto. */
+  color: string | null;
 };
 
 export type Attribute = {
@@ -45,6 +47,9 @@ export type Attribute = {
   /** Si se muestra como columna extra en la tabla de Productos del panel. */
   showInProductList: boolean;
   variantMode: AttributeVariantMode;
+  /** Solo aplica cuando type='SELECT' y variantMode='NONE': el producto puede elegir 1+ opciones
+   * de la lista compartida de la categoría (ej. Acordes de un perfume). */
+  allowMultiple: boolean;
   options: AttributeOption[];
   inherited: boolean;
 };

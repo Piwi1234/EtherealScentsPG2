@@ -18,6 +18,8 @@ const VARIANT_MODE_LABELS: Record<AttributeVariantMode, string> = {
   PRICED_VARIANT: "Con precio propio",
 };
 
+const DEFAULT_OPTION_COLOR = "#c9a96e";
+
 function AttributesTable({
   attributes,
   onEdit,
@@ -52,7 +54,9 @@ function AttributesTable({
             <td>{attr.name}</td>
             <td>{TYPE_LABELS[attr.type]}</td>
             <td>
-              {attr.variantMode === "NONE" ? "—" : <span className="badge">{VARIANT_MODE_LABELS[attr.variantMode]}</span>}
+              {attr.variantMode !== "NONE" && <span className="badge">{VARIANT_MODE_LABELS[attr.variantMode]}</span>}
+              {attr.allowMultiple && <span className="badge badge-accent">Múltiple</span>}
+              {attr.variantMode === "NONE" && !attr.allowMultiple && "—"}
             </td>
             <td>{attr.isFilterable ? "Sí" : "No"}</td>
             <td>{attr.isRequired ? "Sí" : "No"}</td>
@@ -101,12 +105,14 @@ export default function AttributesPage() {
   const [isFilterable, setIsFilterable] = useState(false);
   const [isRequired, setIsRequired] = useState(false);
   const [showInProductList, setShowInProductList] = useState(false);
-  const [options, setOptions] = useState<string[]>([""]);
+  const [allowMultiple, setAllowMultiple] = useState(false);
+  const [options, setOptions] = useState<{ value: string; color: string }[]>([{ value: "", color: DEFAULT_OPTION_COLOR }]);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [optionsFor, setOptionsFor] = useState<Attribute | null>(null);
   const [newOptionValue, setNewOptionValue] = useState("");
+  const [newOptionColor, setNewOptionColor] = useState(DEFAULT_OPTION_COLOR);
   const [optionError, setOptionError] = useState("");
 
   useEffect(() => {
@@ -160,7 +166,8 @@ export default function AttributesPage() {
     setIsFilterable(false);
     setIsRequired(false);
     setShowInProductList(false);
-    setOptions([""]);
+    setAllowMultiple(false);
+    setOptions([{ value: "", color: DEFAULT_OPTION_COLOR }]);
     setFormError("");
     setModalOpen(true);
   }
@@ -169,9 +176,11 @@ export default function AttributesPage() {
     setEditing(attr);
     setName(attr.name);
     setType(attr.type);
+    setVariantMode(attr.variantMode);
     setIsFilterable(attr.isFilterable);
     setIsRequired(attr.isRequired);
     setShowInProductList(attr.showInProductList);
+    setAllowMultiple(attr.allowMultiple);
     setFormError("");
     setModalOpen(true);
   }
@@ -192,10 +201,17 @@ export default function AttributesPage() {
     setSubmitting(true);
     try {
       if (editing) {
-        await apiPatch(`/attributes/${editing.id}`, { name, isFilterable, isRequired, showInProductList });
+        const canToggleMultiple = editing.type === "SELECT" && editing.variantMode === "NONE";
+        await apiPatch(`/attributes/${editing.id}`, {
+          name,
+          isFilterable,
+          isRequired,
+          showInProductList,
+          allowMultiple: canToggleMultiple ? allowMultiple : undefined,
+        });
       } else {
         const isPlainSelect = type === "SELECT" && variantMode === "NONE";
-        const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
+        const cleanOptions = options.map((o) => ({ value: o.value.trim(), color: o.color })).filter((o) => o.value);
         await apiPost(`/categories/${createForCategoryId}/attributes`, {
           name,
           type,
@@ -203,6 +219,7 @@ export default function AttributesPage() {
           isRequired,
           showInProductList,
           variantMode: type === "SELECT" ? variantMode : undefined,
+          allowMultiple: isPlainSelect ? allowMultiple : undefined,
           // Las opciones solo aplican a atributos normales (sin variante): las de variante cargan
           // sus valores por producto. Hay que omitir el campo (no mandar []), porque el backend
           // valida `options` como mínimo 1 elemento cuando el campo está presente.
@@ -222,8 +239,9 @@ export default function AttributesPage() {
     if (!optionsFor || !newOptionValue.trim()) return;
     setOptionError("");
     try {
-      await apiPost(`/attributes/${optionsFor.id}/options`, { value: newOptionValue.trim() });
+      await apiPost(`/attributes/${optionsFor.id}/options`, { value: newOptionValue.trim(), color: newOptionColor });
       setNewOptionValue("");
+      setNewOptionColor(DEFAULT_OPTION_COLOR);
       loadAllSections();
     } catch (e) {
       setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -234,7 +252,18 @@ export default function AttributesPage() {
     const value = prompt("Nuevo valor:", option.value);
     if (!value || !optionsFor) return;
     try {
-      await apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, { value: value.trim() });
+      await apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, { value: value.trim(), color: option.color ?? undefined });
+      loadAllSections();
+    } catch (e) {
+      setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleOptionColorChange(option: AttributeOption, color: string) {
+    if (!optionsFor) return;
+    setOptionError("");
+    try {
+      await apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, { value: option.value, color });
       loadAllSections();
     } catch (e) {
       setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -312,7 +341,10 @@ export default function AttributesPage() {
                   onChange={(e) => {
                     const nextType = e.target.value as AttributeType;
                     setType(nextType);
-                    if (nextType !== "SELECT") setVariantMode("NONE");
+                    if (nextType !== "SELECT") {
+                      setVariantMode("NONE");
+                      setAllowMultiple(false);
+                    }
                   }}
                 >
                   {(Object.keys(TYPE_LABELS) as AttributeType[]).map((t) => (
@@ -324,7 +356,15 @@ export default function AttributesPage() {
             {!editing && type === "SELECT" && (
               <div>
                 <label>Tipo de variante</label>
-                <select className="field" value={variantMode} onChange={(e) => setVariantMode(e.target.value as AttributeVariantMode)}>
+                <select
+                  className="field"
+                  value={variantMode}
+                  onChange={(e) => {
+                    const nextMode = e.target.value as AttributeVariantMode;
+                    setVariantMode(nextMode);
+                    if (nextMode !== "NONE") setAllowMultiple(false);
+                  }}
+                >
                   {(Object.keys(VARIANT_MODE_LABELS) as AttributeVariantMode[]).map((mode) => (
                     <option key={mode} value={mode}>{VARIANT_MODE_LABELS[mode]}</option>
                   ))}
@@ -358,15 +398,32 @@ export default function AttributesPage() {
               />
               Mostrar como columna en la tabla de Productos
             </label>
+            {type === "SELECT" && variantMode === "NONE" && (
+              <label className="checkbox-row">
+                <input type="checkbox" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} />
+                Permitir elegir varias opciones al cargar un producto (ej. Acordes de un perfume)
+              </label>
+            )}
             {!editing && type === "SELECT" && variantMode === "NONE" && (
               <div>
                 <label>Opciones</label>
                 {options.map((opt, i) => (
                   <div key={i} className="option-row" style={{ marginBottom: 8 }}>
                     <input
+                      type="color"
+                      className="color-swatch-input"
+                      value={opt.color}
+                      onChange={(e) =>
+                        setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, color: e.target.value } : o)))
+                      }
+                      title="Color del botón"
+                    />
+                    <input
                       className="field"
-                      value={opt}
-                      onChange={(e) => setOptions((prev) => prev.map((o, idx) => (idx === i ? e.target.value : o)))}
+                      value={opt.value}
+                      onChange={(e) =>
+                        setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, value: e.target.value } : o)))
+                      }
                       placeholder={`Opción ${i + 1}`}
                     />
                     <button
@@ -379,7 +436,11 @@ export default function AttributesPage() {
                     </button>
                   </div>
                 ))}
-                <button type="button" className="link-button" onClick={() => setOptions((prev) => [...prev, ""])}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setOptions((prev) => [...prev, { value: "", color: DEFAULT_OPTION_COLOR }])}
+                >
                   + Agregar opción
                 </button>
               </div>
@@ -405,12 +466,26 @@ export default function AttributesPage() {
           <div className="form-grid">
             {optionsFor.options.map((option) => (
               <div key={option.id} className="option-row">
+                <input
+                  type="color"
+                  className="color-swatch-input"
+                  value={option.color ?? DEFAULT_OPTION_COLOR}
+                  onChange={(e) => handleOptionColorChange(option, e.target.value)}
+                  title="Color del botón"
+                />
                 <span style={{ flex: 1 }}>{option.value}</span>
                 <button type="button" className="link-button" onClick={() => handleEditOption(option)}>Editar</button>
                 <button type="button" className="link-button danger" onClick={() => handleDeleteOption(option)}>Eliminar</button>
               </div>
             ))}
             <div className="option-row">
+              <input
+                type="color"
+                className="color-swatch-input"
+                value={newOptionColor}
+                onChange={(e) => setNewOptionColor(e.target.value)}
+                title="Color del botón"
+              />
               <input
                 className="field"
                 value={newOptionValue}

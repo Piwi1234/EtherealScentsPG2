@@ -68,12 +68,13 @@ export class ProductService {
       if (definition.isRequired && provided.length === 0) {
         throw new BadRequestException(`Falta el atributo requerido '${definition.name}'.`);
       }
-      if (provided.length > 1) {
+      if (!definition.allowMultiple && provided.length > 1) {
         throw new BadRequestException(`El atributo '${definition.name}' no admite más de un valor.`);
       }
     }
 
     const result: AttributeValueWrite[] = [];
+    const seenOptionsByAttribute = new Map<string, Set<string>>();
 
     for (const input of inputs) {
       const definition = byId.get(input.attributeId);
@@ -115,6 +116,12 @@ export class ProductService {
           if (!validOption) {
             throw new BadRequestException(`'optionId' inválido para el atributo '${definition.name}'.`);
           }
+          const seen = seenOptionsByAttribute.get(definition.id) ?? new Set<string>();
+          if (seen.has(input.optionId)) {
+            throw new BadRequestException(`Valor repetido para el atributo '${definition.name}'.`);
+          }
+          seen.add(input.optionId);
+          seenOptionsByAttribute.set(definition.id, seen);
           result.push({ attributeId: definition.id, optionId: input.optionId });
           break;
         }

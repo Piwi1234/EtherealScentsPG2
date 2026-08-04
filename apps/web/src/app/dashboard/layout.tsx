@@ -55,6 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header className="topbar">
           <span>{user ? `${user.name} (${user.role})` : "Cargando..."}</span>
+          <Link href="/" className="button">Catálogo</Link>
         </header>
         <main className="dashboard-main">{children}</main>
       </div>

@@ -1,6 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateNested,
+} from "class-validator";
 import { AttributeType, AttributeVariantMode } from "@app/database";
-import { ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator";
+
+export class CreateAttributeOptionInputDto {
+  @ApiProperty({ example: "AMADERADO" })
+  @IsString()
+  @IsNotEmpty()
+  value!: string;
+
+  @ApiPropertyOptional({ example: "#c9a96e", description: "Color hex del botón de esta opción en el formulario de producto." })
+  @IsOptional()
+  @IsString()
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: "color debe ser un hex válido, ej. #c9a96e" })
+  color?: string;
+}
 
 export class CreateAttributeDto {
   @ApiProperty({ example: "Almacenamiento" })
@@ -34,23 +59,34 @@ export class CreateAttributeDto {
     enum: AttributeVariantMode,
     default: AttributeVariantMode.NONE,
     description:
-      "Solo válido cuando type='select'. NONE: valor único de siempre. MULTI_VALUE: el producto puede " +
-      "tener 1 o más valores, no afecta el precio (ej. sabores). PRICED_VARIANT: cada valor elegido " +
-      "genera una variante con su propio precio de compra/utilidad/ID de producto (ej. tamaño).",
+      "Solo válido cuando type='select'. NONE: valor único de siempre (o varios si allowMultiple). " +
+      "MULTI_VALUE: el producto arma su propia lista de valores, no afecta el precio (ej. sabores). " +
+      "PRICED_VARIANT: cada valor propio del producto genera una variante con su propio precio.",
   })
   @IsOptional()
   @IsEnum(AttributeVariantMode)
   variantMode?: AttributeVariantMode;
 
   @ApiPropertyOptional({
-    type: [String],
-    description: "Requerido y solo válido cuando type='select'. Valores iniciales de la lista de opciones.",
-    example: ["64GB", "128GB", "256GB"],
+    default: false,
+    description:
+      "Solo válido cuando type='select' y variantMode='NONE'. El producto puede elegir 1 o más " +
+      "opciones de la lista compartida de la categoría (ej. Acordes de un perfume), para poder " +
+      "filtrar por ellas más adelante.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMultiple?: boolean;
+
+  @ApiPropertyOptional({
+    type: [CreateAttributeOptionInputDto],
+    description: "Requerido y solo válido cuando type='select' y variantMode='NONE'. Opciones iniciales de la lista.",
   })
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayUnique()
-  @IsString({ each: true })
-  options?: string[];
+  @ArrayUnique((o: CreateAttributeOptionInputDto) => o.value)
+  @ValidateNested({ each: true })
+  @Type(() => CreateAttributeOptionInputDto)
+  options?: CreateAttributeOptionInputDto[];
 }

@@ -3,7 +3,7 @@ import { AttributeType, AttributeVariantMode } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CategoryService } from "../category/category.service";
-import { CreateAttributeDto } from "./dto/create-attribute.dto";
+import { CreateAttributeDto, CreateAttributeOptionInputDto } from "./dto/create-attribute.dto";
 import { UpdateAttributeDto } from "./dto/update-attribute.dto";
 import { CreateAttributeOptionDto, UpdateAttributeOptionDto } from "./dto/attribute-option.dto";
 
@@ -14,7 +14,11 @@ export class AttributeService {
     private readonly categories: CategoryService,
   ) {}
 
-  private validateOptionsForType(type: AttributeType, variantMode: AttributeVariantMode | undefined, options?: string[]) {
+  private validateOptionsForType(
+    type: AttributeType,
+    variantMode: AttributeVariantMode | undefined,
+    options?: CreateAttributeOptionInputDto[],
+  ) {
     const isPlainSelect = type === AttributeType.SELECT && (variantMode ?? AttributeVariantMode.NONE) === AttributeVariantMode.NONE;
     if (isPlainSelect) {
       if (!options || options.length === 0) {
@@ -38,10 +42,20 @@ export class AttributeService {
     }
   }
 
+  /** allowMultiple solo tiene sentido para un select "normal" (sin variante): el producto elige 1+
+   * de la lista compartida de la categoría. Para MULTI_VALUE/PRICED_VARIANT ya existe su propio
+   * mecanismo (valores propios por producto). */
+  private validateAllowMultiple(type: AttributeType, variantMode: AttributeVariantMode | undefined, allowMultiple?: boolean) {
+    if (allowMultiple && (type !== AttributeType.SELECT || (variantMode ?? AttributeVariantMode.NONE) !== AttributeVariantMode.NONE)) {
+      throw new BadRequestException("'allowMultiple' solo aplica a atributos de tipo 'select' sin variante.");
+    }
+  }
+
   async create(categoryId: string, dto: CreateAttributeDto) {
     await this.categories.findOne(categoryId);
     this.validateVariantMode(dto.type, dto.variantMode);
     this.validateOptionsForType(dto.type, dto.variantMode, dto.options);
+    this.validateAllowMultiple(dto.type, dto.variantMode, dto.allowMultiple);
 
     const variantMode = dto.variantMode ?? AttributeVariantMode.NONE;
     const isPlainSelect = dto.type === AttributeType.SELECT && variantMode === AttributeVariantMode.NONE;
@@ -56,7 +70,10 @@ export class AttributeService {
           isRequired: dto.isRequired ?? false,
           showInProductList: dto.showInProductList ?? false,
           variantMode,
-          options: isPlainSelect ? { create: dto.options!.map((value) => ({ value })) } : undefined,
+          allowMultiple: isPlainSelect ? (dto.allowMultiple ?? false) : false,
+          options: isPlainSelect
+            ? { create: dto.options!.map((o) => ({ value: o.value, color: o.color })) }
+            : undefined,
         },
         include: { options: true },
       });
@@ -90,7 +107,10 @@ export class AttributeService {
   }
 
   async update(id: string, dto: UpdateAttributeDto) {
-    await this.findOne(id);
+    const attribute = await this.findOne(id);
+    if (dto.allowMultiple) {
+      this.validateAllowMultiple(attribute.type, attribute.variantMode, dto.allowMultiple);
+    }
     try {
       return await this.prisma.attribute.update({
         where: { id },
@@ -128,7 +148,7 @@ export class AttributeService {
     }
     this.assertPlainSelectAttribute(attribute);
     try {
-      return await this.prisma.attributeOption.create({ data: { attributeId, value: dto.value } });
+      return await this.prisma.attributeOption.create({ data: { attributeId, value: dto.value, color: dto.color } });
     } catch (error) {
       rethrowPrismaError(error, "Opción de atributo");
     }
@@ -139,7 +159,10 @@ export class AttributeService {
     this.assertPlainSelectAttribute(attribute);
     await this.getOptionOrThrow(attributeId, optionId);
     try {
-      return await this.prisma.attributeOption.update({ where: { id: optionId }, data: { value: dto.value } });
+      return await this.prisma.attributeOption.update({
+        where: { id: optionId },
+        data: { value: dto.value, color: dto.color },
+      });
     } catch (error) {
       rethrowPrismaError(error, "Opción de atributo");
     }
