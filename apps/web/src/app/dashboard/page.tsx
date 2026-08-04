@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiPut, ApiError } from "../../lib/api";
+import { ExchangeIcon } from "../../components/icons";
 
 export default function DashboardPage() {
   const [rate, setRate] = useState("");
@@ -39,53 +40,45 @@ export default function DashboardPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="card" style={{ maxWidth: 420 }}>
-        <h2 className="section-label">Tipo de cambio</h2>
-        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)" }}>
-          Define el tipo de cambio $ → Bs del sistema. Se usa para calcular el Precio May Bs de todos los
-          productos (Precio $ × tipo de cambio).
-        </p>
-        {loading ? (
-          <p>Cargando...</p>
-        ) : (
-          <form onSubmit={handleSave}>
-            <div className="grid-2">
-              <div>
-                <label>Bs por $1</label>
-                <input
-                  className="field"
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                  required
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button type="submit" className="button" disabled={saving} style={{ width: "100%", justifyContent: "center" }}>
-                  {saving ? "Guardando..." : "Guardar"}
-                </button>
-              </div>
-            </div>
-            {savedRate !== null && (
-              <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                Actual: 1 $ = {savedRate} Bs
-              </p>
-            )}
-            {success && (
-              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#2e7d32" }}>Tipo de cambio actualizado correctamente.</p>
-            )}
-            {error && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
-          </form>
-        )}
+    <div className="card stat-card">
+      <div className="stat-card-header">
+        <div className="stat-card-icon">
+          <ExchangeIcon />
+        </div>
+        <h2 className="section-label" style={{ margin: 0 }}>Tipo de cambio</h2>
       </div>
 
-      <div className="card">
-        <h1 style={{ marginTop: 0, fontSize: 20 }}>Resumen</h1>
-        <p>Elegí una sección del menú para administrar el catálogo: categorías, marcas, atributos o productos.</p>
-      </div>
+      {loading ? (
+        <p style={{ margin: 0 }}>Cargando...</p>
+      ) : (
+        <>
+          <div className="stat-value">
+            {savedRate !== null ? savedRate : "—"}
+            <span className="unit">Bs por $1</span>
+          </div>
+
+          <form onSubmit={handleSave} className="stat-card-form">
+            <div className="field-group">
+              <label>Nuevo valor</label>
+              <input
+                className="field"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="button" disabled={saving}>
+              {saving ? "Guardando..." : "Guardar"}
+            </button>
+          </form>
+
+          {success && <p className="stat-feedback">✓ Tipo de cambio actualizado correctamente.</p>}
+          {error && <p className="error-text">{error}</p>}
+        </>
+      )}
     </div>
   );
 }

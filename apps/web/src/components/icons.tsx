@@ -75,3 +75,14 @@ export function LogoutIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ExchangeIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 8h13" />
+      <path d="M14 4.5 17 8l-3 3.5" />
+      <path d="M20 16H7" />
+      <path d="M10 19.5 7 16l3-3.5" />
+    </svg>
+  );
+}
