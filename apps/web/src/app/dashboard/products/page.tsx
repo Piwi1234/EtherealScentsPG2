@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
-import type { Attribute, AttributeType, AttributeVariantMode, Brand, Category, Page, Product, ProductVariant } from "../../../lib/types";
-import { Modal } from "../../../components/Modal";
+import Link from "next/link";
+import { API_ORIGIN, apiDelete, apiGet } from "../../../lib/api";
+import { consumeFlashMessage } from "../../../lib/flash";
+import type { AttributeType, AttributeVariantMode, Brand, Category, Page, Product, ProductVariant } from "../../../lib/types";
 
 function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
@@ -37,10 +38,6 @@ function defaultVariantId(product: Product): string | undefined {
   return product.variants.reduce((best, v) => (v.price > best.price ? v : best), product.variants[0]).id;
 }
 
-type VariantFormState = { optionsByAttribute: Record<string, string>; purchasePrice: string; utility: string };
-
-const EMPTY_VARIANT_FORM: VariantFormState = { optionsByAttribute: {}, purchasePrice: "", utility: "0" };
-
 export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -51,6 +48,7 @@ export default function ProductsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState<Page<Product> | null>(null);
   const [error, setError] = useState("");
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
   // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
   // de la tabla. Es puramente de vista: no se guarda en el backend.
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
@@ -66,44 +64,6 @@ export default function ProductsPage() {
   function handleRootCategoryFilterChange(id: string) {
     setRootCategoryFilter(id);
     setSubCategoryFilter("");
-  }
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [name, setName] = useState("");
-  const [purchasePrice, setPurchasePrice] = useState("");
-  const [utility, setUtility] = useState("0");
-  const [brandId, setBrandId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
-  const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
-  const [multiValues, setMultiValues] = useState<Record<string, Set<string>>>({});
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [formError, setFormError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const [variantForm, setVariantForm] = useState<VariantFormState>(EMPTY_VARIANT_FORM);
-  const [variantError, setVariantError] = useState("");
-  const [variantSubmitting, setVariantSubmitting] = useState(false);
-
-  // Atributos normales (un valor), múltiples sin precio (ej. sabores) y con precio propio (ej. tamaño).
-  const regularAttrs = attributeDefs.filter((def) => def.variantMode === "NONE");
-  const multiValueAttrs = attributeDefs.filter((def) => def.variantMode === "MULTI_VALUE");
-  const pricedVariantAttrs = attributeDefs.filter((def) => def.variantMode === "PRICED_VARIANT");
-
-  function handleImageSelect(file: File | null) {
-    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
-    setImageFile(file);
-    setImagePreview(file ? URL.createObjectURL(file) : null);
-  }
-
-  function toggleMultiValue(attributeId: string, optionId: string) {
-    setMultiValues((prev) => {
-      const next = new Set(prev[attributeId] ?? []);
-      next.has(optionId) ? next.delete(optionId) : next.add(optionId);
-      return { ...prev, [attributeId]: next };
-    });
   }
 
   function loadProducts() {
@@ -125,6 +85,15 @@ export default function ProductsPage() {
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
   }, []);
 
+  // Mensaje de éxito pendiente de la página de crear/editar (sobrevivió al router.push).
+  useEffect(() => {
+    const message = consumeFlashMessage();
+    if (!message) return;
+    setFlashMessage(message);
+    const timeout = setTimeout(() => setFlashMessage(null), 4000);
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -133,181 +102,10 @@ export default function ProductsPage() {
 
   useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch]);
 
-  async function loadAttributesFor(id: string): Promise<Attribute[]> {
-    if (!id) {
-      setAttributeDefs([]);
-      return [];
-    }
-    const attrs = await apiGet<Attribute[]>(`/categories/${id}/attributes`);
-    setAttributeDefs(attrs);
-    return attrs;
-  }
-
-  async function handleCategoryChange(id: string) {
-    setCategoryId(id);
-    setAttributeValues({});
-    setMultiValues({});
-    setVariantForm(EMPTY_VARIANT_FORM);
-    await loadAttributesFor(id);
-  }
-
-  async function openCreate() {
-    setEditing(null);
-    setName("");
-    setPurchasePrice("");
-    setUtility("0");
-    setBrandId("");
-    setAttributeValues({});
-    setMultiValues({});
-    setVariantForm(EMPTY_VARIANT_FORM);
-    setVariantError("");
-    handleImageSelect(null);
-    const firstCategory = categories[0]?.id ?? "";
-    setCategoryId(firstCategory);
-    await loadAttributesFor(firstCategory);
-    setFormError("");
-    setModalOpen(true);
-  }
-
-  async function openEdit(product: Product) {
-    setEditing(product);
-    setName(product.name);
-    setPurchasePrice(product.purchasePrice);
-    setUtility(product.utility);
-    setBrandId(product.brandId ?? "");
-    setCategoryId(product.categoryId);
-    setImageFile(null);
-    setImagePreview(productImageSrc(product.imageUrl));
-    setVariantForm(EMPTY_VARIANT_FORM);
-    setVariantError("");
-    await loadAttributesFor(product.categoryId);
-
-    const values: Record<string, string> = {};
-    const multi: Record<string, Set<string>> = {};
-    for (const pv of product.attributeValues) {
-      if (pv.attribute.variantMode === "MULTI_VALUE") {
-        if (pv.optionId) {
-          const set = multi[pv.attributeId] ?? new Set<string>();
-          set.add(pv.optionId);
-          multi[pv.attributeId] = set;
-        }
-        continue;
-      }
-      if (pv.optionId) values[pv.attributeId] = pv.optionId;
-      else if (pv.valueText !== null) values[pv.attributeId] = pv.valueText;
-      else if (pv.valueNumber !== null) values[pv.attributeId] = pv.valueNumber;
-      else if (pv.valueBoolean !== null) values[pv.attributeId] = String(pv.valueBoolean);
-    }
-    setAttributeValues(values);
-    setMultiValues(multi);
-    setFormError("");
-    setModalOpen(true);
-  }
-
   async function handleDelete(product: Product) {
     if (!confirm(`¿Eliminar el producto "${product.name}"?`)) return;
     try {
       await apiDelete(`/products/${product.id}`);
-      loadProducts();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError("");
-
-    const missing = regularAttrs.filter((def) => def.isRequired && !attributeValues[def.id]);
-    const missingMulti = multiValueAttrs.filter((def) => def.isRequired && !(multiValues[def.id]?.size));
-    if (missing.length > 0 || missingMulti.length > 0) {
-      setFormError(`Falta completar: ${[...missing, ...missingMulti].map((m) => m.name).join(", ")}`);
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const regularPayload = regularAttrs
-        .filter((def) => attributeValues[def.id])
-        .map((def) => {
-          const raw = attributeValues[def.id];
-          if (def.type === "SELECT") return { attributeId: def.id, optionId: raw };
-          if (def.type === "NUMBER") return { attributeId: def.id, valueNumber: Number(raw) };
-          if (def.type === "BOOLEAN") return { attributeId: def.id, valueBoolean: raw === "true" };
-          return { attributeId: def.id, valueText: raw };
-        });
-      const multiPayload = multiValueAttrs.flatMap((def) =>
-        Array.from(multiValues[def.id] ?? []).map((optionId) => ({ attributeId: def.id, optionId })),
-      );
-
-      // Si la categoría tiene atributos con precio propio, el precio se carga por variante:
-      // pedirlo acá también sería redundante (y generaría un "precio base" de más).
-      const usesPricedVariants = pricedVariantAttrs.length > 0;
-      const payload = {
-        name,
-        purchasePrice: usesPricedVariants ? 0 : Number(purchasePrice),
-        utility: usesPricedVariants ? 0 : Number(utility || 0),
-        brandId: brandId || undefined,
-        categoryId,
-        attributeValues: [...regularPayload, ...multiPayload],
-      };
-
-      const saved = editing
-        ? await apiPatch<Product>(`/products/${editing.id}`, payload)
-        : await apiPost<Product>("/products", payload);
-
-      if (imageFile) {
-        await apiUpload(`/products/${saved.id}/image`, imageFile);
-      }
-
-      setModalOpen(false);
-      loadProducts();
-    } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleAddVariant() {
-    if (!editing) return;
-    setVariantError("");
-
-    const options = pricedVariantAttrs
-      .filter((def) => variantForm.optionsByAttribute[def.id])
-      .map((def) => ({ attributeId: def.id, optionId: variantForm.optionsByAttribute[def.id] }));
-    if (options.length === 0) {
-      setVariantError("Elegí al menos un valor para la variante.");
-      return;
-    }
-    if (!variantForm.purchasePrice) {
-      setVariantError("Ingresá el precio de compra de la variante.");
-      return;
-    }
-
-    setVariantSubmitting(true);
-    try {
-      const updated = await apiPost<Product>(`/products/${editing.id}/variants`, {
-        purchasePrice: Number(variantForm.purchasePrice),
-        utility: Number(variantForm.utility || 0),
-        options,
-      });
-      setEditing(updated);
-      setVariantForm(EMPTY_VARIANT_FORM);
-      loadProducts();
-    } catch (e) {
-      setVariantError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
-    } finally {
-      setVariantSubmitting(false);
-    }
-  }
-
-  async function handleDeleteVariant(variantId: string) {
-    if (!editing || !confirm("¿Eliminar esta variante?")) return;
-    try {
-      await apiDelete(`/products/${editing.id}/variants/${variantId}`);
-      const updated = await apiGet<Product>(`/products/${editing.id}`);
-      setEditing(updated);
       loadProducts();
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
@@ -390,21 +188,20 @@ export default function ProductsPage() {
     return productAttributeCell(product, column.id);
   }
 
-  // Vista previa en vivo: misma fórmula que calcula el backend.
-  // Precio $ = Precio de compra + costos heredados de la categoría + utilidad.
-  const selectedCategory = categories.find((cat) => cat.id === categoryId);
-  const logisticsCostPreview = Number(selectedCategory?.logisticsCost ?? 0);
-  const shippingCostPreview = Number(selectedCategory?.shippingCost ?? 0);
-  const securityCostPreview = Number(selectedCategory?.securityCost ?? 0);
-  const pricePreview =
-    Number(purchasePrice || 0) + logisticsCostPreview + shippingCostPreview + securityCostPreview + Number(utility || 0);
-
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Productos</h1>
-        <button type="button" className="button" onClick={openCreate} disabled={categories.length === 0}>+ Nuevo producto</button>
+        <Link href="/dashboard/products/new" className="button">+ Nuevo producto</Link>
       </div>
+      {flashMessage && (
+        <div className="success-banner">
+          <span>{flashMessage}</span>
+          <button type="button" className="link-button" style={{ margin: 0 }} onClick={() => setFlashMessage(null)}>
+            Cerrar
+          </button>
+        </div>
+      )}
       {error && <p className="error-text">{error}</p>}
 
       <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
@@ -514,7 +311,7 @@ export default function ProductsPage() {
                       )}
                     </td>
                     <td>
-                      <button type="button" className="link-button" onClick={() => openEdit(product)}>Editar</button>
+                      <Link href={`/dashboard/products/${product.id}/edit`} className="link-button">Editar</Link>
                       <button type="button" className="link-button danger" onClick={() => handleDelete(product)}>Eliminar</button>
                     </td>
                   </tr>
@@ -526,292 +323,6 @@ export default function ProductsPage() {
             {page.total} producto{page.total === 1 ? "" : "s"} en total.
           </p>
         </>
-      )}
-
-      {modalOpen && (
-        <Modal title={editing ? "Editar producto" : "Nuevo producto"} onClose={() => setModalOpen(false)}>
-          <form className="form-grid" onSubmit={handleSubmit}>
-            <div>
-              <label>Nombre</label>
-              <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            {editing && (
-              <div>
-                <label>ID Producto</label>
-                <input className="field" value={editing.productCode} disabled />
-              </div>
-            )}
-            <div>
-              <label>Imagen</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {imagePreview && (
-                  <img
-                    src={imagePreview}
-                    alt="Vista previa"
-                    style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }}
-                  />
-                )}
-                <input
-                  className="field"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
-                />
-              </div>
-            </div>
-            {pricedVariantAttrs.length === 0 && (
-              <div style={{ display: "flex", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <label>Precio de compra</label>
-                  <input
-                    className="field"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={purchasePrice}
-                    onChange={(e) => setPurchasePrice(e.target.value)}
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label>Utilidad</label>
-                  <input className="field" type="number" step="0.01" value={utility} onChange={(e) => setUtility(e.target.value)} />
-                </div>
-              </div>
-            )}
-            <div>
-              <label>Marca</label>
-              <select className="field" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
-                <option value="">— Sin marca —</option>
-                {brands.map((brand) => (
-                  <option key={brand.id} value={brand.id}>{brand.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Categoría</label>
-              <select className="field" value={categoryId} onChange={(e) => handleCategoryChange(e.target.value)} required>
-                <option value="">— Elegir —</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {selectedCategory && pricedVariantAttrs.length === 0 && (
-              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                <label style={{ display: "block", marginBottom: 8 }}>
-                  Costos heredados de &quot;{selectedCategory.name}&quot; (solo lectura)
-                </label>
-                <p style={{ margin: "0 0 8px", fontSize: 13, color: "var(--muted)" }}>
-                  Logística: ${logisticsCostPreview.toFixed(2)} · Envío: ${shippingCostPreview.toFixed(2)} · Seguridad: $
-                  {securityCostPreview.toFixed(2)}
-                </p>
-                <p style={{ margin: 0, fontWeight: 600 }}>
-                  Precio $ = Precio de compra + costos + utilidad = ${pricePreview.toFixed(2)}
-                </p>
-              </div>
-            )}
-
-            {regularAttrs.length > 0 && (
-              <div className="form-grid" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                {regularAttrs.map((def) => (
-                  <div key={def.id}>
-                    <label>
-                      {def.name}{def.isRequired ? " *" : ""}
-                      {def.inherited ? <span className="badge badge-muted" style={{ marginLeft: 6 }}>Heredado</span> : null}
-                    </label>
-                    {def.type === "SELECT" && (
-                      <select
-                        className="field"
-                        value={attributeValues[def.id] ?? ""}
-                        onChange={(e) => setAttributeValues((prev) => ({ ...prev, [def.id]: e.target.value }))}
-                      >
-                        <option value="">— Elegir —</option>
-                        {def.options.map((opt) => (
-                          <option key={opt.id} value={opt.id}>{opt.value}</option>
-                        ))}
-                      </select>
-                    )}
-                    {def.type === "BOOLEAN" && (
-                      <select
-                        className="field"
-                        value={attributeValues[def.id] ?? ""}
-                        onChange={(e) => setAttributeValues((prev) => ({ ...prev, [def.id]: e.target.value }))}
-                      >
-                        <option value="">— Sin especificar —</option>
-                        <option value="true">Sí</option>
-                        <option value="false">No</option>
-                      </select>
-                    )}
-                    {def.type === "NUMBER" && (
-                      <input
-                        className="field"
-                        type="number"
-                        value={attributeValues[def.id] ?? ""}
-                        onChange={(e) => setAttributeValues((prev) => ({ ...prev, [def.id]: e.target.value }))}
-                      />
-                    )}
-                    {def.type === "TEXT" && (
-                      <input
-                        className="field"
-                        value={attributeValues[def.id] ?? ""}
-                        onChange={(e) => setAttributeValues((prev) => ({ ...prev, [def.id]: e.target.value }))}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {multiValueAttrs.length > 0 && (
-              <div className="form-grid" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                {multiValueAttrs.map((def) => (
-                  <div key={def.id}>
-                    <label>
-                      {def.name}{def.isRequired ? " *" : ""} <span className="badge badge-muted">Múltiple</span>
-                    </label>
-                    <div className="checkbox-group-items">
-                      {def.options.map((opt) => (
-                        <label key={opt.id} className="checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={multiValues[def.id]?.has(opt.id) ?? false}
-                            onChange={() => toggleMultiValue(def.id, opt.id)}
-                          />
-                          {opt.value}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {pricedVariantAttrs.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                <label style={{ display: "block", marginBottom: 4 }}>Variantes con precio propio</label>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)" }}>
-                  Esta categoría fija el precio por variante, así que no se pide Precio de compra/Utilidad del
-                  producto en general (sería redundante).
-                </p>
-
-                {!editing && (
-                  <p style={{ fontSize: 13, color: "var(--muted)" }}>
-                    Guardá el producto primero; después vas a poder agregarle variantes acá mismo (editando).
-                  </p>
-                )}
-
-                {editing && (
-                  <>
-                    {editing.variants.length > 0 && (
-                      <table className="table" style={{ marginBottom: 12 }}>
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Combinación</th>
-                            <th>Compra</th>
-                            <th>Utilidad</th>
-                            <th>Precio $</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {editing.variants.map((variant) => (
-                            <tr key={variant.id}>
-                              <td>{variant.variantCode}</td>
-                              <td>{variant.options.map((o) => `${o.attribute.name}: ${o.option.value}`).join(" · ")}</td>
-                              <td>${variant.purchasePrice}</td>
-                              <td>${variant.utility}</td>
-                              <td>${variant.price.toFixed(2)}</td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="link-button danger"
-                                  onClick={() => handleDeleteVariant(variant.id)}
-                                >
-                                  Eliminar
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-
-                    <div className="form-grid" style={{ background: "var(--paper)", padding: 12, borderRadius: 8 }}>
-                      {pricedVariantAttrs.map((def) => (
-                        <div key={def.id}>
-                          <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
-                          <select
-                            className="field"
-                            value={variantForm.optionsByAttribute[def.id] ?? ""}
-                            onChange={(e) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                optionsByAttribute: { ...prev.optionsByAttribute, [def.id]: e.target.value },
-                              }))
-                            }
-                          >
-                            <option value="">— Elegir —</option>
-                            {def.options.map((opt) => (
-                              <option key={opt.id} value={opt.id}>{opt.value}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
-                          <input
-                            className="field"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={variantForm.purchasePrice}
-                            onChange={(e) => setVariantForm((prev) => ({ ...prev, purchasePrice: e.target.value }))}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: 12, color: "var(--muted)" }}>Utilidad</label>
-                          <input
-                            className="field"
-                            type="number"
-                            step="0.01"
-                            value={variantForm.utility}
-                            onChange={(e) => setVariantForm((prev) => ({ ...prev, utility: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-                        Precio $ de esta variante (compra + costos + utilidad): $
-                        {(
-                          Number(variantForm.purchasePrice || 0) +
-                          logisticsCostPreview +
-                          shippingCostPreview +
-                          securityCostPreview +
-                          Number(variantForm.utility || 0)
-                        ).toFixed(2)}
-                      </p>
-                      {variantError && <p className="error-text">{variantError}</p>}
-                      <button type="button" className="button" onClick={handleAddVariant} disabled={variantSubmitting}>
-                        {variantSubmitting ? "Agregando..." : "+ Agregar variante"}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {formError && <p className="error-text">{formError}</p>}
-            <div className="form-actions">
-              <button type="button" className="link-button" onClick={() => setModalOpen(false)}>Cancelar</button>
-              <button type="submit" className="button" disabled={submitting}>
-                {submitting ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-          </form>
-        </Modal>
       )}
     </div>
   );
