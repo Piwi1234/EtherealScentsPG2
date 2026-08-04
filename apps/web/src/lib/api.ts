@@ -63,6 +63,10 @@ export function apiPatch<T>(path: string, data: unknown): Promise<T> {
   return apiRequest<T>(path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
+export function apiPut<T>(path: string, data: unknown): Promise<T> {
+  return apiRequest<T>(path, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+
 export function apiDelete<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "DELETE" });
 }

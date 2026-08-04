@@ -72,8 +72,15 @@ export type ProductVariant = {
   variantCode: string;
   purchasePrice: string;
   utility: string;
+  /** Precio Min Bs (manual, opcional) y Descuento Bs (manual) propios de esta variante. */
+  minPriceBs: string | null;
+  discountBs: string;
   /** Calculado en vivo, misma fórmula que el producto pero con la purchasePrice/utility de la variante. */
   price: number;
+  /** Calculado en vivo: price * tipo de cambio del sistema. */
+  wholesalePriceBs: number;
+  /** Calculado en vivo: (minPriceBs si hay, si no wholesalePriceBs) - discountBs. */
+  finalPriceBs: number;
   options: ProductVariantOption[];
 };
 
@@ -83,8 +90,15 @@ export type Product = {
   productCode: string;
   purchasePrice: string;
   utility: string;
+  /** Precio Min Bs (manual, opcional) y Descuento Bs (manual). Redundantes si hay variantes con precio propio. */
+  minPriceBs: string | null;
+  discountBs: string;
   /** Calculado en vivo por el backend: purchasePrice + logisticsCost + shippingCost + securityCost (de category) + utility. */
   price: number;
+  /** Calculado en vivo: price * tipo de cambio del sistema (Precio May Bs). */
+  wholesalePriceBs: number;
+  /** Calculado en vivo: (minPriceBs si hay, si no wholesalePriceBs) - discountBs (Precio Final Bs). */
+  finalPriceBs: number;
   imageUrl: string | null;
   brandId: string | null;
   categoryId: string;
@@ -95,3 +109,5 @@ export type Product = {
 };
 
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
+
+export type ExchangeRateResponse = { exchangeRate: number };

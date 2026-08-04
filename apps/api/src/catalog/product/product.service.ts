@@ -7,6 +7,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
+import { SettingsService } from "../../settings/settings.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
@@ -36,6 +37,7 @@ export class ProductService {
     private readonly prisma: PrismaService,
     private readonly categories: CategoryService,
     private readonly attributes: AttributeService,
+    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -177,13 +179,15 @@ export class ProductService {
           productCode,
           purchasePrice: dto.purchasePrice ?? 0,
           utility: dto.utility ?? 0,
+          minPriceBs: dto.minPriceBs,
+          discountBs: dto.discountBs ?? 0,
           brandId: dto.brandId,
           categoryId: dto.categoryId,
           attributeValues: { create: attributeValuesData },
         },
         include: includeDetails,
       });
-      return withPrice(product);
+      return withPrice(product, await this.settings.getExchangeRate());
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -199,12 +203,13 @@ export class ProductService {
       brandId: query.brandId,
     };
 
-    const [items, total] = await Promise.all([
+    const [items, total, exchangeRate] = await Promise.all([
       this.prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
       this.prisma.product.count({ where }),
+      this.settings.getExchangeRate(),
     ]);
 
-    return { items: items.map((item) => withPrice(item)), total, page, pageSize };
+    return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
   }
 
   async findOne(id: string) {
@@ -212,7 +217,7 @@ export class ProductService {
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
     }
-    return withPrice(product);
+    return withPrice(product, await this.settings.getExchangeRate());
   }
 
   async update(id: string, dto: UpdateProductDto) {
@@ -265,13 +270,15 @@ export class ProductService {
             name: dto.name,
             purchasePrice: dto.purchasePrice,
             utility: dto.utility,
+            minPriceBs: dto.minPriceBs,
+            discountBs: dto.discountBs,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
           },
           include: includeDetails,
         });
       });
-      return withPrice(product);
+      return withPrice(product, await this.settings.getExchangeRate());
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -295,7 +302,7 @@ export class ProductService {
         }
       }
 
-      return withPrice(updated);
+      return withPrice(updated, await this.settings.getExchangeRate());
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -369,6 +376,8 @@ export class ProductService {
           variantCode,
           purchasePrice: dto.purchasePrice,
           utility: dto.utility ?? 0,
+          minPriceBs: dto.minPriceBs,
+          discountBs: dto.discountBs ?? 0,
           options: { create: options },
         },
       });
@@ -399,7 +408,12 @@ export class ProductService {
         }
         await tx.productVariant.update({
           where: { id: variantId },
-          data: { purchasePrice: dto.purchasePrice, utility: dto.utility },
+          data: {
+            purchasePrice: dto.purchasePrice,
+            utility: dto.utility,
+            minPriceBs: dto.minPriceBs,
+            discountBs: dto.discountBs,
+          },
         });
       });
       return this.findOne(productId);

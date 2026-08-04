@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsPositive, IsUUID, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsPositive, IsUUID, Min, ValidateNested } from "class-validator";
 
 export class VariantOptionInputDto {
   @ApiProperty({ description: "Id de un atributo con precio propio (variantMode='PRICED_VARIANT') de la categoría." })
@@ -22,6 +22,18 @@ export class CreateProductVariantDto {
   @IsOptional()
   @IsNumber()
   utility?: number;
+
+  @ApiPropertyOptional({ example: 350, description: "Precio Min Bs (manual) propio de esta variante." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minPriceBs?: number;
+
+  @ApiPropertyOptional({ example: 20, default: 0, description: "Descuento en bolívares propio de esta variante." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountBs?: number;
 
   @ApiProperty({
     type: [VariantOptionInputDto],

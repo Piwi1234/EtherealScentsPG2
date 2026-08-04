@@ -4,15 +4,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
 import { consumeFlashMessage, setFlashMessage } from "../../../lib/flash";
-import type { Attribute, Brand, Category, Product } from "../../../lib/types";
+import type { Attribute, Brand, Category, ExchangeRateResponse, Product } from "../../../lib/types";
 
 function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
 }
 
-type VariantFormState = { optionsByAttribute: Record<string, string>; purchasePrice: string; utility: string };
+type VariantFormState = {
+  optionsByAttribute: Record<string, string>;
+  purchasePrice: string;
+  utility: string;
+  minPriceBs: string;
+  discountBs: string;
+};
 
-const EMPTY_VARIANT_FORM: VariantFormState = { optionsByAttribute: {}, purchasePrice: "", utility: "0" };
+const EMPTY_VARIANT_FORM: VariantFormState = {
+  optionsByAttribute: {},
+  purchasePrice: "",
+  utility: "0",
+  minPriceBs: "",
+  discountBs: "0",
+};
 
 export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const router = useRouter();
@@ -29,6 +41,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? "");
   const [purchasePrice, setPurchasePrice] = useState(editing?.purchasePrice ?? "");
   const [utility, setUtility] = useState(editing?.utility ?? "0");
+  const [minPriceBs, setMinPriceBs] = useState(editing?.minPriceBs ?? "");
+  const [discountBs, setDiscountBs] = useState(editing?.discountBs ?? "0");
+  const [exchangeRate, setExchangeRate] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
   const [multiValues, setMultiValues] = useState<Record<string, Set<string>>>({});
@@ -55,6 +70,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   useEffect(() => {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
+    apiGet<ExchangeRateResponse>("/settings/exchange-rate").then((data) => setExchangeRate(data.exchangeRate)).catch(() => {});
   }, []);
 
   // Si venimos de crear un producto con variantes con precio propio (se redirige acá mismo, a
@@ -172,14 +188,16 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         Array.from(multiValues[def.id] ?? []).map((optionId) => ({ attributeId: def.id, optionId })),
       );
 
-      // Si la categoría tiene atributos con precio propio, el precio se carga por variante: pedirlo
-      // acá también sería redundante. Ojo: hay que OMITIR estos campos (no mandar 0), porque el
-      // backend valida `purchasePrice` como número positivo cuando el campo está presente.
+      // Si la categoría tiene atributos con precio propio, el precio (tanto $ como Bs) se carga por
+      // variante: pedirlo acá también sería redundante. Ojo: hay que OMITIR purchasePrice (no mandar
+      // 0), porque el backend lo valida como número positivo cuando el campo está presente.
       const usesPricedVariants = pricedVariantAttrs.length > 0;
       const payload = {
         name,
         purchasePrice: usesPricedVariants ? undefined : Number(purchasePrice),
         utility: usesPricedVariants ? undefined : Number(utility || 0),
+        minPriceBs: usesPricedVariants || !minPriceBs ? undefined : Number(minPriceBs),
+        discountBs: usesPricedVariants ? undefined : Number(discountBs || 0),
         brandId: brandId || undefined,
         categoryId,
         attributeValues: [...regularPayload, ...multiPayload],
@@ -230,6 +248,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       const updated = await apiPost<Product>(`/products/${currentProduct.id}/variants`, {
         purchasePrice: Number(variantForm.purchasePrice),
         utility: Number(variantForm.utility || 0),
+        minPriceBs: variantForm.minPriceBs ? Number(variantForm.minPriceBs) : undefined,
+        discountBs: Number(variantForm.discountBs || 0),
         options,
       });
       setCurrentProduct(updated);
@@ -260,6 +280,20 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const securityCostPreview = Number(selectedCategory?.securityCost ?? 0);
   const pricePreview =
     Number(purchasePrice || 0) + logisticsCostPreview + shippingCostPreview + securityCostPreview + Number(utility || 0);
+  // Precio May Bs = Precio $ * tipo de cambio; Precio Final Bs = (Precio Min Bs si hay, si no
+  // Precio May Bs) - Descuento. Mismas fórmulas que el backend.
+  const wholesaleBsPreview = pricePreview * exchangeRate;
+  const finalBsPreview = (minPriceBs ? Number(minPriceBs) : wholesaleBsPreview) - Number(discountBs || 0);
+
+  const variantPricePreview =
+    Number(variantForm.purchasePrice || 0) +
+    logisticsCostPreview +
+    shippingCostPreview +
+    securityCostPreview +
+    Number(variantForm.utility || 0);
+  const variantWholesaleBsPreview = variantPricePreview * exchangeRate;
+  const variantFinalBsPreview =
+    (variantForm.minPriceBs ? Number(variantForm.minPriceBs) : variantWholesaleBsPreview) - Number(variantForm.discountBs || 0);
 
   return (
     <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -269,6 +303,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           Volver
         </button>
       </div>
+
+      {editing && (
+        <p style={{ margin: "-12px 0 20px", fontSize: 12, color: "var(--muted)" }}>
+          ID Producto: <span style={{ fontFamily: "monospace" }}>{editing.productCode}</span>
+        </p>
+      )}
 
       {flashMessage && (
         <div className="success-banner">
@@ -331,17 +371,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         {/* 3. Nombre */}
         <div className="form-section">
           <h2 className="section-label">Nombre</h2>
-          <div className={editing ? "grid-2" : undefined}>
-            <div>
-              <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            {editing && (
-              <div>
-                <label style={{ fontSize: 12, color: "var(--muted)" }}>ID Producto</label>
-                <input className="field" value={editing.productCode} disabled />
-              </div>
-            )}
-          </div>
+          <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
         {/* 4. Imagen */}
@@ -460,38 +490,48 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                 {currentProduct && (
                   <>
                     {currentProduct.variants.length > 0 && (
-                      <table className="table" style={{ marginBottom: 14, background: "var(--surface)" }}>
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Combinación</th>
-                            <th>Compra</th>
-                            <th>Utilidad</th>
-                            <th>Precio $</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentProduct.variants.map((variant) => (
-                            <tr key={variant.id}>
-                              <td>{variant.variantCode}</td>
-                              <td>{variant.options.map((o) => `${o.attribute.name}: ${o.option.value}`).join(" · ")}</td>
-                              <td>${variant.purchasePrice}</td>
-                              <td>${variant.utility}</td>
-                              <td>${variant.price.toFixed(2)}</td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="link-button danger"
-                                  onClick={() => handleDeleteVariant(variant.id)}
-                                >
-                                  Eliminar
-                                </button>
-                              </td>
+                      <div style={{ overflowX: "auto", marginBottom: 14 }}>
+                        <table className="table" style={{ background: "var(--surface)" }}>
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>Combinación</th>
+                              <th>Compra</th>
+                              <th>Utilidad</th>
+                              <th>Precio $</th>
+                              <th>May Bs</th>
+                              <th>Min Bs</th>
+                              <th>Desc. Bs</th>
+                              <th>Final Bs</th>
+                              <th></th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {currentProduct.variants.map((variant) => (
+                              <tr key={variant.id}>
+                                <td>{variant.variantCode}</td>
+                                <td>{variant.options.map((o) => `${o.attribute.name}: ${o.option.value}`).join(" · ")}</td>
+                                <td>${variant.purchasePrice}</td>
+                                <td>${variant.utility}</td>
+                                <td>${variant.price.toFixed(2)}</td>
+                                <td>Bs {variant.wholesalePriceBs.toFixed(2)}</td>
+                                <td>{variant.minPriceBs !== null ? `Bs ${variant.minPriceBs}` : "—"}</td>
+                                <td>Bs {variant.discountBs}</td>
+                                <td>Bs {variant.finalPriceBs.toFixed(2)}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="link-button danger"
+                                    onClick={() => handleDeleteVariant(variant.id)}
+                                  >
+                                    Eliminar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
 
                     <div className="grid-2" style={{ background: "var(--surface)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
@@ -536,15 +576,34 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, utility: e.target.value }))}
                         />
                       </div>
+                      <div>
+                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio Min Bs</label>
+                        <input
+                          className="field"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variantForm.minPriceBs}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, minPriceBs: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Descuento Bs</label>
+                        <input
+                          className="field"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variantForm.discountBs}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, discountBs: e.target.value }))}
+                        />
+                      </div>
                       <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)", gridColumn: "1 / -1" }}>
-                        Precio $ de esta variante (compra + costos + utilidad): $
-                        {(
-                          Number(variantForm.purchasePrice || 0) +
-                          logisticsCostPreview +
-                          shippingCostPreview +
-                          securityCostPreview +
-                          Number(variantForm.utility || 0)
-                        ).toFixed(2)}
+                        Precio $ de esta variante (compra + costos + utilidad): ${variantPricePreview.toFixed(2)} · Precio
+                        May Bs: Bs {variantWholesaleBsPreview.toFixed(2)}
+                      </p>
+                      <p style={{ margin: 0, fontWeight: 600, gridColumn: "1 / -1" }}>
+                        Precio Final Bs = (Precio Min Bs o May Bs) - Descuento = Bs {variantFinalBsPreview.toFixed(2)}
                       </p>
                       {variantError && <p className="error-text" style={{ gridColumn: "1 / -1" }}>{variantError}</p>}
                       <button
@@ -614,10 +673,49 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                 <p style={{ margin: 0, fontWeight: 600 }}>
                   Precio $ = Precio de compra + costos + utilidad = ${pricePreview.toFixed(2)}
                 </p>
+
+                <div className="subsection">
+                  <p className="subsection-title">Precios en Bs</p>
+                  <p className="subsection-hint">
+                    Tipo de cambio actual: 1 $ = {exchangeRate} Bs. Precio May Bs se calcula solo; Precio Min Bs y
+                    Descuento son manuales.
+                  </p>
+                  <p style={{ margin: "0 0 12px", fontSize: 13 }}>
+                    Precio May Bs = Precio $ × tipo de cambio = <strong>Bs {wholesaleBsPreview.toFixed(2)}</strong>
+                  </p>
+                  <div className="grid-2" style={{ marginBottom: 10 }}>
+                    <div>
+                      <label>Precio Min Bs</label>
+                      <input
+                        className="field"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={minPriceBs}
+                        onChange={(e) => setMinPriceBs(e.target.value)}
+                        placeholder="Opcional"
+                      />
+                    </div>
+                    <div>
+                      <label>Descuento Bs</label>
+                      <input
+                        className="field"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={discountBs}
+                        onChange={(e) => setDiscountBs(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p style={{ margin: 0, fontWeight: 600 }}>
+                    Precio Final Bs = (Precio Min Bs o May Bs) - Descuento = Bs {finalBsPreview.toFixed(2)}
+                  </p>
+                </div>
               </>
             ) : (
               <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-                El precio de compra y la utilidad se cargan por variante (sección Atributos, arriba).
+                El precio de compra, la utilidad y los precios en Bs se cargan por variante (sección Atributos, arriba).
               </p>
             )}
           </div>

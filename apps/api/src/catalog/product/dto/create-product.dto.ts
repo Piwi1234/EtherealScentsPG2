@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, ValidateNested } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min, ValidateNested } from "class-validator";
 import { ProductAttributeValueInputDto } from "./product-attribute-value.dto";
 
 export class CreateProductDto {
@@ -24,6 +24,23 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   utility?: number;
+
+  @ApiPropertyOptional({
+    example: 350,
+    description:
+      "Precio Min Bs (manual). Si no se carga, Precio Final Bs usa Precio May Bs como base. Igual que " +
+      "purchasePrice, si la categoría tiene atributos con precio propio se carga por variante en su lugar.",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minPriceBs?: number;
+
+  @ApiPropertyOptional({ example: 20, default: 0, description: "Descuento en bolívares, cargado manualmente." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountBs?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

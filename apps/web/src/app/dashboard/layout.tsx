@@ -7,7 +7,7 @@ import { apiGet } from "../../lib/api";
 import { clearSession, getAuthUser, type AuthUser } from "../../lib/auth";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Resumen", exact: true },
+  { href: "/dashboard", label: "Dashboard", exact: true },
   { href: "/dashboard/categories", label: "Categorías" },
   { href: "/dashboard/brands", label: "Marcas" },
   { href: "/dashboard/attributes", label: "Atributos" },

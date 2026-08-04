@@ -4,6 +4,7 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
+import { SettingsService } from "../../settings/settings.service";
 import { withPrice } from "../product-price";
 
 const includeDetails = {
@@ -30,6 +31,7 @@ export class CatalogBrowseService {
     private readonly prisma: PrismaService,
     private readonly categories: CategoryService,
     private readonly attributes: AttributeService,
+    private readonly settings: SettingsService,
   ) {}
 
   async findProducts(query: FindCatalogProductsQuery) {
@@ -66,12 +68,13 @@ export class CatalogBrowseService {
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
 
-    const [items, total] = await Promise.all([
+    const [items, total, exchangeRate] = await Promise.all([
       this.prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
       this.prisma.product.count({ where }),
+      this.settings.getExchangeRate(),
     ]);
 
-    return { items: items.map(withPrice), total, page, pageSize };
+    return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
   }
 
   /** Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones. */
