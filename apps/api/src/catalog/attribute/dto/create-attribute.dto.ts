@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { AttributeType } from "@app/database";
+import { AttributeType, AttributeVariantMode } from "@app/database";
 import { ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class CreateAttributeDto {
@@ -21,6 +21,18 @@ export class CreateAttributeDto {
   @IsOptional()
   @IsBoolean()
   isRequired?: boolean;
+
+  @ApiPropertyOptional({
+    enum: AttributeVariantMode,
+    default: AttributeVariantMode.NONE,
+    description:
+      "Solo válido cuando type='select'. NONE: valor único de siempre. MULTI_VALUE: el producto puede " +
+      "tener 1 o más valores, no afecta el precio (ej. sabores). PRICED_VARIANT: cada valor elegido " +
+      "genera una variante con su propio precio de compra/utilidad/ID de producto (ej. tamaño).",
+  })
+  @IsOptional()
+  @IsEnum(AttributeVariantMode)
+  variantMode?: AttributeVariantMode;
 
   @ApiPropertyOptional({
     type: [String],

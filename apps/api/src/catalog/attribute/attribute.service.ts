@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AttributeType } from "@app/database";
+import { AttributeType, AttributeVariantMode } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CategoryService } from "../category/category.service";
@@ -24,9 +24,16 @@ export class AttributeService {
     }
   }
 
+  private validateVariantMode(type: AttributeType, variantMode?: AttributeVariantMode) {
+    if (variantMode && variantMode !== AttributeVariantMode.NONE && type !== AttributeType.SELECT) {
+      throw new BadRequestException("Los atributos variables (múltiples o con precio propio) solo aplican a tipo 'select'.");
+    }
+  }
+
   async create(categoryId: string, dto: CreateAttributeDto) {
     await this.categories.findOne(categoryId);
     this.validateOptionsForType(dto.type, dto.options);
+    this.validateVariantMode(dto.type, dto.variantMode);
 
     try {
       return await this.prisma.attribute.create({
@@ -36,6 +43,7 @@ export class AttributeService {
           type: dto.type,
           isFilterable: dto.isFilterable ?? false,
           isRequired: dto.isRequired ?? false,
+          variantMode: dto.variantMode ?? AttributeVariantMode.NONE,
           options: dto.type === AttributeType.SELECT ? { create: dto.options!.map((value) => ({ value })) } : undefined,
         },
         include: { options: true },

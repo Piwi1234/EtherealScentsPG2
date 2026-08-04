@@ -9,6 +9,10 @@ function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
 }
 
+type VariantFormState = { optionsByAttribute: Record<string, string>; purchasePrice: string; utility: string };
+
+const EMPTY_VARIANT_FORM: VariantFormState = { optionsByAttribute: {}, purchasePrice: "", utility: "0" };
+
 export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -26,15 +30,33 @@ export default function ProductsPage() {
   const [categoryId, setCategoryId] = useState("");
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
+  const [multiValues, setMultiValues] = useState<Record<string, Set<string>>>({});
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [variantForm, setVariantForm] = useState<VariantFormState>(EMPTY_VARIANT_FORM);
+  const [variantError, setVariantError] = useState("");
+  const [variantSubmitting, setVariantSubmitting] = useState(false);
+
+  // Atributos normales (un valor), múltiples sin precio (ej. sabores) y con precio propio (ej. tamaño).
+  const regularAttrs = attributeDefs.filter((def) => def.variantMode === "NONE");
+  const multiValueAttrs = attributeDefs.filter((def) => def.variantMode === "MULTI_VALUE");
+  const pricedVariantAttrs = attributeDefs.filter((def) => def.variantMode === "PRICED_VARIANT");
+
   function handleImageSelect(file: File | null) {
     if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     setImageFile(file);
     setImagePreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  function toggleMultiValue(attributeId: string, optionId: string) {
+    setMultiValues((prev) => {
+      const next = new Set(prev[attributeId] ?? []);
+      next.has(optionId) ? next.delete(optionId) : next.add(optionId);
+      return { ...prev, [attributeId]: next };
+    });
   }
 
   function loadProducts() {
@@ -66,6 +88,8 @@ export default function ProductsPage() {
   async function handleCategoryChange(id: string) {
     setCategoryId(id);
     setAttributeValues({});
+    setMultiValues({});
+    setVariantForm(EMPTY_VARIANT_FORM);
     await loadAttributesFor(id);
   }
 
@@ -76,6 +100,9 @@ export default function ProductsPage() {
     setUtility("0");
     setBrandId("");
     setAttributeValues({});
+    setMultiValues({});
+    setVariantForm(EMPTY_VARIANT_FORM);
+    setVariantError("");
     handleImageSelect(null);
     const firstCategory = categories[0]?.id ?? "";
     setCategoryId(firstCategory);
@@ -93,15 +120,28 @@ export default function ProductsPage() {
     setCategoryId(product.categoryId);
     setImageFile(null);
     setImagePreview(productImageSrc(product.imageUrl));
+    setVariantForm(EMPTY_VARIANT_FORM);
+    setVariantError("");
     await loadAttributesFor(product.categoryId);
+
     const values: Record<string, string> = {};
+    const multi: Record<string, Set<string>> = {};
     for (const pv of product.attributeValues) {
+      if (pv.attribute.variantMode === "MULTI_VALUE") {
+        if (pv.optionId) {
+          const set = multi[pv.attributeId] ?? new Set<string>();
+          set.add(pv.optionId);
+          multi[pv.attributeId] = set;
+        }
+        continue;
+      }
       if (pv.optionId) values[pv.attributeId] = pv.optionId;
       else if (pv.valueText !== null) values[pv.attributeId] = pv.valueText;
       else if (pv.valueNumber !== null) values[pv.attributeId] = pv.valueNumber;
       else if (pv.valueBoolean !== null) values[pv.attributeId] = String(pv.valueBoolean);
     }
     setAttributeValues(values);
+    setMultiValues(multi);
     setFormError("");
     setModalOpen(true);
   }
@@ -120,15 +160,16 @@ export default function ProductsPage() {
     e.preventDefault();
     setFormError("");
 
-    const missing = attributeDefs.filter((def) => def.isRequired && !attributeValues[def.id]);
-    if (missing.length > 0) {
-      setFormError(`Falta completar: ${missing.map((m) => m.name).join(", ")}`);
+    const missing = regularAttrs.filter((def) => def.isRequired && !attributeValues[def.id]);
+    const missingMulti = multiValueAttrs.filter((def) => def.isRequired && !(multiValues[def.id]?.size));
+    if (missing.length > 0 || missingMulti.length > 0) {
+      setFormError(`Falta completar: ${[...missing, ...missingMulti].map((m) => m.name).join(", ")}`);
       return;
     }
 
     setSubmitting(true);
     try {
-      const attributeValuesPayload = attributeDefs
+      const regularPayload = regularAttrs
         .filter((def) => attributeValues[def.id])
         .map((def) => {
           const raw = attributeValues[def.id];
@@ -137,14 +178,20 @@ export default function ProductsPage() {
           if (def.type === "BOOLEAN") return { attributeId: def.id, valueBoolean: raw === "true" };
           return { attributeId: def.id, valueText: raw };
         });
+      const multiPayload = multiValueAttrs.flatMap((def) =>
+        Array.from(multiValues[def.id] ?? []).map((optionId) => ({ attributeId: def.id, optionId })),
+      );
 
+      // Si la categoría tiene atributos con precio propio, el precio se carga por variante:
+      // pedirlo acá también sería redundante (y generaría un "precio base" de más).
+      const usesPricedVariants = pricedVariantAttrs.length > 0;
       const payload = {
         name,
-        purchasePrice: Number(purchasePrice),
-        utility: Number(utility || 0),
+        purchasePrice: usesPricedVariants ? 0 : Number(purchasePrice),
+        utility: usesPricedVariants ? 0 : Number(utility || 0),
         brandId: brandId || undefined,
         categoryId,
-        attributeValues: attributeValuesPayload,
+        attributeValues: [...regularPayload, ...multiPayload],
       };
 
       const saved = editing
@@ -161,6 +208,51 @@ export default function ProductsPage() {
       setFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleAddVariant() {
+    if (!editing) return;
+    setVariantError("");
+
+    const options = pricedVariantAttrs
+      .filter((def) => variantForm.optionsByAttribute[def.id])
+      .map((def) => ({ attributeId: def.id, optionId: variantForm.optionsByAttribute[def.id] }));
+    if (options.length === 0) {
+      setVariantError("Elegí al menos un valor para la variante.");
+      return;
+    }
+    if (!variantForm.purchasePrice) {
+      setVariantError("Ingresá el precio de compra de la variante.");
+      return;
+    }
+
+    setVariantSubmitting(true);
+    try {
+      const updated = await apiPost<Product>(`/products/${editing.id}/variants`, {
+        purchasePrice: Number(variantForm.purchasePrice),
+        utility: Number(variantForm.utility || 0),
+        options,
+      });
+      setEditing(updated);
+      setVariantForm(EMPTY_VARIANT_FORM);
+      loadProducts();
+    } catch (e) {
+      setVariantError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setVariantSubmitting(false);
+    }
+  }
+
+  async function handleDeleteVariant(variantId: string) {
+    if (!editing || !confirm("¿Eliminar esta variante?")) return;
+    try {
+      await apiDelete(`/products/${editing.id}/variants/${variantId}`);
+      const updated = await apiGet<Product>(`/products/${editing.id}`);
+      setEditing(updated);
+      loadProducts();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -236,9 +328,17 @@ export default function ProductsPage() {
                   <td>{product.productCode}</td>
                   <td>{product.brand?.name ?? "—"}</td>
                   <td>{product.name}</td>
-                  <td>${product.purchasePrice}</td>
-                  <td>${product.utility}</td>
-                  <td>${product.price.toFixed(2)}</td>
+                  <td>{product.variants.length > 0 ? "—" : `$${product.purchasePrice}`}</td>
+                  <td>{product.variants.length > 0 ? "—" : `$${product.utility}`}</td>
+                  <td>
+                    {product.variants.length > 0 ? (
+                      <span className="badge">
+                        {product.variants.length} variante{product.variants.length === 1 ? "" : "s"} con precio
+                      </span>
+                    ) : (
+                      `$${product.price.toFixed(2)}`
+                    )}
+                  </td>
                   <td>
                     <button type="button" className="link-button" onClick={() => openEdit(product)}>Editar</button>
                     <button type="button" className="link-button danger" onClick={() => handleDelete(product)}>Eliminar</button>
@@ -284,24 +384,26 @@ export default function ProductsPage() {
                 />
               </div>
             </div>
-            <div style={{ display: "flex", gap: 14 }}>
-              <div style={{ flex: 1 }}>
-                <label>Precio de compra</label>
-                <input
-                  className="field"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(e.target.value)}
-                  required
-                />
+            {pricedVariantAttrs.length === 0 && (
+              <div style={{ display: "flex", gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <label>Precio de compra</label>
+                  <input
+                    className="field"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(e.target.value)}
+                    required
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Utilidad</label>
+                  <input className="field" type="number" step="0.01" value={utility} onChange={(e) => setUtility(e.target.value)} />
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <label>Utilidad</label>
-                <input className="field" type="number" step="0.01" value={utility} onChange={(e) => setUtility(e.target.value)} />
-              </div>
-            </div>
+            )}
             <div>
               <label>Marca</label>
               <select className="field" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
@@ -321,7 +423,7 @@ export default function ProductsPage() {
               </select>
             </div>
 
-            {selectedCategory && (
+            {selectedCategory && pricedVariantAttrs.length === 0 && (
               <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
                 <label style={{ display: "block", marginBottom: 8 }}>
                   Costos heredados de &quot;{selectedCategory.name}&quot; (solo lectura)
@@ -336,9 +438,9 @@ export default function ProductsPage() {
               </div>
             )}
 
-            {attributeDefs.length > 0 && (
+            {regularAttrs.length > 0 && (
               <div className="form-grid" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-                {attributeDefs.map((def) => (
+                {regularAttrs.map((def) => (
                   <div key={def.id}>
                     <label>
                       {def.name}{def.isRequired ? " *" : ""}
@@ -384,6 +486,145 @@ export default function ProductsPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {multiValueAttrs.length > 0 && (
+              <div className="form-grid" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                {multiValueAttrs.map((def) => (
+                  <div key={def.id}>
+                    <label>
+                      {def.name}{def.isRequired ? " *" : ""} <span className="badge badge-muted">Múltiple</span>
+                    </label>
+                    <div className="checkbox-group-items">
+                      {def.options.map((opt) => (
+                        <label key={opt.id} className="checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={multiValues[def.id]?.has(opt.id) ?? false}
+                            onChange={() => toggleMultiValue(def.id, opt.id)}
+                          />
+                          {opt.value}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {pricedVariantAttrs.length > 0 && (
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                <label style={{ display: "block", marginBottom: 4 }}>Variantes con precio propio</label>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)" }}>
+                  Esta categoría fija el precio por variante, así que no se pide Precio de compra/Utilidad del
+                  producto en general (sería redundante).
+                </p>
+
+                {!editing && (
+                  <p style={{ fontSize: 13, color: "var(--muted)" }}>
+                    Guardá el producto primero; después vas a poder agregarle variantes acá mismo (editando).
+                  </p>
+                )}
+
+                {editing && (
+                  <>
+                    {editing.variants.length > 0 && (
+                      <table className="table" style={{ marginBottom: 12 }}>
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Combinación</th>
+                            <th>Compra</th>
+                            <th>Utilidad</th>
+                            <th>Precio $</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {editing.variants.map((variant) => (
+                            <tr key={variant.id}>
+                              <td>{variant.variantCode}</td>
+                              <td>{variant.options.map((o) => `${o.attribute.name}: ${o.option.value}`).join(" · ")}</td>
+                              <td>${variant.purchasePrice}</td>
+                              <td>${variant.utility}</td>
+                              <td>${variant.price.toFixed(2)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="link-button danger"
+                                  onClick={() => handleDeleteVariant(variant.id)}
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div className="form-grid" style={{ background: "var(--paper)", padding: 12, borderRadius: 8 }}>
+                      {pricedVariantAttrs.map((def) => (
+                        <div key={def.id}>
+                          <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
+                          <select
+                            className="field"
+                            value={variantForm.optionsByAttribute[def.id] ?? ""}
+                            onChange={(e) =>
+                              setVariantForm((prev) => ({
+                                ...prev,
+                                optionsByAttribute: { ...prev.optionsByAttribute, [def.id]: e.target.value },
+                              }))
+                            }
+                          >
+                            <option value="">— Elegir —</option>
+                            {def.options.map((opt) => (
+                              <option key={opt.id} value={opt.id}>{opt.value}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
+                          <input
+                            className="field"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={variantForm.purchasePrice}
+                            onChange={(e) => setVariantForm((prev) => ({ ...prev, purchasePrice: e.target.value }))}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 12, color: "var(--muted)" }}>Utilidad</label>
+                          <input
+                            className="field"
+                            type="number"
+                            step="0.01"
+                            value={variantForm.utility}
+                            onChange={(e) => setVariantForm((prev) => ({ ...prev, utility: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                        Precio $ de esta variante (compra + costos + utilidad): $
+                        {(
+                          Number(variantForm.purchasePrice || 0) +
+                          logisticsCostPreview +
+                          shippingCostPreview +
+                          securityCostPreview +
+                          Number(variantForm.utility || 0)
+                        ).toFixed(2)}
+                      </p>
+                      {variantError && <p className="error-text">{variantError}</p>}
+                      <button type="button" className="button" onClick={handleAddVariant} disabled={variantSubmitting}>
+                        {variantSubmitting ? "Agregando..." : "+ Agregar variante"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

@@ -45,6 +45,18 @@ enum AttributeType {
   @@map("attribute_type")
 }
 
+enum AttributeVariantMode {
+  /// Atributo normal: un solo valor por producto (comportamiento de siempre).
+  NONE
+  /// Ej: sabores de un vape. El producto puede tener 1 o más valores y no afecta el precio.
+  MULTI_VALUE
+  /// Ej: tamaño de un perfume. Cada valor elegido genera una variante con su propio
+  /// precio de compra/utilidad/precio $ (y su propio ID de producto).
+  PRICED_VARIANT
+
+  @@map("attribute_variant_mode")
+}
+
 model Category {
   id        String     @id @default(uuid()) @db.Uuid
   name      String
@@ -101,9 +113,12 @@ model Attribute {
   type         AttributeType
   isFilterable Boolean       @default(false) @map("is_filterable")
   isRequired   Boolean       @default(false) @map("is_required")
+  // Solo aplica (y solo tiene sentido) cuando type = SELECT.
+  variantMode  AttributeVariantMode @default(NONE) @map("variant_mode")
 
   options            AttributeOption[]
   productValues      ProductAttributeValue[]
+  variantOptions      ProductVariantOption[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -118,7 +133,8 @@ model AttributeOption {
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value       String
 
-  productValues ProductAttributeValue[]
+  productValues  ProductAttributeValue[]
+  variantOptions ProductVariantOption[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -141,6 +157,7 @@ model Product {
   imageUrl      String?  @map("image_url")
 
   attributeValues ProductAttributeValue[]
+  variants        ProductVariant[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -164,6 +181,41 @@ model ProductAttributeValue {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([productId, attributeId])
+  // Un atributo MULTI_VALUE puede tener varias filas (una por opción elegida) para el mismo
+  // producto; para atributos normales el servicio valida que solo exista una fila.
+  @@unique([productId, attributeId, optionId])
   @@map("product_attribute_values")
+}
+
+/// Variante con precio propio de un producto (ej. "50ml" de un perfume): tiene su propio
+/// código de producto, precio de compra y utilidad. Se define por una combinación de 1 o más
+/// opciones de atributos PRICED_VARIANT de la categoría del producto.
+model ProductVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantCode   String   @unique @map("variant_code") @db.VarChar(7)
+  purchasePrice Decimal  @map("purchase_price") @db.Decimal(12, 2)
+  utility       Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
+
+  options ProductVariantOption[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("product_variants")
+}
+
+model ProductVariantOption {
+  id          String         @id @default(uuid()) @db.Uuid
+  variantId   String         @map("variant_id") @db.Uuid
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attributeId String         @map("attribute_id") @db.Uuid
+  attribute   Attribute      @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  optionId    String         @map("option_id") @db.Uuid
+  option      AttributeOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  // Una variante no puede fijar dos valores distintos para el mismo atributo.
+  @@unique([variantId, attributeId])
+  @@map("product_variant_options")
 }

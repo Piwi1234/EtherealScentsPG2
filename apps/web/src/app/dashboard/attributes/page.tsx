@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "../../../lib/api";
-import type { Attribute, AttributeOption, AttributeType, Category } from "../../../lib/types";
+import type { Attribute, AttributeOption, AttributeType, AttributeVariantMode, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 const TYPE_LABELS: Record<AttributeType, string> = {
@@ -10,6 +10,12 @@ const TYPE_LABELS: Record<AttributeType, string> = {
   NUMBER: "Número",
   BOOLEAN: "Sí/No",
   SELECT: "Lista",
+};
+
+const VARIANT_MODE_LABELS: Record<AttributeVariantMode, string> = {
+  NONE: "Normal",
+  MULTI_VALUE: "Múltiple (sin precio)",
+  PRICED_VARIANT: "Con precio propio",
 };
 
 export default function AttributesPage() {
@@ -28,6 +34,7 @@ export default function AttributesPage() {
   const [editing, setEditing] = useState<Attribute | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<AttributeType>("TEXT");
+  const [variantMode, setVariantMode] = useState<AttributeVariantMode>("NONE");
   const [isFilterable, setIsFilterable] = useState(false);
   const [isRequired, setIsRequired] = useState(false);
   const [options, setOptions] = useState<string[]>([""]);
@@ -74,6 +81,7 @@ export default function AttributesPage() {
     setEditing(null);
     setName("");
     setType("TEXT");
+    setVariantMode("NONE");
     setIsFilterable(false);
     setIsRequired(false);
     setOptions([""]);
@@ -115,6 +123,7 @@ export default function AttributesPage() {
           type,
           isFilterable,
           isRequired,
+          variantMode: type === "SELECT" ? variantMode : undefined,
           options: type === "SELECT" ? cleanOptions : undefined,
         });
       }
@@ -196,6 +205,7 @@ export default function AttributesPage() {
             <tr>
               <th>Nombre</th>
               <th>Tipo</th>
+              <th>Variante</th>
               <th>Filtrable</th>
               <th>Requerido</th>
               <th>Origen</th>
@@ -208,6 +218,13 @@ export default function AttributesPage() {
               <tr key={attr.id}>
                 <td>{attr.name}</td>
                 <td>{TYPE_LABELS[attr.type]}</td>
+                <td>
+                  {attr.variantMode === "NONE" ? (
+                    "—"
+                  ) : (
+                    <span className="badge">{VARIANT_MODE_LABELS[attr.variantMode]}</span>
+                  )}
+                </td>
                 <td>{attr.isFilterable ? "Sí" : "No"}</td>
                 <td>{attr.isRequired ? "Sí" : "No"}</td>
                 <td>
@@ -245,11 +262,40 @@ export default function AttributesPage() {
             {!editing && (
               <div>
                 <label>Tipo</label>
-                <select className="field" value={type} onChange={(e) => setType(e.target.value as AttributeType)}>
+                <select
+                  className="field"
+                  value={type}
+                  onChange={(e) => {
+                    const nextType = e.target.value as AttributeType;
+                    setType(nextType);
+                    if (nextType !== "SELECT") setVariantMode("NONE");
+                  }}
+                >
                   {(Object.keys(TYPE_LABELS) as AttributeType[]).map((t) => (
                     <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {!editing && type === "SELECT" && (
+              <div>
+                <label>Tipo de variante</label>
+                <select className="field" value={variantMode} onChange={(e) => setVariantMode(e.target.value as AttributeVariantMode)}>
+                  {(Object.keys(VARIANT_MODE_LABELS) as AttributeVariantMode[]).map((mode) => (
+                    <option key={mode} value={mode}>{VARIANT_MODE_LABELS[mode]}</option>
+                  ))}
+                </select>
+                {variantMode === "MULTI_VALUE" && (
+                  <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>
+                    El producto podrá elegir 1 o más de estos valores (ej. sabores). No afecta el precio.
+                  </p>
+                )}
+                {variantMode === "PRICED_VARIANT" && (
+                  <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>
+                    Cada valor elegido en un producto genera una variante con su propio precio de compra,
+                    utilidad e ID de producto (ej. tamaño).
+                  </p>
+                )}
               </div>
             )}
             <label className="checkbox-row">

@@ -17,6 +17,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { ProductService } from "./product.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
+import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
 import { productImageMulterOptions } from "./product-image.multer";
 
 @ApiTags("products")
@@ -58,6 +59,25 @@ export class ProductController {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
     }
     return this.products.setImage(id, file);
+  }
+
+  @Post(":id/variants")
+  createVariant(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CreateProductVariantDto) {
+    return this.products.createVariant(id, dto);
+  }
+
+  @Patch(":id/variants/:variantId")
+  updateVariant(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("variantId", ParseUUIDPipe) variantId: string,
+    @Body() dto: UpdateProductVariantDto,
+  ) {
+    return this.products.updateVariant(id, variantId, dto);
+  }
+
+  @Delete(":id/variants/:variantId")
+  removeVariant(@Param("id", ParseUUIDPipe) id: string, @Param("variantId", ParseUUIDPipe) variantId: string) {
+    return this.products.removeVariant(id, variantId);
   }
 
   @Delete(":id")

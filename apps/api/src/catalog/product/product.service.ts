@@ -1,7 +1,7 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AttributeType, Prisma } from "@app/database";
+import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -10,7 +10,8 @@ import { AttributeService } from "../attribute/attribute.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto";
-import { generateProductCode } from "./product-code";
+import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
+import { generateUniqueEntityCode } from "../entity-code";
 import { withPrice } from "../product-price";
 import { PRODUCT_IMAGES_DIR } from "./product-image.multer";
 
@@ -18,6 +19,7 @@ const includeDetails = {
   brand: true,
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
+  variants: { include: { options: { include: { attribute: true, option: true } } } },
 } as const;
 
 type AttributeValueWrite = {
@@ -37,9 +39,10 @@ export class ProductService {
   ) {}
 
   /**
-   * Valida que los atributos enviados pertenezcan a la categoría del producto
-   * (propios o heredados de un ancestro), que estén los requeridos, y que el
-   * campo de valor usado coincida con el `type` del atributo.
+   * Valida que los atributos enviados pertenezcan a la categoría del producto (propios o
+   * heredados de un ancestro), que estén los requeridos, que el campo de valor usado coincida
+   * con el `type` del atributo, y que los MULTI_VALUE puedan traer más de un valor mientras que
+   * el resto solo admite uno. Los PRICED_VARIANT no se manejan acá: van por /products/:id/variants.
    */
   private async buildAttributeValuesData(
     categoryId: string,
@@ -48,18 +51,37 @@ export class ProductService {
     const definitions = await this.attributes.listForCategory(categoryId, true);
     const byId = new Map(definitions.map((attr) => [attr.id, attr]));
 
-    const providedIds = new Set(inputs.map((input) => input.attributeId));
+    const inputsByAttribute = new Map<string, ProductAttributeValueInputDto[]>();
+    for (const input of inputs) {
+      const list = inputsByAttribute.get(input.attributeId) ?? [];
+      list.push(input);
+      inputsByAttribute.set(input.attributeId, list);
+    }
+
     for (const definition of definitions) {
-      if (definition.isRequired && !providedIds.has(definition.id)) {
+      if (definition.variantMode === AttributeVariantMode.PRICED_VARIANT) continue;
+      const provided = inputsByAttribute.get(definition.id) ?? [];
+      if (definition.isRequired && provided.length === 0) {
         throw new BadRequestException(`Falta el atributo requerido '${definition.name}'.`);
+      }
+      if (definition.variantMode !== AttributeVariantMode.MULTI_VALUE && provided.length > 1) {
+        throw new BadRequestException(`El atributo '${definition.name}' no admite más de un valor.`);
       }
     }
 
-    return inputs.map((input): AttributeValueWrite => {
+    const result: AttributeValueWrite[] = [];
+    const seenOptionsByAttribute = new Map<string, Set<string>>();
+
+    for (const input of inputs) {
       const definition = byId.get(input.attributeId);
       if (!definition) {
         throw new BadRequestException(
           `El atributo ${input.attributeId} no está definido para esta categoría ni sus categorías padre.`,
+        );
+      }
+      if (definition.variantMode === AttributeVariantMode.PRICED_VARIANT) {
+        throw new BadRequestException(
+          `El atributo '${definition.name}' tiene precio propio por valor: se administra desde las variantes del producto.`,
         );
       }
 
@@ -68,17 +90,20 @@ export class ProductService {
           if (!input.valueText) {
             throw new BadRequestException(`El atributo '${definition.name}' requiere 'valueText'.`);
           }
-          return { attributeId: definition.id, valueText: input.valueText };
+          result.push({ attributeId: definition.id, valueText: input.valueText });
+          break;
         case AttributeType.NUMBER:
           if (input.valueNumber === undefined) {
             throw new BadRequestException(`El atributo '${definition.name}' requiere 'valueNumber'.`);
           }
-          return { attributeId: definition.id, valueNumber: input.valueNumber };
+          result.push({ attributeId: definition.id, valueNumber: input.valueNumber });
+          break;
         case AttributeType.BOOLEAN:
           if (input.valueBoolean === undefined) {
             throw new BadRequestException(`El atributo '${definition.name}' requiere 'valueBoolean'.`);
           }
-          return { attributeId: definition.id, valueBoolean: input.valueBoolean };
+          result.push({ attributeId: definition.id, valueBoolean: input.valueBoolean });
+          break;
         case AttributeType.SELECT: {
           if (!input.optionId) {
             throw new BadRequestException(`El atributo '${definition.name}' requiere 'optionId'.`);
@@ -87,10 +112,19 @@ export class ProductService {
           if (!validOption) {
             throw new BadRequestException(`'optionId' inválido para el atributo '${definition.name}'.`);
           }
-          return { attributeId: definition.id, optionId: input.optionId };
+          const seen = seenOptionsByAttribute.get(definition.id) ?? new Set<string>();
+          if (seen.has(input.optionId)) {
+            throw new BadRequestException(`Valor repetido para el atributo '${definition.name}'.`);
+          }
+          seen.add(input.optionId);
+          seenOptionsByAttribute.set(definition.id, seen);
+          result.push({ attributeId: definition.id, optionId: input.optionId });
+          break;
         }
       }
-    });
+    }
+
+    return result;
   }
 
   private async assertBrandExists(brandId: string) {
@@ -100,13 +134,24 @@ export class ProductService {
     }
   }
 
-  private async generateUniqueProductCode(): Promise<string> {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = generateProductCode();
+  private generateProductCode() {
+    return generateUniqueEntityCode(async (code) => {
       const existing = await this.prisma.product.findUnique({ where: { productCode: code }, select: { id: true } });
-      if (!existing) return code;
-    }
-    throw new Error("No se pudo generar un código de producto único, reintentá de nuevo.");
+      return Boolean(existing);
+    });
+  }
+
+  private generateVariantCode() {
+    return generateUniqueEntityCode(async (code) => {
+      const existing = await this.prisma.productVariant.findUnique({ where: { variantCode: code }, select: { id: true } });
+      return Boolean(existing);
+    });
+  }
+
+  /** Si la categoría (propia o heredada) tiene algún atributo con precio propio, el precio se carga por variante. */
+  private async categoryHasPricedVariants(categoryId: string): Promise<boolean> {
+    const definitions = await this.attributes.listForCategory(categoryId, true);
+    return definitions.some((attr) => attr.variantMode === AttributeVariantMode.PRICED_VARIANT);
   }
 
   async create(dto: CreateProductDto) {
@@ -115,15 +160,22 @@ export class ProductService {
       await this.assertBrandExists(dto.brandId);
     }
 
+    const hasPricedVariants = await this.categoryHasPricedVariants(dto.categoryId);
+    if (!hasPricedVariants && dto.purchasePrice === undefined) {
+      throw new BadRequestException(
+        "El precio de compra es obligatorio (esta categoría no tiene atributos con precio propio).",
+      );
+    }
+
     const attributeValuesData = await this.buildAttributeValuesData(dto.categoryId, dto.attributeValues);
-    const productCode = await this.generateUniqueProductCode();
+    const productCode = await this.generateProductCode();
 
     try {
       const product = await this.prisma.product.create({
         data: {
           name: dto.name,
           productCode,
-          purchasePrice: dto.purchasePrice,
+          purchasePrice: dto.purchasePrice ?? 0,
           utility: dto.utility ?? 0,
           brandId: dto.brandId,
           categoryId: dto.categoryId,
@@ -152,7 +204,7 @@ export class ProductService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items: items.map(withPrice), total, page, pageSize };
+    return { items: items.map((item) => withPrice(item)), total, page, pageSize };
   }
 
   async findOne(id: string) {
@@ -176,6 +228,14 @@ export class ProductService {
     const categoryId = dto.categoryId ?? existing.categoryId;
     const categoryChanged = dto.categoryId !== undefined && dto.categoryId !== existing.categoryId;
 
+    const hasPricedVariants = await this.categoryHasPricedVariants(categoryId);
+    const resultingPurchasePrice = dto.purchasePrice ?? Number(existing.purchasePrice);
+    if (!hasPricedVariants && !resultingPurchasePrice) {
+      throw new BadRequestException(
+        "El precio de compra es obligatorio (esta categoría no tiene atributos con precio propio).",
+      );
+    }
+
     let attributeValuesData: AttributeValueWrite[] | undefined;
     if (dto.attributeValues !== undefined) {
       attributeValuesData = await this.buildAttributeValuesData(categoryId, dto.attributeValues);
@@ -193,6 +253,10 @@ export class ProductService {
               data: attributeValuesData.map((value) => ({ ...value, productId: id })),
             });
           }
+        }
+        // Si cambia de categoría, las variantes con precio quedan atadas a atributos que ya no aplican.
+        if (categoryChanged) {
+          await tx.productVariant.deleteMany({ where: { productId: id } });
         }
 
         return tx.product.update({
@@ -234,6 +298,125 @@ export class ProductService {
       return withPrice(updated);
     } catch (error) {
       rethrowPrismaError(error, "Producto");
+    }
+  }
+
+  /**
+   * Valida y arma las opciones (attributeId+optionId) de una variante con precio propio:
+   * cada atributo debe ser PRICED_VARIANT de la categoría del producto (propio o heredado),
+   * la opción debe pertenecerle, y no puede repetirse el atributo dentro de la misma variante.
+   */
+  private async buildVariantOptions(categoryId: string, options: { attributeId: string; optionId: string }[]) {
+    if (options.length === 0) {
+      throw new BadRequestException("Una variante necesita al menos un valor de atributo con precio propio.");
+    }
+
+    const definitions = await this.attributes.listForCategory(categoryId, true);
+    const byId = new Map(definitions.map((attr) => [attr.id, attr]));
+
+    const seenAttributes = new Set<string>();
+    for (const { attributeId, optionId } of options) {
+      const definition = byId.get(attributeId);
+      if (!definition || definition.variantMode !== AttributeVariantMode.PRICED_VARIANT) {
+        throw new BadRequestException(`El atributo ${attributeId} no es un atributo con precio propio de esta categoría.`);
+      }
+      if (seenAttributes.has(attributeId)) {
+        throw new BadRequestException(`Valor repetido para el atributo '${definition.name}' en la variante.`);
+      }
+      seenAttributes.add(attributeId);
+      if (!definition.options.some((option) => option.id === optionId)) {
+        throw new BadRequestException(`'optionId' inválido para el atributo '${definition.name}'.`);
+      }
+    }
+
+    return options;
+  }
+
+  /** Ninguna otra variante del producto puede tener exactamente la misma combinación de valores. */
+  private async assertVariantCombinationIsUnique(
+    productId: string,
+    options: { attributeId: string; optionId: string }[],
+    excludeVariantId?: string,
+  ) {
+    const existingVariants = await this.prisma.productVariant.findMany({
+      where: { productId, id: excludeVariantId ? { not: excludeVariantId } : undefined },
+      include: { options: true },
+    });
+
+    const key = (opts: { attributeId: string; optionId: string }[]) =>
+      opts
+        .map((o) => `${o.attributeId}:${o.optionId}`)
+        .sort()
+        .join("|");
+    const newKey = key(options);
+
+    const clash = existingVariants.some((variant) => key(variant.options) === newKey);
+    if (clash) {
+      throw new BadRequestException("Ya existe una variante con esa misma combinación de valores.");
+    }
+  }
+
+  async createVariant(productId: string, dto: CreateProductVariantDto) {
+    const product = await this.findOne(productId);
+    const options = await this.buildVariantOptions(product.categoryId, dto.options);
+    await this.assertVariantCombinationIsUnique(productId, options);
+    const variantCode = await this.generateVariantCode();
+
+    try {
+      await this.prisma.productVariant.create({
+        data: {
+          productId,
+          variantCode,
+          purchasePrice: dto.purchasePrice,
+          utility: dto.utility ?? 0,
+          options: { create: options },
+        },
+      });
+      return this.findOne(productId);
+    } catch (error) {
+      rethrowPrismaError(error, "Variante de producto");
+    }
+  }
+
+  async updateVariant(productId: string, variantId: string, dto: UpdateProductVariantDto) {
+    const product = await this.findOne(productId);
+    const variant = product.variants.find((v) => v.id === variantId);
+    if (!variant) {
+      throw new NotFoundException("Variante no encontrada.");
+    }
+
+    let options: { attributeId: string; optionId: string }[] | undefined;
+    if (dto.options) {
+      options = await this.buildVariantOptions(product.categoryId, dto.options);
+      await this.assertVariantCombinationIsUnique(productId, options, variantId);
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (options) {
+          await tx.productVariantOption.deleteMany({ where: { variantId } });
+          await tx.productVariantOption.createMany({ data: options.map((o) => ({ ...o, variantId })) });
+        }
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: { purchasePrice: dto.purchasePrice, utility: dto.utility },
+        });
+      });
+      return this.findOne(productId);
+    } catch (error) {
+      rethrowPrismaError(error, "Variante de producto");
+    }
+  }
+
+  async removeVariant(productId: string, variantId: string) {
+    const product = await this.findOne(productId);
+    if (!product.variants.some((v) => v.id === variantId)) {
+      throw new NotFoundException("Variante no encontrada.");
+    }
+    try {
+      await this.prisma.productVariant.delete({ where: { id: variantId } });
+    } catch (error) {
+      rethrowPrismaError(error, "Variante de producto");
     }
   }
 

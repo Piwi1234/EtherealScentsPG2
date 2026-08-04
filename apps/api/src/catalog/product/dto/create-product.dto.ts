@@ -9,10 +9,16 @@ export class CreateProductDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: 650, description: "Precio de compra (costo de adquisición). Base de la fórmula de precio $." })
+  @ApiPropertyOptional({
+    example: 650,
+    description:
+      "Precio de compra (costo de adquisición). Obligatorio salvo que la categoría tenga algún atributo con " +
+      "precio propio (PRICED_VARIANT): en ese caso el precio se carga por variante y este campo es redundante.",
+  })
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  purchasePrice!: number;
+  purchasePrice?: number;
 
   @ApiPropertyOptional({ example: 50, default: 0, description: "Utilidad cargada manualmente." })
   @IsOptional()

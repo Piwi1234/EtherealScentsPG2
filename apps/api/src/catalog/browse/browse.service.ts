@@ -10,6 +10,7 @@ const includeDetails = {
   brand: true,
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
+  variants: { include: { options: { include: { attribute: true, option: true } } } },
 } as const;
 
 export interface FindCatalogProductsQuery {
