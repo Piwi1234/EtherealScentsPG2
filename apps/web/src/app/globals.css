@@ -651,7 +651,15 @@ a {
 
 .form-grid {
   display: grid;
-  gap: 14px;
+  gap: 18px;
+}
+
+.form-grid > div > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .form-actions {
@@ -665,32 +673,47 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checkbox-row:hover {
+  border-color: var(--muted);
+  background: var(--paper);
 }
 
 .checkbox-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  max-height: 220px;
+  border-radius: 10px;
+  padding: 16px;
+  max-height: 240px;
   overflow-y: auto;
+  background: #fff;
 }
 
 .checkbox-group-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
 }
 
 .checkbox-group-items {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .error-text {
@@ -809,6 +832,36 @@ a {
   color: var(--gold);
   font-size: 22px;
   font-weight: 700;
+}
+
+.cost-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cost-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.cost-chip-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.cost-chip-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .form-section {

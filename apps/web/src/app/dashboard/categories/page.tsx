@@ -18,13 +18,24 @@ function descendantIds(node: CategoryTreeNode): string[] {
   return [node.id, ...node.children.flatMap(descendantIds)];
 }
 
-function formatCosts(node: CategoryTreeNode): string {
-  if (!node.parentId) return "—";
-  const parts: string[] = [];
-  if (node.logisticsCost !== null) parts.push(`Log: $${node.logisticsCost}`);
-  if (node.shippingCost !== null) parts.push(`Envío: $${node.shippingCost}`);
-  if (node.securityCost !== null) parts.push(`Seg: $${node.securityCost}`);
-  return parts.length > 0 ? parts.join(" · ") : "—";
+function CostChips({ node }: { node: CategoryTreeNode }) {
+  if (!node.parentId) return <span className="cell-muted">—</span>;
+  const costs = [
+    { label: "Log", value: node.logisticsCost },
+    { label: "Envío", value: node.shippingCost },
+    { label: "Seg", value: node.securityCost },
+  ].filter((c) => c.value !== null);
+  if (costs.length === 0) return <span className="cell-muted">—</span>;
+  return (
+    <div className="cost-chip-row">
+      {costs.map((c) => (
+        <span key={c.label} className="cost-chip">
+          <span className="cost-chip-label">{c.label}</span>
+          <span className="cost-chip-value">${c.value}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function CategoryRow({
@@ -41,13 +52,15 @@ function CategoryRow({
   return (
     <>
       <tr>
-        <td style={{ paddingLeft: depth * 24 }}>{depth > 0 ? "↳ " : ""}{node.name}</td>
-        <td>{node.slug}</td>
+        <td className="cell-primary" style={{ paddingLeft: depth * 24 }}>{depth > 0 ? "↳ " : ""}{node.name}</td>
+        <td className="cell-code">{node.slug}</td>
         <td>{node.children.length}</td>
-        <td>{formatCosts(node)}</td>
+        <td><CostChips node={node} /></td>
         <td>
-          <button type="button" className="link-button" onClick={() => onEdit(node)}>Editar</button>
-          <button type="button" className="link-button danger" onClick={() => onDelete(node)}>Eliminar</button>
+          <div className="row-actions">
+            <button type="button" className="action-btn" onClick={() => onEdit(node)}>Editar</button>
+            <button type="button" className="action-btn danger" onClick={() => onDelete(node)}>Eliminar</button>
+          </div>
         </td>
       </tr>
       {node.children.map((child) => (
@@ -159,13 +172,15 @@ export default function CategoriesPage() {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Categorías</h1>
-        <button type="button" className="button" onClick={openCreate}>+ Nueva categoría</button>
+        <button type="button" className="btn-cta" onClick={openCreate}>
+          <span className="btn-cta-icon">+</span> Nueva categoría
+        </button>
       </div>
       {error && <p className="error-text">{error}</p>}
       {!tree && !error && <p>Cargando...</p>}
       {tree && tree.length === 0 && <p>No hay categorías todavía.</p>}
       {tree && tree.length > 0 && (
-        <table className="table">
+        <table className="table table-minimal">
           <thead>
             <tr>
               <th>Nombre</th>

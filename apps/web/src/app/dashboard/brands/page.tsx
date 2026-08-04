@@ -103,13 +103,15 @@ export default function BrandsPage() {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Marcas</h1>
-        <button type="button" className="button" onClick={openCreate}>+ Nueva marca</button>
+        <button type="button" className="btn-cta" onClick={openCreate}>
+          <span className="btn-cta-icon">+</span> Nueva marca
+        </button>
       </div>
       {error && <p className="error-text">{error}</p>}
       {!brands && !error && <p>Cargando...</p>}
       {brands && brands.length === 0 && <p>No hay marcas todavía.</p>}
       {brands && brands.length > 0 && (
-        <table className="table">
+        <table className="table table-minimal">
           <thead>
             <tr>
               <th>Nombre</th>
@@ -120,17 +122,19 @@ export default function BrandsPage() {
           <tbody>
             {brands.map((brand) => (
               <tr key={brand.id}>
-                <td>{brand.name}</td>
+                <td className="cell-primary">{brand.name}</td>
                 <td>
                   {brand.categories.length === 0
-                    ? "—"
+                    ? <span className="cell-muted">—</span>
                     : brand.categories.map((c) => (
                         <span key={c.categoryId} className="badge">{c.category.name}</span>
                       ))}
                 </td>
                 <td>
-                  <button type="button" className="link-button" onClick={() => openEdit(brand)}>Editar</button>
-                  <button type="button" className="link-button danger" onClick={() => handleDelete(brand)}>Eliminar</button>
+                  <div className="row-actions">
+                    <button type="button" className="action-btn" onClick={() => openEdit(brand)}>Editar</button>
+                    <button type="button" className="action-btn danger" onClick={() => handleDelete(brand)}>Eliminar</button>
+                  </div>
                 </td>
               </tr>
             ))}
