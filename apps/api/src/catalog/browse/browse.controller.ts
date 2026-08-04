@@ -18,9 +18,10 @@ export class CatalogBrowseController {
     @Query("brandId") brandId?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string,
     @Query("attr") attr?: Record<string, string>,
   ) {
-    return this.browse.findProducts({ categoryId, brandId, page, pageSize, attr });
+    return this.browse.findProducts({ categoryId, brandId, page, pageSize, search, attr });
   }
 
   @Get("categories/:categoryId/filters")

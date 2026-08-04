@@ -18,6 +18,8 @@ export interface FindCatalogProductsQuery {
   brandId?: string;
   page?: string;
   pageSize?: string;
+  /** Busca por nombre de producto o de marca (contiene, sin distinguir mayúsculas). */
+  search?: string;
   /** Filtros dinámicos por atributo filtrable: { [attributeId]: "valor1,valor2" }. */
   attr?: Record<string, string>;
 }
@@ -46,6 +48,16 @@ export class CatalogBrowseService {
 
     if (query.brandId) {
       andConditions.push({ brandId: query.brandId });
+    }
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { brand: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      });
     }
 
     if (query.attr && Object.keys(query.attr).length > 0) {
