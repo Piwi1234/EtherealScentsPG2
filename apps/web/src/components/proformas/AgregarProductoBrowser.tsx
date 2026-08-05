@@ -76,6 +76,8 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [addedFlash, setAddedFlash] = useState<Record<string, boolean>>({});
   const [rowError, setRowError] = useState<Record<string, string>>({});
+  // Solo aplica a VENTA: qué precio del catálogo se manda como precioUnitario de la línea.
+  const [precioTipo, setPrecioTipo] = useState<"MAY" | "FINAL">("FINAL");
 
   const rootCategoryOptions = categories.filter((c) => c.parentId === null);
   const subCategoryOptions = categories.filter((c) => c.parentId === rootCategoryId);
@@ -227,7 +229,8 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
     setRowError((prev) => ({ ...prev, [product.id]: "" }));
     try {
       if (tipo === "VENTA") {
-        await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario: variant.finalPriceBs });
+        const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
+        await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
       } else {
         await addDetalleCompra(proformaId, {
           varianteId: variant.id,
@@ -300,6 +303,21 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
             placeholder="Nombre o código"
           />
         </div>
+        {tipo === "VENTA" && (
+          <div className="filter-field">
+            <label className="filter-label">Precio a enviar a la proforma</label>
+            <div className="pill-group">
+              <label className="checkbox-row" style={{ cursor: "pointer" }}>
+                <input type="radio" name="precioTipo" checked={precioTipo === "FINAL"} onChange={() => setPrecioTipo("FINAL")} />
+                Final Bs
+              </label>
+              <label className="checkbox-row" style={{ cursor: "pointer" }}>
+                <input type="radio" name="precioTipo" checked={precioTipo === "MAY"} onChange={() => setPrecioTipo("MAY")} />
+                May Bs
+              </label>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -325,7 +343,8 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                     <th key={column.id}>{column.name}</th>
                   ))}
                   <th className="num">Descuento Bs</th>
-                  <th className="num">Precio Final Bs</th>
+                  <th className="num">{tipo === "VENTA" && precioTipo === "MAY" ? "▸ " : ""}May Bs</th>
+                  <th className="num">{tipo === "VENTA" && precioTipo === "FINAL" ? "▸ " : ""}Precio Final Bs</th>
                   <th className="num">Cantidad</th>
                   <th></th>
                 </tr>
@@ -354,7 +373,10 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                         <td key={column.id}>{renderAttributeCell(product, column)}</td>
                       ))}
                       <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
-                      <td className="num cell-primary">
+                      <td className={`num${tipo === "VENTA" && precioTipo === "MAY" ? " cell-primary" : ""}`}>
+                        <span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}
+                      </td>
+                      <td className={`num${tipo !== "VENTA" || precioTipo === "FINAL" ? " cell-primary" : ""}`}>
                         <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
                       </td>
                       <td className="num">
