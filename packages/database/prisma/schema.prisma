@@ -16,16 +16,17 @@ enum Rol {
 
 /// Usuarios internos del panel de gestión (no clientes/checkout público, eso es otra fase).
 model Usuario {
-  id            String         @id @default(uuid()) @db.Uuid
-  nombre        String
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  rol           Rol
-  activo        Boolean        @default(true)
-  ultimoLogin   DateTime?      @map("ultimo_login")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  refreshTokens RefreshToken[]
+  id              String         @id @default(uuid()) @db.Uuid
+  nombre          String
+  email           String         @unique
+  passwordHash    String         @map("password_hash")
+  rol             Rol
+  activo          Boolean        @default(true)
+  ultimoLogin     DateTime?      @map("ultimo_login")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  refreshTokens   RefreshToken[]
+  clientesCreados Cliente[]
 
   @@map("usuarios")
 }
@@ -41,6 +42,57 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("refresh_tokens")
+}
+
+enum TipoCliente {
+  NATURAL
+  JURIDICA
+
+  @@map("tipo_cliente")
+}
+
+enum TipoDocumento {
+  DNI
+  CI
+  RUC
+  PASAPORTE
+  OTRO
+
+  @@map("tipo_documento")
+}
+
+/// MANUAL: cargado desde gestión (ADMIN/SELLER). WEB: registro propio del cliente — todavía no
+/// implementado, pero el campo ya existe para no requerir otra migración cuando se agregue.
+enum OrigenCliente {
+  MANUAL
+  WEB
+
+  @@map("origen_cliente")
+}
+
+/// Clientes del catálogo. Hoy se cargan manualmente desde gestión; el modelo ya queda listo para
+/// que más adelante se registren solos desde la web pública (origen = WEB) y para relacionarse con
+/// un futuro módulo de Proformas (todavía no existe: sin referencias a eso acá).
+model Cliente {
+  id              String        @id @default(uuid()) @db.Uuid
+  tipo            TipoCliente   @default(NATURAL)
+  nombre          String
+  tipoDocumento   TipoDocumento @map("tipo_documento")
+  numeroDocumento String        @unique @map("numero_documento")
+  email           String?       @unique
+  telefono        String?
+  direccion       String?
+  ciudad          String?
+
+  origen      OrigenCliente @default(MANUAL)
+  creadoPorId String?       @map("creado_por_id") @db.Uuid
+  creadoPor   Usuario?      @relation(fields: [creadoPorId], references: [id])
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("clientes")
 }
 
 enum AttributeType {
@@ -75,12 +127,12 @@ model SystemSetting {
 }
 
 model Category {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String     @unique
-  parentId  String?    @map("parent_id") @db.Uuid
-  parent    Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Restrict)
-  children  Category[] @relation("CategoryToParent")
+  id       String     @id @default(uuid()) @db.Uuid
+  name     String
+  slug     String     @unique
+  parentId String?    @map("parent_id") @db.Uuid
+  parent   Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryToParent")
 
   // Costos heredados por los productos de esta subcategoría (solo aplican a subcategorías, no a categorías raíz).
   logisticsCost Decimal? @map("logistics_cost") @db.Decimal(12, 2)
@@ -123,21 +175,21 @@ model BrandCategory {
 }
 
 model Attribute {
-  id           String        @id @default(uuid()) @db.Uuid
-  categoryId   String        @map("category_id") @db.Uuid
-  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  name         String
-  type         AttributeType
-  isFilterable Boolean       @default(false) @map("is_filterable")
-  isRequired   Boolean       @default(false) @map("is_required")
+  id                String               @id @default(uuid()) @db.Uuid
+  categoryId        String               @map("category_id") @db.Uuid
+  category          Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name              String
+  type              AttributeType
+  isFilterable      Boolean              @default(false) @map("is_filterable")
+  isRequired        Boolean              @default(false) @map("is_required")
   // Si se muestra como columna extra en la tabla de Productos del panel (además de las de siempre).
-  showInProductList Boolean  @default(false) @map("show_in_product_list")
+  showInProductList Boolean              @default(false) @map("show_in_product_list")
   // Solo aplica (y solo tiene sentido) cuando type = SELECT.
-  variantMode  AttributeVariantMode @default(NONE) @map("variant_mode")
+  variantMode       AttributeVariantMode @default(NONE) @map("variant_mode")
   // Solo aplica cuando type = SELECT y variantMode = NONE: el producto puede elegir 1+ opciones de
   // la lista compartida de la categoría (ej. Acordes de un perfume), a diferencia de MULTI_VALUE
   // (valores propios por producto, para variantes tipo sabor).
-  allowMultiple Boolean @default(false) @map("allow_multiple")
+  allowMultiple     Boolean              @default(false) @map("allow_multiple")
 
   options             AttributeOption[]
   productValues       ProductAttributeValue[]
@@ -203,10 +255,10 @@ model ProductAttributeValue {
   attributeId String    @map("attribute_id") @db.Uuid
   attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
-  valueText    String?  @map("value_text")
-  valueNumber  Decimal? @map("value_number") @db.Decimal(14, 4)
-  valueBoolean Boolean? @map("value_boolean")
-  optionId     String?  @map("option_id") @db.Uuid
+  valueText    String?          @map("value_text")
+  valueNumber  Decimal?         @map("value_number") @db.Decimal(14, 4)
+  valueBoolean Boolean?         @map("value_boolean")
+  optionId     String?          @map("option_id") @db.Uuid
   option       AttributeOption? @relation(fields: [optionId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
