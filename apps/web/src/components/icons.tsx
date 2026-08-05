@@ -76,6 +76,18 @@ export function LogoutIcon({ className }: IconProps) {
   );
 }
 
+export function ClientsIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <circle cx="9" cy="10.5" r="2.2" />
+      <path d="M5.5 16c.6-2 2-3 3.5-3s2.9 1 3.5 3" />
+      <line x1="14.5" y1="9.5" x2="18" y2="9.5" />
+      <line x1="14.5" y1="12.5" x2="18" y2="12.5" />
+    </svg>
+  );
+}
+
 export function UsersIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

@@ -137,3 +137,35 @@ export type Usuario = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type TipoCliente = "NATURAL" | "JURIDICA";
+export type TipoDocumento = "DNI" | "CI" | "RUC" | "PASAPORTE" | "OTRO";
+/** MANUAL: cargado desde gestión. WEB: registro propio del cliente (todavía no implementado). */
+export type OrigenCliente = "MANUAL" | "WEB";
+
+export type Cliente = {
+  id: string;
+  tipo: TipoCliente;
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  numeroDocumento: string;
+  email: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+  origen: OrigenCliente;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClienteInput = {
+  tipo?: TipoCliente;
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  numeroDocumento: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  ciudad?: string;
+};

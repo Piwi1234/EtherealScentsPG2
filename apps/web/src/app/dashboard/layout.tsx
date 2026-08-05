@@ -4,10 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getAuthUser, type AuthUser } from "../../lib/auth";
-import { AttributesIcon, BrandsIcon, CategoriesIcon, DashboardIcon, LogoutIcon, ProductsIcon, UsersIcon } from "../../components/icons";
+import {
+  AttributesIcon,
+  BrandsIcon,
+  CategoriesIcon,
+  ClientsIcon,
+  DashboardIcon,
+  LogoutIcon,
+  ProductsIcon,
+  UsersIcon,
+} from "../../components/icons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, exact: true },
+  { href: "/dashboard/clientes", label: "Clientes", icon: ClientsIcon },
   { href: "/dashboard/categories", label: "Categorías", icon: CategoriesIcon },
   { href: "/dashboard/brands", label: "Marcas", icon: BrandsIcon },
   { href: "/dashboard/attributes", label: "Atributos", icon: AttributesIcon },

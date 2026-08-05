@@ -1,3 +1,6 @@
+import { clearSession } from "./auth";
+import type { Cliente, ClienteInput, Page } from "./types";
+
 const DEFAULT_API_HOST = "http://localhost:4100";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_HOST;
 const API_BASE = typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL ? "/api" : `${API_URL}/api`;
@@ -32,10 +35,17 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${url} — ${String(error)}`);
   }
 
+  if (response.status === 401 && typeof window !== "undefined") {
+    clearSession();
+    window.location.href = "/login";
+    // La navegación va a desmontar todo; esto solo evita que el código que llamó siga ejecutando.
+    throw new ApiError(401, "Sesión expirada.");
+  }
+
   const text = await response.text();
 
   if (!response.ok) {
-    let message = `${response.status} ${response.statusText}`;
+    let message = "Ocurrió un error, intenta nuevamente";
     if (text) {
       try {
         const body = JSON.parse(text) as { message?: string | string[] };
@@ -76,4 +86,32 @@ export function apiUpload<T>(path: string, file: File): Promise<T> {
   formData.append("file", file);
   // Sin Content-Type manual: el browser arma el boundary multipart correcto.
   return apiRequest<T>(path, { method: "POST", body: formData });
+}
+
+// --- Clientes ---
+
+export function getClientes(query: { search?: string; activo?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.activo) params.set("activo", query.activo);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<Cliente>>(`/clientes${qs ? `?${qs}` : ""}`);
+}
+
+export function getCliente(id: string) {
+  return apiGet<Cliente>(`/clientes/${id}`);
+}
+
+export function createCliente(data: ClienteInput) {
+  return apiPost<Cliente>("/clientes", data);
+}
+
+export function updateCliente(id: string, data: Partial<ClienteInput>) {
+  return apiPatch<Cliente>(`/clientes/${id}`, data);
+}
+
+export function deleteCliente(id: string) {
+  return apiDelete<Cliente>(`/clientes/${id}`);
 }

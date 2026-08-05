@@ -523,13 +523,15 @@ a {
   border-bottom: none;
 }
 
-.table-minimal .row-actions {
+/* Sin scope a .table-minimal a propósito: se reusan también fuera de tablas (ej. acciones en el
+   detalle de un cliente). */
+.row-actions {
   display: flex;
   justify-content: center;
   gap: 6px;
 }
 
-.table-minimal .action-btn {
+.action-btn {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
@@ -544,17 +546,17 @@ a {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.table-minimal .action-btn:hover {
+.action-btn:hover {
   background: var(--paper);
   border-color: var(--ink);
 }
 
-.table-minimal .action-btn.danger {
+.action-btn.danger {
   color: var(--danger);
   border-color: rgba(198, 66, 50, 0.25);
 }
 
-.table-minimal .action-btn.danger:hover {
+.action-btn.danger:hover {
   background: rgba(198, 66, 50, 0.08);
   border-color: var(--danger);
 }
@@ -598,6 +600,13 @@ a {
   background: rgba(201, 169, 110, 0.16);
   border-color: var(--gold);
   color: #8a6d3b;
+  font-weight: 600;
+}
+
+.badge-danger {
+  background: rgba(198, 66, 50, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -948,4 +957,57 @@ a {
   margin: 0 0 12px;
   font-size: 13px;
   color: var(--muted);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--surface);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pagination-btn:hover {
+  background: var(--paper);
+  border-color: var(--ink);
+}
+
+.pagination-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton {
+  background: var(--paper);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
