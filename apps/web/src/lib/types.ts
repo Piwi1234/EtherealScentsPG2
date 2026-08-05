@@ -291,6 +291,8 @@ export type ProformaDetalleVariante = {
     productCode: string;
     imageUrl: string | null;
     categoryId: string;
+    brandId: string | null;
+    brand: { id: string; name: string; slug: string } | null;
     attributeValues: ProductAttributeValue[];
   };
 };
@@ -332,8 +334,9 @@ export type Proforma = {
   creadoPor: { id: string; nombre: string; email: string; rol: Rol };
   /** Aplica sobre el total del documento, no por línea. */
   descuentoGeneral: string;
-  /** Campo informativo por ahora, sin ligar a un módulo de pagos. */
-  montoAdelanto: string | null;
+  /** % del total que debe adelantar el cliente (0-100). El monto y el saldo se calculan en vivo a
+   * partir del total de las líneas. Informativo por ahora, sin ligar a un módulo de pagos. */
+  adelantoPorcentaje: string | null;
   fecha: string;
   detalles: ProformaDetalle[];
   historial: ProformaHistorial[];
@@ -348,7 +351,7 @@ export type ProformaInput = {
   almacenRecepcionId?: string;
   ciudadEntregaId?: string;
   descuentoGeneral?: number;
-  montoAdelanto?: number;
+  adelantoPorcentaje?: number;
 };
 
 export type DetalleVentaInput = { varianteId: string; cantidad: number; precioUnitario?: number };

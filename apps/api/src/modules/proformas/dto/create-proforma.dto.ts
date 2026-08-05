@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEnum, IsNumber, IsOptional, IsUUID, Min } from "class-validator";
+import { IsEnum, IsNumber, IsOptional, IsUUID, Max, Min } from "class-validator";
 import { TipoProforma } from "@app/database";
 
 export class CreateProformaDto {
@@ -32,9 +32,12 @@ export class CreateProformaDto {
   @Min(0)
   descuentoGeneral?: number;
 
-  @ApiPropertyOptional({ description: "Campo informativo por ahora, sin ligar a un módulo de pagos." })
+  @ApiPropertyOptional({
+    description: "% del total que debe adelantar el cliente. Informativo por ahora, sin ligar a un módulo de pagos.",
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  montoAdelanto?: number;
+  @Max(100)
+  adelantoPorcentaje?: number;
 }

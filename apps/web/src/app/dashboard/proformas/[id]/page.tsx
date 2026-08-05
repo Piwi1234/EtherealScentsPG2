@@ -7,6 +7,7 @@ import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
 import { ProformaDetalleTable } from "../../../../components/proformas/ProformaDetalleTable";
+import { ProformaTotales } from "../../../../components/proformas/ProformaTotales";
 import { AsignacionAlmacenTable } from "../../../../components/proformas/AsignacionAlmacenTable";
 import { SeguimientoTracker } from "../../../../components/proformas/SeguimientoTracker";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
@@ -62,9 +63,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         ciudades={ciudadesPage.items}
       />
 
-      <ProformaAcciones proformaId={proforma.id} estado={proforma.estado} />
-
-      <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Líneas</h2>
+      <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Productos</h2>
       <ProformaDetalleTable proforma={proforma} editable={editableDetalle} />
 
       {editableDetalle && (
@@ -72,6 +71,10 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           <AgregarLinea proformaId={proforma.id} tipo={proforma.tipo} />
         </div>
       )}
+
+      <div style={{ marginTop: 16 }}>
+        <ProformaTotales proforma={proforma} editable={editableHeader} />
+      </div>
 
       {mostrarAsignaciones && (
         <>
@@ -89,6 +92,10 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
 
       <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Historial</h2>
       <EstadoHistorialTimeline historial={proforma.historial} />
+
+      <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
+        <ProformaAcciones proformaId={proforma.id} estado={proforma.estado} />
+      </div>
     </div>
   );
 }

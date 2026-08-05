@@ -8,12 +8,24 @@ function formatValue(pv: ProductAttributeValue): string {
   return "—";
 }
 
+function visiblesOrdenados(attributeValues: ProductAttributeValue[]): ProductAttributeValue[] {
+  return [...attributeValues]
+    .filter((pv) => pv.attribute.mostrarEnProforma)
+    .sort((a, b) => a.attribute.orden - b.attribute.orden);
+}
+
+/** "Attr1: Val1, Attr2: Val2" — para celdas de tabla compactas (ProformaDetalleTable), donde no
+ * entra el layout en badges de `AtributosVisibles`. */
+export function formatAtributosVisibles(attributeValues: ProductAttributeValue[]): string {
+  return visiblesOrdenados(attributeValues)
+    .map((pv) => `${pv.attribute.name}: ${formatValue(pv)}`)
+    .join(", ");
+}
+
 /** Solo los atributos marcados mostrarEnProforma=true, ordenados por `orden`. Se usa tanto en
  * VarianteSelector (al elegir un producto) como en la vista de detalle de una proforma. */
 export function AtributosVisibles({ attributeValues }: { attributeValues: ProductAttributeValue[] }) {
-  const visibles = [...attributeValues]
-    .filter((pv) => pv.attribute.mostrarEnProforma)
-    .sort((a, b) => a.attribute.orden - b.attribute.orden);
+  const visibles = visiblesOrdenados(attributeValues);
 
   if (visibles.length === 0) return null;
 

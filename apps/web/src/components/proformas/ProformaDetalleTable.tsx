@@ -4,11 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
 import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
+import { formatAtributosVisibles } from "./AtributosVisibles";
 
-function varianteLabel(detalle: ProformaDetalle): string | null {
-  const opciones = detalle.variante.options;
-  if (opciones.length === 0) return null;
-  return opciones.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`).join(", ");
+/** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
+ * categoría marcados para mostrarse en proforma — todo concatenado en una sola línea bajo el nombre. */
+function atributosLabel(detalle: ProformaDetalle): string | null {
+  const opciones = detalle.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
+  const heredados = formatAtributosVisibles(detalle.variante.product.attributeValues);
+  const partes = [...opciones, ...(heredados ? [heredados] : [])];
+  return partes.length > 0 ? partes.join(", ") : null;
 }
 
 function money(value: string | null, prefix: string): string {
@@ -56,7 +60,7 @@ function DetalleRow({
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = tipo === "VENTA" ? 5 : 8;
+  const colSpan = (tipo === "VENTA" ? 5 : 8) + (editable ? 1 : 0);
 
   async function commit(field: keyof import("../../lib/types").UpdateDetalleInput, value: number) {
     setError("");
@@ -81,11 +85,12 @@ function DetalleRow({
     }
   }
 
-  const etiqueta = varianteLabel(detalle);
+  const etiqueta = atributosLabel(detalle);
 
   return (
     <>
       <tr>
+        <td className="cell-muted">{detalle.variante.product.brand?.name ?? "—"}</td>
         <td className="cell-primary">
           {detalle.variante.product.name}
           {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
@@ -175,6 +180,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
       <table className="table table-minimal">
         <thead>
           <tr>
+            <th>Marca</th>
             <th>Producto</th>
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (

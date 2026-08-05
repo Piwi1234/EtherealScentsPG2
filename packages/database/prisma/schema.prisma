@@ -550,9 +550,10 @@ model Proforma {
   // Aplica sobre el total del documento, no por línea (no se mezcla con el descuento de catálogo,
   // que ya está incorporado en precioFinalBs de cada línea de venta).
   descuentoGeneral Decimal  @default(0) @map("descuento_general") @db.Decimal(12, 2)
-  // Campo informativo por ahora: cuánto debe adelantar el cliente. Sin ligar a un módulo de pagos
-  // todavía (punto de extensión futuro).
-  montoAdelanto    Decimal? @map("monto_adelanto") @db.Decimal(12, 2)
+  // Campo informativo por ahora: qué % del total debe adelantar el cliente (el monto y el saldo se
+  // calculan en vivo a partir del total de las líneas). Sin ligar a un módulo de pagos todavía
+  // (punto de extensión futuro).
+  adelantoPorcentaje Decimal? @map("adelanto_porcentaje") @db.Decimal(5, 2)
 
   fecha     DateTime @default(now())
   createdAt DateTime @default(now()) @map("created_at")

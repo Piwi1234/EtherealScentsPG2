@@ -23,10 +23,13 @@ export const includeDetails = {
     include: {
       // attributeValues+attribute+option: para AtributosVisibles en la vista de detalle (mismo shape
       // que necesita VarianteSelector al buscar productos). options: qué distingue a ESTA variante
-      // puntual (ej. "Tamaño: 50 ML"), mismo shape que ya usa el catálogo de productos.
+      // puntual (ej. "Tamaño: 50 ML"), mismo shape que ya usa el catálogo de productos. brand: para
+      // mostrar la marca en la tabla de productos de la proforma.
       variante: {
         include: {
-          product: { include: { attributeValues: { include: { attribute: true, option: true } } } },
+          product: {
+            include: { attributeValues: { include: { attribute: true, option: true } }, brand: true },
+          },
           options: { include: { optionValue: { include: { attribute: true } } } },
         },
       },
@@ -151,7 +154,7 @@ export class ProformasService {
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
-            montoAdelanto: dto.montoAdelanto,
+            adelantoPorcentaje: dto.adelantoPorcentaje,
           },
         });
         await this.historial.registrar(tx, proforma.id, EstadoProforma.BORRADOR, creadoPorId, "Proforma creada.");

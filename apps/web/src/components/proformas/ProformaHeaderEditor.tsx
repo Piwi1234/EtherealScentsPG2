@@ -17,8 +17,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 /**
  * Cabecera de la proforma. Mientras está en BORRADOR es editable inline (empresa, cliente/almacén de
- * recepción, ciudad de entrega, descuento general, adelanto) — un único botón "Guardar cambios" que
- * dispara un solo PATCH /proformas/:id con todo. Fuera de BORRADOR se muestra solo lectura.
+ * recepción, ciudad de entrega) — un único botón "Guardar cambios" que dispara un solo PATCH
+ * /proformas/:id con todo. Fuera de BORRADOR se muestra solo lectura. El descuento general y el
+ * adelanto viven en `ProformaTotales`, junto al total que generan las líneas — no acá.
  */
 export function ProformaHeaderEditor({
   proforma,
@@ -40,8 +41,6 @@ export function ProformaHeaderEditor({
   const [clienteId, setClienteId] = useState(proforma.clienteId ?? "");
   const [almacenRecepcionId, setAlmacenRecepcionId] = useState(proforma.almacenRecepcionId ?? "");
   const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
-  const [descuentoGeneral, setDescuentoGeneral] = useState(proforma.descuentoGeneral);
-  const [montoAdelanto, setMontoAdelanto] = useState(proforma.montoAdelanto ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,8 +53,6 @@ export function ProformaHeaderEditor({
         clienteId: proforma.tipo === "VENTA" ? clienteId || undefined : undefined,
         almacenRecepcionId: proforma.tipo === "COMPRA" ? almacenRecepcionId || undefined : undefined,
         ciudadEntregaId: ciudadEntregaId || undefined,
-        descuentoGeneral: Number(descuentoGeneral) || 0,
-        montoAdelanto: montoAdelanto ? Number(montoAdelanto) : undefined,
       });
       router.refresh();
     } catch (e) {
@@ -75,8 +72,6 @@ export function ProformaHeaderEditor({
           <Field label="Almacén de recepción" value={proforma.almacenRecepcion?.nombre ?? "—"} />
         )}
         <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />
-        <Field label="Descuento general" value={proforma.descuentoGeneral} />
-        <Field label="Adelanto" value={proforma.montoAdelanto ?? "—"} />
       </div>
     );
   }
@@ -102,30 +97,6 @@ export function ProformaHeaderEditor({
         <div className="filter-field" style={{ minWidth: 180 }}>
           <label className="filter-label">Ciudad de entrega</label>
           <CiudadSelector options={ciudades} value={ciudadEntregaId} onChange={setCiudadEntregaId} placeholder="— Sin definir —" />
-        </div>
-        <div className="filter-field">
-          <label className="filter-label">Descuento general</label>
-          <input
-            className="field"
-            type="number"
-            min={0}
-            step="0.01"
-            value={descuentoGeneral}
-            onChange={(e) => setDescuentoGeneral(e.target.value)}
-            style={{ width: 100 }}
-          />
-        </div>
-        <div className="filter-field">
-          <label className="filter-label">Adelanto</label>
-          <input
-            className="field"
-            type="number"
-            min={0}
-            step="0.01"
-            value={montoAdelanto}
-            onChange={(e) => setMontoAdelanto(e.target.value)}
-            style={{ width: 100 }}
-          />
         </div>
         <div style={{ display: "flex", alignItems: "flex-end" }}>
           <button type="button" className="action-btn" onClick={handleSave} disabled={submitting}>
