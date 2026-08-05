@@ -84,6 +84,7 @@ export class ClientesService {
           telefono: dto.telefono,
           direccion: dto.direccion,
           ciudad: dto.ciudad,
+          ciudadId: dto.ciudadId,
           origen: OrigenCliente.MANUAL,
           creadoPorId,
         },

@@ -158,6 +158,38 @@ export class ProductService {
     return definitions.some((attr) => attr.variantMode === AttributeVariantMode.PRICED_VARIANT);
   }
 
+  /**
+   * Crea la única variante "default" de un producto sin atributos PRICED_VARIANT — sin ella, un
+   * producto "simple" no tiene ningún ProductVariant al que Stock/Proformas puedan atarse. Copia los
+   * precios del producto en ese momento (no se mantiene sincronizada después: el Product sigue siendo
+   * la fuente de verdad para catálogo simple). No hace nada si el producto ya tiene alguna variante.
+   */
+  private async ensureDefaultVariant(
+    tx: Prisma.TransactionClient,
+    product: {
+      id: string;
+      purchasePrice: Prisma.Decimal | number;
+      utility: Prisma.Decimal | number;
+      minPriceBs: Prisma.Decimal | number | null;
+      discountBs: Prisma.Decimal | number;
+    },
+  ) {
+    const existing = await tx.productVariant.findFirst({ where: { productId: product.id } });
+    if (existing) return;
+    const variantCode = await this.generateVariantCode();
+    await tx.productVariant.create({
+      data: {
+        productId: product.id,
+        variantCode,
+        purchasePrice: product.purchasePrice,
+        utility: product.utility,
+        minPriceBs: product.minPriceBs,
+        discountBs: product.discountBs,
+        isDefault: true,
+      },
+    });
+  }
+
   async create(dto: CreateProductDto) {
     await this.categories.findOne(dto.categoryId);
     if (dto.brandId) {
@@ -175,19 +207,26 @@ export class ProductService {
     const productCode = await this.generateProductCode();
 
     try {
-      const product = await this.prisma.product.create({
-        data: {
-          name: dto.name,
-          productCode,
-          purchasePrice: dto.purchasePrice ?? 0,
-          utility: dto.utility ?? 0,
-          minPriceBs: dto.minPriceBs,
-          discountBs: dto.discountBs ?? 0,
-          brandId: dto.brandId,
-          categoryId: dto.categoryId,
-          attributeValues: { create: attributeValuesData },
-        },
-        include: includeDetails,
+      const product = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.product.create({
+          data: {
+            name: dto.name,
+            productCode,
+            purchasePrice: dto.purchasePrice ?? 0,
+            utility: dto.utility ?? 0,
+            minPriceBs: dto.minPriceBs,
+            discountBs: dto.discountBs ?? 0,
+            brandId: dto.brandId,
+            categoryId: dto.categoryId,
+            attributeValues: { create: attributeValuesData },
+          },
+        });
+
+        if (!hasPricedVariants) {
+          await this.ensureDefaultVariant(tx, created);
+        }
+
+        return tx.product.findUniqueOrThrow({ where: { id: created.id }, include: includeDetails });
       });
       return withPrice(product, await this.settings.getExchangeRate());
     } catch (error) {
@@ -268,7 +307,7 @@ export class ProductService {
           await tx.productVariantOptionValue.deleteMany({ where: { productId: id } });
         }
 
-        return tx.product.update({
+        const updated = await tx.product.update({
           where: { id },
           data: {
             name: dto.name,
@@ -279,8 +318,15 @@ export class ProductService {
             brandId: dto.brandId,
             categoryId: dto.categoryId,
           },
-          include: includeDetails,
         });
+
+        // La categoría nueva no tiene variantes con precio propio: sin esto, el producto se queda sin
+        // ningún ProductVariant tras el deleteMany de arriba.
+        if (categoryChanged && !hasPricedVariants) {
+          await this.ensureDefaultVariant(tx, updated);
+        }
+
+        return tx.product.findUniqueOrThrow({ where: { id }, include: includeDetails });
       });
       return withPrice(product, await this.settings.getExchangeRate());
     } catch (error) {

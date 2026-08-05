@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
 import { TipoCliente, TipoDocumento } from "@app/database";
 
 export class CreateClienteDto {
@@ -41,4 +41,9 @@ export class CreateClienteDto {
   @IsOptional()
   @IsString()
   ciudad?: string;
+
+  @ApiPropertyOptional({ description: "Referencia a la tabla Ciudad (para Proformas). Independiente del campo 'ciudad' de texto libre." })
+  @IsOptional()
+  @IsUUID()
+  ciudadId?: string;
 }

@@ -1,6 +1,23 @@
-import { AttributeType, PrismaClient, Rol } from "@prisma/client";
+import { AttributeType, EstadoProforma, PrismaClient, Rol, TipoEmpresa, TipoProforma } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+const VARIANT_CODE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function randomVariantCode(): string {
+  let code = "";
+  for (let i = 0; i < 7; i++) code += VARIANT_CODE_CHARSET[Math.floor(Math.random() * VARIANT_CODE_CHARSET.length)];
+  return code;
+}
+
+async function generateUniqueVariantCode(): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = randomVariantCode();
+    const existing = await prisma.productVariant.findUnique({ where: { variantCode: code } });
+    if (!existing) return code;
+  }
+  throw new Error("No se pudo generar un variantCode único.");
+}
 
 /**
  * Único lugar donde se crea un usuario ADMIN: nunca vía endpoint público (ver
@@ -240,9 +257,177 @@ async function seedCatalog() {
   console.log("Catálogo de ejemplo sembrado: 3 categorías, 2 marcas, 4 atributos, 3 productos.");
 }
 
+/**
+ * Todo producto sin ninguna variante (categoría sin atributo PRICED_VARIANT) necesita una variante
+ * "default" para que Stock/Proformas tengan un varianteId al que atarse — ver ensureDefaultVariant en
+ * product.service.ts. Acá se hace lo mismo a mano para los productos ya existentes.
+ */
+async function seedDefaultVariants() {
+  const productos = await prisma.product.findMany({ where: { variants: { none: {} } } });
+  for (const producto of productos) {
+    const variantCode = await generateUniqueVariantCode();
+    await prisma.productVariant.create({
+      data: {
+        productId: producto.id,
+        variantCode,
+        purchasePrice: producto.purchasePrice,
+        utility: producto.utility,
+        minPriceBs: producto.minPriceBs,
+        discountBs: producto.discountBs,
+        isDefault: true,
+      },
+    });
+  }
+  if (productos.length > 0) {
+    console.log(`Variante default creada para ${productos.length} producto(s) sin variante propia.`);
+  }
+}
+
+async function upsertAlmacenByNombre(nombre: string, ciudadId: string) {
+  const existing = await prisma.almacen.findFirst({ where: { nombre } });
+  if (existing) return existing;
+  return prisma.almacen.create({ data: { nombre, ciudadId } });
+}
+
+async function seedEmpresasYAlmacenes() {
+  const casaMatriz = await prisma.empresa.upsert({
+    where: { nit: "J-00000001-1" },
+    update: {},
+    create: {
+      nombre: "Aromas Caracas",
+      tipo: TipoEmpresa.CASA_MATRIZ,
+      razonSocial: "Aromas Caracas C.A.",
+      nit: "J-00000001-1",
+      logoUrl: "https://placehold.co/200x80?text=Aromas+Caracas",
+    },
+  });
+  const sucursal = await prisma.empresa.upsert({
+    where: { nit: "J-00000002-2" },
+    update: {},
+    create: {
+      nombre: "Aromas Valencia",
+      tipo: TipoEmpresa.SUCURSAL,
+      razonSocial: "Aromas Valencia C.A.",
+      nit: "J-00000002-2",
+      logoUrl: "https://placehold.co/200x80?text=Aromas+Valencia",
+    },
+  });
+
+  const caracas = await prisma.ciudad.upsert({ where: { nombre: "Caracas" }, update: {}, create: { nombre: "Caracas" } });
+  const valencia = await prisma.ciudad.upsert({ where: { nombre: "Valencia" }, update: {}, create: { nombre: "Valencia" } });
+
+  const almacenCaracas = await upsertAlmacenByNombre("Almacén Caracas", caracas.id);
+  const almacenValencia = await upsertAlmacenByNombre("Almacén Valencia", valencia.id);
+
+  // Cobertura cruzada: cada ciudad prioriza su propio almacén (1) y usa el otro como respaldo (2) —
+  // así el motor de reparto tiene algo que demostrar (cobertura local + fallback).
+  const zonas: [string, string, number][] = [
+    [caracas.id, almacenCaracas.id, 1],
+    [caracas.id, almacenValencia.id, 2],
+    [valencia.id, almacenValencia.id, 1],
+    [valencia.id, almacenCaracas.id, 2],
+  ];
+  for (const [ciudadId, almacenId, prioridad] of zonas) {
+    await prisma.zonaCobertura.upsert({
+      where: { ciudadId_almacenId: { ciudadId, almacenId } },
+      update: { prioridad },
+      create: { ciudadId, almacenId, prioridad },
+    });
+  }
+
+  console.log("2 empresas, 2 ciudades, 2 almacenes y 4 zonas de cobertura sembrados.");
+  return { casaMatriz, sucursal, caracas, valencia, almacenCaracas, almacenValencia };
+}
+
+/** Deja lotes de compra + stock inicial reales, pasando una proforma de compra de punta a punta
+ * (BORRADOR→...→COMPLETADA con su historial) en vez de insertar filas sueltas por fuera del flujo. */
+async function seedProformaDeCompra(almacenId: string) {
+  const yaSembrado = (await prisma.loteCompra.count()) > 0;
+  if (yaSembrado) {
+    console.log("Ya hay lotes de compra sembrados, se salta la proforma de ejemplo.");
+    return;
+  }
+
+  const admin = await prisma.usuario.findUniqueOrThrow({ where: { email: "admin@gmail.com" } });
+  const empresa = await prisma.empresa.findUniqueOrThrow({ where: { nit: "J-00000001-1" } });
+  const variantes = await prisma.productVariant.findMany({ take: 3, orderBy: { createdAt: "asc" } });
+  if (variantes.length === 0) {
+    console.log("No hay variantes todavía, se salta la proforma de compra de ejemplo.");
+    return;
+  }
+
+  const proforma = await prisma.proforma.create({
+    data: {
+      tipo: TipoProforma.COMPRA,
+      estado: EstadoProforma.COMPLETADA,
+      empresaId: empresa.id,
+      almacenRecepcionId: almacenId,
+      creadoPorId: admin.id,
+    },
+  });
+
+  for (const variante of variantes) {
+    const precioCompra = Number(variante.purchasePrice) || 10;
+    const costoEnvio = 1;
+    const costoSeguridad = 1;
+    const costoLogistica = 1;
+    const cantidad = 20;
+    const costoUnitario = precioCompra + costoEnvio + costoSeguridad + costoLogistica;
+
+    const detalle = await prisma.proformaDetalle.create({
+      data: {
+        proformaId: proforma.id,
+        varianteId: variante.id,
+        cantidad,
+        precioCompra,
+        costoEnvio,
+        costoSeguridad,
+        costoLogistica,
+        subtotal: cantidad * costoUnitario,
+      },
+    });
+
+    await prisma.loteCompra.create({
+      data: {
+        varianteId: variante.id,
+        almacenId,
+        proformaDetalleId: detalle.id,
+        costoUnitario,
+        cantidadInicial: cantidad,
+        cantidadDisponible: cantidad,
+      },
+    });
+
+    await prisma.stock.upsert({
+      where: { varianteId_almacenId: { varianteId: variante.id, almacenId } },
+      update: { cantidadFisica: { increment: cantidad } },
+      create: { varianteId: variante.id, almacenId, cantidadFisica: cantidad, cantidadReservada: 0 },
+    });
+  }
+
+  const pasos: [EstadoProforma, string | undefined][] = [
+    [EstadoProforma.BORRADOR, "Proforma creada (seed)."],
+    [EstadoProforma.PENDIENTE, undefined],
+    [EstadoProforma.APROBADA, undefined],
+    [EstadoProforma.COMPLETADA, undefined],
+  ];
+  for (const [estado, nota] of pasos) {
+    await prisma.proformaHistorial.create({ data: { proformaId: proforma.id, estado, usuarioId: admin.id, nota } });
+  }
+
+  console.log(`Proforma de compra de ejemplo sembrada (COMPLETADA), stock inicial en ${variantes.length} variante(s).`);
+}
+
+async function seedProformas() {
+  await seedDefaultVariants();
+  const { almacenCaracas } = await seedEmpresasYAlmacenes();
+  await seedProformaDeCompra(almacenCaracas.id);
+}
+
 async function main() {
   await seedAuth();
   await seedCatalog();
+  await seedProformas();
 }
 
 main()

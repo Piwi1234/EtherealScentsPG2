@@ -4,6 +4,9 @@ import { CommonModule } from "./common/common.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsuariosModule } from "./modules/usuarios/usuarios.module";
 import { ClientesModule } from "./modules/clientes/clientes.module";
+import { EmpresasModule } from "./modules/empresas/empresas.module";
+import { AlmacenesModule } from "./modules/almacenes/almacenes.module";
+import { ProformasModule } from "./modules/proformas/proformas.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { SettingsModule } from "./settings/settings.module";
 
@@ -14,6 +17,9 @@ import { SettingsModule } from "./settings/settings.module";
     AuthModule,
     UsuariosModule,
     ClientesModule,
+    EmpresasModule,
+    AlmacenesModule,
+    ProformasModule,
     CatalogModule,
     SettingsModule,
   ],
