@@ -494,7 +494,12 @@ model LoteCompra {
   variante           ProductVariant  @relation(fields: [varianteId], references: [id], onDelete: Restrict)
   almacenId          String          @map("almacen_id") @db.Uuid
   almacen            Almacen         @relation(fields: [almacenId], references: [id], onDelete: Restrict)
-  proformaDetalleId  String          @unique @map("proforma_detalle_id") @db.Uuid
+  // Ya no es @unique: en el flujo normal (completarCompra) sigue siendo 1 lote por línea, pero una
+  // corrección manual de catálogo (ej. repartir un lote entre variantes nuevas tras convertir un
+  // atributo MULTI_VALUE a PRICED_VARIANT) necesita poder partir un lote en más de un registro
+  // referenciando la misma línea de compra original. Nada en el código consulta por este campo como
+  // clave única (verificado), así que aflojar la restricción no cambia ningún comportamiento existente.
+  proformaDetalleId  String          @map("proforma_detalle_id") @db.Uuid
   proformaDetalle    ProformaDetalle @relation(fields: [proformaDetalleId], references: [id], onDelete: Restrict)
   costoUnitario      Decimal         @map("costo_unitario") @db.Decimal(12, 2)
   cantidadInicial    Int             @map("cantidad_inicial")
@@ -504,6 +509,7 @@ model LoteCompra {
   consumos LoteCompraConsumo[]
 
   @@index([varianteId, almacenId, fecha])
+  @@index([proformaDetalleId])
   @@map("lotes_compra")
 }
 
@@ -594,7 +600,9 @@ model ProformaDetalle {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   asignaciones ProformaDetalleAsignacion[]
-  loteCompra   LoteCompra?
+  // 1+ (no 0-o-1): al completar una compra nace 1, pero una corrección manual de catálogo puede
+  // partir ese lote en más de un registro (ver comentario en LoteCompra.proformaDetalleId).
+  loteCompras  LoteCompra[]
   seguimientos ProformaDetalleSeguimiento[]
 
   @@map("proforma_detalles")

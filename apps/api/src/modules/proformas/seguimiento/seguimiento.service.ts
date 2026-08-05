@@ -23,7 +23,13 @@ const includeLinea = {
   },
   variante: {
     include: {
-      product: { include: { attributeValues: { include: { attribute: true, option: true } }, brand: true } },
+      product: {
+        include: {
+          attributeValues: { include: { attribute: true, option: true } },
+          variantOptionValues: { include: { attribute: true } },
+          brand: true,
+        },
+      },
       options: { include: { optionValue: { include: { attribute: true } } } },
     },
   },

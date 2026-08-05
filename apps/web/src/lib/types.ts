@@ -298,6 +298,7 @@ export type ProformaDetalleVariante = {
     brandId: string | null;
     brand: { id: string; name: string; slug: string } | null;
     attributeValues: ProductAttributeValue[];
+    variantOptionValues: ProductVariantOptionValue[];
   };
 };
 
@@ -316,7 +317,7 @@ export type ProformaDetalle = {
   costoLogistica: string | null;
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
-  loteCompra: LoteCompra | null;
+  loteCompras: LoteCompra[];
   seguimientos: ProformaDetalleSeguimiento[];
   createdAt: string;
   updatedAt: string;

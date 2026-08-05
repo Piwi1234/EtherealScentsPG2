@@ -20,6 +20,12 @@ const VARIANT_MODE_LABELS: Record<AttributeVariantMode, string> = {
 
 const DEFAULT_OPTION_COLOR = "#c9a96e";
 
+type ConvertirResultado = {
+  productosAfectados: number;
+  variantesCreadas: number;
+  productosConStockLegado: { productId: string; nombre: string; productCode: string; stockTotal: number; lotesActivos: number }[];
+};
+
 function AttributesTable({
   attributes,
   onEdit,
@@ -117,6 +123,11 @@ export default function AttributesPage() {
   const [newOptionColor, setNewOptionColor] = useState(DEFAULT_OPTION_COLOR);
   const [optionError, setOptionError] = useState("");
 
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
+  const [convertSubmitting, setConvertSubmitting] = useState(false);
+  const [convertError, setConvertError] = useState("");
+  const [convertResult, setConvertResult] = useState<ConvertirResultado | null>(null);
+
   useEffect(() => {
     apiGet<Category[]>("/categories")
       .then((cats) => {
@@ -198,6 +209,21 @@ export default function AttributesPage() {
       loadAllSections();
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleConvert() {
+    if (!editing) return;
+    setConvertSubmitting(true);
+    setConvertError("");
+    try {
+      const result = await apiPost<ConvertirResultado>(`/attributes/${editing.id}/convertir-a-precio-propio`, {});
+      setConvertResult(result);
+      loadAllSections();
+    } catch (e) {
+      setConvertError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setConvertSubmitting(false);
     }
   }
 
@@ -481,6 +507,27 @@ export default function AttributesPage() {
                 Los valores se cargan por producto (no acá): cada producto arma su propia lista al editarlo.
               </p>
             )}
+            {editing && editing.type === "SELECT" && editing.variantMode === "MULTI_VALUE" && (
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px" }}>
+                  Hoy los valores de este atributo comparten un único stock por producto (ej. varios
+                  sabores, un solo stock). Para que cada valor tenga su propio stock, convertilo a
+                  variante con precio propio.
+                </p>
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => {
+                    setModalOpen(false);
+                    setConvertError("");
+                    setConvertResult(null);
+                    setConvertConfirmOpen(true);
+                  }}
+                >
+                  Convertir a variante con precio propio
+                </button>
+              </div>
+            )}
             {formError && <p className="error-text">{formError}</p>}
             <div className="form-actions">
               <button type="button" className="link-button" onClick={() => setModalOpen(false)}>Cancelar</button>
@@ -489,6 +536,70 @@ export default function AttributesPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {convertConfirmOpen && editing && (
+        <Modal
+          title={`Convertir "${editing.name}" a variante con precio propio`}
+          onClose={() => setConvertConfirmOpen(false)}
+        >
+          {!convertResult ? (
+            <div>
+              <p>
+                Esto va a crear una variante real (con su propio stock) por cada valor ya cargado en
+                cada producto. La variante actual de cada producto no se borra ni se toca — si tiene
+                stock o lotes de compra reales, va a quedar ahí, sin ningún valor asignado, para que
+                lo repartas a mano entre las variantes nuevas.
+              </p>
+              <p style={{ fontWeight: 600 }}>Esta acción no se puede deshacer desde acá. ¿Confirmás?</p>
+              {convertError && <p className="error-text">{convertError}</p>}
+              <div className="form-actions">
+                <button type="button" className="link-button" onClick={() => setConvertConfirmOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="button" className="button" onClick={handleConvert} disabled={convertSubmitting}>
+                  {convertSubmitting ? "Convirtiendo..." : "Sí, convertir"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p>
+                Listo: {convertResult.productosAfectados} producto{convertResult.productosAfectados === 1 ? "" : "s"} migrado
+                {convertResult.productosAfectados === 1 ? "" : "s"}, {convertResult.variantesCreadas} variante
+                {convertResult.variantesCreadas === 1 ? "" : "s"} nueva{convertResult.variantesCreadas === 1 ? "" : "s"} creada
+                {convertResult.variantesCreadas === 1 ? "" : "s"}.
+              </p>
+              {convertResult.productosConStockLegado.length > 0 && (
+                <>
+                  <p style={{ fontWeight: 600 }}>
+                    Estos productos tienen stock o lotes en su variante anterior — revisalos a mano:
+                  </p>
+                  <ul style={{ margin: "0 0 12px", paddingLeft: 20 }}>
+                    {convertResult.productosConStockLegado.map((p) => (
+                      <li key={p.productId}>
+                        {p.nombre} ({p.productCode}) — {p.stockTotal} unidades, {p.lotesActivos} lote
+                        {p.lotesActivos === 1 ? "" : "s"} activo{p.lotesActivos === 1 ? "" : "s"}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    setConvertConfirmOpen(false);
+                    setConvertResult(null);
+                  }}
+                >
+                  Listo
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

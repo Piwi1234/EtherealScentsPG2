@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { Rol } from "@app/database";
+import { Roles } from "../../modules/auth/decorators/roles.decorator";
 import { AttributeService } from "./attribute.service";
 import { UpdateAttributeDto } from "./dto/update-attribute.dto";
 import { CreateAttributeOptionDto, UpdateAttributeOptionDto } from "./dto/attribute-option.dto";
@@ -22,6 +24,14 @@ export class AttributeController {
   @Delete(":id")
   remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.attributes.remove(id);
+  }
+
+  // Reestructura catálogo real (crea variantes) — a diferencia del resto de este controller, se
+  // gatea a ADMIN a propósito.
+  @Post(":id/convertir-a-precio-propio")
+  @Roles(Rol.ADMIN)
+  convertirAPrecioPropio(@Param("id", ParseUUIDPipe) id: string) {
+    return this.attributes.convertirMultiValueAPrecioPropio(id);
   }
 
   @Post(":id/options")

@@ -14,7 +14,7 @@ function formatFecha(value: string): string {
 
 function atributosLabel(linea: SeguimientoLinea): string | null {
   const opciones = linea.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
-  const heredados = formatAtributosVisibles(linea.variante.product.attributeValues);
+  const heredados = formatAtributosVisibles(linea.variante.product.attributeValues, linea.variante.product.variantOptionValues);
   const partes = [...opciones, ...(heredados ? [heredados] : [])];
   return partes.length > 0 ? partes.join(", ") : null;
 }

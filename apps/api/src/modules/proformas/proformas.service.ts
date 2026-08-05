@@ -21,20 +21,25 @@ export const includeDetails = {
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
     include: {
-      // attributeValues+attribute+option: para AtributosVisibles en la vista de detalle (mismo shape
-      // que necesita VarianteSelector al buscar productos). options: qué distingue a ESTA variante
-      // puntual (ej. "Tamaño: 50 ML"), mismo shape que ya usa el catálogo de productos. brand: para
-      // mostrar la marca en la tabla de productos de la proforma.
+      // attributeValues+attribute+option: atributos NONE (un valor por producto). variantOptionValues:
+      // atributos MULTI_VALUE (el producto puede tener 1+ valores, ej. sabores de un vape) — ambos
+      // hacen falta para mostrar los atributos marcados mostrarEnProforma en la vista de detalle.
+      // options: qué distingue a ESTA variante puntual (ej. "Tamaño: 50 ML"). brand: para mostrar la
+      // marca en la tabla de productos de la proforma.
       variante: {
         include: {
           product: {
-            include: { attributeValues: { include: { attribute: true, option: true } }, brand: true },
+            include: {
+              attributeValues: { include: { attribute: true, option: true } },
+              variantOptionValues: { include: { attribute: true } },
+              brand: true,
+            },
           },
           options: { include: { optionValue: { include: { attribute: true } } } },
         },
       },
       asignaciones: { include: { almacen: true } },
-      loteCompra: true,
+      loteCompras: true,
       seguimientos: {
         orderBy: { fecha: "desc" as const },
         include: { usuario: { select: { id: true, nombre: true } } },

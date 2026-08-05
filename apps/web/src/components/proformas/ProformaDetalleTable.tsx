@@ -10,7 +10,7 @@ import { formatAtributosVisibles } from "./AtributosVisibles";
  * categoría marcados para mostrarse en proforma — todo concatenado en una sola línea bajo el nombre. */
 function atributosLabel(detalle: ProformaDetalle): string | null {
   const opciones = detalle.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
-  const heredados = formatAtributosVisibles(detalle.variante.product.attributeValues);
+  const heredados = formatAtributosVisibles(detalle.variante.product.attributeValues, detalle.variante.product.variantOptionValues);
   const partes = [...opciones, ...(heredados ? [heredados] : [])];
   return partes.length > 0 ? partes.join(", ") : null;
 }
@@ -60,7 +60,7 @@ function DetalleRow({
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 5 : 8) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : 9) + (editable ? 1 : 0);
 
   async function commit(field: keyof import("../../lib/types").UpdateDetalleInput, value: number) {
     setError("");
@@ -90,6 +90,7 @@ function DetalleRow({
   return (
     <>
       <tr>
+        <td className="cell-code">{detalle.variante.product.productCode}</td>
         <td className="cell-muted">{detalle.variante.product.brand?.name ?? "—"}</td>
         <td className="cell-primary">
           {detalle.variante.product.name}
@@ -180,6 +181,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
       <table className="table table-minimal">
         <thead>
           <tr>
+            <th>ID Producto</th>
             <th>Marca</th>
             <th>Producto</th>
             <th className="num">Cant.</th>
