@@ -239,8 +239,12 @@ export class ProductService {
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
     });
+    // Igual que browse.service.ts: categoryId puede ser una categoría raíz con subcategorías (los
+    // productos nunca cuelgan directo de una raíz que tenga hijas), así que se expande a sí misma +
+    // descendientes en vez de un match exacto.
+    const categoryIds = query.categoryId ? await this.categories.getDescendantIds(query.categoryId) : undefined;
     const where: Prisma.ProductWhereInput = {
-      categoryId: query.categoryId,
+      categoryId: categoryIds ? { in: categoryIds } : undefined,
       brandId: query.brandId,
       ...(query.search
         ? {

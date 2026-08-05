@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, createCliente, updateCliente } from "../../lib/api";
-import type { Cliente, TipoCliente, TipoDocumento } from "../../lib/types";
+import { ApiError, createCliente, getCiudades, updateCliente } from "../../lib/api";
+import type { Ciudad, Cliente, TipoCliente, TipoDocumento } from "../../lib/types";
+import { CiudadSelector } from "../proformas/selectors";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,6 +19,7 @@ type FormValues = {
   telefono: string;
   direccion: string;
   ciudad: string;
+  ciudadId: string;
 };
 
 function initialValuesFrom(cliente?: Cliente): FormValues {
@@ -30,6 +32,7 @@ function initialValuesFrom(cliente?: Cliente): FormValues {
     telefono: cliente?.telefono ?? "",
     direccion: cliente?.direccion ?? "",
     ciudad: cliente?.ciudad ?? "",
+    ciudadId: cliente?.ciudadId ?? "",
   };
 }
 
@@ -39,6 +42,13 @@ export function ClienteForm({ mode, cliente }: { mode: Mode; cliente?: Cliente }
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [ciudades, setCiudades] = useState<Ciudad[]>([]);
+
+  useEffect(() => {
+    getCiudades({ pageSize: 100 })
+      .then((page) => setCiudades(page.items))
+      .catch(() => {});
+  }, []);
 
   function setField<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -72,6 +82,7 @@ export function ClienteForm({ mode, cliente }: { mode: Mode; cliente?: Cliente }
         telefono: values.telefono.trim() || undefined,
         direccion: values.direccion.trim() || undefined,
         ciudad: values.ciudad.trim() || undefined,
+        ciudadId: values.ciudadId || undefined,
       };
       const result = mode === "crear" ? await createCliente(payload) : await updateCliente(cliente!.id, payload);
       router.push(`/dashboard/clientes/${result.id}`);
@@ -161,6 +172,19 @@ export function ClienteForm({ mode, cliente }: { mode: Mode; cliente?: Cliente }
       <div>
         <label>Dirección</label>
         <input className="field" value={values.direccion} onChange={(e) => setField("direccion", e.target.value)} />
+      </div>
+
+      <div>
+        <label>Ciudad (catálogo)</label>
+        <CiudadSelector
+          options={ciudades}
+          value={values.ciudadId}
+          onChange={(id) => setField("ciudadId", id)}
+          placeholder="— Sin definir —"
+        />
+        <p className="cell-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+          Se usa para precargar la ciudad de entrega al armar una proforma de venta para este cliente.
+        </p>
       </div>
 
       {formError && <p className="error-text">{formError}</p>}

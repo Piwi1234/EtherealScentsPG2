@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { apiGetServer } from "../../../../lib/api-server";
-import type { Almacen, Cliente, Empresa, Page, TipoProforma } from "../../../../lib/types";
+import type { Almacen, Ciudad, Cliente, Empresa, Page, TipoProforma } from "../../../../lib/types";
 import { NuevaProformaForm } from "../../../../components/proformas/NuevaProformaForm";
 
 export default async function NuevaProformaPage({
@@ -17,9 +17,14 @@ export default async function NuevaProformaPage({
 
   let clientes: Cliente[] = [];
   let almacenes: Almacen[] = [];
+  let ciudades: Ciudad[] = [];
   if (tipo === "VENTA") {
-    const clientesPage = await apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200");
+    const [clientesPage, ciudadesPage] = await Promise.all([
+      apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200"),
+      apiGetServer<Page<Ciudad>>("/ciudades?pageSize=100"),
+    ]);
     clientes = clientesPage.items;
+    ciudades = ciudadesPage.items;
   } else {
     const almacenesPage = await apiGetServer<Page<Almacen>>("/almacenes?pageSize=200");
     almacenes = almacenesPage.items.filter((a) => a.activo);
@@ -33,7 +38,7 @@ export default async function NuevaProformaPage({
       <p className="cell-muted" style={{ marginBottom: 20 }}>
         Completá lo mínimo para crearla. El resto (líneas, precios, envío) se arma en el siguiente paso.
       </p>
-      <NuevaProformaForm tipo={tipo} empresas={empresas} clientes={clientes} almacenes={almacenes} />
+      <NuevaProformaForm tipo={tipo} empresas={empresas} clientes={clientes} almacenes={almacenes} ciudades={ciudades} />
     </div>
   );
 }

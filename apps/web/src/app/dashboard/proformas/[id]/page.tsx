@@ -9,9 +9,7 @@ import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaH
 import { ProformaDetalleTable } from "../../../../components/proformas/ProformaDetalleTable";
 import { ProformaTotales } from "../../../../components/proformas/ProformaTotales";
 import { AsignacionAlmacenTable } from "../../../../components/proformas/AsignacionAlmacenTable";
-import { SeguimientoTracker } from "../../../../components/proformas/SeguimientoTracker";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
-import { AgregarLinea } from "../../../../components/proformas/AgregarLinea";
 
 export default async function ProformaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,8 +24,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
 
   const editableHeader = proforma.estado === "BORRADOR";
   const editableDetalle = proforma.estado === "BORRADOR" || proforma.estado === "PENDIENTE";
-  const mostrarSeguimiento = proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA";
-  const mostrarAsignaciones = proforma.tipo === "VENTA" && mostrarSeguimiento;
+  const aprobadaOCompletada = proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA";
+  const mostrarAsignaciones = proforma.tipo === "VENTA" && aprobadaOCompletada;
 
   const [empresasPage, clientesPage, almacenesPage, ciudadesPage] = await Promise.all([
     apiGetServer<Page<Empresa>>("/empresas?pageSize=100"),
@@ -63,14 +61,15 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         ciudades={ciudadesPage.items}
       />
 
-      <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Productos</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 12px" }}>
+        <h2 style={{ fontSize: 16, margin: 0 }}>Productos</h2>
+        {editableDetalle && (
+          <Link href={`/dashboard/proformas/${proforma.id}/agregar`} className="btn-cta">
+            <span className="btn-cta-icon">+</span> Agregar producto
+          </Link>
+        )}
+      </div>
       <ProformaDetalleTable proforma={proforma} editable={editableDetalle} />
-
-      {editableDetalle && (
-        <div style={{ marginTop: 16 }}>
-          <AgregarLinea proformaId={proforma.id} tipo={proforma.tipo} />
-        </div>
-      )}
 
       <div style={{ marginTop: 16 }}>
         <ProformaTotales proforma={proforma} editable={editableHeader} />
@@ -80,13 +79,6 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         <>
           <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Reparto por almacén</h2>
           <AsignacionAlmacenTable proforma={proforma} />
-        </>
-      )}
-
-      {mostrarSeguimiento && (
-        <>
-          <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Seguimiento interno</h2>
-          <SeguimientoTracker detalles={proforma.detalles} />
         </>
       )}
 

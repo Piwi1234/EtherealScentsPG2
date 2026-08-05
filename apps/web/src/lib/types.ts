@@ -156,6 +156,9 @@ export type Cliente = {
   telefono: string | null;
   direccion: string | null;
   ciudad: string | null;
+  /** Referencia a la tabla Ciudad (para Proformas: precarga la ciudad de entrega). Independiente del
+   * campo `ciudad` de texto libre de arriba, que conviven. */
+  ciudadId: string | null;
   origen: OrigenCliente;
   activo: boolean;
   createdAt: string;
@@ -171,6 +174,7 @@ export type ClienteInput = {
   telefono?: string;
   direccion?: string;
   ciudad?: string;
+  ciudadId?: string;
 };
 
 // --- Empresas / Almacenes / Ciudades ---

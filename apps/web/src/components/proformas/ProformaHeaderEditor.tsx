@@ -44,6 +44,16 @@ export function ProformaHeaderEditor({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  /** Al elegir cliente, precarga la ciudad de entrega con la del cliente (si tiene una definida en
+   * su catálogo) — sigue quedando editable después vía el selector de abajo. */
+  function handleClienteChange(id: string) {
+    setClienteId(id);
+    const cliente = clientes.find((c) => c.id === id);
+    if (cliente?.ciudadId) {
+      setCiudadEntregaId(cliente.ciudadId);
+    }
+  }
+
   async function handleSave() {
     setError("");
     setSubmitting(true);
@@ -86,7 +96,7 @@ export function ProformaHeaderEditor({
         {proforma.tipo === "VENTA" ? (
           <div className="filter-field" style={{ minWidth: 200 }}>
             <label className="filter-label">Cliente</label>
-            <ClienteSelector options={clientes} value={clienteId} onChange={setClienteId} />
+            <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
           </div>
         ) : (
           <div className="filter-field" style={{ minWidth: 200 }}>
