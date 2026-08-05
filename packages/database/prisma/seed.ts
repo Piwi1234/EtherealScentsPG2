@@ -195,7 +195,12 @@ async function seedCatalog() {
     },
   });
 
-  const productAttributeValues = [
+  const productAttributeValues: {
+    productId: string;
+    attributeId: string;
+    optionId?: string;
+    valueNumber?: number;
+  }[] = [
     { productId: galaxyS24.id, attributeId: almacenamiento.id, optionId: alm128.id },
     { productId: galaxyS24.id, attributeId: colorCelular.id, optionId: colorNegro.id },
     { productId: galaxyS24.id, attributeId: garantia.id, valueNumber: 12 },
@@ -206,12 +211,30 @@ async function seedCatalog() {
     { productId: macbookAir.id, attributeId: garantia.id, valueNumber: 12 },
   ];
 
+  // La unique compuesta real es (productId, attributeId, optionId) — no (productId, attributeId).
+  // Prisma no deja usar null en un where compuesto (optionId "must not be null"), así que los
+  // atributos sin opción (ej. "Garantía", tipo NUMBER) se resuelven a mano con findFirst + create.
   for (const value of productAttributeValues) {
-    await prisma.productAttributeValue.upsert({
-      where: { productId_attributeId: { productId: value.productId, attributeId: value.attributeId } },
-      update: {},
-      create: value,
-    });
+    if (value.optionId) {
+      await prisma.productAttributeValue.upsert({
+        where: {
+          productId_attributeId_optionId: {
+            productId: value.productId,
+            attributeId: value.attributeId,
+            optionId: value.optionId,
+          },
+        },
+        update: {},
+        create: value,
+      });
+    } else {
+      const existing = await prisma.productAttributeValue.findFirst({
+        where: { productId: value.productId, attributeId: value.attributeId, optionId: null },
+      });
+      if (!existing) {
+        await prisma.productAttributeValue.create({ data: value });
+      }
+    }
   }
 
   console.log("Catálogo de ejemplo sembrado: 3 categorías, 2 marcas, 4 atributos, 3 productos.");
