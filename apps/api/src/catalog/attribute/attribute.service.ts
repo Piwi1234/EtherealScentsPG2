@@ -69,6 +69,8 @@ export class AttributeService {
           isFilterable: dto.isFilterable ?? false,
           isRequired: dto.isRequired ?? false,
           showInProductList: dto.showInProductList ?? false,
+          mostrarEnProforma: dto.mostrarEnProforma ?? false,
+          orden: dto.orden ?? 0,
           variantMode,
           allowMultiple: isPlainSelect ? (dto.allowMultiple ?? false) : false,
           options: isPlainSelect

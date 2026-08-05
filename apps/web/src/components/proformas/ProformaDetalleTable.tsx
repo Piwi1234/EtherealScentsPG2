@@ -1,0 +1,208 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
+import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
+
+function varianteLabel(detalle: ProformaDetalle): string | null {
+  const opciones = detalle.variante.options;
+  if (opciones.length === 0) return null;
+  return opciones.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`).join(", ");
+}
+
+function money(value: string | null, prefix: string): string {
+  return `${prefix} ${Number(value ?? 0).toFixed(2)}`;
+}
+
+function EditableNumber({
+  value,
+  min = 0,
+  step,
+  onCommit,
+}: {
+  value: number | string | null;
+  min?: number;
+  step?: string;
+  onCommit: (value: number) => void;
+}) {
+  return (
+    <input
+      className="field"
+      type="number"
+      min={min}
+      step={step ?? "0.01"}
+      defaultValue={value ?? 0}
+      onBlur={(e) => {
+        const parsed = Number(e.target.value);
+        if (!Number.isNaN(parsed)) onCommit(parsed);
+      }}
+      style={{ width: 90, textAlign: "center" }}
+    />
+  );
+}
+
+function DetalleRow({
+  proformaId,
+  detalle,
+  tipo,
+  editable,
+}: {
+  proformaId: string;
+  detalle: ProformaDetalle;
+  tipo: TipoProforma;
+  editable: boolean;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [removing, setRemoving] = useState(false);
+  const colSpan = tipo === "VENTA" ? 5 : 8;
+
+  async function commit(field: keyof import("../../lib/types").UpdateDetalleInput, value: number) {
+    setError("");
+    try {
+      await updateDetalle(proformaId, detalle.id, { [field]: value });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirm("¿Quitar esta línea de la proforma?")) return;
+    setRemoving(true);
+    setError("");
+    try {
+      await removeDetalle(proformaId, detalle.id);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+      setRemoving(false);
+    }
+  }
+
+  const etiqueta = varianteLabel(detalle);
+
+  return (
+    <>
+      <tr>
+        <td className="cell-primary">
+          {detalle.variante.product.name}
+          {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
+        </td>
+        <td className="num">
+          {editable ? (
+            <EditableNumber value={detalle.cantidad} min={1} step="1" onCommit={(v) => commit("cantidad", v)} />
+          ) : (
+            detalle.cantidad
+          )}
+        </td>
+        {tipo === "VENTA" ? (
+          <td className="num">
+            {editable ? (
+              <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit("precioUnitario", v)} />
+            ) : (
+              money(detalle.precioUnitario, "Bs")
+            )}
+          </td>
+        ) : (
+          <>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.precioCompra} onCommit={(v) => commit("precioCompra", v)} />
+              ) : (
+                money(detalle.precioCompra, "$")
+              )}
+            </td>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.costoEnvio} onCommit={(v) => commit("costoEnvio", v)} />
+              ) : (
+                money(detalle.costoEnvio, "$")
+              )}
+            </td>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.costoSeguridad} onCommit={(v) => commit("costoSeguridad", v)} />
+              ) : (
+                money(detalle.costoSeguridad, "$")
+              )}
+            </td>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.costoLogistica} onCommit={(v) => commit("costoLogistica", v)} />
+              ) : (
+                money(detalle.costoLogistica, "$")
+              )}
+            </td>
+          </>
+        )}
+        <td className="num cell-primary">{money(detalle.subtotal, tipo === "VENTA" ? "Bs" : "$")}</td>
+        {editable && (
+          <td className="num">
+            <button type="button" className="action-btn danger" onClick={handleRemove} disabled={removing}>
+              Quitar
+            </button>
+          </td>
+        )}
+      </tr>
+      {error && (
+        <tr>
+          <td colSpan={colSpan} className="error-text" style={{ borderBottom: "1px solid var(--line)" }}>
+            {error}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/**
+ * Tabla dual VENTA/COMPRA de líneas de una proforma. `editable` habilita inputs inline (cantidad +
+ * precio en venta, cantidad + los 4 costos en compra) que guardan con onBlur — cada campo es su
+ * propio PATCH, sin estado local de formulario. Se usa tanto en el constructor (BORRADOR/PENDIENTE)
+ * como en modo solo-lectura (APROBADA/COMPLETADA), pasando `editable={false}`.
+ */
+export function ProformaDetalleTable({ proforma, editable }: { proforma: Proforma; editable: boolean }) {
+  const { tipo, detalles } = proforma;
+
+  if (detalles.length === 0) {
+    return <p className="cell-muted">Todavía no hay líneas en esta proforma.</p>;
+  }
+
+  return (
+    <div className="table-scroll">
+      <table className="table table-minimal">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th className="num">Cant.</th>
+            {tipo === "VENTA" ? (
+              <th className="num">Precio unitario</th>
+            ) : (
+              <>
+                <th className="num">Compra</th>
+                <th className="num">Envío</th>
+                <th className="num">Seguridad</th>
+                <th className="num">Logística</th>
+              </>
+            )}
+            <th className="num">Subtotal</th>
+            {editable && <th></th>}
+          </tr>
+        </thead>
+        <tbody>
+          {detalles.map((detalle) => (
+            <DetalleRow
+              key={`${detalle.id}-${detalle.updatedAt}`}
+              proformaId={proforma.id}
+              detalle={detalle}
+              tipo={tipo}
+              editable={editable}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

@@ -1,5 +1,20 @@
 import { clearSession } from "./auth";
-import type { Cliente, ClienteInput, Page } from "./types";
+import type {
+  Almacen,
+  Ciudad,
+  Cliente,
+  ClienteInput,
+  DetalleCompraInput,
+  DetalleVentaInput,
+  Empresa,
+  EmpresaInput,
+  Page,
+  Proforma,
+  ProformaDetalleSeguimiento,
+  ProformaInput,
+  UpdateDetalleInput,
+  ZonaCobertura,
+} from "./types";
 
 const DEFAULT_API_HOST = "http://localhost:4100";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_HOST;
@@ -114,4 +129,153 @@ export function updateCliente(id: string, data: Partial<ClienteInput>) {
 
 export function deleteCliente(id: string) {
   return apiDelete<Cliente>(`/clientes/${id}`);
+}
+
+// --- Empresas ---
+
+export function getEmpresas(query: { page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<Empresa>>(`/empresas${qs ? `?${qs}` : ""}`);
+}
+
+export function createEmpresa(data: EmpresaInput) {
+  return apiPost<Empresa>("/empresas", data);
+}
+
+export function updateEmpresa(id: string, data: Partial<EmpresaInput>) {
+  return apiPatch<Empresa>(`/empresas/${id}`, data);
+}
+
+export function deleteEmpresa(id: string) {
+  return apiDelete<Empresa>(`/empresas/${id}`);
+}
+
+// --- Ciudades ---
+
+export function getCiudades(query: { page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<Ciudad>>(`/ciudades${qs ? `?${qs}` : ""}`);
+}
+
+export function createCiudad(nombre: string) {
+  return apiPost<Ciudad>("/ciudades", { nombre });
+}
+
+// --- Almacenes ---
+
+export function getAlmacenes(query: { ciudadId?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.ciudadId) params.set("ciudadId", query.ciudadId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<Almacen>>(`/almacenes${qs ? `?${qs}` : ""}`);
+}
+
+export function createAlmacen(data: { nombre: string; ciudadId: string }) {
+  return apiPost<Almacen>("/almacenes", data);
+}
+
+export function updateAlmacen(id: string, data: { nombre?: string; ciudadId?: string; activo?: boolean }) {
+  return apiPatch<Almacen>(`/almacenes/${id}`, data);
+}
+
+export function deleteAlmacen(id: string) {
+  return apiDelete<Almacen>(`/almacenes/${id}`);
+}
+
+// --- Zonas de cobertura ---
+
+export function getZonasCobertura(ciudadId?: string) {
+  const qs = ciudadId ? `?ciudadId=${ciudadId}` : "";
+  return apiGet<ZonaCobertura[]>(`/zonas-cobertura${qs}`);
+}
+
+export function createZonaCobertura(data: { ciudadId: string; almacenId: string; prioridad: number }) {
+  return apiPost<ZonaCobertura>("/zonas-cobertura", data);
+}
+
+export function updateZonaCobertura(ciudadId: string, almacenId: string, prioridad: number) {
+  return apiPatch<ZonaCobertura>(`/zonas-cobertura/${ciudadId}/${almacenId}`, { prioridad });
+}
+
+export function deleteZonaCobertura(ciudadId: string, almacenId: string) {
+  return apiDelete<void>(`/zonas-cobertura/${ciudadId}/${almacenId}`);
+}
+
+// --- Proformas ---
+
+export function getProformas(query: { tipo?: string; estado?: string; empresaId?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.tipo) params.set("tipo", query.tipo);
+  if (query.estado) params.set("estado", query.estado);
+  if (query.empresaId) params.set("empresaId", query.empresaId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<Proforma>>(`/proformas${qs ? `?${qs}` : ""}`);
+}
+
+export function getProforma(id: string) {
+  return apiGet<Proforma>(`/proformas/${id}`);
+}
+
+export function createProforma(data: ProformaInput) {
+  return apiPost<Proforma>("/proformas", data);
+}
+
+export function updateProforma(id: string, data: Partial<ProformaInput>) {
+  return apiPatch<Proforma>(`/proformas/${id}`, data);
+}
+
+export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
+  return apiPost<Proforma>(`/proformas/${proformaId}/detalles/venta`, data);
+}
+
+export function addDetalleCompra(proformaId: string, data: DetalleCompraInput) {
+  return apiPost<Proforma>(`/proformas/${proformaId}/detalles/compra`, data);
+}
+
+export function updateDetalle(proformaId: string, detalleId: string, data: UpdateDetalleInput) {
+  return apiPatch<Proforma>(`/proformas/${proformaId}/detalles/${detalleId}`, data);
+}
+
+export function removeDetalle(proformaId: string, detalleId: string) {
+  return apiDelete<void>(`/proformas/${proformaId}/detalles/${detalleId}`);
+}
+
+export function enviarProforma(id: string) {
+  return apiPost<Proforma>(`/proformas/${id}/enviar`, {});
+}
+
+export function aprobarProforma(id: string) {
+  return apiPost<Proforma>(`/proformas/${id}/aprobar`, {});
+}
+
+export function rechazarProforma(id: string, nota?: string) {
+  return apiPost<Proforma>(`/proformas/${id}/rechazar`, { nota });
+}
+
+export function anularProforma(id: string, nota?: string) {
+  return apiPost<Proforma>(`/proformas/${id}/anular`, { nota });
+}
+
+export function completarProforma(id: string) {
+  return apiPost<Proforma>(`/proformas/${id}/completar`, {});
+}
+
+// --- Seguimiento interno ---
+
+export function getSeguimiento(detalleId: string) {
+  return apiGet<ProformaDetalleSeguimiento[]>(`/proformas/detalles/${detalleId}/seguimiento`);
+}
+
+export function createSeguimiento(detalleId: string, data: { estado: string; nota?: string }) {
+  return apiPost<ProformaDetalleSeguimiento>(`/proformas/detalles/${detalleId}/seguimiento`, data);
 }

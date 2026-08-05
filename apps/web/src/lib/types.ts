@@ -46,6 +46,9 @@ export type Attribute = {
   isRequired: boolean;
   /** Si se muestra como columna extra en la tabla de Productos del panel. */
   showInProductList: boolean;
+  /** Si se muestra al armar una línea de proforma (ordenado por `orden`). */
+  mostrarEnProforma: boolean;
+  orden: number;
   variantMode: AttributeVariantMode;
   /** Solo aplica cuando type='SELECT' y variantMode='NONE': el producto puede elegir 1+ opciones
    * de la lista compartida de la categoría (ej. Acordes de un perfume). */
@@ -168,4 +171,202 @@ export type ClienteInput = {
   telefono?: string;
   direccion?: string;
   ciudad?: string;
+};
+
+// --- Empresas / Almacenes / Ciudades ---
+
+export type TipoEmpresa = "CASA_MATRIZ" | "SUCURSAL";
+
+export type Empresa = {
+  id: string;
+  nombre: string;
+  tipo: TipoEmpresa;
+  razonSocial: string;
+  nit: string;
+  logoUrl: string | null;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmpresaInput = {
+  nombre: string;
+  tipo: TipoEmpresa;
+  razonSocial: string;
+  nit: string;
+  logoUrl?: string;
+  activo?: boolean;
+};
+
+export type Ciudad = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Almacen = {
+  id: string;
+  nombre: string;
+  ciudadId: string;
+  ciudad: Ciudad;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ZonaCobertura = {
+  ciudadId: string;
+  almacenId: string;
+  prioridad: number;
+  ciudad: Ciudad;
+  almacen: Almacen;
+  createdAt: string;
+};
+
+// --- Proformas ---
+
+export type TipoProforma = "COMPRA" | "VENTA";
+export type EstadoProforma = "BORRADOR" | "PENDIENTE" | "APROBADA" | "COMPLETADA" | "RECHAZADA" | "ANULADA";
+export type OrigenAsignacion = "STOCK" | "PROCURA";
+export type EstadoSeguimiento = "PENDIENTE" | "COMPRADO" | "ENVIADO" | "RECIBIDO";
+
+export type ProformaHistorial = {
+  id: string;
+  proformaId: string;
+  estado: EstadoProforma;
+  fecha: string;
+  usuarioId: string;
+  usuario: { id: string; nombre: string };
+  nota: string | null;
+};
+
+export type ProformaDetalleSeguimiento = {
+  id: string;
+  proformaDetalleId: string;
+  estado: EstadoSeguimiento;
+  fecha: string;
+  usuarioId: string;
+  usuario: { id: string; nombre: string };
+  nota: string | null;
+};
+
+export type ProformaDetalleAsignacion = {
+  id: string;
+  proformaDetalleId: string;
+  almacenId: string | null;
+  almacen: Almacen | null;
+  cantidad: number;
+  origen: OrigenAsignacion;
+  createdAt: string;
+};
+
+export type LoteCompra = {
+  id: string;
+  varianteId: string;
+  almacenId: string;
+  proformaDetalleId: string;
+  costoUnitario: string;
+  cantidadInicial: number;
+  cantidadDisponible: number;
+  fecha: string;
+};
+
+/** Variante tal como viene anidada en ProformaDetalle — campos crudos, sin los precios calculados en
+ * vivo que sí trae el endpoint de catálogo (acá no hace falta: precioUnitario/subtotal ya están en la
+ * línea). */
+export type ProformaDetalleVariante = {
+  id: string;
+  variantCode: string;
+  purchasePrice: string;
+  utility: string;
+  minPriceBs: string | null;
+  discountBs: string;
+  isDefault: boolean;
+  options: ProductVariantOption[];
+  product: {
+    id: string;
+    name: string;
+    productCode: string;
+    imageUrl: string | null;
+    categoryId: string;
+    attributeValues: ProductAttributeValue[];
+  };
+};
+
+export type ProformaDetalle = {
+  id: string;
+  proformaId: string;
+  varianteId: string;
+  variante: ProformaDetalleVariante;
+  cantidad: number;
+  /** VENTA: nace de precioFinalBs, editable. */
+  precioUnitario: string | null;
+  /** COMPRA: capturados por línea, no heredados del catálogo. */
+  precioCompra: string | null;
+  costoEnvio: string | null;
+  costoSeguridad: string | null;
+  costoLogistica: string | null;
+  subtotal: string;
+  asignaciones: ProformaDetalleAsignacion[];
+  loteCompra: LoteCompra | null;
+  seguimientos: ProformaDetalleSeguimiento[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Proforma = {
+  id: string;
+  tipo: TipoProforma;
+  estado: EstadoProforma;
+  empresaId: string;
+  empresa: Empresa;
+  clienteId: string | null;
+  cliente: Cliente | null;
+  almacenRecepcionId: string | null;
+  almacenRecepcion: Almacen | null;
+  ciudadEntregaId: string | null;
+  ciudadEntrega: Ciudad | null;
+  creadoPorId: string;
+  creadoPor: { id: string; nombre: string; email: string; rol: Rol };
+  /** Aplica sobre el total del documento, no por línea. */
+  descuentoGeneral: string;
+  /** Campo informativo por ahora, sin ligar a un módulo de pagos. */
+  montoAdelanto: string | null;
+  fecha: string;
+  detalles: ProformaDetalle[];
+  historial: ProformaHistorial[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProformaInput = {
+  tipo: TipoProforma;
+  empresaId: string;
+  clienteId?: string;
+  almacenRecepcionId?: string;
+  ciudadEntregaId?: string;
+  descuentoGeneral?: number;
+  montoAdelanto?: number;
+};
+
+export type DetalleVentaInput = { varianteId: string; cantidad: number; precioUnitario?: number };
+
+export type DetalleCompraInput = {
+  varianteId: string;
+  cantidad: number;
+  precioCompra: number;
+  costoEnvio: number;
+  costoSeguridad: number;
+  costoLogistica: number;
+};
+
+export type UpdateDetalleInput = {
+  cantidad?: number;
+  precioUnitario?: number;
+  precioCompra?: number;
+  costoEnvio?: number;
+  costoSeguridad?: number;
+  costoLogistica?: number;
 };

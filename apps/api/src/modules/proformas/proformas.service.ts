@@ -21,10 +21,21 @@ export const includeDetails = {
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
     include: {
-      variante: { include: { product: true } },
+      // attributeValues+attribute+option: para AtributosVisibles en la vista de detalle (mismo shape
+      // que necesita VarianteSelector al buscar productos). options: qué distingue a ESTA variante
+      // puntual (ej. "Tamaño: 50 ML"), mismo shape que ya usa el catálogo de productos.
+      variante: {
+        include: {
+          product: { include: { attributeValues: { include: { attribute: true, option: true } } } },
+          options: { include: { optionValue: { include: { attribute: true } } } },
+        },
+      },
       asignaciones: { include: { almacen: true } },
       loteCompra: true,
-      seguimientos: { orderBy: { fecha: "desc" as const } },
+      seguimientos: {
+        orderBy: { fecha: "desc" as const },
+        include: { usuario: { select: { id: true, nombre: true } } },
+      },
     },
   },
   historial: {

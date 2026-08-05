@@ -32,8 +32,9 @@ export class ProductController {
     @Query("pageSize") pageSize?: string,
     @Query("categoryId") categoryId?: string,
     @Query("brandId") brandId?: string,
+    @Query("search") search?: string,
   ) {
-    return this.products.findAll({ page, pageSize, categoryId, brandId });
+    return this.products.findAll({ page, pageSize, categoryId, brandId, search });
   }
 
   @Get(":id")

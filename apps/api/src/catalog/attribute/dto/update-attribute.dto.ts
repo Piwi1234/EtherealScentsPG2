@@ -8,5 +8,13 @@ import { CreateAttributeDto } from "./create-attribute.dto";
 // (misma tabla, mismo tipo de dato), sin ese riesgo estructural — el servicio valida que solo
 // aplique a atributos SELECT sin variante.
 export class UpdateAttributeDto extends PartialType(
-  PickType(CreateAttributeDto, ["name", "isFilterable", "isRequired", "showInProductList", "allowMultiple"] as const),
+  PickType(CreateAttributeDto, [
+    "name",
+    "isFilterable",
+    "isRequired",
+    "showInProductList",
+    "mostrarEnProforma",
+    "orden",
+    "allowMultiple",
+  ] as const),
 ) {}

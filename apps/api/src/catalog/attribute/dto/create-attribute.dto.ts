@@ -6,10 +6,12 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
+  Min,
   ValidateNested,
 } from "class-validator";
 import { AttributeType, AttributeVariantMode } from "@app/database";
@@ -54,6 +56,20 @@ export class CreateAttributeDto {
   @IsOptional()
   @IsBoolean()
   showInProductList?: boolean;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: "Si se muestra al armar una línea de proforma (VarianteSelector/AtributosVisibles).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  mostrarEnProforma?: boolean;
+
+  @ApiPropertyOptional({ default: 0, description: "Orden de aparición entre los atributos mostrados en una proforma." })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  orden?: number;
 
   @ApiPropertyOptional({
     enum: AttributeVariantMode,

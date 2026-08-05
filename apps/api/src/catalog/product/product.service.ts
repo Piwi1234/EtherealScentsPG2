@@ -234,7 +234,7 @@ export class ProductService {
     }
   }
 
-  async findAll(query: { page?: string; pageSize?: string; categoryId?: string; brandId?: string }) {
+  async findAll(query: { page?: string; pageSize?: string; categoryId?: string; brandId?: string; search?: string }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
@@ -242,6 +242,14 @@ export class ProductService {
     const where: Prisma.ProductWhereInput = {
       categoryId: query.categoryId,
       brandId: query.brandId,
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: "insensitive" } },
+              { productCode: { contains: query.search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     };
 
     const [items, total, exchangeRate] = await Promise.all([

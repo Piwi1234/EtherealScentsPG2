@@ -5,13 +5,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getAuthUser, type AuthUser } from "../../lib/auth";
 import {
+  AlmacenesIcon,
   AttributesIcon,
   BrandsIcon,
   CategoriesIcon,
   ClientsIcon,
   DashboardIcon,
+  EmpresasIcon,
   LogoutIcon,
   ProductsIcon,
+  ProformasIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -22,6 +25,12 @@ const NAV_ITEMS = [
   { href: "/dashboard/brands", label: "Marcas", icon: BrandsIcon },
   { href: "/dashboard/attributes", label: "Atributos", icon: AttributesIcon },
   { href: "/dashboard/products", label: "Productos", icon: ProductsIcon },
+];
+
+const PROFORMAS_NAV_ITEMS = [
+  { href: "/dashboard/proformas", label: "Proformas", icon: ProformasIcon },
+  { href: "/dashboard/empresas", label: "Empresas", icon: EmpresasIcon },
+  { href: "/dashboard/almacenes", label: "Almacenes", icon: AlmacenesIcon },
 ];
 
 // Sección visible solo para ADMIN.
@@ -54,6 +63,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="sidebar-nav">
           {NAV_ITEMS.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`}>
+                <Icon className="sidebar-link-icon" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="sidebar-section-title">Proformas</div>
+        <nav className="sidebar-nav">
+          {PROFORMAS_NAV_ITEMS.map((item) => {
+            const active = pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
               <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`}>

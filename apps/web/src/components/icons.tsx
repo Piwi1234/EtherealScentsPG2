@@ -88,6 +88,43 @@ export function ClientsIcon({ className }: IconProps) {
   );
 }
 
+export function EmpresasIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="4" y="7" width="10" height="14" rx="1" />
+      <rect x="14" y="3" width="6" height="18" rx="1" />
+      <line x1="7" y1="11" x2="7" y2="11.01" />
+      <line x1="11" y1="11" x2="11" y2="11.01" />
+      <line x1="7" y1="15" x2="7" y2="15.01" />
+      <line x1="11" y1="15" x2="11" y2="15.01" />
+    </svg>
+  );
+}
+
+export function AlmacenesIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M3 10 12 4l9 6" />
+      <path d="M5 9.5V20h14V9.5" />
+      <line x1="9" y1="20" x2="9" y2="13" />
+      <line x1="15" y1="20" x2="15" y2="13" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+    </svg>
+  );
+}
+
+export function ProformasIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M6 3.5h9l3 3V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+      <path d="M15 3.5V7h3" />
+      <line x1="8" y1="11" x2="16" y2="11" />
+      <line x1="8" y1="14.5" x2="16" y2="14.5" />
+      <line x1="8" y1="18" x2="12.5" y2="18" />
+    </svg>
+  );
+}
+
 export function UsersIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

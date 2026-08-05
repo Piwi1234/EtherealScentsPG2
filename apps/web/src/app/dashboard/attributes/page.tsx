@@ -105,6 +105,8 @@ export default function AttributesPage() {
   const [isFilterable, setIsFilterable] = useState(false);
   const [isRequired, setIsRequired] = useState(false);
   const [showInProductList, setShowInProductList] = useState(false);
+  const [mostrarEnProforma, setMostrarEnProforma] = useState(false);
+  const [orden, setOrden] = useState(0);
   const [allowMultiple, setAllowMultiple] = useState(false);
   const [options, setOptions] = useState<{ value: string; color: string }[]>([{ value: "", color: DEFAULT_OPTION_COLOR }]);
   const [formError, setFormError] = useState("");
@@ -166,6 +168,8 @@ export default function AttributesPage() {
     setIsFilterable(false);
     setIsRequired(false);
     setShowInProductList(false);
+    setMostrarEnProforma(false);
+    setOrden(0);
     setAllowMultiple(false);
     setOptions([{ value: "", color: DEFAULT_OPTION_COLOR }]);
     setFormError("");
@@ -180,6 +184,8 @@ export default function AttributesPage() {
     setIsFilterable(attr.isFilterable);
     setIsRequired(attr.isRequired);
     setShowInProductList(attr.showInProductList);
+    setMostrarEnProforma(attr.mostrarEnProforma);
+    setOrden(attr.orden);
     setAllowMultiple(attr.allowMultiple);
     setFormError("");
     setModalOpen(true);
@@ -207,6 +213,8 @@ export default function AttributesPage() {
           isFilterable,
           isRequired,
           showInProductList,
+          mostrarEnProforma,
+          orden,
           allowMultiple: canToggleMultiple ? allowMultiple : undefined,
         });
       } else {
@@ -218,6 +226,8 @@ export default function AttributesPage() {
           isFilterable,
           isRequired,
           showInProductList,
+          mostrarEnProforma,
+          orden,
           variantMode: type === "SELECT" ? variantMode : undefined,
           allowMultiple: isPlainSelect ? allowMultiple : undefined,
           // Las opciones solo aplican a atributos normales (sin variante): las de variante cargan
@@ -398,6 +408,27 @@ export default function AttributesPage() {
               />
               Mostrar como columna en la tabla de Productos
             </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={mostrarEnProforma}
+                onChange={(e) => setMostrarEnProforma(e.target.checked)}
+              />
+              Mostrar al armar una línea de proforma
+            </label>
+            {mostrarEnProforma && (
+              <div>
+                <label>Orden</label>
+                <input
+                  className="field"
+                  type="number"
+                  min={0}
+                  value={orden}
+                  onChange={(e) => setOrden(parseInt(e.target.value, 10) || 0)}
+                  style={{ width: 100 }}
+                />
+              </div>
+            )}
             {type === "SELECT" && variantMode === "NONE" && (
               <label className="checkbox-row">
                 <input type="checkbox" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} />

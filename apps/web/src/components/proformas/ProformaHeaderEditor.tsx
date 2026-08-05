@@ -1,0 +1,139 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ApiError, updateProforma } from "../../lib/api";
+import type { Almacen, Ciudad, Cliente, Empresa, Proforma } from "../../lib/types";
+import { AlmacenSelector, CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <span className="filter-label">{label}</span>
+      <p style={{ margin: "4px 0 0" }}>{value}</p>
+    </div>
+  );
+}
+
+/**
+ * Cabecera de la proforma. Mientras está en BORRADOR es editable inline (empresa, cliente/almacén de
+ * recepción, ciudad de entrega, descuento general, adelanto) — un único botón "Guardar cambios" que
+ * dispara un solo PATCH /proformas/:id con todo. Fuera de BORRADOR se muestra solo lectura.
+ */
+export function ProformaHeaderEditor({
+  proforma,
+  editable,
+  empresas,
+  clientes,
+  almacenes,
+  ciudades,
+}: {
+  proforma: Proforma;
+  editable: boolean;
+  empresas: Empresa[];
+  clientes: Cliente[];
+  almacenes: Almacen[];
+  ciudades: Ciudad[];
+}) {
+  const router = useRouter();
+  const [empresaId, setEmpresaId] = useState(proforma.empresaId);
+  const [clienteId, setClienteId] = useState(proforma.clienteId ?? "");
+  const [almacenRecepcionId, setAlmacenRecepcionId] = useState(proforma.almacenRecepcionId ?? "");
+  const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
+  const [descuentoGeneral, setDescuentoGeneral] = useState(proforma.descuentoGeneral);
+  const [montoAdelanto, setMontoAdelanto] = useState(proforma.montoAdelanto ?? "");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSave() {
+    setError("");
+    setSubmitting(true);
+    try {
+      await updateProforma(proforma.id, {
+        empresaId,
+        clienteId: proforma.tipo === "VENTA" ? clienteId || undefined : undefined,
+        almacenRecepcionId: proforma.tipo === "COMPRA" ? almacenRecepcionId || undefined : undefined,
+        ciudadEntregaId: ciudadEntregaId || undefined,
+        descuentoGeneral: Number(descuentoGeneral) || 0,
+        montoAdelanto: montoAdelanto ? Number(montoAdelanto) : undefined,
+      });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!editable) {
+    return (
+      <div className="grid-2" style={{ marginBottom: 24, rowGap: 18 }}>
+        <Field label="Empresa" value={proforma.empresa.nombre} />
+        {proforma.tipo === "VENTA" ? (
+          <Field label="Cliente" value={proforma.cliente?.nombre ?? "—"} />
+        ) : (
+          <Field label="Almacén de recepción" value={proforma.almacenRecepcion?.nombre ?? "—"} />
+        )}
+        <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />
+        <Field label="Descuento general" value={proforma.descuentoGeneral} />
+        <Field label="Adelanto" value={proforma.montoAdelanto ?? "—"} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div className="filters-bar">
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Empresa</label>
+          <EmpresaSelector options={empresas} value={empresaId} onChange={setEmpresaId} />
+        </div>
+        {proforma.tipo === "VENTA" ? (
+          <div className="filter-field" style={{ minWidth: 200 }}>
+            <label className="filter-label">Cliente</label>
+            <ClienteSelector options={clientes} value={clienteId} onChange={setClienteId} />
+          </div>
+        ) : (
+          <div className="filter-field" style={{ minWidth: 200 }}>
+            <label className="filter-label">Almacén de recepción</label>
+            <AlmacenSelector options={almacenes} value={almacenRecepcionId} onChange={setAlmacenRecepcionId} />
+          </div>
+        )}
+        <div className="filter-field" style={{ minWidth: 180 }}>
+          <label className="filter-label">Ciudad de entrega</label>
+          <CiudadSelector options={ciudades} value={ciudadEntregaId} onChange={setCiudadEntregaId} placeholder="— Sin definir —" />
+        </div>
+        <div className="filter-field">
+          <label className="filter-label">Descuento general</label>
+          <input
+            className="field"
+            type="number"
+            min={0}
+            step="0.01"
+            value={descuentoGeneral}
+            onChange={(e) => setDescuentoGeneral(e.target.value)}
+            style={{ width: 100 }}
+          />
+        </div>
+        <div className="filter-field">
+          <label className="filter-label">Adelanto</label>
+          <input
+            className="field"
+            type="number"
+            min={0}
+            step="0.01"
+            value={montoAdelanto}
+            onChange={(e) => setMontoAdelanto(e.target.value)}
+            style={{ width: 100 }}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <button type="button" className="action-btn" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+      {error && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
+    </div>
+  );
+}
