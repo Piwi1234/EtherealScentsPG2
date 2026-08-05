@@ -4,15 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createSeguimiento } from "../../lib/api";
 import type { EstadoSeguimiento, ProformaDetalle } from "../../lib/types";
-
-const ORDEN: EstadoSeguimiento[] = ["PENDIENTE", "COMPRADO", "ENVIADO", "RECIBIDO"];
-
-const LABELS: Record<EstadoSeguimiento, string> = {
-  PENDIENTE: "Pendiente",
-  COMPRADO: "Comprado",
-  ENVIADO: "Enviado",
-  RECIBIDO: "Recibido",
-};
+import { LABELS_SEGUIMIENTO as LABELS, siguienteEstadoSeguimiento } from "./seguimiento-estados";
 
 function estadoActual(detalle: ProformaDetalle): EstadoSeguimiento {
   return detalle.seguimientos[0]?.estado ?? "PENDIENTE";
@@ -25,8 +17,7 @@ function LineaSeguimiento({ detalle }: { detalle: ProformaDetalle }) {
   const [error, setError] = useState("");
 
   const actual = estadoActual(detalle);
-  const idx = ORDEN.indexOf(actual);
-  const siguiente = idx < ORDEN.length - 1 ? ORDEN[idx + 1] : null;
+  const siguiente = siguienteEstadoSeguimiento(actual);
 
   async function handleAvanzar() {
     if (!siguiente) return;

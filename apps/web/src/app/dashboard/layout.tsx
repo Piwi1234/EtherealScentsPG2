@@ -15,6 +15,7 @@ import {
   LogoutIcon,
   ProductsIcon,
   ProformasIcon,
+  SeguimientoIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
 
 const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/proformas", label: "Proformas", icon: ProformasIcon },
+  { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
   { href: "/dashboard/empresas", label: "Empresas", icon: EmpresasIcon },
   { href: "/dashboard/almacenes", label: "Almacenes", icon: AlmacenesIcon },
 ];

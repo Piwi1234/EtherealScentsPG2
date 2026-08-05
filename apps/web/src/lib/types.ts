@@ -373,3 +373,22 @@ export type UpdateDetalleInput = {
   costoSeguridad?: number;
   costoLogistica?: number;
 };
+
+/** Una línea de proforma vista desde la vista agregada de seguimiento (todas las proformas
+ * APROBADA/COMPLETADA a la vez), no desde dentro de una proforma puntual. */
+export type SeguimientoLinea = {
+  id: string;
+  cantidad: number;
+  variante: ProformaDetalleVariante;
+  seguimientos: ProformaDetalleSeguimiento[];
+  estadoActual: EstadoSeguimiento;
+  proforma: {
+    id: string;
+    tipo: TipoProforma;
+    estado: EstadoProforma;
+    fecha: string;
+    empresa: { id: string; nombre: string };
+    cliente: { id: string; nombre: string } | null;
+    almacenRecepcion: { id: string; nombre: string } | null;
+  };
+};

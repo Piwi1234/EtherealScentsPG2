@@ -125,6 +125,18 @@ export function ProformasIcon({ className }: IconProps) {
   );
 }
 
+export function SeguimientoIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
+      <path d="M8.5 8h7" />
+      <path d="M7.5 12.5 9.5 14.5 12.5 11" />
+      <path d="M14.5 13h2.5" />
+      <path d="M8.5 17h8" />
+    </svg>
+  );
+}
+
 export function UsersIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">
