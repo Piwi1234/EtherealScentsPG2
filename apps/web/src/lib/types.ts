@@ -124,3 +124,16 @@ export type Product = {
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export type ExchangeRateResponse = { exchangeRate: number };
+
+export type Rol = "ADMIN" | "SELLER";
+
+export type Usuario = {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  activo: boolean;
+  ultimoLogin: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

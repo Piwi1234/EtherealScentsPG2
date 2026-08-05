@@ -10,6 +10,11 @@ function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
 }
 
+/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 10 más cercano. Misma regla que el backend. */
+function roundUpToTen(value: number): number {
+  return Math.ceil(value / 10) * 10;
+}
+
 type VariantFormState = {
   optionsByAttribute: Record<string, string>;
   purchasePrice: string;
@@ -344,7 +349,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   // Precio May Bs = Precio $ * tipo de cambio; Precio Final Bs = (Precio Min Bs si hay, si no
   // Precio May Bs) - Descuento. Mismas fórmulas que el backend.
   const wholesaleBsPreview = pricePreview * exchangeRate;
-  const finalBsPreview = (minPriceBs ? Number(minPriceBs) : wholesaleBsPreview) - Number(discountBs || 0);
+  const finalBsPreview = roundUpToTen((minPriceBs ? Number(minPriceBs) : wholesaleBsPreview) - Number(discountBs || 0));
 
   const variantPricePreview =
     Number(variantForm.purchasePrice || 0) +
@@ -353,8 +358,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     securityCostPreview +
     Number(variantForm.utility || 0);
   const variantWholesaleBsPreview = variantPricePreview * exchangeRate;
-  const variantFinalBsPreview =
-    (variantForm.minPriceBs ? Number(variantForm.minPriceBs) : variantWholesaleBsPreview) - Number(variantForm.discountBs || 0);
+  const variantFinalBsPreview = roundUpToTen(
+    (variantForm.minPriceBs ? Number(variantForm.minPriceBs) : variantWholesaleBsPreview) - Number(variantForm.discountBs || 0),
+  );
 
   return (
     <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -443,26 +449,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
-        {/* 4. Imagen */}
-        <div className="form-section">
-          <h2 className="section-label">Imagen</h2>
-          <div className="image-uploader">
-            {imagePreview ? (
-              <img src={imagePreview} alt="Vista previa" />
-            ) : (
-              <div className="image-uploader-placeholder">Sin imagen</div>
-            )}
-            <input
-              className="field"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
-              style={{ background: "transparent", border: 0, padding: 0 }}
-            />
-          </div>
-        </div>
-
-        {/* 5. Atributos: propios de la categoría, múltiples, y variantes con precio propio */}
+        {/* 4. Atributos: propios de la categoría, múltiples, y variantes con precio propio */}
         {categoryId && hasAttributes && (
           <div className="form-section">
             <h2 className="section-label">Atributos</h2>
@@ -818,7 +805,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </div>
         )}
 
-        {/* 6. Costos y precios */}
+        {/* 5. Costos y precios */}
         {selectedCategory && (
           <div className="form-section">
             <h2 className="section-label">Costos y precios de &quot;{selectedCategory.name}&quot;</h2>
@@ -903,6 +890,25 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
             )}
           </div>
         )}
+
+        {/* 6. Imagen */}
+        <div className="form-section">
+          <h2 className="section-label">Imagen</h2>
+          <div className="image-uploader">
+            {imagePreview ? (
+              <img src={imagePreview} alt="Vista previa" />
+            ) : (
+              <div className="image-uploader-placeholder">Sin imagen</div>
+            )}
+            <input
+              className="field"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
+              style={{ background: "transparent", border: 0, padding: 0 }}
+            />
+          </div>
+        </div>
 
         {formError && <p className="error-text">{formError}</p>}
         <div className="form-actions">

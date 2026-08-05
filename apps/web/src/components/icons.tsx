@@ -76,6 +76,17 @@ export function LogoutIcon({ className }: IconProps) {
   );
 }
 
+export function UsersIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20" />
+      <path d="M15.5 5.3a3.2 3.2 0 0 1 0 6.1" />
+      <path d="M15.5 14.2a4.5 4.5 0 0 1 4.5 4.3V20" />
+    </svg>
+  );
+}
+
 export function ExchangeIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

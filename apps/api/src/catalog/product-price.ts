@@ -37,16 +37,22 @@ export function computeCatalogPrice(
   );
 }
 
+/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 10 más cercano (ej. 147 → 150). */
+function roundUpToTen(value: number): number {
+  return Math.ceil(value / 10) * 10;
+}
+
 /**
  * Precios en bolívares, a partir del precio $ ya calculado:
  * - Precio May Bs = precio $ * tipo de cambio del sistema.
- * - Precio Final Bs = (Precio Min Bs si se cargó, si no Precio May Bs) - Descuento.
+ * - Precio Final Bs = (Precio Min Bs si se cargó, si no Precio May Bs) - Descuento, redondeado hacia
+ *   arriba a un múltiplo de 10.
  * Ninguno de los dos se persiste (salvo minPriceBs/discountBs, que son la entrada manual).
  */
 export function computeBsPrices(priceUsd: number, bs: BsPriceFields, exchangeRate: number) {
   const wholesalePriceBs = priceUsd * exchangeRate;
   const basePriceBs = bs.minPriceBs !== null ? toNumber(bs.minPriceBs) : wholesalePriceBs;
-  const finalPriceBs = basePriceBs - toNumber(bs.discountBs);
+  const finalPriceBs = roundUpToTen(basePriceBs - toNumber(bs.discountBs));
   return { wholesalePriceBs, finalPriceBs };
 }
 

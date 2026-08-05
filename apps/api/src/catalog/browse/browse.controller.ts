@@ -1,7 +1,10 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { Public } from "../../modules/auth/decorators/public.decorator";
 import { CatalogBrowseService } from "./browse.service";
 
+/** Catálogo público (storefront): solo lectura, sin autenticación. */
+@Public()
 @ApiTags("catalog")
 @Controller("catalog")
 export class CatalogBrowseController {

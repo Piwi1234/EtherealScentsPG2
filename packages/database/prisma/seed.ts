@@ -1,30 +1,27 @@
-import { AttributeType, PrismaClient, RoleName } from "@prisma/client";
+import { AttributeType, PrismaClient, Rol } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+/**
+ * Único lugar donde se crea un usuario ADMIN: nunca vía endpoint público (ver
+ * modules/usuarios, que solo permite crear usuarios a un ADMIN ya autenticado).
+ */
 async function seedAuth() {
-  const [adminRole] = await Promise.all(
-    [RoleName.ADMIN, RoleName.USER].map((name) =>
-      prisma.role.upsert({ where: { name }, update: {}, create: { name } }),
-    ),
-  );
+  // Password: Admin123. (8+ caracteres, requerido por LoginDto/CreateUsuarioDto).
+  const passwordHash = "$2b$10$I49ldw4ZoDJztzWjvv2dWu79rCbHxcKdV8.J9LXAzCIEbd/7O7Dba";
 
-  // Password: Admin1.
-  const passwordHash = "$2b$10$YsJ0n2mEbzy9RsLytkm6OenZgL/QYiBC7dyxWJHUmJYXYq7GQddpu";
-
-  await prisma.user.upsert({
+  await prisma.usuario.upsert({
     where: { email: "admin@gmail.com" },
-    update: {},
+    update: { passwordHash },
     create: {
       email: "admin@gmail.com",
       passwordHash,
-      firstName: "Admin",
-      lastName: "Principal",
-      roleId: adminRole.id,
+      nombre: "Admin Principal",
+      rol: Rol.ADMIN,
     },
   });
 
-  console.log("Seed listo: admin@gmail.com / Admin1.");
+  console.log("Seed listo: admin@gmail.com / Admin123.");
 }
 
 async function seedCatalog() {

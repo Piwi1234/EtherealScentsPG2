@@ -6,6 +6,7 @@ import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 async function bootstrap() {
   // Carpeta de imágenes de producto: debe existir antes de que multer/estáticos la usen.
@@ -22,6 +23,7 @@ async function bootstrap() {
     credentials: true,
   });
   app.setGlobalPrefix("api");
+  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

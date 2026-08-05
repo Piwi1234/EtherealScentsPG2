@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "../../lib/api";
-import { saveSession } from "../../lib/auth";
+import { saveSession, type AuthUser } from "../../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,8 +16,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await apiPost<{ accessToken: string; user: any }>("/auth/login", { email, password });
-      saveSession(res.accessToken, res.user);
+      const res = await apiPost<{ accessToken: string; refreshToken: string; usuario: AuthUser }>("/auth/login", { email, password });
+      saveSession(res.accessToken, res.refreshToken, res.usuario);
       router.push("/dashboard");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

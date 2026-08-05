@@ -7,33 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RoleName {
+enum Rol {
   ADMIN
-  USER
+  SELLER
+
+  @@map("rol")
 }
 
-model Role {
+/// Usuarios internos del panel de gestión (no clientes/checkout público, eso es otra fase).
+model Usuario {
+  id            String         @id @default(uuid()) @db.Uuid
+  nombre        String
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  rol           Rol
+  activo        Boolean        @default(true)
+  ultimoLogin   DateTime?      @map("ultimo_login")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  refreshTokens RefreshToken[]
+
+  @@map("usuarios")
+}
+
+/// Un registro por refresh token emitido; se revoca (nunca se borra) al rotar o al hacer logout.
+model RefreshToken {
   id        String   @id @default(uuid()) @db.Uuid
-  name      RoleName @unique
-  users     User[]
+  usuarioId String   @map("usuario_id") @db.Uuid
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiraEn  DateTime @map("expira_en")
+  revocado  Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("roles")
-}
-
-model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  firstName    String   @default("") @map("first_name")
-  lastName     String   @default("") @map("last_name")
-  isActive     Boolean  @default(true) @map("is_active")
-  roleId       String   @map("role_id") @db.Uuid
-  role         Role     @relation(fields: [roleId], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  @@map("users")
+  @@map("refresh_tokens")
 }
 
 enum AttributeType {

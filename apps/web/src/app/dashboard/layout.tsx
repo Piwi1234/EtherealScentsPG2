@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { apiGet } from "../../lib/api";
 import { clearSession, getAuthUser, type AuthUser } from "../../lib/auth";
-import { AttributesIcon, BrandsIcon, CategoriesIcon, DashboardIcon, LogoutIcon, ProductsIcon } from "../../components/icons";
+import { AttributesIcon, BrandsIcon, CategoriesIcon, DashboardIcon, LogoutIcon, ProductsIcon, UsersIcon } from "../../components/icons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, exact: true },
@@ -15,14 +14,21 @@ const NAV_ITEMS = [
   { href: "/dashboard/products", label: "Productos", icon: ProductsIcon },
 ];
 
+// Sección visible solo para ADMIN.
+const ADMIN_NAV_ITEMS = [{ href: "/dashboard/users", label: "Roles y permisos", icon: UsersIcon }];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    setUser(getAuthUser());
-    apiGet<AuthUser>("/auth/me").then(setUser).catch(() => router.push("/login"));
+    const stored = getAuthUser();
+    if (!stored) {
+      router.push("/login");
+      return;
+    }
+    setUser(stored);
   }, [router]);
 
   function logout() {
@@ -47,6 +53,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             );
           })}
         </nav>
+        {user?.rol === "ADMIN" && (
+          <>
+            <div className="sidebar-section-title">Usuarios</div>
+            <nav className="sidebar-nav">
+              {ADMIN_NAV_ITEMS.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`}>
+                    <Icon className="sidebar-link-icon" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
         <button className="sidebar-logout" type="button" onClick={logout}>
           <LogoutIcon className="sidebar-link-icon" />
           <span>Logout</span>
@@ -54,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header className="topbar">
-          <span>{user ? `${user.name} (${user.role})` : "Cargando..."}</span>
+          <span>{user ? `${user.nombre} (${user.rol})` : "Cargando..."}</span>
           <Link href="/" className="button">Catálogo</Link>
         </header>
         <main className="dashboard-main">{children}</main>
