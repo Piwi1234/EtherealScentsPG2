@@ -411,7 +411,6 @@ model Ciudad {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   almacenes        Almacen[]
-  zonasCobertura   ZonaCobertura[]
   clientes         Cliente[]
   proformasEntrega Proforma[]      @relation("ProformaCiudadEntrega")
 
@@ -443,29 +442,13 @@ model Almacen {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  zonasCobertura     ZonaCobertura[]
   stock              Stock[]
   lotesCompra        LoteCompra[]
   proformasRecepcion Proforma[]                  @relation("ProformaAlmacenRecepcion")
   asignaciones       ProformaDetalleAsignacion[]
+  detallesVenta      ProformaDetalle[]
 
   @@map("almacenes")
-}
-
-/// Prioridad de cercanía de cada almacén para una ciudad (1 = más prioritario). Se resuelve al
-/// aprobar una venta para decidir de qué almacén(es) se reparte el stock.
-model ZonaCobertura {
-  ciudadId  String  @map("ciudad_id") @db.Uuid
-  ciudad    Ciudad  @relation(fields: [ciudadId], references: [id], onDelete: Cascade)
-  almacenId String  @map("almacen_id") @db.Uuid
-  almacen   Almacen @relation(fields: [almacenId], references: [id], onDelete: Cascade)
-  prioridad Int
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@id([ciudadId, almacenId])
-  @@unique([ciudadId, prioridad])
-  @@map("zonas_cobertura")
 }
 
 /// Existencias por variante y almacén. cantidadReservada se incrementa al aprobar una venta (aparta
@@ -546,7 +529,8 @@ model Proforma {
   almacenRecepcionId String?  @map("almacen_recepcion_id") @db.Uuid
   almacenRecepcion   Almacen? @relation("ProformaAlmacenRecepcion", fields: [almacenRecepcionId], references: [id], onDelete: Restrict)
 
-  // Solo VENTA: determina el orden de cercanía de almacenes vía ZonaCobertura al aprobar.
+  // Solo VENTA: dato informativo de a qué ciudad va el pedido, sin efecto en la lógica de negocio
+  // (el almacén de origen de cada línea se elige manualmente en ProformaDetalle.almacenId).
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
 
@@ -583,6 +567,11 @@ model ProformaDetalle {
   // VENTA: nace de ProductVariant.precioFinalBs (calculado en vivo al agregar la línea) y es editable
   // después.
   precioUnitario Decimal? @map("precio_unitario") @db.Decimal(12, 2)
+
+  // VENTA: almacén elegido manualmente por el usuario al agregar la línea (de dónde se intenta
+  // reservar stock al aprobar). No aplica a COMPRA (ahí el destino es Proforma.almacenRecepcionId).
+  almacenId String?  @map("almacen_id") @db.Uuid
+  almacen   Almacen? @relation(fields: [almacenId], references: [id], onDelete: Restrict)
 
   // COMPRA: capturados por línea (no heredados del catálogo) — de esta compra puntual. Al completar
   // se usan para armar el LoteCompra; el catálogo (Product/ProductVariant) nunca se sobreescribe con

@@ -7,8 +7,9 @@ import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 
 /**
- * Motor de aprobación: bloqueo transaccional + reparto por cercanía + reservas (VENTA), transición
- * simple (COMPRA); y liberación de reservas al rechazar/anular una venta ya aprobada.
+ * Motor de aprobación: bloqueo transaccional + reserva de stock contra el almacén elegido por línea
+ * (VENTA), transición simple (COMPRA); y liberación de reservas al rechazar/anular una venta ya
+ * aprobada.
  *
  * Estrategia de locking: SELECT ... FOR UPDATE explícito vía $queryRaw dentro de
  * prisma.$transaction, no Serializable+reintento — la aprobación es un punto real de contención
@@ -61,26 +62,15 @@ export class ProformaApprovalService {
     if (proforma.detalles.length === 0) {
       throw new BadRequestException("La proforma no tiene líneas.");
     }
-    if (!proforma.ciudadEntregaId) {
-      throw new BadRequestException("Falta ciudadEntregaId: no se puede resolver el reparto por cercanía.");
+    if (proforma.detalles.some((d) => !d.almacenId)) {
+      throw new BadRequestException("Hay líneas sin almacén asignado: volvé a agregar esas líneas.");
     }
 
-    const zonas = await tx.zonaCobertura.findMany({
-      where: { ciudadId: proforma.ciudadEntregaId },
-      orderBy: { prioridad: "asc" },
-    });
-    if (zonas.length === 0) {
-      throw new BadRequestException("No hay almacenes con cobertura para la ciudad de entrega.");
-    }
-    const almacenesOrdenados = zonas.map((z) => z.almacenId);
-
-    // Resolver TODOS los pares (variante, almacén) candidatos de TODAS las líneas antes de bloquear
-    // nada — así el orden de lock es global a la proforma completa, no por línea.
+    // Resolver TODOS los pares (variante, almacén elegido en la línea) antes de bloquear nada — así
+    // el orden de lock es global a la proforma completa, no por línea.
     const paresSet = new Set<string>();
     for (const detalle of proforma.detalles) {
-      for (const almacenId of almacenesOrdenados) {
-        paresSet.add(stockKey(detalle.varianteId, almacenId));
-      }
+      paresSet.add(stockKey(detalle.varianteId, detalle.almacenId!));
     }
     const pares = [...paresSet].map((key) => {
       const [varianteId, almacenId] = key.split(":");
@@ -90,14 +80,12 @@ export class ProformaApprovalService {
 
     const faltantes: string[] = [];
     for (const detalle of proforma.detalles) {
-      let restante = detalle.cantidad;
-      for (const almacenId of almacenesOrdenados) {
-        if (restante <= 0) break;
-        const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
-        const disponibleNeto = stock.cantidadFisica - stock.cantidadReservada;
-        const tomar = Math.min(disponibleNeto, restante);
-        if (tomar <= 0) continue;
+      const almacenId = detalle.almacenId!;
+      const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
+      const disponibleNeto = stock.cantidadFisica - stock.cantidadReservada;
+      const tomar = Math.min(disponibleNeto, detalle.cantidad);
 
+      if (tomar > 0) {
         await tx.stock.update({
           where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
           data: { cantidadReservada: { increment: tomar } },
@@ -106,8 +94,9 @@ export class ProformaApprovalService {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId, cantidad: tomar, origen: OrigenAsignacion.STOCK },
         });
-        restante -= tomar;
       }
+
+      const restante = detalle.cantidad - tomar;
       if (restante > 0) {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId: null, cantidad: restante, origen: OrigenAsignacion.PROCURA },
@@ -122,7 +111,7 @@ export class ProformaApprovalService {
       id,
       EstadoProforma.APROBADA,
       usuarioId,
-      faltantes.length > 0 ? `Cobertura parcial, a procura: ${faltantes.join(", ")}.` : undefined,
+      faltantes.length > 0 ? `Stock insuficiente, a procura: ${faltantes.join(", ")}.` : undefined,
     );
   }
 

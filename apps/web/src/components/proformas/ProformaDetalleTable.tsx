@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
-import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
+import type { Almacen, Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
 import { formatAtributosVisibles } from "./AtributosVisibles";
+import { AlmacenSelector } from "./selectors";
 
 /** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
  * categoría marcados para mostrarse en proforma — todo concatenado en una sola línea bajo el nombre. */
@@ -51,21 +52,23 @@ function DetalleRow({
   detalle,
   tipo,
   editable,
+  almacenes,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
   tipo: TipoProforma;
   editable: boolean;
+  almacenes: Almacen[];
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 9) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 7 : 9) + (editable ? 1 : 0);
 
-  async function commit(field: keyof import("../../lib/types").UpdateDetalleInput, value: number) {
+  async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
     try {
-      await updateDetalle(proformaId, detalle.id, { [field]: value });
+      await updateDetalle(proformaId, detalle.id, patch);
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -98,45 +101,54 @@ function DetalleRow({
         </td>
         <td className="num">
           {editable ? (
-            <EditableNumber value={detalle.cantidad} min={1} step="1" onCommit={(v) => commit("cantidad", v)} />
+            <EditableNumber value={detalle.cantidad} min={1} step="1" onCommit={(v) => commit({ cantidad: v })} />
           ) : (
             detalle.cantidad
           )}
         </td>
         {tipo === "VENTA" ? (
-          <td className="num">
-            {editable ? (
-              <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit("precioUnitario", v)} />
-            ) : (
-              money(detalle.precioUnitario, "Bs")
-            )}
-          </td>
+          <>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
+              ) : (
+                money(detalle.precioUnitario, "Bs")
+              )}
+            </td>
+            <td>
+              {editable ? (
+                <AlmacenSelector options={almacenes} value={detalle.almacenId ?? ""} onChange={(v) => commit({ almacenId: v })} />
+              ) : (
+                detalle.almacen?.nombre ?? "—"
+              )}
+            </td>
+          </>
         ) : (
           <>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.precioCompra} onCommit={(v) => commit("precioCompra", v)} />
+                <EditableNumber value={detalle.precioCompra} onCommit={(v) => commit({ precioCompra: v })} />
               ) : (
                 money(detalle.precioCompra, "$")
               )}
             </td>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.costoEnvio} onCommit={(v) => commit("costoEnvio", v)} />
+                <EditableNumber value={detalle.costoEnvio} onCommit={(v) => commit({ costoEnvio: v })} />
               ) : (
                 money(detalle.costoEnvio, "$")
               )}
             </td>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.costoSeguridad} onCommit={(v) => commit("costoSeguridad", v)} />
+                <EditableNumber value={detalle.costoSeguridad} onCommit={(v) => commit({ costoSeguridad: v })} />
               ) : (
                 money(detalle.costoSeguridad, "$")
               )}
             </td>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.costoLogistica} onCommit={(v) => commit("costoLogistica", v)} />
+                <EditableNumber value={detalle.costoLogistica} onCommit={(v) => commit({ costoLogistica: v })} />
               ) : (
                 money(detalle.costoLogistica, "$")
               )}
@@ -169,7 +181,15 @@ function DetalleRow({
  * propio PATCH, sin estado local de formulario. Se usa tanto en el constructor (BORRADOR/PENDIENTE)
  * como en modo solo-lectura (APROBADA/COMPLETADA), pasando `editable={false}`.
  */
-export function ProformaDetalleTable({ proforma, editable }: { proforma: Proforma; editable: boolean }) {
+export function ProformaDetalleTable({
+  proforma,
+  editable,
+  almacenes,
+}: {
+  proforma: Proforma;
+  editable: boolean;
+  almacenes: Almacen[];
+}) {
   const { tipo, detalles } = proforma;
 
   if (detalles.length === 0) {
@@ -186,7 +206,10 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
             <th>Producto</th>
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
-              <th className="num">Precio unitario</th>
+              <>
+                <th className="num">Precio unitario</th>
+                <th>Almacén</th>
+              </>
             ) : (
               <>
                 <th className="num">Compra</th>
@@ -207,6 +230,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
               detalle={detalle}
               tipo={tipo}
               editable={editable}
+              almacenes={almacenes}
             />
           ))}
         </tbody>

@@ -319,23 +319,7 @@ async function seedEmpresasYAlmacenes() {
   const almacenCaracas = await upsertAlmacenByNombre("Almacén Caracas", caracas.id);
   const almacenValencia = await upsertAlmacenByNombre("Almacén Valencia", valencia.id);
 
-  // Cobertura cruzada: cada ciudad prioriza su propio almacén (1) y usa el otro como respaldo (2) —
-  // así el motor de reparto tiene algo que demostrar (cobertura local + fallback).
-  const zonas: [string, string, number][] = [
-    [caracas.id, almacenCaracas.id, 1],
-    [caracas.id, almacenValencia.id, 2],
-    [valencia.id, almacenValencia.id, 1],
-    [valencia.id, almacenCaracas.id, 2],
-  ];
-  for (const [ciudadId, almacenId, prioridad] of zonas) {
-    await prisma.zonaCobertura.upsert({
-      where: { ciudadId_almacenId: { ciudadId, almacenId } },
-      update: { prioridad },
-      create: { ciudadId, almacenId, prioridad },
-    });
-  }
-
-  console.log("2 empresas, 2 ciudades, 2 almacenes y 4 zonas de cobertura sembrados.");
+  console.log("2 empresas, 2 ciudades y 2 almacenes sembrados.");
   return { casaMatriz, sucursal, caracas, valencia, almacenCaracas, almacenValencia };
 }
 

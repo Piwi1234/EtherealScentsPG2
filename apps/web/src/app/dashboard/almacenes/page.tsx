@@ -5,22 +5,17 @@ import {
   ApiError,
   createAlmacen,
   createCiudad,
-  createZonaCobertura,
   deleteAlmacen,
-  deleteZonaCobertura,
   getAlmacenes,
   getCiudades,
-  getZonasCobertura,
   updateAlmacen,
-  updateZonaCobertura,
 } from "../../../lib/api";
-import type { Almacen, Ciudad, ZonaCobertura } from "../../../lib/types";
+import type { Almacen, Ciudad } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 export default function AlmacenesPage() {
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
-  const [zonas, setZonas] = useState<ZonaCobertura[]>([]);
   const [error, setError] = useState("");
 
   const [ciudadNombre, setCiudadNombre] = useState("");
@@ -34,13 +29,6 @@ export default function AlmacenesPage() {
   const [almacenFormError, setAlmacenFormError] = useState("");
   const [almacenSubmitting, setAlmacenSubmitting] = useState(false);
 
-  const [zonaCiudadId, setZonaCiudadId] = useState("");
-  const [zonaAlmacenId, setZonaAlmacenId] = useState("");
-  const [zonaPrioridad, setZonaPrioridad] = useState(1);
-  const [zonaFiltroCiudadId, setZonaFiltroCiudadId] = useState("");
-  const [zonaFormError, setZonaFormError] = useState("");
-  const [zonaSubmitting, setZonaSubmitting] = useState(false);
-
   function loadCiudades() {
     return getCiudades({ pageSize: 100 }).then((page) => setCiudades(page.items));
   }
@@ -49,12 +37,8 @@ export default function AlmacenesPage() {
     return getAlmacenes({ pageSize: 200 }).then((page) => setAlmacenes(page.items));
   }
 
-  function loadZonas(ciudadId?: string) {
-    return getZonasCobertura(ciudadId || undefined).then(setZonas);
-  }
-
   useEffect(() => {
-    Promise.all([loadCiudades(), loadAlmacenes(), loadZonas()]).catch((e) =>
+    Promise.all([loadCiudades(), loadAlmacenes()]).catch((e) =>
       setError(e instanceof Error ? e.message : String(e)),
     );
   }, []);
@@ -116,45 +100,6 @@ export default function AlmacenesPage() {
     try {
       await deleteAlmacen(almacen.id);
       await loadAlmacenes();
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : String(e));
-    }
-  }
-
-  async function handleCreateZona(e: React.FormEvent) {
-    e.preventDefault();
-    setZonaFormError("");
-    if (!zonaCiudadId || !zonaAlmacenId) {
-      setZonaFormError("Elegí una ciudad y un almacén.");
-      return;
-    }
-    setZonaSubmitting(true);
-    try {
-      await createZonaCobertura({ ciudadId: zonaCiudadId, almacenId: zonaAlmacenId, prioridad: zonaPrioridad });
-      setZonaAlmacenId("");
-      setZonaPrioridad(1);
-      await loadZonas(zonaFiltroCiudadId);
-    } catch (e) {
-      setZonaFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
-    } finally {
-      setZonaSubmitting(false);
-    }
-  }
-
-  async function handleUpdatePrioridad(zona: ZonaCobertura, prioridad: number) {
-    try {
-      await updateZonaCobertura(zona.ciudadId, zona.almacenId, prioridad);
-      await loadZonas(zonaFiltroCiudadId);
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : String(e));
-    }
-  }
-
-  async function handleDeleteZona(zona: ZonaCobertura) {
-    if (!confirm(`¿Quitar "${zona.almacen.nombre}" de la cobertura de "${zona.ciudad.nombre}"?`)) return;
-    try {
-      await deleteZonaCobertura(zona.ciudadId, zona.almacenId);
-      await loadZonas(zonaFiltroCiudadId);
     } catch (e) {
       alert(e instanceof ApiError ? e.message : String(e));
     }
@@ -241,119 +186,6 @@ export default function AlmacenesPage() {
             {ciudadSubmitting ? "Agregando..." : "Agregar ciudad"}
           </button>
         </form>
-      </div>
-
-      <div className="card">
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Zonas de cobertura</h2>
-        <p className="cell-muted" style={{ marginBottom: 12 }}>
-          Define, para cada ciudad, qué almacenes pueden abastecerla y con qué prioridad (1 = primera opción) al
-          repartir el stock de una venta.
-        </p>
-
-        <div className="filter-field" style={{ marginBottom: 12, maxWidth: 260 }}>
-          <label className="filter-label">Filtrar por ciudad</label>
-          <select
-            className="field"
-            value={zonaFiltroCiudadId}
-            onChange={(e) => {
-              setZonaFiltroCiudadId(e.target.value);
-              loadZonas(e.target.value);
-            }}
-          >
-            <option value="">Todas</option>
-            {ciudades.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {zonas.length === 0 ? (
-          <p className="cell-muted">No hay zonas de cobertura configuradas.</p>
-        ) : (
-          <table className="table table-minimal" style={{ marginBottom: 16 }}>
-            <thead>
-              <tr>
-                <th>Ciudad</th>
-                <th>Almacén</th>
-                <th className="num">Prioridad</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {zonas
-                .slice()
-                .sort((a, b) => a.ciudad.nombre.localeCompare(b.ciudad.nombre) || a.prioridad - b.prioridad)
-                .map((zona) => (
-                  <tr key={`${zona.ciudadId}-${zona.almacenId}`}>
-                    <td>{zona.ciudad.nombre}</td>
-                    <td className="cell-primary">{zona.almacen.nombre}</td>
-                    <td className="num">
-                      <input
-                        className="field"
-                        type="number"
-                        min={1}
-                        defaultValue={zona.prioridad}
-                        onBlur={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          if (!Number.isNaN(value) && value !== zona.prioridad) handleUpdatePrioridad(zona, value);
-                        }}
-                        style={{ width: 60, textAlign: "center" }}
-                      />
-                    </td>
-                    <td className="num">
-                      <button type="button" className="action-btn danger" onClick={() => handleDeleteZona(zona)}>
-                        Quitar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        )}
-
-        <form onSubmit={handleCreateZona} className="filters-bar">
-          <div className="filter-field">
-            <label className="filter-label">Ciudad</label>
-            <select className="field" value={zonaCiudadId} onChange={(e) => setZonaCiudadId(e.target.value)}>
-              <option value="">— Elegir —</option>
-              {ciudades.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label className="filter-label">Almacén</label>
-            <select className="field" value={zonaAlmacenId} onChange={(e) => setZonaAlmacenId(e.target.value)}>
-              <option value="">— Elegir —</option>
-              {almacenes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre} ({a.ciudad.nombre})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label className="filter-label">Prioridad</label>
-            <input
-              className="field"
-              type="number"
-              min={1}
-              value={zonaPrioridad}
-              onChange={(e) => setZonaPrioridad(parseInt(e.target.value, 10) || 1)}
-              style={{ width: 80 }}
-            />
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button type="submit" className="action-btn" disabled={zonaSubmitting}>
-              {zonaSubmitting ? "Agregando..." : "Agregar zona"}
-            </button>
-          </div>
-        </form>
-        {zonaFormError && <p className="error-text" style={{ marginTop: 8 }}>{zonaFormError}</p>}
       </div>
 
       {almacenModalOpen && (

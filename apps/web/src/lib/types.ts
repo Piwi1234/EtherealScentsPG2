@@ -220,15 +220,6 @@ export type Almacen = {
   updatedAt: string;
 };
 
-export type ZonaCobertura = {
-  ciudadId: string;
-  almacenId: string;
-  prioridad: number;
-  ciudad: Ciudad;
-  almacen: Almacen;
-  createdAt: string;
-};
-
 // --- Proformas ---
 
 export type TipoProforma = "COMPRA" | "VENTA";
@@ -338,6 +329,9 @@ export type ProformaDetalle = {
   cantidad: number;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
+  /** VENTA: almacén elegido manualmente al agregar la línea (de dónde se intenta reservar stock al aprobar). */
+  almacenId: string | null;
+  almacen: Almacen | null;
   /** COMPRA: capturados por línea, no heredados del catálogo. */
   precioCompra: string | null;
   costoEnvio: string | null;
@@ -387,7 +381,7 @@ export type ProformaInput = {
   adelantoPorcentaje?: number;
 };
 
-export type DetalleVentaInput = { varianteId: string; cantidad: number; precioUnitario?: number };
+export type DetalleVentaInput = { varianteId: string; cantidad: number; almacenId: string; precioUnitario?: number };
 
 export type DetalleCompraInput = {
   varianteId: string;
@@ -401,6 +395,7 @@ export type DetalleCompraInput = {
 export type UpdateDetalleInput = {
   cantidad?: number;
   precioUnitario?: number;
+  almacenId?: string;
   precioCompra?: number;
   costoEnvio?: number;
   costoSeguridad?: number;

@@ -32,9 +32,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
     proforma.tipo === "VENTA"
       ? apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200")
       : Promise.resolve<Page<Cliente>>({ items: [], total: 0, page: 1, pageSize: 0 }),
-    proforma.tipo === "COMPRA"
-      ? apiGetServer<Page<Almacen>>("/almacenes?pageSize=200")
-      : Promise.resolve<Page<Almacen>>({ items: [], total: 0, page: 1, pageSize: 0 }),
+    apiGetServer<Page<Almacen>>("/almacenes?pageSize=200"),
     apiGetServer<Page<Ciudad>>("/ciudades?pageSize=100"),
   ]);
 
@@ -69,7 +67,11 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           </Link>
         )}
       </div>
-      <ProformaDetalleTable proforma={proforma} editable={editableDetalle} />
+      <ProformaDetalleTable
+        proforma={proforma}
+        editable={editableDetalle}
+        almacenes={almacenesPage.items.filter((a) => a.activo)}
+      />
 
       <div style={{ marginTop: 16 }}>
         <ProformaTotales proforma={proforma} editable={editableHeader} />

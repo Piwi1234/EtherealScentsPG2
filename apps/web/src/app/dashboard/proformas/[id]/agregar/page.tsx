@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { apiGetServer } from "../../../../../lib/api-server";
 import { ApiError } from "../../../../../lib/api";
-import type { Proforma } from "../../../../../lib/types";
+import type { Almacen, Page, Proforma } from "../../../../../lib/types";
 import { AgregarProductoBrowser } from "../../../../../components/proformas/AgregarProductoBrowser";
 
 export default async function AgregarProductoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +20,8 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
     redirect(`/dashboard/proformas/${id}`);
   }
 
+  const almacenesPage = await apiGetServer<Page<Almacen>>("/almacenes?pageSize=200");
+
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -30,7 +32,11 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
           ← Volver a la proforma
         </Link>
       </div>
-      <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} />
+      <AgregarProductoBrowser
+        proformaId={id}
+        tipo={proforma.tipo}
+        almacenes={almacenesPage.items.filter((a) => a.activo)}
+      />
     </div>
   );
 }

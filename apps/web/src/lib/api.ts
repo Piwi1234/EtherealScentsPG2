@@ -16,7 +16,6 @@ import type {
   SeguimientoLinea,
   StockRow,
   UpdateDetalleInput,
-  ZonaCobertura,
 } from "./types";
 
 const DEFAULT_API_HOST = "http://localhost:4100";
@@ -191,25 +190,6 @@ export function updateAlmacen(id: string, data: { nombre?: string; ciudadId?: st
 
 export function deleteAlmacen(id: string) {
   return apiDelete<Almacen>(`/almacenes/${id}`);
-}
-
-// --- Zonas de cobertura ---
-
-export function getZonasCobertura(ciudadId?: string) {
-  const qs = ciudadId ? `?ciudadId=${ciudadId}` : "";
-  return apiGet<ZonaCobertura[]>(`/zonas-cobertura${qs}`);
-}
-
-export function createZonaCobertura(data: { ciudadId: string; almacenId: string; prioridad: number }) {
-  return apiPost<ZonaCobertura>("/zonas-cobertura", data);
-}
-
-export function updateZonaCobertura(ciudadId: string, almacenId: string, prioridad: number) {
-  return apiPatch<ZonaCobertura>(`/zonas-cobertura/${ciudadId}/${almacenId}`, { prioridad });
-}
-
-export function deleteZonaCobertura(ciudadId: string, almacenId: string) {
-  return apiDelete<void>(`/zonas-cobertura/${ciudadId}/${almacenId}`);
 }
 
 // --- Stock ---

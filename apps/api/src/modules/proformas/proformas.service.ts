@@ -38,6 +38,7 @@ export const includeDetails = {
           options: { include: { optionValue: { include: { attribute: true } } } },
         },
       },
+      almacen: true,
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
       seguimientos: {
@@ -106,9 +107,9 @@ export class ProformasService {
     if (!cliente) throw new BadRequestException(`clienteId inválido: ${id}`);
   }
 
-  private async assertAlmacenExists(id: string) {
+  private async assertAlmacenExists(id: string, field = "almacenRecepcionId") {
     const almacen = await this.prisma.almacen.findUnique({ where: { id } });
-    if (!almacen) throw new BadRequestException(`almacenRecepcionId inválido: ${id}`);
+    if (!almacen) throw new BadRequestException(`${field} inválido: ${id}`);
   }
 
   private async assertCiudadExists(id: string) {
@@ -206,13 +207,21 @@ export class ProformasService {
       throw new BadRequestException("Esta proforma no es de venta.");
     }
 
+    await this.assertAlmacenExists(dto.almacenId, "almacenId");
     const variante = await this.getVarianteParaPrecio(dto.varianteId);
     const precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
     const subtotal = dto.cantidad * precioUnitario;
 
     try {
       await this.prisma.proformaDetalle.create({
-        data: { proformaId: id, varianteId: dto.varianteId, cantidad: dto.cantidad, precioUnitario, subtotal },
+        data: {
+          proformaId: id,
+          varianteId: dto.varianteId,
+          cantidad: dto.cantidad,
+          almacenId: dto.almacenId,
+          precioUnitario,
+          subtotal,
+        },
       });
       return this.findOne(id);
     } catch (error) {
@@ -262,8 +271,10 @@ export class ProformasService {
     let data: Prisma.ProformaDetalleUpdateInput;
 
     if (proforma.tipo === TipoProforma.VENTA) {
+      if (dto.almacenId) await this.assertAlmacenExists(dto.almacenId, "almacenId");
       const precioUnitario = dto.precioUnitario ?? Number(detalle.precioUnitario);
-      data = { cantidad, precioUnitario, subtotal: cantidad * precioUnitario };
+      const almacenId = dto.almacenId ?? detalle.almacenId ?? undefined;
+      data = { cantidad, precioUnitario, almacen: almacenId ? { connect: { id: almacenId } } : undefined, subtotal: cantidad * precioUnitario };
     } else {
       const precioCompra = dto.precioCompra ?? Number(detalle.precioCompra);
       const costoEnvio = dto.costoEnvio ?? Number(detalle.costoEnvio);
