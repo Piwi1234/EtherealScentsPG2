@@ -169,6 +169,10 @@ export function createCiudad(nombre: string) {
   return apiPost<Ciudad>("/ciudades", { nombre });
 }
 
+export function deleteCiudad(id: string) {
+  return apiDelete<Ciudad>(`/ciudades/${id}`);
+}
+
 // --- Almacenes ---
 
 export function getAlmacenes(query: { ciudadId?: string; page?: number; pageSize?: number } = {}) {

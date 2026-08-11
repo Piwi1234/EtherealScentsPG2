@@ -212,8 +212,7 @@ export default function StockPage() {
         )}
 
         <p className="cell-muted" style={{ marginTop: 16 }}>
-          Solo aparecen acá variantes que ya recibieron al menos una compra completada — el registro de stock se
-          crea recién en ese momento.
+          Solo aparecen acá variantes con existencia física mayor a 0 en algún almacén.
         </p>
       </div>
 

@@ -253,9 +253,9 @@ export function AgregarProductoBrowser({
           varianteId: variant.id,
           cantidad,
           precioCompra: Number(variant.purchasePrice),
-          costoEnvio: 0,
-          costoSeguridad: 0,
-          costoLogistica: 0,
+          costoEnvio: Number(product.category.shippingCost ?? 0),
+          costoSeguridad: Number(product.category.securityCost ?? 0),
+          costoLogistica: Number(product.category.logisticsCost ?? 0),
         });
       }
       setAddedFlash((prev) => ({ ...prev, [product.id]: true }));

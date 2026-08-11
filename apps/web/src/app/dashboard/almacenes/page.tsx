@@ -6,6 +6,7 @@ import {
   createAlmacen,
   createCiudad,
   deleteAlmacen,
+  deleteCiudad,
   getAlmacenes,
   getCiudades,
   updateAlmacen,
@@ -105,6 +106,16 @@ export default function AlmacenesPage() {
     }
   }
 
+  async function handleDeactivateCiudad(ciudad: Ciudad) {
+    if (!confirm(`¿Desactivar la ciudad "${ciudad.nombre}"?`)) return;
+    try {
+      await deleteCiudad(ciudad.id);
+      await loadCiudades();
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
   if (error) {
     return (
       <div className="card">
@@ -166,14 +177,42 @@ export default function AlmacenesPage() {
 
       <div className="card">
         <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Ciudades</h2>
-        <div className="filters-bar" style={{ marginBottom: 12 }}>
-          {ciudades.map((c) => (
-            <span key={c.id} className="badge">
-              {c.nombre}
-            </span>
-          ))}
-          {ciudades.length === 0 && <span className="cell-muted">Ninguna todavía.</span>}
-        </div>
+        {ciudades.length === 0 ? (
+          <p className="cell-muted" style={{ marginBottom: 12 }}>
+            Ninguna todavía.
+          </p>
+        ) : (
+          <table className="table table-minimal" style={{ marginBottom: 16 }}>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {ciudades.map((ciudad) => (
+                <tr key={ciudad.id}>
+                  <td className="cell-primary">{ciudad.nombre}</td>
+                  <td>
+                    <span className={`badge ${ciudad.activo ? "badge-accent" : "badge-muted"}`}>
+                      {ciudad.activo ? "Activo" : "Inactivo"}
+                    </span>
+                  </td>
+                  <td>
+                    {ciudad.activo && (
+                      <div className="row-actions">
+                        <button type="button" className="action-btn danger" onClick={() => handleDeactivateCiudad(ciudad)}>
+                          Desactivar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         <form onSubmit={handleCreateCiudad} style={{ display: "flex", gap: 8 }}>
           <input
             className="field"

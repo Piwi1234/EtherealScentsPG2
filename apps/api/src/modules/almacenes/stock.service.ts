@@ -34,6 +34,7 @@ export class StockService {
 
     const where: Prisma.StockWhereInput = {
       almacenId: query.almacenId,
+      cantidadFisica: { gt: 0 },
       ...(query.search
         ? {
             variante: {
