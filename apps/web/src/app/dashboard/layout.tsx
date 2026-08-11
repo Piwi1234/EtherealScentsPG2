@@ -16,6 +16,7 @@ import {
   ProductsIcon,
   ProformasIcon,
   SeguimientoIcon,
+  StockIcon,
   UsersIcon,
 } from "../../components/icons";
 
@@ -33,6 +34,7 @@ const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
   { href: "/dashboard/empresas", label: "Empresas", icon: EmpresasIcon },
   { href: "/dashboard/almacenes", label: "Almacenes", icon: AlmacenesIcon },
+  { href: "/dashboard/stock", label: "Stock", icon: StockIcon },
 ];
 
 // Sección visible solo para ADMIN.

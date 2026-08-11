@@ -8,11 +8,13 @@ import type {
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
+  LoteCompraConDetalle,
   Page,
   Proforma,
   ProformaDetalleSeguimiento,
   ProformaInput,
   SeguimientoLinea,
+  StockRow,
   UpdateDetalleInput,
   ZonaCobertura,
 } from "./types";
@@ -208,6 +210,30 @@ export function updateZonaCobertura(ciudadId: string, almacenId: string, priorid
 
 export function deleteZonaCobertura(ciudadId: string, almacenId: string) {
   return apiDelete<void>(`/zonas-cobertura/${ciudadId}/${almacenId}`);
+}
+
+// --- Stock ---
+
+export function getStock(query: { almacenId?: string; search?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.search) params.set("search", query.search);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<StockRow>>(`/stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getLotesCompra(
+  query: { varianteId?: string; almacenId?: string; page?: number; pageSize?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.varianteId) params.set("varianteId", query.varianteId);
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<LoteCompraConDetalle>>(`/stock/lotes${qs ? `?${qs}` : ""}`);
 }
 
 // --- Proformas ---

@@ -113,6 +113,16 @@ export function AlmacenesIcon({ className }: IconProps) {
   );
 }
 
+export function StockIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M3.5 7.5 12 3l8.5 4.5-8.5 4.5-8.5-4.5Z" />
+      <path d="M3.5 7.5v9L12 21l8.5-4.5v-9" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
+
 export function ProformasIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

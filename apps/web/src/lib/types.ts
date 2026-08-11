@@ -277,6 +277,34 @@ export type LoteCompra = {
   fecha: string;
 };
 
+// --- Stock ---
+
+export type StockVariante = {
+  id: string;
+  variantCode: string;
+  isDefault: boolean;
+  product: { id: string; name: string; productCode: string; imageUrl: string | null };
+};
+
+export type StockAlmacenRef = { id: string; nombre: string; ciudad: { id: string; nombre: string } };
+
+export type StockRow = {
+  varianteId: string;
+  almacenId: string;
+  cantidadFisica: number;
+  cantidadReservada: number;
+  updatedAt: string;
+  variante: StockVariante;
+  almacen: StockAlmacenRef;
+};
+
+/** LoteCompra anidado con variante/almacén — para el historial de movimientos del módulo de Stock,
+ * distinto del LoteCompra "crudo" (solo FKs) que se usa dentro de ProformaDetalle. */
+export type LoteCompraConDetalle = LoteCompra & {
+  variante: { id: string; variantCode: string; product: { id: string; name: string; productCode: string } };
+  almacen: { id: string; nombre: string };
+};
+
 /** Variante tal como viene anidada en ProformaDetalle — campos crudos, sin los precios calculados en
  * vivo que sí trae el endpoint de catálogo (acá no hace falta: precioUnitario/subtotal ya están en la
  * línea). */
