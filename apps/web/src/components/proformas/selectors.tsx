@@ -43,7 +43,7 @@ export function AlmacenSelector({ options, value, onChange, placeholder = "— E
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.id} value={o.id}>
-          {o.nombre} ({o.ciudad.nombre})
+          {o.nombre}
         </option>
       ))}
     </select>

@@ -25,7 +25,6 @@ export default function AlmacenesPage() {
   const [almacenModalOpen, setAlmacenModalOpen] = useState(false);
   const [editingAlmacen, setEditingAlmacen] = useState<Almacen | null>(null);
   const [almacenNombre, setAlmacenNombre] = useState("");
-  const [almacenCiudadId, setAlmacenCiudadId] = useState("");
   const [almacenActivo, setAlmacenActivo] = useState(true);
   const [almacenFormError, setAlmacenFormError] = useState("");
   const [almacenSubmitting, setAlmacenSubmitting] = useState(false);
@@ -62,7 +61,6 @@ export default function AlmacenesPage() {
   function openCreateAlmacen() {
     setEditingAlmacen(null);
     setAlmacenNombre("");
-    setAlmacenCiudadId(ciudades[0]?.id ?? "");
     setAlmacenActivo(true);
     setAlmacenFormError("");
     setAlmacenModalOpen(true);
@@ -71,7 +69,6 @@ export default function AlmacenesPage() {
   function openEditAlmacen(almacen: Almacen) {
     setEditingAlmacen(almacen);
     setAlmacenNombre(almacen.nombre);
-    setAlmacenCiudadId(almacen.ciudadId);
     setAlmacenActivo(almacen.activo);
     setAlmacenFormError("");
     setAlmacenModalOpen(true);
@@ -83,9 +80,9 @@ export default function AlmacenesPage() {
     setAlmacenSubmitting(true);
     try {
       if (editingAlmacen) {
-        await updateAlmacen(editingAlmacen.id, { nombre: almacenNombre, ciudadId: almacenCiudadId, activo: almacenActivo });
+        await updateAlmacen(editingAlmacen.id, { nombre: almacenNombre, activo: almacenActivo });
       } else {
-        await createAlmacen({ nombre: almacenNombre, ciudadId: almacenCiudadId });
+        await createAlmacen({ nombre: almacenNombre });
       }
       setAlmacenModalOpen(false);
       await loadAlmacenes();
@@ -106,8 +103,8 @@ export default function AlmacenesPage() {
     }
   }
 
-  async function handleDeactivateCiudad(ciudad: Ciudad) {
-    if (!confirm(`¿Desactivar la ciudad "${ciudad.nombre}"?`)) return;
+  async function handleDeleteCiudad(ciudad: Ciudad) {
+    if (!confirm(`¿Eliminar la ciudad "${ciudad.nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
       await deleteCiudad(ciudad.id);
       await loadCiudades();
@@ -129,11 +126,10 @@ export default function AlmacenesPage() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h1 style={{ margin: 0, fontSize: 20 }}>Almacenes</h1>
-          <button type="button" className="btn-cta" onClick={openCreateAlmacen} disabled={ciudades.length === 0}>
+          <button type="button" className="btn-cta" onClick={openCreateAlmacen}>
             <span className="btn-cta-icon">+</span> Nuevo almacén
           </button>
         </div>
-        {ciudades.length === 0 && <p className="cell-muted">Primero creá al menos una ciudad más abajo.</p>}
         {almacenes.length === 0 ? (
           <p>No hay almacenes todavía.</p>
         ) : (
@@ -141,7 +137,6 @@ export default function AlmacenesPage() {
             <thead>
               <tr>
                 <th>Nombre</th>
-                <th>Ciudad</th>
                 <th>Estado</th>
                 <th></th>
               </tr>
@@ -150,7 +145,6 @@ export default function AlmacenesPage() {
               {almacenes.map((almacen) => (
                 <tr key={almacen.id}>
                   <td className="cell-primary">{almacen.nombre}</td>
-                  <td>{almacen.ciudad.nombre}</td>
                   <td>
                     <span className={`badge ${almacen.activo ? "badge-accent" : "badge-muted"}`}>
                       {almacen.activo ? "Activo" : "Inactivo"}
@@ -200,13 +194,11 @@ export default function AlmacenesPage() {
                     </span>
                   </td>
                   <td>
-                    {ciudad.activo && (
-                      <div className="row-actions">
-                        <button type="button" className="action-btn danger" onClick={() => handleDeactivateCiudad(ciudad)}>
-                          Desactivar
-                        </button>
-                      </div>
-                    )}
+                    <div className="row-actions">
+                      <button type="button" className="action-btn danger" onClick={() => handleDeleteCiudad(ciudad)}>
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -233,17 +225,6 @@ export default function AlmacenesPage() {
             <div>
               <label>Nombre</label>
               <input className="field" value={almacenNombre} onChange={(e) => setAlmacenNombre(e.target.value)} required />
-            </div>
-            <div>
-              <label>Ciudad</label>
-              <select className="field" value={almacenCiudadId} onChange={(e) => setAlmacenCiudadId(e.target.value)} required>
-                <option value="">— Elegir —</option>
-                {ciudades.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
             </div>
             {editingAlmacen && (
               <div>

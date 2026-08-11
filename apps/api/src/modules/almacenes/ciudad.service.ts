@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -48,10 +48,23 @@ export class CiudadService {
     }
   }
 
+  /** Borrado real (no soft delete): Ciudad ya no es requisito de nada (Almacen dejó de referenciarla),
+   * así que solo queda bloquear si todavía hay Clientes o Proformas apuntándole. */
   async remove(id: string) {
     await this.findOne(id);
+
+    const clienteConCiudad = await this.prisma.cliente.findFirst({ where: { ciudadId: id } });
+    if (clienteConCiudad) {
+      throw new ConflictException("No se puede eliminar: hay clientes con esta ciudad asignada.");
+    }
+
+    const proformaConCiudad = await this.prisma.proforma.findFirst({ where: { ciudadEntregaId: id } });
+    if (proformaConCiudad) {
+      throw new ConflictException("No se puede eliminar: hay proformas con esta ciudad de entrega.");
+    }
+
     try {
-      return await this.prisma.ciudad.update({ where: { id }, data: { activo: false } });
+      return await this.prisma.ciudad.delete({ where: { id } });
     } catch (error) {
       rethrowPrismaError(error, "Ciudad");
     }

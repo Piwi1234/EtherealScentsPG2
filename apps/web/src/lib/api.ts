@@ -175,20 +175,19 @@ export function deleteCiudad(id: string) {
 
 // --- Almacenes ---
 
-export function getAlmacenes(query: { ciudadId?: string; page?: number; pageSize?: number } = {}) {
+export function getAlmacenes(query: { page?: number; pageSize?: number } = {}) {
   const params = new URLSearchParams();
-  if (query.ciudadId) params.set("ciudadId", query.ciudadId);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<Almacen>>(`/almacenes${qs ? `?${qs}` : ""}`);
 }
 
-export function createAlmacen(data: { nombre: string; ciudadId: string }) {
+export function createAlmacen(data: { nombre: string }) {
   return apiPost<Almacen>("/almacenes", data);
 }
 
-export function updateAlmacen(id: string, data: { nombre?: string; ciudadId?: string; activo?: boolean }) {
+export function updateAlmacen(id: string, data: { nombre?: string; activo?: boolean }) {
   return apiPatch<Almacen>(`/almacenes/${id}`, data);
 }
 

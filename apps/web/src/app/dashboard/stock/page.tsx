@@ -120,7 +120,7 @@ export default function StockPage() {
               <option value="">Todos</option>
               {almacenes.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.nombre} ({a.ciudad.nombre})
+                  {a.nombre}
                 </option>
               ))}
             </select>
@@ -166,10 +166,7 @@ export default function StockPage() {
                         </span>
                       )}
                     </td>
-                    <td>
-                      {row.almacen.nombre}
-                      <div className="cell-muted">{row.almacen.ciudad.nombre}</div>
-                    </td>
+                    <td>{row.almacen.nombre}</td>
                     <td className="num">{row.cantidadFisica}</td>
                     <td className="num">{row.cantidadReservada}</td>
                     <td className="num">{row.cantidadFisica - row.cantidadReservada}</td>
@@ -235,7 +232,7 @@ export default function StockPage() {
               <option value="">Todos</option>
               {almacenes.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.nombre} ({a.ciudad.nombre})
+                  {a.nombre}
                 </option>
               ))}
             </select>

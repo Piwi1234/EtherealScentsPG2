@@ -16,7 +16,7 @@ import { UpdateDetalleDto } from "./dto/update-detalle.dto";
 export const includeDetails = {
   empresa: true,
   cliente: true,
-  almacenRecepcion: { include: { ciudad: true } },
+  almacenRecepcion: true,
   ciudadEntrega: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {

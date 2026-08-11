@@ -159,6 +159,7 @@ export type Cliente = {
   /** Referencia a la tabla Ciudad (para Proformas: precarga la ciudad de entrega). Independiente del
    * campo `ciudad` de texto libre de arriba, que conviven. */
   ciudadId: string | null;
+  ciudadRef: Ciudad | null;
   origen: OrigenCliente;
   activo: boolean;
   createdAt: string;
@@ -213,8 +214,6 @@ export type Ciudad = {
 export type Almacen = {
   id: string;
   nombre: string;
-  ciudadId: string;
-  ciudad: Ciudad;
   activo: boolean;
   createdAt: string;
   updatedAt: string;
@@ -277,7 +276,7 @@ export type StockVariante = {
   product: { id: string; name: string; productCode: string; imageUrl: string | null };
 };
 
-export type StockAlmacenRef = { id: string; nombre: string; ciudad: { id: string; nombre: string } };
+export type StockAlmacenRef = { id: string; nombre: string };
 
 export type StockRow = {
   varianteId: string;

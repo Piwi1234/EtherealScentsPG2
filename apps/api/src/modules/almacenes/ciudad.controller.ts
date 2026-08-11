@@ -41,7 +41,7 @@ export class CiudadController {
 
   @Delete(":id")
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: "Soft delete: marca activo = false. Solo ADMIN." })
+  @ApiOperation({ summary: "Elimina una ciudad. Bloqueado si tiene clientes o proformas asociadas. Solo ADMIN." })
   remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.ciudades.remove(id);
   }

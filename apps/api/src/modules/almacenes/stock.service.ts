@@ -12,7 +12,7 @@ const stockInclude = {
       product: { select: { id: true, name: true, productCode: true, imageUrl: true } },
     },
   },
-  almacen: { select: { id: true, nombre: true, ciudad: { select: { id: true, nombre: true } } } },
+  almacen: { select: { id: true, nombre: true } },
 } as const;
 
 const loteInclude = {

@@ -71,7 +71,7 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
         <Field label="Email" value={cliente.email ?? "—"} />
         <Field label="Teléfono" value={cliente.telefono ?? "—"} />
         <Field label="Dirección" value={cliente.direccion ?? "—"} />
-        <Field label="Ciudad" value={cliente.ciudad ?? "—"} />
+        <Field label="Ciudad" value={cliente.ciudadRef?.nombre ?? cliente.ciudad ?? "—"} />
         <Field label="Estado" value={<ClienteStatusBadge activo={cliente.activo} />} />
         <Field label="Origen" value={<ClienteOrigenBadge origen={cliente.origen} />} />
         <Field label="Registrado" value={formatDate(cliente.createdAt)} />

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createProforma } from "../../lib/api";
-import type { Almacen, Ciudad, Cliente, Empresa, TipoProforma } from "../../lib/types";
-import { AlmacenSelector, CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+import type { Almacen, Cliente, Empresa, TipoProforma } from "../../lib/types";
+import { AlmacenSelector, ClienteSelector, EmpresaSelector } from "./selectors";
 
 /**
  * Único paso "todo en un formulario" del flujo: crea la proforma con lo mínimo indispensable
@@ -16,13 +16,11 @@ export function NuevaProformaForm({
   empresas,
   clientes,
   almacenes,
-  ciudades,
 }: {
   tipo: TipoProforma;
   empresas: Empresa[];
   clientes: Cliente[];
   almacenes: Almacen[];
-  ciudades: Ciudad[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
@@ -32,14 +30,12 @@ export function NuevaProformaForm({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  /** Precarga la ciudad de entrega con la del cliente elegido (si tiene una definida); queda
-   * editable con el selector de abajo. */
+  /** La ciudad de entrega no se pregunta acá: se toma en silencio de la ciudad del cliente elegido
+   * (si la tiene definida). Queda editable después en la cabecera de la proforma ya creada. */
   function handleClienteChange(id: string) {
     setClienteId(id);
     const cliente = clientes.find((c) => c.id === id);
-    if (cliente?.ciudadId) {
-      setCiudadEntregaId(cliente.ciudadId);
-    }
+    setCiudadEntregaId(cliente?.ciudadId ?? "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -81,21 +77,10 @@ export function NuevaProformaForm({
       </div>
 
       {tipo === "VENTA" ? (
-        <>
-          <div>
-            <label>Cliente</label>
-            <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
-          </div>
-          <div>
-            <label>Ciudad de entrega</label>
-            <CiudadSelector
-              options={ciudades}
-              value={ciudadEntregaId}
-              onChange={setCiudadEntregaId}
-              placeholder="— Sin definir —"
-            />
-          </div>
-        </>
+        <div>
+          <label>Cliente</label>
+          <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
+        </div>
       ) : (
         <div>
           <label>Almacén de recepción</label>

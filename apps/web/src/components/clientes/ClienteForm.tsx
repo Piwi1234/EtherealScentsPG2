@@ -18,7 +18,6 @@ type FormValues = {
   email: string;
   telefono: string;
   direccion: string;
-  ciudad: string;
   ciudadId: string;
 };
 
@@ -31,7 +30,6 @@ function initialValuesFrom(cliente?: Cliente): FormValues {
     email: cliente?.email ?? "",
     telefono: cliente?.telefono ?? "",
     direccion: cliente?.direccion ?? "",
-    ciudad: cliente?.ciudad ?? "",
     ciudadId: cliente?.ciudadId ?? "",
   };
 }
@@ -81,7 +79,6 @@ export function ClienteForm({ mode, cliente }: { mode: Mode; cliente?: Cliente }
         email: values.email.trim() || undefined,
         telefono: values.telefono.trim() || undefined,
         direccion: values.direccion.trim() || undefined,
-        ciudad: values.ciudad.trim() || undefined,
         ciudadId: values.ciudadId || undefined,
       };
       const result = mode === "crear" ? await createCliente(payload) : await updateCliente(cliente!.id, payload);
@@ -165,26 +162,18 @@ export function ClienteForm({ mode, cliente }: { mode: Mode; cliente?: Cliente }
         </div>
         <div>
           <label>Ciudad</label>
-          <input className="field" value={values.ciudad} onChange={(e) => setField("ciudad", e.target.value)} />
+          <CiudadSelector
+            options={ciudades}
+            value={values.ciudadId}
+            onChange={(id) => setField("ciudadId", id)}
+            placeholder="— Sin definir —"
+          />
         </div>
       </div>
 
       <div>
         <label>Dirección</label>
         <input className="field" value={values.direccion} onChange={(e) => setField("direccion", e.target.value)} />
-      </div>
-
-      <div>
-        <label>Ciudad (catálogo)</label>
-        <CiudadSelector
-          options={ciudades}
-          value={values.ciudadId}
-          onChange={(id) => setField("ciudadId", id)}
-          placeholder="— Sin definir —"
-        />
-        <p className="cell-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
-          Se usa para precargar la ciudad de entrega al armar una proforma de venta para este cliente.
-        </p>
       </div>
 
       {formError && <p className="error-text">{formError}</p>}

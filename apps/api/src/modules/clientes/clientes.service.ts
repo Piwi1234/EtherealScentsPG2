@@ -56,7 +56,7 @@ export class ClientesService {
     };
 
     const [items, total] = await Promise.all([
-      this.prisma.cliente.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
+      this.prisma.cliente.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: { ciudadRef: true } }),
       this.prisma.cliente.count({ where }),
     ]);
 
@@ -64,7 +64,7 @@ export class ClientesService {
   }
 
   async findOne(id: string) {
-    const cliente = await this.prisma.cliente.findUnique({ where: { id } });
+    const cliente = await this.prisma.cliente.findUnique({ where: { id }, include: { ciudadRef: true } });
     if (!cliente) {
       throw new NotFoundException("Cliente no encontrado.");
     }
@@ -88,6 +88,7 @@ export class ClientesService {
           origen: OrigenCliente.MANUAL,
           creadoPorId,
         },
+        include: { ciudadRef: true },
       });
     } catch (error) {
       rethrowPrismaError(error, "Cliente");
@@ -107,6 +108,7 @@ export class ClientesService {
           numeroDocumento: dto.numeroDocumento?.trim(),
           email: dto.email?.trim().toLowerCase(),
         },
+        include: { ciudadRef: true },
       });
     } catch (error) {
       rethrowPrismaError(error, "Cliente");

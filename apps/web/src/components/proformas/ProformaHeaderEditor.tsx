@@ -62,7 +62,7 @@ export function ProformaHeaderEditor({
         empresaId,
         clienteId: proforma.tipo === "VENTA" ? clienteId || undefined : undefined,
         almacenRecepcionId: proforma.tipo === "COMPRA" ? almacenRecepcionId || undefined : undefined,
-        ciudadEntregaId: ciudadEntregaId || undefined,
+        ciudadEntregaId: proforma.tipo === "VENTA" ? ciudadEntregaId || undefined : undefined,
       });
       router.refresh();
     } catch (e) {
@@ -81,7 +81,7 @@ export function ProformaHeaderEditor({
         ) : (
           <Field label="Almacén de recepción" value={proforma.almacenRecepcion?.nombre ?? "—"} />
         )}
-        <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />
+        {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
       </div>
     );
   }
@@ -104,10 +104,12 @@ export function ProformaHeaderEditor({
             <AlmacenSelector options={almacenes} value={almacenRecepcionId} onChange={setAlmacenRecepcionId} />
           </div>
         )}
-        <div className="filter-field" style={{ minWidth: 180 }}>
-          <label className="filter-label">Ciudad de entrega</label>
-          <CiudadSelector options={ciudades} value={ciudadEntregaId} onChange={setCiudadEntregaId} placeholder="— Sin definir —" />
-        </div>
+        {proforma.tipo === "VENTA" && (
+          <div className="filter-field" style={{ minWidth: 180 }}>
+            <label className="filter-label">Ciudad de entrega</label>
+            <CiudadSelector options={ciudades} value={ciudadEntregaId} onChange={setCiudadEntregaId} placeholder="— Sin definir —" />
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "flex-end" }}>
           <button type="button" className="action-btn" onClick={handleSave} disabled={submitting}>
             {submitting ? "Guardando..." : "Guardar cambios"}

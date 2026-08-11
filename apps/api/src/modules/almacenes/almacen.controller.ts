@@ -14,9 +14,9 @@ export class AlmacenController {
   constructor(private readonly almacenes: AlmacenService) {}
 
   @Get()
-  @ApiOperation({ summary: "Lista almacenes (paginado, filtro opcional por ciudad)." })
-  findAll(@Query("page") page?: string, @Query("pageSize") pageSize?: string, @Query("ciudadId") ciudadId?: string) {
-    return this.almacenes.findAll({ page, pageSize, ciudadId });
+  @ApiOperation({ summary: "Lista almacenes (paginado)." })
+  findAll(@Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+    return this.almacenes.findAll({ page, pageSize });
   }
 
   @Get(":id")

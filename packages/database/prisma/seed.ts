@@ -283,10 +283,10 @@ async function seedDefaultVariants() {
   }
 }
 
-async function upsertAlmacenByNombre(nombre: string, ciudadId: string) {
+async function upsertAlmacenByNombre(nombre: string) {
   const existing = await prisma.almacen.findFirst({ where: { nombre } });
   if (existing) return existing;
-  return prisma.almacen.create({ data: { nombre, ciudadId } });
+  return prisma.almacen.create({ data: { nombre } });
 }
 
 async function seedEmpresasYAlmacenes() {
@@ -313,14 +313,11 @@ async function seedEmpresasYAlmacenes() {
     },
   });
 
-  const caracas = await prisma.ciudad.upsert({ where: { nombre: "Caracas" }, update: {}, create: { nombre: "Caracas" } });
-  const valencia = await prisma.ciudad.upsert({ where: { nombre: "Valencia" }, update: {}, create: { nombre: "Valencia" } });
+  const almacenCaracas = await upsertAlmacenByNombre("Almacén Caracas");
+  const almacenValencia = await upsertAlmacenByNombre("Almacén Valencia");
 
-  const almacenCaracas = await upsertAlmacenByNombre("Almacén Caracas", caracas.id);
-  const almacenValencia = await upsertAlmacenByNombre("Almacén Valencia", valencia.id);
-
-  console.log("2 empresas, 2 ciudades y 2 almacenes sembrados.");
-  return { casaMatriz, sucursal, caracas, valencia, almacenCaracas, almacenValencia };
+  console.log("2 empresas y 2 almacenes sembrados.");
+  return { casaMatriz, sucursal, almacenCaracas, almacenValencia };
 }
 
 /** Deja lotes de compra + stock inicial reales, pasando una proforma de compra de punta a punta

@@ -9,23 +9,22 @@ import { UpdateAlmacenDto } from "./dto/update-almacen.dto";
 export class AlmacenService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: string; pageSize?: string; ciudadId?: string }) {
+  async findAll(query: { page?: string; pageSize?: string }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
     });
 
-    const where = { ciudadId: query.ciudadId };
     const [items, total] = await Promise.all([
-      this.prisma.almacen.findMany({ where, skip, take, orderBy: { nombre: "asc" }, include: { ciudad: true } }),
-      this.prisma.almacen.count({ where }),
+      this.prisma.almacen.findMany({ skip, take, orderBy: { nombre: "asc" } }),
+      this.prisma.almacen.count(),
     ]);
 
     return { items, total, page, pageSize };
   }
 
   async findOne(id: string) {
-    const almacen = await this.prisma.almacen.findUnique({ where: { id }, include: { ciudad: true } });
+    const almacen = await this.prisma.almacen.findUnique({ where: { id } });
     if (!almacen) {
       throw new NotFoundException("Almacén no encontrado.");
     }
@@ -34,7 +33,7 @@ export class AlmacenService {
 
   async create(dto: CreateAlmacenDto) {
     try {
-      return await this.prisma.almacen.create({ data: dto, include: { ciudad: true } });
+      return await this.prisma.almacen.create({ data: dto });
     } catch (error) {
       rethrowPrismaError(error, "Almacén");
     }
@@ -43,7 +42,7 @@ export class AlmacenService {
   async update(id: string, dto: UpdateAlmacenDto) {
     await this.findOne(id);
     try {
-      return await this.prisma.almacen.update({ where: { id }, data: dto, include: { ciudad: true } });
+      return await this.prisma.almacen.update({ where: { id }, data: dto });
     } catch (error) {
       rethrowPrismaError(error, "Almacén");
     }
