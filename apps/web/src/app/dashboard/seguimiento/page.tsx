@@ -66,7 +66,7 @@ export default async function SeguimientoPage({
           initialCategoryId={params.categoryId ?? ""}
           initialEstado={params.estado ?? ""}
           initialEmpresaId={params.empresaId ?? ""}
-          categories={categories}
+          categories={categories.filter((c) => c.parentId === null)}
           empresas={empresasPage.items.filter((e) => e.activo)}
         />
       </Suspense>

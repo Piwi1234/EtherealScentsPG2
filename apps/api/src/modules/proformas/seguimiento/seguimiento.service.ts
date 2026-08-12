@@ -38,14 +38,31 @@ const includeLinea = {
 export class SeguimientoService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** El filtro de categoría del frontend solo ofrece categorías padre — acá se expande a ese padre
+   * más todas sus subcategorías (a cualquier profundidad), porque los productos se categorizan en la
+   * subcategoría, no en el padre directamente. */
+  private async collectCategoryIds(rootId: string): Promise<string[]> {
+    const ids = [rootId];
+    let frontier = [rootId];
+    while (frontier.length > 0) {
+      const children = await this.prisma.category.findMany({ where: { parentId: { in: frontier } }, select: { id: true } });
+      if (children.length === 0) break;
+      frontier = children.map((c) => c.id);
+      ids.push(...frontier);
+    }
+    return ids;
+  }
+
   async findPendientes(query: QuerySeguimientoDto) {
+    const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
+
     const where: Prisma.ProformaDetalleAsignacionWhereInput = {
       origen: OrigenAsignacion.PROCURA,
       cantidad: { gt: 0 },
       estadoSeguimiento: query.estado,
       proformaDetalle: {
         proforma: query.empresaId ? { empresaId: query.empresaId } : undefined,
-        variante: query.categoryId ? { product: { categoryId: query.categoryId } } : undefined,
+        variante: categoryIds ? { product: { categoryId: { in: categoryIds } } } : undefined,
       },
     };
 
