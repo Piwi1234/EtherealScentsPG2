@@ -24,7 +24,10 @@ export default async function ProformasPage({
   let data: Page<Proforma> | null = null;
   let error = "";
   try {
-    data = await apiGetServer<Page<Proforma>>(`/proformas?${qs.toString()}`);
+    // Sin tipo elegido no cargamos proformas — hay que filtrar primero.
+    if (params.tipo) {
+      data = await apiGetServer<Page<Proforma>>(`/proformas?${qs.toString()}`);
+    }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -57,13 +60,17 @@ export default async function ProformasPage({
 
       {error && <p className="error-text">{error}</p>}
 
-      {!error && data && data.items.length === 0 && (
+      {!error && !params.tipo && (
+        <p className="cell-muted">Elegí un tipo arriba para ver las proformas.</p>
+      )}
+
+      {!error && params.tipo && data && data.items.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0" }}>
           <p style={{ color: "var(--muted)" }}>No hay proformas registradas aún</p>
         </div>
       )}
 
-      {!error && data && data.items.length > 0 && (
+      {!error && params.tipo && data && data.items.length > 0 && (
         <>
           <ProformasTable proformas={data.items} />
           {totalPages > 1 && (

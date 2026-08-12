@@ -41,7 +41,7 @@ function EditableNumber({
         const parsed = Number(e.target.value);
         if (!Number.isNaN(parsed)) onCommit(parsed);
       }}
-      style={{ width: 90, textAlign: "center" }}
+      style={{ width: 70, textAlign: "center" }}
     />
   );
 }
@@ -183,7 +183,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
           <tr>
             <th>ID Producto</th>
             <th>Marca</th>
-            <th>Producto</th>
+            <th style={{ minWidth: 240 }}>Producto</th>
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>

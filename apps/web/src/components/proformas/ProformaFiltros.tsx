@@ -22,7 +22,7 @@ export function ProformaFiltros({ initialTipo, initialEstado }: { initialTipo: s
       <div className="filter-field">
         <label className="filter-label">Tipo</label>
         <select className="field" defaultValue={initialTipo} onChange={(e) => pushParams({ tipo: e.target.value })}>
-          <option value="">Todos</option>
+          <option value="">Elegí un tipo…</option>
           <option value="VENTA">Venta</option>
           <option value="COMPRA">Compra</option>
         </select>

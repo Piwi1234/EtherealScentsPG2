@@ -16,6 +16,11 @@ type AtributoVisible = { key: string; orden: number; nombre: string; valor: stri
  * tener 1+ valores del mismo atributo, ej. varios sabores de un vape; se muestran juntos separados
  * por coma dentro del mismo atributo). Solo los marcados mostrarEnProforma=true, ordenados por
  * `orden`.
+ *
+ * `variantOptionValues` también guarda los valores de atributos PRICED_VARIANT (ej. "50 ML"/"100 ML"
+ * de Tamanio) — pero ahí es el catálogo de TODOS los valores posibles del producto, no el de esta
+ * variante puntual (eso ya lo trae `variante.options`, que el caller concatena aparte). Se excluyen acá
+ * a propósito para no duplicar/mostrar de más las demás variantes.
  */
 function visiblesOrdenados(
   attributeValues: ProductAttributeValue[],
@@ -34,7 +39,7 @@ function visiblesOrdenados(
   }
 
   for (const v of variantOptionValues) {
-    if (!v.attribute.mostrarEnProforma) continue;
+    if (!v.attribute.mostrarEnProforma || v.attribute.variantMode !== "MULTI_VALUE") continue;
     const existing = porAtributo.get(v.attributeId);
     if (existing) {
       existing.valor = `${existing.valor}, ${v.value}`;
