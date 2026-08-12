@@ -13,6 +13,7 @@ import {
   ClientsIcon,
   DashboardIcon,
   EmpresasIcon,
+  ExchangeIcon,
   ListIcon,
   LogoutIcon,
   OrdersIcon,
@@ -54,6 +55,7 @@ const CONFIGURACION_GROUPS = [
     items: [
       { href: "/dashboard/empresas", label: "Empresas", icon: EmpresasIcon },
       { href: "/dashboard/almacenes", label: "Almacenes", icon: AlmacenesIcon },
+      { href: "/dashboard/configuracion/tipo-cambio", label: "Tipo de cambio", icon: ExchangeIcon },
     ],
   },
 ];
