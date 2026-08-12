@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, createEmpresa, deleteEmpresa, getEmpresas, updateEmpresa } from "../../../lib/api";
+import { API_ORIGIN, ApiError, apiUpload, createEmpresa, deleteEmpresa, getEmpresas, updateEmpresa } from "../../../lib/api";
 import type { Empresa, EmpresaInput, TipoEmpresa } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
@@ -10,7 +10,14 @@ const TIPO_LABELS: Record<TipoEmpresa, string> = {
   SUCURSAL: "Sucursal",
 };
 
-const EMPTY_FORM: EmpresaInput = { nombre: "", tipo: "SUCURSAL", razonSocial: "", nit: "", logoUrl: "" };
+const EMPTY_FORM: EmpresaInput = { nombre: "", tipo: "SUCURSAL", razonSocial: "", nit: "" };
+
+// Empresas sembradas antes de este cambio pueden tener logoUrl absoluto (ej. un placeholder externo);
+// los subidos desde acá en adelante son siempre relativos ("/uploads/empresas/...").
+function logoSrc(logoUrl: string | null): string | null {
+  if (!logoUrl) return null;
+  return logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`;
+}
 
 export default function EmpresasPage() {
   const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
@@ -19,8 +26,16 @@ export default function EmpresasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Empresa | null>(null);
   const [form, setForm] = useState<EmpresaInput>(EMPTY_FORM);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  function handleLogoSelect(file: File | null, currentLogoUrl: string | null) {
+    if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
+    setLogoFile(file);
+    setLogoPreview(file ? URL.createObjectURL(file) : logoSrc(currentLogoUrl));
+  }
 
   function load() {
     getEmpresas({ pageSize: 100 })
@@ -33,6 +48,8 @@ export default function EmpresasPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setLogoFile(null);
+    setLogoPreview(null);
     setFormError("");
     setModalOpen(true);
   }
@@ -44,9 +61,10 @@ export default function EmpresasPage() {
       tipo: empresa.tipo,
       razonSocial: empresa.razonSocial,
       nit: empresa.nit,
-      logoUrl: empresa.logoUrl ?? "",
       activo: empresa.activo,
     });
+    setLogoFile(null);
+    setLogoPreview(logoSrc(empresa.logoUrl));
     setFormError("");
     setModalOpen(true);
   }
@@ -66,11 +84,9 @@ export default function EmpresasPage() {
     setFormError("");
     setSubmitting(true);
     try {
-      const payload = { ...form, logoUrl: form.logoUrl || undefined };
-      if (editing) {
-        await updateEmpresa(editing.id, payload);
-      } else {
-        await createEmpresa(payload);
+      const saved = editing ? await updateEmpresa(editing.id, form) : await createEmpresa(form);
+      if (logoFile) {
+        await apiUpload(`/empresas/${saved.id}/logo`, logoFile);
       }
       setModalOpen(false);
       load();
@@ -171,12 +187,21 @@ export default function EmpresasPage() {
               <input className="field" value={form.nit} onChange={(e) => setForm({ ...form, nit: e.target.value })} required />
             </div>
             <div>
-              <label>Logo (URL, opcional)</label>
-              <input
-                className="field"
-                value={form.logoUrl ?? ""}
-                onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-              />
+              <label>Logo (opcional)</label>
+              <div className="image-uploader">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Vista previa" />
+                ) : (
+                  <div className="image-uploader-placeholder">Sin logo</div>
+                )}
+                <input
+                  className="field"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => handleLogoSelect(e.target.files?.[0] ?? null, editing?.logoUrl ?? null)}
+                  style={{ background: "transparent", border: 0, padding: 0 }}
+                />
+              </div>
             </div>
             {editing && (
               <div>

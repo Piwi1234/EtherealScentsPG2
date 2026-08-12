@@ -1,10 +1,25 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { EmpresasService } from "./empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
+import { empresaLogoMulterOptions } from "./empresa-logo.multer";
 
 @ApiTags("empresas")
 @ApiBearerAuth()
@@ -44,5 +59,18 @@ export class EmpresasController {
   @ApiOperation({ summary: "Soft delete: marca activo = false. Solo ADMIN." })
   remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.empresas.remove(id);
+  }
+
+  @Post(":id/logo")
+  @Roles(Rol.ADMIN)
+  @UseInterceptors(FileInterceptor("file", empresaLogoMulterOptions))
+  @ApiOperation({ summary: "Sube el logo de la empresa (JPEG/PNG/WEBP/GIF, hasta 5MB). Solo ADMIN." })
+  uploadLogo(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
+    // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;
+    // el filtro de tipo ya corrió en multer (empresa-logo.multer.ts) antes de guardar en disco.
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.empresas.setLogo(id, file);
   }
 }

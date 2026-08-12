@@ -9,8 +9,9 @@ import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 async function bootstrap() {
-  // Carpeta de imágenes de producto: debe existir antes de que multer/estáticos la usen.
+  // Carpetas de imágenes: deben existir antes de que multer/estáticos las usen.
   mkdirSync(join(process.cwd(), "uploads", "products"), { recursive: true });
+  mkdirSync(join(process.cwd(), "uploads", "empresas"), { recursive: true });
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
