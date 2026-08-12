@@ -120,29 +120,38 @@ export class ProformaApprovalService {
    * Libera la reserva (cantidadReservada) de cada línea con stock reservado al anular una venta
    * aprobada — y de paso reparte lo recién liberado entre la Procura pendiente de OTRAS ventas ya
    * aprobadas para esa misma variante+almacén, por orden de aprobación (más antigua primero), igual
-   * mecanismo que al completar una compra (ver procura.util.ts).
+   * mecanismo que al completar una compra (ver procura.util.ts). Además cancela la Procura PROPIA de
+   * esta proforma (si le quedaba algo pendiente): el pedido se cancela, ya no hace falta seguir
+   * pidiéndole al proveedor lo que le faltaba — no libera stock real, solo apaga la marca de "todavía
+   * se necesita" para que deje de aparecer en Seguimiento.
    */
   private async liberarReservas(tx: Prisma.TransactionClient, proformaId: string) {
-    const asignaciones = await tx.proformaDetalleAsignacion.findMany({
+    const stockAsignaciones = await tx.proformaDetalleAsignacion.findMany({
       where: { origen: OrigenAsignacion.STOCK, proformaDetalle: { proformaId } },
       include: { proformaDetalle: true },
     });
-    if (asignaciones.length === 0) return;
 
-    const pares = asignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
-    await lockStockRows(tx, pares);
+    if (stockAsignaciones.length > 0) {
+      const pares = stockAsignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
+      await lockStockRows(tx, pares);
 
-    for (const asignacion of asignaciones) {
-      const varianteId = asignacion.proformaDetalle.varianteId;
-      const almacenId = asignacion.almacenId!;
+      for (const asignacion of stockAsignaciones) {
+        const varianteId = asignacion.proformaDetalle.varianteId;
+        const almacenId = asignacion.almacenId!;
 
-      await tx.stock.update({
-        where: { varianteId_almacenId: { varianteId, almacenId } },
-        data: { cantidadReservada: { decrement: asignacion.cantidad } },
-      });
+        await tx.stock.update({
+          where: { varianteId_almacenId: { varianteId, almacenId } },
+          data: { cantidadReservada: { decrement: asignacion.cantidad } },
+        });
 
-      await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
+        await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
+      }
     }
+
+    await tx.proformaDetalleAsignacion.updateMany({
+      where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
+      data: { cantidad: 0 },
+    });
   }
 
   /** APROBADA → ANULADA únicamente (BORRADOR se elimina en vez de anularse; COMPLETADA es terminal). */

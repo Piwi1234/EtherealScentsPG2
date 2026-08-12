@@ -28,9 +28,8 @@ model Usuario {
   refreshTokens   RefreshToken[]
   clientesCreados Cliente[]
 
-  proformasCreadas  Proforma[]                   @relation("ProformaCreadaPor")
+  proformasCreadas  Proforma[] @relation("ProformaCreadaPor")
   proformaHistorial ProformaHistorial[]
-  seguimientos      ProformaDetalleSeguimiento[]
 
   @@map("usuarios")
 }
@@ -392,13 +391,16 @@ enum OrigenAsignacion {
   @@map("origen_asignacion")
 }
 
-enum EstadoSeguimiento {
+/// Estado de seguimiento de una línea a Procura (ver ProformaDetalleAsignacion.estadoSeguimiento):
+/// PENDIENTE (todavía no se le pidió al proveedor) → COMPRADO (ya se le compró) → ENVIADO (ya está en
+/// camino). No es un log histórico como el viejo EstadoSeguimiento de 4 pasos que este reemplaza —
+/// es el estado actual de la línea, editable directamente.
+enum EstadoSeguimientoProcura {
   PENDIENTE
   COMPRADO
   ENVIADO
-  RECIBIDO
 
-  @@map("estado_seguimiento")
+  @@map("estado_seguimiento_procura")
 }
 
 model Ciudad {
@@ -580,8 +582,7 @@ model ProformaDetalle {
   asignaciones ProformaDetalleAsignacion[]
   // 1+ (no 0-o-1): al completar una compra nace 1, pero una corrección manual de catálogo puede
   // partir ese lote en más de un registro (ver comentario en LoteCompra.proformaDetalleId).
-  loteCompras  LoteCompra[]
-  seguimientos ProformaDetalleSeguimiento[]
+  loteCompras LoteCompra[]
 
   @@map("proforma_detalles")
 }
@@ -598,6 +599,9 @@ model ProformaDetalleAsignacion {
   almacen           Almacen?         @relation(fields: [almacenId], references: [id], onDelete: Restrict)
   cantidad          Int
   origen            OrigenAsignacion
+  // Solo tiene sentido mientras origen=PROCURA y cantidad>0 (ver módulo Seguimiento) — en filas STOCK
+  // queda en el default sin usarse. Estado actual editable, no un log histórico.
+  estadoSeguimiento EstadoSeguimientoProcura @default(PENDIENTE) @map("estado_seguimiento")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -618,20 +622,4 @@ model ProformaHistorial {
   nota       String?
 
   @@map("proforma_historial")
-}
-
-/// Seguimiento interno por línea (envío/recepción), separado del flujo de aprobación — nunca toca
-/// Stock ni el estado de la Proforma. Log de solo-inserción atado a la línea (ProformaDetalle), igual
-/// patrón que ProformaHistorial: el estado "actual" es la fila más reciente por fecha.
-model ProformaDetalleSeguimiento {
-  id                String            @id @default(uuid()) @db.Uuid
-  proformaDetalleId String            @map("proforma_detalle_id") @db.Uuid
-  proformaDetalle   ProformaDetalle   @relation(fields: [proformaDetalleId], references: [id], onDelete: Cascade)
-  estado            EstadoSeguimiento
-  fecha             DateTime          @default(now())
-  usuarioId         String            @map("usuario_id") @db.Uuid
-  usuario           Usuario           @relation(fields: [usuarioId], references: [id])
-  nota              String?
-
-  @@map("proforma_detalle_seguimiento")
 }

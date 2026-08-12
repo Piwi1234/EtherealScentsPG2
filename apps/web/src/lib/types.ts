@@ -224,22 +224,12 @@ export type Almacen = {
 export type TipoProforma = "COMPRA" | "VENTA";
 export type EstadoProforma = "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
 export type OrigenAsignacion = "STOCK" | "PROCURA";
-export type EstadoSeguimiento = "PENDIENTE" | "COMPRADO" | "ENVIADO" | "RECIBIDO";
+export type EstadoSeguimientoProcura = "PENDIENTE" | "COMPRADO" | "ENVIADO";
 
 export type ProformaHistorial = {
   id: string;
   proformaId: string;
   estado: EstadoProforma;
-  fecha: string;
-  usuarioId: string;
-  usuario: { id: string; nombre: string };
-  nota: string | null;
-};
-
-export type ProformaDetalleSeguimiento = {
-  id: string;
-  proformaDetalleId: string;
-  estado: EstadoSeguimiento;
   fecha: string;
   usuarioId: string;
   usuario: { id: string; nombre: string };
@@ -253,6 +243,8 @@ export type ProformaDetalleAsignacion = {
   almacen: Almacen | null;
   cantidad: number;
   origen: OrigenAsignacion;
+  /** Solo tiene sentido mientras origen=PROCURA y cantidad>0 — ver módulo Seguimiento. */
+  estadoSeguimiento: EstadoSeguimientoProcura;
   createdAt: string;
 };
 
@@ -336,7 +328,6 @@ export type ProformaDetalle = {
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
-  seguimientos: ProformaDetalleSeguimiento[];
   createdAt: string;
   updatedAt: string;
 };
@@ -404,21 +395,14 @@ export type AsignacionLoteInput = { proformaDetalleAsignacionId: string; loteCom
 
 export type CompletarProformaInput = { almacenId?: string; asignaciones?: AsignacionLoteInput[] };
 
-/** Una línea de proforma vista desde la vista agregada de seguimiento (todas las proformas
- * APROBADA/COMPLETADA a la vez), no desde dentro de una proforma puntual. */
+/** Una línea a Procura (venta aprobada sin stock suficiente todavía) vista desde la vista agregada de
+ * Seguimiento — todas las proformas VENTA a la vez, no desde dentro de una proforma puntual. */
 export type SeguimientoLinea = {
   id: string;
   cantidad: number;
-  variante: ProformaDetalleVariante;
-  seguimientos: ProformaDetalleSeguimiento[];
-  estadoActual: EstadoSeguimiento;
-  proforma: {
-    id: string;
-    tipo: TipoProforma;
-    estado: EstadoProforma;
-    fecha: string;
-    empresa: { id: string; nombre: string };
-    cliente: { id: string; nombre: string } | null;
-    almacen: { id: string; nombre: string } | null;
+  estadoSeguimiento: EstadoSeguimientoProcura;
+  proformaDetalle: {
+    proforma: { id: string; fecha: string; empresa: { id: string; nombre: string } };
+    variante: ProformaDetalleVariante;
   };
 };

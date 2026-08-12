@@ -1,17 +1,19 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Empresa } from "../../lib/types";
+import type { Category, Empresa } from "../../lib/types";
 
 export function SeguimientoFiltros({
+  initialCategoryId,
   initialEstado,
-  initialTipo,
   initialEmpresaId,
+  categories,
   empresas,
 }: {
+  initialCategoryId: string;
   initialEstado: string;
-  initialTipo: string;
   initialEmpresaId: string;
+  categories: Category[];
   empresas: Empresa[];
 }) {
   const router = useRouter();
@@ -31,21 +33,27 @@ export function SeguimientoFiltros({
   return (
     <div className="filters-bar">
       <div className="filter-field">
+        <label className="filter-label">Categoría</label>
+        <select
+          className="field"
+          defaultValue={initialCategoryId}
+          onChange={(e) => pushParams({ categoryId: e.target.value })}
+        >
+          <option value="">Elegí una categoría…</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="filter-field">
         <label className="filter-label">Estado</label>
         <select className="field" defaultValue={initialEstado} onChange={(e) => pushParams({ estado: e.target.value })}>
           <option value="">Todos</option>
           <option value="PENDIENTE">Pendiente</option>
           <option value="COMPRADO">Comprado</option>
           <option value="ENVIADO">Enviado</option>
-          <option value="RECIBIDO">Recibido</option>
-        </select>
-      </div>
-      <div className="filter-field">
-        <label className="filter-label">Tipo</label>
-        <select className="field" defaultValue={initialTipo} onChange={(e) => pushParams({ tipo: e.target.value })}>
-          <option value="">Todos</option>
-          <option value="VENTA">Venta</option>
-          <option value="COMPRA">Compra</option>
         </select>
       </div>
       <div className="filter-field">

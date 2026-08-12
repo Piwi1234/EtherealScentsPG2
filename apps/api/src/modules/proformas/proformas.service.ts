@@ -40,10 +40,6 @@ export const includeDetails = {
       },
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
-      seguimientos: {
-        orderBy: { fecha: "desc" as const },
-        include: { usuario: { select: { id: true, nombre: true } } },
-      },
     },
   },
   historial: {

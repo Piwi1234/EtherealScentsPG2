@@ -1,23 +1,23 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
-import { EstadoSeguimiento, TipoProforma } from "@app/database";
+import { EstadoSeguimientoProcura } from "@app/database";
 
 export class QuerySeguimientoDto {
-  @ApiPropertyOptional({ enum: EstadoSeguimiento, description: "Estado actual (el más reciente registrado por línea)." })
+  @ApiPropertyOptional({ enum: EstadoSeguimientoProcura })
   @IsOptional()
-  @IsEnum(EstadoSeguimiento)
-  estado?: EstadoSeguimiento;
-
-  @ApiPropertyOptional({ enum: TipoProforma })
-  @IsOptional()
-  @IsEnum(TipoProforma)
-  tipo?: TipoProforma;
+  @IsEnum(EstadoSeguimientoProcura)
+  estado?: EstadoSeguimientoProcura;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
   empresaId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

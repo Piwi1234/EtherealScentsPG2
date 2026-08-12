@@ -10,10 +10,10 @@ import type {
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
+  EstadoSeguimientoProcura,
   LoteCompraConDetalle,
   Page,
   Proforma,
-  ProformaDetalleSeguimiento,
   ProformaInput,
   SeguimientoLinea,
   StockRow,
@@ -285,25 +285,21 @@ export function completarProforma(id: string, data: CompletarProformaInput) {
   return apiPost<Proforma>(`/proformas/${id}/completar`, data);
 }
 
-// --- Seguimiento interno ---
-
-export function getSeguimiento(detalleId: string) {
-  return apiGet<ProformaDetalleSeguimiento[]>(`/proformas/detalles/${detalleId}/seguimiento`);
-}
-
-export function createSeguimiento(detalleId: string, data: { estado: string; nota?: string }) {
-  return apiPost<ProformaDetalleSeguimiento>(`/proformas/detalles/${detalleId}/seguimiento`, data);
-}
+// --- Seguimiento (Procura pendiente) ---
 
 export function getSeguimientoPendientes(
-  query: { estado?: string; tipo?: string; empresaId?: string; page?: number; limit?: number } = {},
+  query: { estado?: string; empresaId?: string; categoryId?: string; page?: number; limit?: number } = {},
 ) {
   const params = new URLSearchParams();
   if (query.estado) params.set("estado", query.estado);
-  if (query.tipo) params.set("tipo", query.tipo);
   if (query.empresaId) params.set("empresaId", query.empresaId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
   return apiGet<Page<SeguimientoLinea>>(`/proformas/seguimiento${qs ? `?${qs}` : ""}`);
+}
+
+export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura) {
+  return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado });
 }
