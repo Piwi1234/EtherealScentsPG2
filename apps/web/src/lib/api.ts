@@ -2,6 +2,8 @@ import { clearSession } from "./auth";
 import type {
   Almacen,
   AprobarProformaInput,
+  Brand,
+  Category,
   Ciudad,
   Cliente,
   ClienteInput,
@@ -199,14 +201,33 @@ export function deleteAlmacen(id: string) {
 
 // --- Stock ---
 
-export function getStock(query: { almacenId?: string; search?: string; page?: number; pageSize?: number } = {}) {
+export function getStock(
+  query: {
+    almacenId?: string;
+    search?: string;
+    categoryId?: string;
+    brandId?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
+) {
   const params = new URLSearchParams();
   if (query.almacenId) params.set("almacenId", query.almacenId);
   if (query.search) params.set("search", query.search);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<StockRow>>(`/stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getCategories() {
+  return apiGet<Category[]>("/categories");
+}
+
+export function getBrands() {
+  return apiGet<Brand[]>("/brands");
 }
 
 export function getLotesCompra(

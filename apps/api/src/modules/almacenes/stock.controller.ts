@@ -12,14 +12,16 @@ export class StockController {
   constructor(private readonly stock: StockService) {}
 
   @Get()
-  @ApiOperation({ summary: "Lista existencias por variante y almacén (paginado, filtro por almacén y búsqueda)." })
+  @ApiOperation({ summary: "Lista existencias por variante y almacén (paginado, filtro por categoría/marca/almacén/búsqueda)." })
   findAll(
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("almacenId") almacenId?: string,
     @Query("search") search?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("brandId") brandId?: string,
   ) {
-    return this.stock.findAll({ page, pageSize, almacenId, search });
+    return this.stock.findAll({ page, pageSize, almacenId, search, categoryId, brandId });
   }
 
   @Get("lotes")

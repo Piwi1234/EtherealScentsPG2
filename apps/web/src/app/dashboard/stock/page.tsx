@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, getAlmacenes, getLotesCompra, getStock } from "../../../lib/api";
-import type { Almacen, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
+import { ApiError, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
+import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 
 const PAGE_SIZE = 20;
 
@@ -16,14 +16,23 @@ function formatDateTime(value: string): string {
 
 export default function StockPage() {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState("");
 
   const [stockPage, setStockPage] = useState<Page<StockRow> | null>(null);
   const [stockSearchInput, setStockSearchInput] = useState("");
   const [stockSearch, setStockSearch] = useState("");
   const [stockAlmacenId, setStockAlmacenId] = useState("");
+  const [stockCategoryId, setStockCategoryId] = useState("");
+  const [stockMarcaId, setStockMarcaId] = useState("");
   const [stockPageNum, setStockPageNum] = useState(1);
-  const [stockLoading, setStockLoading] = useState(true);
+  const [stockLoading, setStockLoading] = useState(false);
+
+  const parentCategories = categories.filter((c) => c.parentId === null);
+  // Marcas enlazadas a alguna subcategoría (hija directa) de la categoría padre elegida — no al padre.
+  const subCategoryIds = categories.filter((c) => c.parentId === stockCategoryId).map((c) => c.id);
+  const marcasDisponibles = brands.filter((b) => b.categories.some((bc) => subCategoryIds.includes(bc.categoryId)));
 
   const [lotesPage, setLotesPage] = useState<Page<LoteCompraConDetalle> | null>(null);
   const [lotesAlmacenId, setLotesAlmacenId] = useState("");
@@ -37,15 +46,33 @@ export default function StockPage() {
     getAlmacenes({ pageSize: 200 })
       .then((page) => setAlmacenes(page.items))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getCategories()
+      .then(setCategories)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getBrands()
+      .then(setBrands)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
   useEffect(() => {
+    // Sin categoría elegida no cargamos existencias — hay que filtrar primero.
+    if (!stockCategoryId) {
+      setStockPage(null);
+      return;
+    }
     setStockLoading(true);
-    getStock({ almacenId: stockAlmacenId || undefined, search: stockSearch || undefined, page: stockPageNum, pageSize: PAGE_SIZE })
+    getStock({
+      almacenId: stockAlmacenId || undefined,
+      search: stockSearch || undefined,
+      categoryId: stockCategoryId,
+      brandId: stockMarcaId || undefined,
+      page: stockPageNum,
+      pageSize: PAGE_SIZE,
+    })
       .then(setStockPage)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setStockLoading(false));
-  }, [stockAlmacenId, stockSearch, stockPageNum]);
+  }, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockPageNum]);
 
   useEffect(() => {
     setLotesLoading(true);
@@ -100,6 +127,45 @@ export default function StockPage() {
 
         <form onSubmit={handleStockSearchSubmit} className="filters-bar" style={{ marginBottom: 16 }}>
           <div className="filter-field">
+            <label className="filter-label">Categoría</label>
+            <select
+              className="field"
+              value={stockCategoryId}
+              onChange={(e) => {
+                setStockCategoryId(e.target.value);
+                setStockMarcaId("");
+                setStockPageNum(1);
+              }}
+            >
+              <option value="">Elegí una categoría…</option>
+              {parentCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {stockCategoryId && (
+            <div className="filter-field">
+              <label className="filter-label">Marca</label>
+              <select
+                className="field"
+                value={stockMarcaId}
+                onChange={(e) => {
+                  setStockMarcaId(e.target.value);
+                  setStockPageNum(1);
+                }}
+              >
+                <option value="">Todas</option>
+                {marcasDisponibles.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="filter-field">
             <label className="filter-label">Buscar producto</label>
             <input
               className="field"
@@ -134,7 +200,9 @@ export default function StockPage() {
           </div>
         </form>
 
-        {stockLoading ? (
+        {!stockCategoryId ? (
+          <p className="cell-muted">Elegí una categoría arriba para ver las existencias.</p>
+        ) : stockLoading ? (
           <p className="cell-muted">Cargando...</p>
         ) : !stockPage || stockPage.items.length === 0 ? (
           <p>No hay existencias registradas.</p>

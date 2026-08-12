@@ -26,26 +26,54 @@ const loteInclude = {
 export class StockService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: string; pageSize?: string; almacenId?: string; search?: string }) {
+  /** El filtro de categoría del frontend solo ofrece categorías padre — acá se expande a ese padre
+   * más todas sus subcategorías (a cualquier profundidad), porque los productos se categorizan en la
+   * subcategoría, no en el padre directamente (mismo criterio que en Seguimiento). */
+  private async collectCategoryIds(rootId: string): Promise<string[]> {
+    const ids = [rootId];
+    let frontier = [rootId];
+    while (frontier.length > 0) {
+      const children = await this.prisma.category.findMany({ where: { parentId: { in: frontier } }, select: { id: true } });
+      if (children.length === 0) break;
+      frontier = children.map((c) => c.id);
+      ids.push(...frontier);
+    }
+    return ids;
+  }
+
+  async findAll(query: {
+    page?: string;
+    pageSize?: string;
+    almacenId?: string;
+    search?: string;
+    categoryId?: string;
+    brandId?: string;
+  }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
     });
 
+    const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
+
     const where: Prisma.StockWhereInput = {
       almacenId: query.almacenId,
       cantidadFisica: { gt: 0 },
-      ...(query.search
-        ? {
-            variante: {
+      variante: {
+        product: {
+          categoryId: categoryIds ? { in: categoryIds } : undefined,
+          brandId: query.brandId,
+        },
+        ...(query.search
+          ? {
               OR: [
                 { variantCode: { contains: query.search, mode: "insensitive" } },
                 { product: { name: { contains: query.search, mode: "insensitive" } } },
                 { product: { productCode: { contains: query.search, mode: "insensitive" } } },
               ],
-            },
-          }
-        : {}),
+            }
+          : {}),
+      },
     };
 
     const [items, total] = await Promise.all([
