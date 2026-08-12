@@ -10,7 +10,7 @@ const PAGE_SIZE = 20;
 export default async function ProformasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; estado?: string; page?: string }>;
+  searchParams: Promise<{ tipo?: string; estado?: string; creadoPorId?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const currentPage = Math.max(1, Number(params.page ?? "1") || 1);
@@ -18,6 +18,7 @@ export default async function ProformasPage({
   const qs = new URLSearchParams();
   if (params.tipo) qs.set("tipo", params.tipo);
   if (params.estado) qs.set("estado", params.estado);
+  if (params.tipo === "VENTA" && params.creadoPorId) qs.set("creadoPorId", params.creadoPorId);
   qs.set("page", String(currentPage));
   qs.set("limit", String(PAGE_SIZE));
 
@@ -31,6 +32,8 @@ export default async function ProformasPage({
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
+
+  const vendedores = params.tipo === "VENTA" ? await apiGetServer<{ id: string; nombre: string }[]>("/proformas/vendedores") : [];
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -55,7 +58,12 @@ export default async function ProformasPage({
       </div>
 
       <Suspense fallback={null}>
-        <ProformaFiltros initialTipo={params.tipo ?? ""} initialEstado={params.estado ?? ""} />
+        <ProformaFiltros
+          initialTipo={params.tipo ?? ""}
+          initialEstado={params.estado ?? ""}
+          initialCreadoPorId={params.creadoPorId ?? ""}
+          vendedores={vendedores}
+        />
       </Suspense>
 
       {error && <p className="error-text">{error}</p>}
@@ -72,7 +80,7 @@ export default async function ProformasPage({
 
       {!error && params.tipo && data && data.items.length > 0 && (
         <>
-          <ProformasTable proformas={data.items} />
+          <ProformasTable proformas={data.items} mostrarVendedor={params.tipo === "VENTA"} />
           {totalPages > 1 && (
             <div className="pagination">
               <Link

@@ -38,6 +38,13 @@ export class ProformasController {
     return this.proformas.findAll(query);
   }
 
+  // Ruta estática antes de ":id" — si no, Express matchea "vendedores" como :id.
+  @Get("vendedores")
+  @ApiOperation({ summary: "Usuarios que crearon al menos una proforma de VENTA, para el filtro \"Vendedor\" del listado." })
+  findVendedores() {
+    return this.proformas.findVendedores();
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Detalle completo de una proforma: líneas, asignaciones, historial." })
   findOne(@Param("id", ParseUUIDPipe) id: string) {

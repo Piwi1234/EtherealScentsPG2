@@ -70,12 +70,23 @@ export class ProformasService {
       tipo: query.tipo,
       estado: query.estado,
       empresaId: query.empresaId,
+      creadoPorId: query.creadoPorId,
     };
     const [items, total] = await Promise.all([
       this.prisma.proforma.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
       this.prisma.proforma.count({ where }),
     ]);
     return { items, total, page, pageSize };
+  }
+
+  /** Solo quienes crearon al menos una VENTA — no el listado completo de usuarios (evita depender del
+   * endpoint /usuarios, restringido a ADMIN, cuando Proformas también lo usa un SELLER). */
+  findVendedores() {
+    return this.prisma.usuario.findMany({
+      where: { proformasCreadas: { some: { tipo: TipoProforma.VENTA } } },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
   }
 
   async findOne(id: string) {

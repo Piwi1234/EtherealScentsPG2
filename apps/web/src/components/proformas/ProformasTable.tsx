@@ -8,7 +8,7 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function ProformasTable({ proformas }: { proformas: Proforma[] }) {
+export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Proforma[]; mostrarVendedor: boolean }) {
   const router = useRouter();
 
   return (
@@ -18,6 +18,7 @@ export function ProformasTable({ proformas }: { proformas: Proforma[] }) {
           <th>Tipo</th>
           <th>Empresa</th>
           <th>Cliente / Almacén</th>
+          {mostrarVendedor && <th>Vendedor</th>}
           <th>Estado</th>
           <th>Fecha</th>
           <th className="num">Líneas</th>
@@ -35,6 +36,7 @@ export function ProformasTable({ proformas }: { proformas: Proforma[] }) {
             <td className="cell-muted">
               {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.almacen?.nombre ?? "—"}
             </td>
+            {mostrarVendedor && <td className="cell-muted">{proforma.tipo === "VENTA" ? proforma.creadoPor.nombre : "—"}</td>}
             <td>
               <EstadoBadge estado={proforma.estado} />
             </td>

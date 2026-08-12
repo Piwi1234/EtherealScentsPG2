@@ -36,7 +36,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
   ]);
 
   return (
-    <div className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
+    <div className="card" style={{ maxWidth: 1300, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ margin: 0, fontSize: 20 }}>

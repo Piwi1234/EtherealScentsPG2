@@ -80,6 +80,7 @@ export function ProformaHeaderEditor({
           <Field label="Almacén" value={proforma.almacen?.nombre ?? "— (se elige al completar) —"} />
         )}
         {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
+        {proforma.tipo === "VENTA" && <Field label="Vendedor" value={proforma.creadoPor.nombre} />}
       </div>
     );
   }
@@ -101,6 +102,12 @@ export function ProformaHeaderEditor({
           <div className="filter-field" style={{ minWidth: 180 }}>
             <label className="filter-label">Ciudad de entrega</label>
             <CiudadSelector options={ciudades} value={ciudadEntregaId} onChange={setCiudadEntregaId} placeholder="— Sin definir —" />
+          </div>
+        )}
+        {proforma.tipo === "VENTA" && (
+          <div className="filter-field" style={{ minWidth: 160 }}>
+            <label className="filter-label">Vendedor</label>
+            <p style={{ margin: "9px 0 0" }}>{proforma.creadoPor.nombre}</p>
           </div>
         )}
         <div style={{ display: "flex", alignItems: "flex-end" }}>

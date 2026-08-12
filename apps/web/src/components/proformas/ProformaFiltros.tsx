@@ -2,7 +2,17 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-export function ProformaFiltros({ initialTipo, initialEstado }: { initialTipo: string; initialEstado: string }) {
+export function ProformaFiltros({
+  initialTipo,
+  initialEstado,
+  initialCreadoPorId,
+  vendedores,
+}: {
+  initialTipo: string;
+  initialEstado: string;
+  initialCreadoPorId: string;
+  vendedores: { id: string; nombre: string }[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -21,7 +31,11 @@ export function ProformaFiltros({ initialTipo, initialEstado }: { initialTipo: s
     <div className="filters-bar">
       <div className="filter-field">
         <label className="filter-label">Tipo</label>
-        <select className="field" defaultValue={initialTipo} onChange={(e) => pushParams({ tipo: e.target.value })}>
+        <select
+          className="field"
+          defaultValue={initialTipo}
+          onChange={(e) => pushParams({ tipo: e.target.value, creadoPorId: "" })}
+        >
           <option value="">Elegí un tipo…</option>
           <option value="VENTA">Venta</option>
           <option value="COMPRA">Compra</option>
@@ -37,6 +51,23 @@ export function ProformaFiltros({ initialTipo, initialEstado }: { initialTipo: s
           <option value="ANULADA">Anulada</option>
         </select>
       </div>
+      {initialTipo === "VENTA" && (
+        <div className="filter-field">
+          <label className="filter-label">Vendedor</label>
+          <select
+            className="field"
+            defaultValue={initialCreadoPorId}
+            onChange={(e) => pushParams({ creadoPorId: e.target.value })}
+          >
+            <option value="">Todos</option>
+            {vendedores.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

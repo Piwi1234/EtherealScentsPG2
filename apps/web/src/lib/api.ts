@@ -230,11 +230,14 @@ export function getLotesCompra(
 
 // --- Proformas ---
 
-export function getProformas(query: { tipo?: string; estado?: string; empresaId?: string; page?: number; limit?: number } = {}) {
+export function getProformas(
+  query: { tipo?: string; estado?: string; empresaId?: string; creadoPorId?: string; page?: number; limit?: number } = {},
+) {
   const params = new URLSearchParams();
   if (query.tipo) params.set("tipo", query.tipo);
   if (query.estado) params.set("estado", query.estado);
   if (query.empresaId) params.set("empresaId", query.empresaId);
+  if (query.creadoPorId) params.set("creadoPorId", query.creadoPorId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
@@ -243,6 +246,10 @@ export function getProformas(query: { tipo?: string; estado?: string; empresaId?
 
 export function getProforma(id: string) {
   return apiGet<Proforma>(`/proformas/${id}`);
+}
+
+export function getVendedores() {
+  return apiGet<{ id: string; nombre: string }[]>("/proformas/vendedores");
 }
 
 export function createProforma(data: ProformaInput) {
