@@ -5,6 +5,7 @@ import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
+import { resolverProcuraPendiente } from "./procura.util";
 import { AsignacionLoteDto, CompletarProformaDto } from "./dto/completar-proforma.dto";
 
 /**
@@ -120,44 +121,9 @@ export class ProformaCompletionService {
 
       const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
       stock.cantidadFisica += detalle.cantidad;
-      let disponible = stock.cantidadFisica - stock.cantidadReservada;
-      if (disponible <= 0) continue;
+      const disponible = stock.cantidadFisica - stock.cantidadReservada;
 
-      const procurasPendientes = await tx.proformaDetalleAsignacion.findMany({
-        where: {
-          origen: OrigenAsignacion.PROCURA,
-          cantidad: { gt: 0 },
-          proformaDetalle: { varianteId: detalle.varianteId, proforma: { almacenId, estado: EstadoProforma.APROBADA } },
-        },
-        orderBy: { createdAt: "asc" },
-      });
-
-      for (const procura of procurasPendientes) {
-        if (disponible <= 0) break;
-        const tomar = Math.min(disponible, procura.cantidad);
-
-        await tx.stock.update({
-          where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
-          data: { cantidadReservada: { increment: tomar } },
-        });
-        await tx.proformaDetalleAsignacion.update({ where: { id: procura.id }, data: { cantidad: { decrement: tomar } } });
-
-        const stockAsignacionExistente = await tx.proformaDetalleAsignacion.findFirst({
-          where: { proformaDetalleId: procura.proformaDetalleId, origen: OrigenAsignacion.STOCK },
-        });
-        if (stockAsignacionExistente) {
-          await tx.proformaDetalleAsignacion.update({
-            where: { id: stockAsignacionExistente.id },
-            data: { cantidad: { increment: tomar } },
-          });
-        } else {
-          await tx.proformaDetalleAsignacion.create({
-            data: { proformaDetalleId: procura.proformaDetalleId, almacenId, cantidad: tomar, origen: OrigenAsignacion.STOCK },
-          });
-        }
-
-        disponible -= tomar;
-      }
+      await resolverProcuraPendiente(tx, { varianteId: detalle.varianteId, almacenId, disponible });
     }
   }
 

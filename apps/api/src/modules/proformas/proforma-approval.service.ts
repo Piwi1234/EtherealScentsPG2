@@ -5,6 +5,7 @@ import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
+import { resolverProcuraPendiente } from "./procura.util";
 
 /**
  * Motor de aprobación: bloqueo transaccional + reserva de stock contra el único almacén elegido para
@@ -115,6 +116,12 @@ export class ProformaApprovalService {
     );
   }
 
+  /**
+   * Libera la reserva (cantidadReservada) de cada línea con stock reservado al anular una venta
+   * aprobada — y de paso reparte lo recién liberado entre la Procura pendiente de OTRAS ventas ya
+   * aprobadas para esa misma variante+almacén, por orden de aprobación (más antigua primero), igual
+   * mecanismo que al completar una compra (ver procura.util.ts).
+   */
   private async liberarReservas(tx: Prisma.TransactionClient, proformaId: string) {
     const asignaciones = await tx.proformaDetalleAsignacion.findMany({
       where: { origen: OrigenAsignacion.STOCK, proformaDetalle: { proformaId } },
@@ -126,12 +133,15 @@ export class ProformaApprovalService {
     await lockStockRows(tx, pares);
 
     for (const asignacion of asignaciones) {
+      const varianteId = asignacion.proformaDetalle.varianteId;
+      const almacenId = asignacion.almacenId!;
+
       await tx.stock.update({
-        where: {
-          varianteId_almacenId: { varianteId: asignacion.proformaDetalle.varianteId, almacenId: asignacion.almacenId! },
-        },
+        where: { varianteId_almacenId: { varianteId, almacenId } },
         data: { cantidadReservada: { decrement: asignacion.cantidad } },
       });
+
+      await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
     }
   }
 
