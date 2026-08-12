@@ -16,6 +16,7 @@ import {
   ProductsIcon,
   ProformasIcon,
   SeguimientoIcon,
+  SettingsIcon,
   StockIcon,
   UsersIcon,
 } from "../../components/icons";
@@ -39,6 +40,8 @@ const PROFORMAS_NAV_ITEMS = [
 
 // Sección visible solo para ADMIN.
 const ADMIN_NAV_ITEMS = [{ href: "/dashboard/users", label: "Roles y permisos", icon: UsersIcon }];
+
+const AJUSTES_NAV_ITEMS = [{ href: "/dashboard/configuracion", label: "Configuración", icon: SettingsIcon }];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -106,6 +109,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </nav>
           </>
         )}
+        <div className="sidebar-section-title">AJUSTES</div>
+        <nav className="sidebar-nav">
+          {AJUSTES_NAV_ITEMS.map((item) => {
+            const active = pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`}>
+                <Icon className="sidebar-link-icon" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
         <button className="sidebar-logout" type="button" onClick={logout}>
           <LogoutIcon className="sidebar-link-icon" />
           <span>Logout</span>
