@@ -185,6 +185,16 @@ export function ChevronDownIcon({ className }: IconProps) {
   );
 }
 
+export function RegistrosIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 7.5 12 3l8 4.5v2L12 14 4 9.5v-2Z" />
+      <path d="M4 9.5v7L12 21l8-4.5v-7" />
+      <path d="M12 14v7" />
+    </svg>
+  );
+}
+
 export function SettingsIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

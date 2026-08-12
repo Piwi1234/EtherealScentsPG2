@@ -19,6 +19,7 @@ import {
   OrdersIcon,
   ProductsIcon,
   ProformasIcon,
+  RegistrosIcon,
   SeguimientoIcon,
   SettingsIcon,
   StockIcon,
@@ -41,6 +42,7 @@ const CLIENTES_ITEMS = [
 
 const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/proformas", label: "Proformas", icon: ProformasIcon },
+  { href: "/dashboard/registros", label: "Registros", icon: RegistrosIcon },
   { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
 ];
 
