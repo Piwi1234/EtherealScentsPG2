@@ -27,6 +27,7 @@ export default function StockPage() {
 
   const [lotesPage, setLotesPage] = useState<Page<LoteCompraConDetalle> | null>(null);
   const [lotesAlmacenId, setLotesAlmacenId] = useState("");
+  const [lotesEstado, setLotesEstado] = useState<"" | "disponible" | "agotado">("");
   const [lotesVarianteId, setLotesVarianteId] = useState("");
   const [lotesVarianteLabel, setLotesVarianteLabel] = useState("");
   const [lotesPageNum, setLotesPageNum] = useState(1);
@@ -51,13 +52,14 @@ export default function StockPage() {
     getLotesCompra({
       almacenId: lotesAlmacenId || undefined,
       varianteId: lotesVarianteId || undefined,
+      estado: lotesEstado || undefined,
       page: lotesPageNum,
       pageSize: PAGE_SIZE,
     })
       .then(setLotesPage)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLotesLoading(false));
-  }, [lotesAlmacenId, lotesVarianteId, lotesPageNum]);
+  }, [lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
 
   function handleStockSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -235,6 +237,21 @@ export default function StockPage() {
                   {a.nombre}
                 </option>
               ))}
+            </select>
+          </div>
+          <div className="filter-field">
+            <label className="filter-label">Estado</label>
+            <select
+              className="field"
+              value={lotesEstado}
+              onChange={(e) => {
+                setLotesEstado(e.target.value as "" | "disponible" | "agotado");
+                setLotesPageNum(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="disponible">Disponibles</option>
+              <option value="agotado">Agotados</option>
             </select>
           </div>
           {lotesVarianteId && (

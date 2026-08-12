@@ -23,13 +23,14 @@ export class StockController {
   }
 
   @Get("lotes")
-  @ApiOperation({ summary: "Historial de lotes de compra (paginado, filtro por variante/almacén)." })
+  @ApiOperation({ summary: "Historial de lotes de compra (paginado, filtro por variante/almacén/estado)." })
   findLotes(
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("varianteId") varianteId?: string,
     @Query("almacenId") almacenId?: string,
+    @Query("estado") estado?: "disponible" | "agotado",
   ) {
-    return this.stock.findLotes({ page, pageSize, varianteId, almacenId });
+    return this.stock.findLotes({ page, pageSize, varianteId, almacenId, estado });
   }
 }

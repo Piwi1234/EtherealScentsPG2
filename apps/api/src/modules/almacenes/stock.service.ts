@@ -62,13 +62,23 @@ export class StockService {
     return { items, total, page, pageSize };
   }
 
-  async findLotes(query: { page?: string; pageSize?: string; varianteId?: string; almacenId?: string }) {
+  async findLotes(query: {
+    page?: string;
+    pageSize?: string;
+    varianteId?: string;
+    almacenId?: string;
+    estado?: "disponible" | "agotado";
+  }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
     });
 
-    const where: Prisma.LoteCompraWhereInput = { varianteId: query.varianteId, almacenId: query.almacenId };
+    const where: Prisma.LoteCompraWhereInput = {
+      varianteId: query.varianteId,
+      almacenId: query.almacenId,
+      cantidadDisponible: query.estado === "disponible" ? { gt: 0 } : query.estado === "agotado" ? 0 : undefined,
+    };
 
     const [items, total] = await Promise.all([
       this.prisma.loteCompra.findMany({ where, skip, take, orderBy: { fecha: "desc" }, include: loteInclude }),

@@ -210,11 +210,18 @@ export function getStock(query: { almacenId?: string; search?: string; page?: nu
 }
 
 export function getLotesCompra(
-  query: { varianteId?: string; almacenId?: string; page?: number; pageSize?: number } = {},
+  query: {
+    varianteId?: string;
+    almacenId?: string;
+    estado?: "disponible" | "agotado";
+    page?: number;
+    pageSize?: number;
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (query.varianteId) params.set("varianteId", query.varianteId);
   if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.estado) params.set("estado", query.estado);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
