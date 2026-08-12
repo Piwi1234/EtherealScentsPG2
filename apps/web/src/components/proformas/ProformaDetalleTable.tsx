@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
-import type { Almacen, Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
+import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
 import { formatAtributosVisibles } from "./AtributosVisibles";
-import { AlmacenSelector } from "./selectors";
 
 /** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
  * categoría marcados para mostrarse en proforma — todo concatenado en una sola línea bajo el nombre. */
@@ -52,18 +51,16 @@ function DetalleRow({
   detalle,
   tipo,
   editable,
-  almacenes,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
   tipo: TipoProforma;
   editable: boolean;
-  almacenes: Almacen[];
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 7 : 9) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : 9) + (editable ? 1 : 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -107,22 +104,13 @@ function DetalleRow({
           )}
         </td>
         {tipo === "VENTA" ? (
-          <>
-            <td className="num">
-              {editable ? (
-                <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
-              ) : (
-                money(detalle.precioUnitario, "Bs")
-              )}
-            </td>
-            <td>
-              {editable ? (
-                <AlmacenSelector options={almacenes} value={detalle.almacenId ?? ""} onChange={(v) => commit({ almacenId: v })} />
-              ) : (
-                detalle.almacen?.nombre ?? "—"
-              )}
-            </td>
-          </>
+          <td className="num">
+            {editable ? (
+              <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
+            ) : (
+              money(detalle.precioUnitario, "Bs")
+            )}
+          </td>
         ) : (
           <>
             <td className="num">
@@ -178,18 +166,10 @@ function DetalleRow({
 /**
  * Tabla dual VENTA/COMPRA de líneas de una proforma. `editable` habilita inputs inline (cantidad +
  * precio en venta, cantidad + los 4 costos en compra) que guardan con onBlur — cada campo es su
- * propio PATCH, sin estado local de formulario. Se usa tanto en el constructor (BORRADOR/PENDIENTE)
- * como en modo solo-lectura (APROBADA/COMPLETADA), pasando `editable={false}`.
+ * propio PATCH, sin estado local de formulario. Se usa tanto en el constructor (BORRADOR) como en
+ * modo solo-lectura (APROBADA/COMPLETADA/ANULADA), pasando `editable={false}`.
  */
-export function ProformaDetalleTable({
-  proforma,
-  editable,
-  almacenes,
-}: {
-  proforma: Proforma;
-  editable: boolean;
-  almacenes: Almacen[];
-}) {
+export function ProformaDetalleTable({ proforma, editable }: { proforma: Proforma; editable: boolean }) {
   const { tipo, detalles } = proforma;
 
   if (detalles.length === 0) {
@@ -206,10 +186,7 @@ export function ProformaDetalleTable({
             <th>Producto</th>
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
-              <>
-                <th className="num">Precio unitario</th>
-                <th>Almacén</th>
-              </>
+              <th className="num">Precio unitario</th>
             ) : (
               <>
                 <th className="num">Compra</th>
@@ -230,7 +207,6 @@ export function ProformaDetalleTable({
               detalle={detalle}
               tipo={tipo}
               editable={editable}
-              almacenes={almacenes}
             />
           ))}
         </tbody>

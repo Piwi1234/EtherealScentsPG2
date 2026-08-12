@@ -370,16 +370,14 @@ enum TipoProforma {
   @@map("tipo_proforma")
 }
 
-/// BORRADOR: recién creada, todo editable. PENDIENTE: enviada a revisión. APROBADA: motor de
-/// reparto/reserva ya corrió (VENTA) o lista para completar (COMPRA). COMPLETADA: terminal, efectos
-/// de stock/lotes ya aplicados. RECHAZADA/ANULADA: alcanzables desde BORRADOR, PENDIENTE o APROBADA
-/// (si viene de APROBADA en una VENTA, libera las reservas hechas).
+/// BORRADOR: recién creada, todo editable, o se elimina directamente. APROBADA: motor de
+/// reparto/reserva ya corrió contra el único almacén elegido (VENTA) o lista para completar (COMPRA).
+/// COMPLETADA: terminal, efectos de stock/lotes ya aplicados. ANULADA: alcanzable solo desde APROBADA
+/// (libera las reservas hechas).
 enum EstadoProforma {
   BORRADOR
-  PENDIENTE
   APROBADA
   COMPLETADA
-  RECHAZADA
   ANULADA
 
   @@map("estado_proforma")
@@ -439,11 +437,10 @@ model Almacen {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  stock              Stock[]
-  lotesCompra        LoteCompra[]
-  proformasRecepcion Proforma[]                  @relation("ProformaAlmacenRecepcion")
-  asignaciones       ProformaDetalleAsignacion[]
-  detallesVenta      ProformaDetalle[]
+  stock        Stock[]
+  lotesCompra  LoteCompra[]
+  proformas    Proforma[]                  @relation("ProformaAlmacen")
+  asignaciones ProformaDetalleAsignacion[]
 
   @@map("almacenes")
 }
@@ -521,13 +518,13 @@ model Proforma {
   clienteId String?  @map("cliente_id") @db.Uuid
   cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
 
-  // Solo COMPRA: a qué almacén entra la mercadería. No estaba en el spec original — hueco real que
-  // había que resolver, ya que LoteCompra exige almacenId y nada más en el flujo de compra lo provee.
-  almacenRecepcionId String?  @map("almacen_recepcion_id") @db.Uuid
-  almacenRecepcion   Almacen? @relation("ProformaAlmacenRecepcion", fields: [almacenRecepcionId], references: [id], onDelete: Restrict)
+  // Almacén de la proforma: para VENTA se fija al aprobar (ahí se resuelve el reparto/reserva de
+  // stock contra este almacén); para COMPRA se fija recién al completar (a qué almacén entra la
+  // mercadería). Null hasta ese momento en ambos casos.
+  almacenId String?  @map("almacen_id") @db.Uuid
+  almacen   Almacen? @relation("ProformaAlmacen", fields: [almacenId], references: [id], onDelete: Restrict)
 
-  // Solo VENTA: dato informativo de a qué ciudad va el pedido, sin efecto en la lógica de negocio
-  // (el almacén de origen de cada línea se elige manualmente en ProformaDetalle.almacenId).
+  // Solo VENTA: dato informativo de a qué ciudad va el pedido, sin efecto en la lógica de negocio.
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
 
@@ -565,11 +562,6 @@ model ProformaDetalle {
   // después.
   precioUnitario Decimal? @map("precio_unitario") @db.Decimal(12, 2)
 
-  // VENTA: almacén elegido manualmente por el usuario al agregar la línea (de dónde se intenta
-  // reservar stock al aprobar). No aplica a COMPRA (ahí el destino es Proforma.almacenRecepcionId).
-  almacenId String?  @map("almacen_id") @db.Uuid
-  almacen   Almacen? @relation(fields: [almacenId], references: [id], onDelete: Restrict)
-
   // COMPRA: capturados por línea (no heredados del catálogo) — de esta compra puntual. Al completar
   // se usan para armar el LoteCompra; el catálogo (Product/ProductVariant) nunca se sobreescribe con
   // estos valores.
@@ -594,8 +586,10 @@ model ProformaDetalle {
   @@map("proforma_detalles")
 }
 
-/// Reparto de una línea de venta entre almacenes (armado al aprobar). CHECK agregado a mano en la
-/// migración: (origen='PROCURA' AND almacen_id IS NULL) OR (origen='STOCK' AND almacen_id IS NOT NULL).
+/// Resultado de reservar stock contra el único almacén de la proforma al aprobar una venta: STOCK por
+/// lo que alcanzó, PROCURA por el resto (se resuelve solo más adelante, al completar una compra que
+/// traiga stock para esa variante+almacén). CHECK agregado a mano en la migración:
+/// (origen='PROCURA' AND almacen_id IS NULL) OR (origen='STOCK' AND almacen_id IS NOT NULL).
 model ProformaDetalleAsignacion {
   id                String           @id @default(uuid()) @db.Uuid
   proformaDetalleId String           @map("proforma_detalle_id") @db.Uuid

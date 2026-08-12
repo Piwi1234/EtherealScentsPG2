@@ -14,6 +14,8 @@ import { AddDetalleVentaDto } from "./dto/add-detalle-venta.dto";
 import { AddDetalleCompraDto } from "./dto/add-detalle-compra.dto";
 import { UpdateDetalleDto } from "./dto/update-detalle.dto";
 import { TransitionProformaDto } from "./dto/transition-proforma.dto";
+import { AprobarProformaDto } from "./dto/aprobar-proforma.dto";
+import { CompletarProformaDto } from "./dto/completar-proforma.dto";
 
 /**
  * No se restringe por rol más allá de ADMIN/SELLER genérico — fuera de alcance construir un sistema
@@ -54,6 +56,13 @@ export class ProformasController {
     return this.proformas.update(id, dto);
   }
 
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Elimina una proforma. Solo mientras está en BORRADOR." })
+  remove(@Param("id", ParseUUIDPipe) id: string) {
+    return this.proformas.remove(id);
+  }
+
   @Post(":id/detalles/venta")
   @ApiOperation({ summary: "Agrega una línea a una proforma de VENTA. precioUnitario nace de precioFinalBs si se omite." })
   addDetalleVenta(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AddDetalleVentaDto) {
@@ -83,34 +92,20 @@ export class ProformasController {
     return this.proformas.removeDetalle(id, detalleId);
   }
 
-  @Post(":id/enviar")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "BORRADOR → PENDIENTE." })
-  enviar(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.proformas.enviar(id, user.id);
-  }
-
   @Post(":id/aprobar")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      "PENDIENTE → APROBADA. En VENTA corre el motor de reparto por cercanía y reserva de stock; en COMPRA es una transición simple.",
+      "BORRADOR → APROBADA. En VENTA recibe almacenId y reserva stock contra él (STOCK/PROCURA); en COMPRA es una transición simple. Nunca bloquea por falta de stock.",
   })
-  @ApiResponse({ status: 409, description: "Ya no está en PENDIENTE (aprobación concurrente u otro estado)." })
-  aprobar(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.approval.aprobar(id, user.id);
-  }
-
-  @Post(":id/rechazar")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "→ RECHAZADA, desde BORRADOR, PENDIENTE o APROBADA (libera reservas si venía de APROBADA)." })
-  rechazar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: TransitionProformaDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.approval.rechazar(id, user.id, dto.nota);
+  @ApiResponse({ status: 409, description: "Ya no está en BORRADOR (aprobación concurrente u otro estado)." })
+  aprobar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AprobarProformaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.approval.aprobar(id, user.id, dto.almacenId);
   }
 
   @Post(":id/anular")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "→ ANULADA, desde BORRADOR, PENDIENTE o APROBADA (libera reservas si venía de APROBADA)." })
+  @ApiOperation({ summary: "APROBADA → ANULADA (libera las reservas de stock hechas al aprobar)." })
   anular(@Param("id", ParseUUIDPipe) id: string, @Body() dto: TransitionProformaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.approval.anular(id, user.id, dto.nota);
   }
@@ -119,10 +114,10 @@ export class ProformasController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      "APROBADA → COMPLETADA. En VENTA consume stock FIFO de los lotes; en COMPRA crea los lotes y suma stock físico (sin tocar el catálogo).",
+      "APROBADA → COMPLETADA. En COMPRA recibe almacenId, crea los lotes y suma stock físico (y resuelve sola cualquier Procura pendiente de ventas aprobadas). En VENTA recibe el reparto manual de lotes (asignaciones) y descuenta stock reservado/físico — bloqueada mientras quede Procura pendiente.",
   })
-  @ApiResponse({ status: 409, description: "Ya no está en APROBADA, o inconsistencia de lotes al consumir FIFO." })
-  completar(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.completion.completar(id, user.id);
+  @ApiResponse({ status: 409, description: "Ya no está en APROBADA, queda Procura pendiente, o inconsistencia al consumir lotes." })
+  completar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CompletarProformaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.completion.completar(id, user.id, dto);
   }
 }

@@ -342,7 +342,7 @@ async function seedProformaDeCompra(almacenId: string) {
       tipo: TipoProforma.COMPRA,
       estado: EstadoProforma.COMPLETADA,
       empresaId: empresa.id,
-      almacenRecepcionId: almacenId,
+      almacenId,
       creadoPorId: admin.id,
     },
   });
@@ -388,7 +388,6 @@ async function seedProformaDeCompra(almacenId: string) {
 
   const pasos: [EstadoProforma, string | undefined][] = [
     [EstadoProforma.BORRADOR, "Proforma creada (seed)."],
-    [EstadoProforma.PENDIENTE, undefined],
     [EstadoProforma.APROBADA, undefined],
     [EstadoProforma.COMPLETADA, undefined],
   ];

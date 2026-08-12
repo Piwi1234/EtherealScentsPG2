@@ -1,9 +1,11 @@
 import { clearSession } from "./auth";
 import type {
   Almacen,
+  AprobarProformaInput,
   Ciudad,
   Cliente,
   ClienteInput,
+  CompletarProformaInput,
   DetalleCompraInput,
   DetalleVentaInput,
   Empresa,
@@ -260,24 +262,20 @@ export function removeDetalle(proformaId: string, detalleId: string) {
   return apiDelete<void>(`/proformas/${proformaId}/detalles/${detalleId}`);
 }
 
-export function enviarProforma(id: string) {
-  return apiPost<Proforma>(`/proformas/${id}/enviar`, {});
+export function deleteProforma(id: string) {
+  return apiDelete<void>(`/proformas/${id}`);
 }
 
-export function aprobarProforma(id: string) {
-  return apiPost<Proforma>(`/proformas/${id}/aprobar`, {});
-}
-
-export function rechazarProforma(id: string, nota?: string) {
-  return apiPost<Proforma>(`/proformas/${id}/rechazar`, { nota });
+export function aprobarProforma(id: string, data: AprobarProformaInput = {}) {
+  return apiPost<Proforma>(`/proformas/${id}/aprobar`, data);
 }
 
 export function anularProforma(id: string, nota?: string) {
   return apiPost<Proforma>(`/proformas/${id}/anular`, { nota });
 }
 
-export function completarProforma(id: string) {
-  return apiPost<Proforma>(`/proformas/${id}/completar`, {});
+export function completarProforma(id: string, data: CompletarProformaInput) {
+  return apiPost<Proforma>(`/proformas/${id}/completar`, data);
 }
 
 // --- Seguimiento interno ---

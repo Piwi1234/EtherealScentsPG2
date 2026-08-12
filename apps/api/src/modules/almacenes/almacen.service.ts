@@ -64,12 +64,12 @@ export class AlmacenService {
 
     const proformaActiva = await this.prisma.proforma.findFirst({
       where: {
-        estado: { in: ["PENDIENTE", "APROBADA"] },
-        OR: [{ almacenRecepcionId: id }, { detalles: { some: { asignaciones: { some: { almacenId: id } } } } }],
+        estado: "APROBADA",
+        OR: [{ almacenId: id }, { detalles: { some: { asignaciones: { some: { almacenId: id } } } } }],
       },
     });
     if (proformaActiva) {
-      throw new ConflictException("No se puede desactivar: el almacén tiene proformas pendientes o aprobadas.");
+      throw new ConflictException("No se puede desactivar: el almacén tiene proformas aprobadas pendientes de completar.");
     }
 
     try {

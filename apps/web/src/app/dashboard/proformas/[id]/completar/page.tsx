@@ -3,9 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { apiGetServer } from "../../../../../lib/api-server";
 import { ApiError } from "../../../../../lib/api";
 import type { Proforma } from "../../../../../lib/types";
-import { AgregarProductoBrowser } from "../../../../../components/proformas/AgregarProductoBrowser";
+import { CompletarVentaForm } from "../../../../../components/proformas/CompletarVentaForm";
 
-export default async function AgregarProductoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CompletarVentaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   let proforma: Proforma;
@@ -16,21 +16,25 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
     throw e;
   }
 
-  if (proforma.estado !== "BORRADOR") {
+  const hayProcuraPendiente = proforma.detalles.some((d) =>
+    d.asignaciones.some((a) => a.origen === "PROCURA" && a.cantidad > 0),
+  );
+
+  // COMPRA se completa con un modal simple (pide almacén) desde ProformaAcciones — esta pantalla es
+  // solo para VENTA, y solo si ya no queda Procura pendiente por resolver.
+  if (proforma.tipo !== "VENTA" || proforma.estado !== "APROBADA" || hayProcuraPendiente) {
     redirect(`/dashboard/proformas/${id}`);
   }
 
   return (
-    <div className="card">
+    <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 20 }}>
-          Agregar producto — proforma de {proforma.tipo === "VENTA" ? "venta" : "compra"}
-        </h1>
+        <h1 style={{ margin: 0, fontSize: 20 }}>Completar proforma de venta</h1>
         <Link href={`/dashboard/proformas/${id}`} className="link-button">
           ← Volver a la proforma
         </Link>
       </div>
-      <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} />
+      <CompletarVentaForm proforma={proforma} />
     </div>
   );
 }

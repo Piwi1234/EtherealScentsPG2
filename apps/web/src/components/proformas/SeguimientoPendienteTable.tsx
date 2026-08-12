@@ -27,7 +27,7 @@ function Fila({ linea }: { linea: SeguimientoLinea }) {
 
   const siguiente = siguienteEstadoSeguimiento(linea.estadoActual);
   const etiqueta = atributosLabel(linea);
-  const contraparte = linea.proforma.tipo === "VENTA" ? linea.proforma.cliente?.nombre : linea.proforma.almacenRecepcion?.nombre;
+  const contraparte = linea.proforma.tipo === "VENTA" ? linea.proforma.cliente?.nombre : linea.proforma.almacen?.nombre;
 
   async function handleAvanzar() {
     if (!siguiente) return;

@@ -3,29 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createProforma } from "../../lib/api";
-import type { Almacen, Cliente, Empresa, TipoProforma } from "../../lib/types";
-import { AlmacenSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+import type { Cliente, Empresa, TipoProforma } from "../../lib/types";
+import { ClienteSelector, EmpresaSelector } from "./selectors";
 
 /**
  * Único paso "todo en un formulario" del flujo: crea la proforma con lo mínimo indispensable
- * (`POST /proformas` exige clienteId en venta y almacenRecepcionId en compra) y navega al
- * constructor real, donde ya sí cada acción es su propio request.
+ * (`POST /proformas` exige clienteId en venta; en compra solo pide empresa — el almacén se elige más
+ * adelante, al completar) y navega al constructor real, donde ya sí cada acción es su propio request.
  */
 export function NuevaProformaForm({
   tipo,
   empresas,
   clientes,
-  almacenes,
 }: {
   tipo: TipoProforma;
   empresas: Empresa[];
   clientes: Cliente[];
-  almacenes: Almacen[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
   const [clienteId, setClienteId] = useState("");
-  const [almacenRecepcionId, setAlmacenRecepcionId] = useState("");
   const [ciudadEntregaId, setCiudadEntregaId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,17 +46,12 @@ export function NuevaProformaForm({
       setError("Elegí un cliente.");
       return;
     }
-    if (tipo === "COMPRA" && !almacenRecepcionId) {
-      setError("Elegí el almacén que recibe la mercadería.");
-      return;
-    }
     setSubmitting(true);
     try {
       const proforma = await createProforma({
         tipo,
         empresaId,
         clienteId: tipo === "VENTA" ? clienteId : undefined,
-        almacenRecepcionId: tipo === "COMPRA" ? almacenRecepcionId : undefined,
         ciudadEntregaId: tipo === "VENTA" ? ciudadEntregaId || undefined : undefined,
       });
       router.push(`/dashboard/proformas/${proforma.id}`);
@@ -76,15 +68,10 @@ export function NuevaProformaForm({
         <EmpresaSelector options={empresas} value={empresaId} onChange={setEmpresaId} />
       </div>
 
-      {tipo === "VENTA" ? (
+      {tipo === "VENTA" && (
         <div>
           <label>Cliente</label>
           <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
-        </div>
-      ) : (
-        <div>
-          <label>Almacén de recepción</label>
-          <AlmacenSelector options={almacenes} value={almacenRecepcionId} onChange={setAlmacenRecepcionId} />
         </div>
       )}
 

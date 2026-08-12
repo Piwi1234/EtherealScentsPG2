@@ -23,9 +23,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
   }
 
   const editableHeader = proforma.estado === "BORRADOR";
-  const editableDetalle = proforma.estado === "BORRADOR" || proforma.estado === "PENDIENTE";
-  const aprobadaOCompletada = proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA";
-  const mostrarAsignaciones = proforma.tipo === "VENTA" && aprobadaOCompletada;
+  const editableDetalle = proforma.estado === "BORRADOR";
+  const mostrarAsignaciones = proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA");
 
   const [empresasPage, clientesPage, almacenesPage, ciudadesPage] = await Promise.all([
     apiGetServer<Page<Empresa>>("/empresas?pageSize=100"),
@@ -55,7 +54,6 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         editable={editableHeader}
         empresas={empresasPage.items.filter((e) => e.activo)}
         clientes={clientesPage.items}
-        almacenes={almacenesPage.items.filter((a) => a.activo)}
         ciudades={ciudadesPage.items}
       />
 
@@ -67,11 +65,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           </Link>
         )}
       </div>
-      <ProformaDetalleTable
-        proforma={proforma}
-        editable={editableDetalle}
-        almacenes={almacenesPage.items.filter((a) => a.activo)}
-      />
+      <ProformaDetalleTable proforma={proforma} editable={editableDetalle} />
 
       <div style={{ marginTop: 16 }}>
         <ProformaTotales proforma={proforma} editable={editableHeader} />
@@ -88,7 +82,12 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
       <EstadoHistorialTimeline historial={proforma.historial} />
 
       <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
-        <ProformaAcciones proformaId={proforma.id} estado={proforma.estado} />
+        <ProformaAcciones
+          proformaId={proforma.id}
+          estado={proforma.estado}
+          tipo={proforma.tipo}
+          almacenes={almacenesPage.items.filter((a) => a.activo)}
+        />
       </div>
     </div>
   );

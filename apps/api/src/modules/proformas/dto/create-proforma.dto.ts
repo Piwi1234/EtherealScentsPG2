@@ -16,12 +16,7 @@ export class CreateProformaDto {
   @IsUUID()
   clienteId?: string;
 
-  @ApiPropertyOptional({ description: "Obligatorio si tipo = COMPRA: a qué almacén entra la mercadería." })
-  @IsOptional()
-  @IsUUID()
-  almacenRecepcionId?: string;
-
-  @ApiPropertyOptional({ description: "Solo aplica a VENTA: determina el reparto por cercanía al aprobar." })
+  @ApiPropertyOptional({ description: "Solo aplica a VENTA: dato informativo, sin efecto en la lógica de negocio." })
   @IsOptional()
   @IsUUID()
   ciudadEntregaId?: string;

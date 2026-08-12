@@ -7,8 +7,8 @@ import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 
 /**
- * Motor de aprobación: bloqueo transaccional + reserva de stock contra el almacén elegido por línea
- * (VENTA), transición simple (COMPRA); y liberación de reservas al rechazar/anular una venta ya
+ * Motor de aprobación: bloqueo transaccional + reserva de stock contra el único almacén elegido para
+ * la proforma (VENTA), transición simple (COMPRA); y liberación de reservas al anular una venta ya
  * aprobada.
  *
  * Estrategia de locking: SELECT ... FOR UPDATE explícito vía $queryRaw dentro de
@@ -26,7 +26,7 @@ export class ProformaApprovalService {
     private readonly proformas: ProformasService,
   ) {}
 
-  async aprobar(id: string, usuarioId: string) {
+  async aprobar(id: string, usuarioId: string, almacenId?: string) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -37,17 +37,27 @@ export class ProformaApprovalService {
           `;
           const lock = rows[0];
           if (!lock) throw new NotFoundException("Proforma no encontrada.");
-          if (lock.estado !== EstadoProforma.PENDIENTE) {
+          if (lock.estado !== EstadoProforma.BORRADOR) {
             throw new ConflictException(`No se puede aprobar: la proforma está en estado ${lock.estado}.`);
           }
 
+          const detalleCount = await tx.proformaDetalle.count({ where: { proformaId: id } });
+          if (detalleCount === 0) {
+            throw new BadRequestException("La proforma no tiene líneas.");
+          }
+
           if (lock.tipo === TipoProforma.COMPRA) {
+            if (almacenId) throw new BadRequestException("almacenId no aplica a una proforma de compra.");
             await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.APROBADA } });
             await this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId);
             return;
           }
 
-          await this.aprobarVenta(tx, id, usuarioId);
+          if (!almacenId) throw new BadRequestException("almacenId es obligatorio para aprobar una proforma de venta.");
+          const almacen = await tx.almacen.findUnique({ where: { id: almacenId } });
+          if (!almacen) throw new BadRequestException(`almacenId inválido: ${almacenId}`);
+
+          await this.aprobarVenta(tx, id, usuarioId, almacenId);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -57,30 +67,20 @@ export class ProformaApprovalService {
     return this.proformas.findOne(id);
   }
 
-  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string) {
+  /**
+   * Reserva stock contra el único almacén de la proforma: STOCK por lo que alcanza, PROCURA por el
+   * resto. Nunca bloquea la aprobación por falta de stock — la Procura se resuelve más adelante, sola,
+   * cuando se completa una compra que trae stock para esa variante+almacén (ver
+   * proforma-completion.service.ts).
+   */
+  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string) {
     const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true } });
-    if (proforma.detalles.length === 0) {
-      throw new BadRequestException("La proforma no tiene líneas.");
-    }
-    if (proforma.detalles.some((d) => !d.almacenId)) {
-      throw new BadRequestException("Hay líneas sin almacén asignado: volvé a agregar esas líneas.");
-    }
 
-    // Resolver TODOS los pares (variante, almacén elegido en la línea) antes de bloquear nada — así
-    // el orden de lock es global a la proforma completa, no por línea.
-    const paresSet = new Set<string>();
-    for (const detalle of proforma.detalles) {
-      paresSet.add(stockKey(detalle.varianteId, detalle.almacenId!));
-    }
-    const pares = [...paresSet].map((key) => {
-      const [varianteId, almacenId] = key.split(":");
-      return { varianteId, almacenId };
-    });
+    const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
     const stockPorPar = await lockStockRows(tx, pares);
 
     const faltantes: string[] = [];
     for (const detalle of proforma.detalles) {
-      const almacenId = detalle.almacenId!;
       const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
       const disponibleNeto = stock.cantidadFisica - stock.cantidadReservada;
       const tomar = Math.min(disponibleNeto, detalle.cantidad);
@@ -105,7 +105,7 @@ export class ProformaApprovalService {
       }
     }
 
-    await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.APROBADA } });
+    await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.APROBADA, almacenId } });
     await this.historial.registrar(
       tx,
       id,
@@ -135,7 +135,8 @@ export class ProformaApprovalService {
     }
   }
 
-  private async transicionCierre(id: string, usuarioId: string, estadoDestino: EstadoProforma, nota?: string) {
+  /** APROBADA → ANULADA únicamente (BORRADOR se elimina en vez de anularse; COMPLETADA es terminal). */
+  async anular(id: string, usuarioId: string, nota?: string) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -146,18 +147,16 @@ export class ProformaApprovalService {
           `;
           const lock = rows[0];
           if (!lock) throw new NotFoundException("Proforma no encontrada.");
-
-          const estadosValidos: EstadoProforma[] = [EstadoProforma.BORRADOR, EstadoProforma.PENDIENTE, EstadoProforma.APROBADA];
-          if (!estadosValidos.includes(lock.estado)) {
-            throw new ConflictException(`No se puede pasar a ${estadoDestino} desde el estado actual (${lock.estado}).`);
+          if (lock.estado !== EstadoProforma.APROBADA) {
+            throw new ConflictException(`No se puede anular: la proforma está en estado ${lock.estado} (solo se puede anular desde APROBADA).`);
           }
 
-          if (lock.estado === EstadoProforma.APROBADA && lock.tipo === TipoProforma.VENTA) {
+          if (lock.tipo === TipoProforma.VENTA) {
             await this.liberarReservas(tx, id);
           }
 
-          await tx.proforma.update({ where: { id }, data: { estado: estadoDestino } });
-          await this.historial.registrar(tx, id, estadoDestino, usuarioId, nota);
+          await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.ANULADA } });
+          await this.historial.registrar(tx, id, EstadoProforma.ANULADA, usuarioId, nota);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -165,13 +164,5 @@ export class ProformaApprovalService {
       rethrowPrismaError(error, "Proforma");
     }
     return this.proformas.findOne(id);
-  }
-
-  async rechazar(id: string, usuarioId: string, nota?: string) {
-    return this.transicionCierre(id, usuarioId, EstadoProforma.RECHAZADA, nota);
-  }
-
-  async anular(id: string, usuarioId: string, nota?: string) {
-    return this.transicionCierre(id, usuarioId, EstadoProforma.ANULADA, nota);
   }
 }

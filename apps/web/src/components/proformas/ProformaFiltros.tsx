@@ -32,10 +32,8 @@ export function ProformaFiltros({ initialTipo, initialEstado }: { initialTipo: s
         <select className="field" defaultValue={initialEstado} onChange={(e) => pushParams({ estado: e.target.value })}>
           <option value="">Todos</option>
           <option value="BORRADOR">Borrador</option>
-          <option value="PENDIENTE">Pendiente</option>
           <option value="APROBADA">Aprobada</option>
           <option value="COMPLETADA">Completada</option>
-          <option value="RECHAZADA">Rechazada</option>
           <option value="ANULADA">Anulada</option>
         </select>
       </div>

@@ -33,7 +33,7 @@ export function ProformasTable({ proformas }: { proformas: Proforma[] }) {
             <td className="cell-primary">{proforma.tipo === "VENTA" ? "Venta" : "Compra"}</td>
             <td>{proforma.empresa.nombre}</td>
             <td className="cell-muted">
-              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.almacenRecepcion?.nombre ?? "—"}
+              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.almacen?.nombre ?? "—"}
             </td>
             <td>
               <EstadoBadge estado={proforma.estado} />

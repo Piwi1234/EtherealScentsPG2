@@ -1,10 +1,11 @@
 import type { Proforma } from "../../lib/types";
 
 /**
- * Desglose de reparto por almacén de cada línea (solo VENTA — resultado de reservar contra el
- * almacén elegido manualmente en cada línea al aprobar). Presentacional puro: la aprobación ya
- * generó las asignaciones en el backend, acá solo se muestran. `origen=PROCURA` marca cantidad que
- * no había en stock y se compra sobre pedido en el momento.
+ * Desglose por línea de lo que se reservó al aprobar una VENTA (solo VENTA — resultado de reservar
+ * contra el único almacén de la proforma). Presentacional puro: la aprobación ya generó las
+ * asignaciones en el backend, acá solo se muestran. `origen=PROCURA` marca cantidad que no había en
+ * stock — se resuelve sola más adelante, cuando se completa una compra que trae stock para esa
+ * variante+almacén (ver proforma-completion.service.ts).
  */
 export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
   const lineasConAsignacion = proforma.detalles.filter((d) => d.asignaciones.length > 0);

@@ -18,7 +18,7 @@ const includeLinea = {
       fecha: true,
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
-      almacenRecepcion: { select: { id: true, nombre: true } },
+      almacen: { select: { id: true, nombre: true } },
     },
   },
   variante: {

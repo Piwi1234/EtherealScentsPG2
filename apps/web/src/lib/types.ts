@@ -222,7 +222,7 @@ export type Almacen = {
 // --- Proformas ---
 
 export type TipoProforma = "COMPRA" | "VENTA";
-export type EstadoProforma = "BORRADOR" | "PENDIENTE" | "APROBADA" | "COMPLETADA" | "RECHAZADA" | "ANULADA";
+export type EstadoProforma = "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
 export type OrigenAsignacion = "STOCK" | "PROCURA";
 export type EstadoSeguimiento = "PENDIENTE" | "COMPRADO" | "ENVIADO" | "RECIBIDO";
 
@@ -328,9 +328,6 @@ export type ProformaDetalle = {
   cantidad: number;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
-  /** VENTA: almacén elegido manualmente al agregar la línea (de dónde se intenta reservar stock al aprobar). */
-  almacenId: string | null;
-  almacen: Almacen | null;
   /** COMPRA: capturados por línea, no heredados del catálogo. */
   precioCompra: string | null;
   costoEnvio: string | null;
@@ -352,8 +349,10 @@ export type Proforma = {
   empresa: Empresa;
   clienteId: string | null;
   cliente: Cliente | null;
-  almacenRecepcionId: string | null;
-  almacenRecepcion: Almacen | null;
+  /** Para VENTA se fija al aprobar (ahí se resuelve el reparto/reserva de stock contra este almacén);
+   * para COMPRA se fija recién al completar. Null hasta ese momento en ambos casos. */
+  almacenId: string | null;
+  almacen: Almacen | null;
   ciudadEntregaId: string | null;
   ciudadEntrega: Ciudad | null;
   creadoPorId: string;
@@ -374,13 +373,12 @@ export type ProformaInput = {
   tipo: TipoProforma;
   empresaId: string;
   clienteId?: string;
-  almacenRecepcionId?: string;
   ciudadEntregaId?: string;
   descuentoGeneral?: number;
   adelantoPorcentaje?: number;
 };
 
-export type DetalleVentaInput = { varianteId: string; cantidad: number; almacenId: string; precioUnitario?: number };
+export type DetalleVentaInput = { varianteId: string; cantidad: number; precioUnitario?: number };
 
 export type DetalleCompraInput = {
   varianteId: string;
@@ -394,12 +392,17 @@ export type DetalleCompraInput = {
 export type UpdateDetalleInput = {
   cantidad?: number;
   precioUnitario?: number;
-  almacenId?: string;
   precioCompra?: number;
   costoEnvio?: number;
   costoSeguridad?: number;
   costoLogistica?: number;
 };
+
+export type AprobarProformaInput = { almacenId?: string };
+
+export type AsignacionLoteInput = { proformaDetalleAsignacionId: string; loteCompraId: string; cantidad: number };
+
+export type CompletarProformaInput = { almacenId?: string; asignaciones?: AsignacionLoteInput[] };
 
 /** Una línea de proforma vista desde la vista agregada de seguimiento (todas las proformas
  * APROBADA/COMPLETADA a la vez), no desde dentro de una proforma puntual. */
@@ -416,6 +419,6 @@ export type SeguimientoLinea = {
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
-    almacenRecepcion: { id: string; nombre: string } | null;
+    almacen: { id: string; nombre: string } | null;
   };
 };

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet } from "../../lib/api";
 import type {
-  Almacen,
   AttributeType,
   AttributeVariantMode,
   Brand,
@@ -12,7 +11,6 @@ import type {
   Product,
   TipoProforma,
 } from "../../lib/types";
-import { AlmacenSelector } from "./selectors";
 
 const DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
@@ -59,15 +57,7 @@ function defaultVariantId(product: Product): string | undefined {
  * no se cargan productos hasta elegir al menos uno (2000+ productos en catálogo, no tiene sentido
  * traer todo de una).
  */
-export function AgregarProductoBrowser({
-  proformaId,
-  tipo,
-  almacenes,
-}: {
-  proformaId: string;
-  tipo: TipoProforma;
-  almacenes: Almacen[];
-}) {
+export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: string; tipo: TipoProforma }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [rootCategoryId, setRootCategoryId] = useState("");
@@ -88,9 +78,6 @@ export function AgregarProductoBrowser({
   const [rowError, setRowError] = useState<Record<string, string>>({});
   // Solo aplica a VENTA: qué precio del catálogo se manda como precioUnitario de la línea.
   const [precioTipo, setPrecioTipo] = useState<"MAY" | "FINAL">("FINAL");
-  // Solo aplica a VENTA: almacén del que se intenta reservar stock al aprobar, elegido una vez y
-  // aplicado a todas las líneas que se agreguen en esta sesión.
-  const [almacenId, setAlmacenId] = useState("");
 
   const rootCategoryOptions = categories.filter((c) => c.parentId === null);
   const subCategoryOptions = categories.filter((c) => c.parentId === rootCategoryId);
@@ -237,17 +224,13 @@ export function AgregarProductoBrowser({
   async function handleAgregar(product: Product) {
     const variant = getSelectedVariant(product);
     if (!variant) return;
-    if (tipo === "VENTA" && !almacenId) {
-      setRowError((prev) => ({ ...prev, [product.id]: "Elegí el almacén de origen antes de agregar." }));
-      return;
-    }
     const cantidad = cantidadByProduct[product.id] ?? 1;
     setSubmittingId(product.id);
     setRowError((prev) => ({ ...prev, [product.id]: "" }));
     try {
       if (tipo === "VENTA") {
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
-        await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, almacenId, precioUnitario });
+        await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
       } else {
         await addDetalleCompra(proformaId, {
           varianteId: variant.id,
@@ -335,12 +318,6 @@ export function AgregarProductoBrowser({
             </div>
           </div>
         )}
-        {tipo === "VENTA" && (
-          <div className="filter-field" style={{ minWidth: 220 }}>
-            <label className="filter-label">Almacén de origen</label>
-            <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
-          </div>
-        )}
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -419,7 +396,7 @@ export function AgregarProductoBrowser({
                           type="button"
                           className="action-btn"
                           onClick={() => handleAgregar(product)}
-                          disabled={submittingId === product.id || (tipo === "VENTA" && !almacenId)}
+                          disabled={submittingId === product.id}
                         >
                           {addedFlash[product.id] ? "Agregada ✓" : submittingId === product.id ? "Agregando..." : "Agregar"}
                         </button>

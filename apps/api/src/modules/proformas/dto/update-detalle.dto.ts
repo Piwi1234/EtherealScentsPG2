@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsInt, IsNumber, IsOptional, IsUUID, Min } from "class-validator";
+import { IsInt, IsNumber, IsOptional, Min } from "class-validator";
 
 /**
  * Único DTO para editar una línea, sea de VENTA o de COMPRA — el servicio valida qué campos aplican
@@ -17,11 +17,6 @@ export class UpdateDetalleDto {
   @IsNumber()
   @Min(0)
   precioUnitario?: number;
-
-  @ApiPropertyOptional({ description: "Solo VENTA: almacén del que se intenta reservar stock al aprobar." })
-  @IsOptional()
-  @IsUUID()
-  almacenId?: string;
 
   @ApiPropertyOptional({ description: "Solo COMPRA." })
   @IsOptional()

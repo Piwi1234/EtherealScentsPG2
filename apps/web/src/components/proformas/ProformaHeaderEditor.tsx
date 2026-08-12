@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, updateProforma } from "../../lib/api";
-import type { Almacen, Ciudad, Cliente, Empresa, Proforma } from "../../lib/types";
-import { AlmacenSelector, CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+import type { Ciudad, Cliente, Empresa, Proforma } from "../../lib/types";
+import { CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -16,30 +16,29 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /**
- * Cabecera de la proforma. Mientras está en BORRADOR es editable inline (empresa, cliente/almacén de
- * recepción, ciudad de entrega) — un único botón "Guardar cambios" que dispara un solo PATCH
- * /proformas/:id con todo. Fuera de BORRADOR se muestra solo lectura. El descuento general y el
- * adelanto viven en `ProformaTotales`, junto al total que generan las líneas — no acá.
+ * Cabecera de la proforma. Mientras está en BORRADOR es editable inline (empresa, cliente, ciudad de
+ * entrega) — un único botón "Guardar cambios" que dispara un solo PATCH /proformas/:id con todo. El
+ * almacén ya no se toca acá para ningún tipo: para VENTA se fija al aprobar, para COMPRA al completar
+ * — se muestra de solo lectura (`proforma.almacen`) una vez que existe. Fuera de BORRADOR se muestra
+ * todo de solo lectura. El descuento general y el adelanto viven en `ProformaTotales`, junto al total
+ * que generan las líneas — no acá.
  */
 export function ProformaHeaderEditor({
   proforma,
   editable,
   empresas,
   clientes,
-  almacenes,
   ciudades,
 }: {
   proforma: Proforma;
   editable: boolean;
   empresas: Empresa[];
   clientes: Cliente[];
-  almacenes: Almacen[];
   ciudades: Ciudad[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(proforma.empresaId);
   const [clienteId, setClienteId] = useState(proforma.clienteId ?? "");
-  const [almacenRecepcionId, setAlmacenRecepcionId] = useState(proforma.almacenRecepcionId ?? "");
   const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -61,7 +60,6 @@ export function ProformaHeaderEditor({
       await updateProforma(proforma.id, {
         empresaId,
         clienteId: proforma.tipo === "VENTA" ? clienteId || undefined : undefined,
-        almacenRecepcionId: proforma.tipo === "COMPRA" ? almacenRecepcionId || undefined : undefined,
         ciudadEntregaId: proforma.tipo === "VENTA" ? ciudadEntregaId || undefined : undefined,
       });
       router.refresh();
@@ -79,7 +77,7 @@ export function ProformaHeaderEditor({
         {proforma.tipo === "VENTA" ? (
           <Field label="Cliente" value={proforma.cliente?.nombre ?? "—"} />
         ) : (
-          <Field label="Almacén de recepción" value={proforma.almacenRecepcion?.nombre ?? "—"} />
+          <Field label="Almacén" value={proforma.almacen?.nombre ?? "— (se elige al completar) —"} />
         )}
         {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
       </div>
@@ -93,15 +91,10 @@ export function ProformaHeaderEditor({
           <label className="filter-label">Empresa</label>
           <EmpresaSelector options={empresas} value={empresaId} onChange={setEmpresaId} />
         </div>
-        {proforma.tipo === "VENTA" ? (
+        {proforma.tipo === "VENTA" && (
           <div className="filter-field" style={{ minWidth: 200 }}>
             <label className="filter-label">Cliente</label>
             <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
-          </div>
-        ) : (
-          <div className="filter-field" style={{ minWidth: 200 }}>
-            <label className="filter-label">Almacén de recepción</label>
-            <AlmacenSelector options={almacenes} value={almacenRecepcionId} onChange={setAlmacenRecepcionId} />
           </div>
         )}
         {proforma.tipo === "VENTA" && (

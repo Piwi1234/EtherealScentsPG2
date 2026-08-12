@@ -16,7 +16,7 @@ import { UpdateDetalleDto } from "./dto/update-detalle.dto";
 export const includeDetails = {
   empresa: true,
   cliente: true,
-  almacenRecepcion: true,
+  almacen: true,
   ciudadEntrega: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
@@ -38,7 +38,6 @@ export const includeDetails = {
           options: { include: { optionValue: { include: { attribute: true } } } },
         },
       },
-      almacen: true,
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
       seguimientos: {
@@ -55,7 +54,7 @@ export const includeDetails = {
 
 /**
  * CRUD y queries de proformas — sin locking ni efectos de stock. Las transiciones que tocan Stock
- * (aprobar VENTA, rechazar/anular desde APROBADA, completar) viven en proforma-approval.service.ts y
+ * (aprobar VENTA, anular desde APROBADA, completar) viven en proforma-approval.service.ts y
  * proforma-completion.service.ts.
  */
 @Injectable()
@@ -107,11 +106,6 @@ export class ProformasService {
     if (!cliente) throw new BadRequestException(`clienteId inválido: ${id}`);
   }
 
-  private async assertAlmacenExists(id: string, field = "almacenRecepcionId") {
-    const almacen = await this.prisma.almacen.findUnique({ where: { id } });
-    if (!almacen) throw new BadRequestException(`${field} inválido: ${id}`);
-  }
-
   private async assertCiudadExists(id: string) {
     const ciudad = await this.prisma.ciudad.findUnique({ where: { id } });
     if (!ciudad) throw new BadRequestException(`ciudadEntregaId inválido: ${id}`);
@@ -134,19 +128,18 @@ export class ProformasService {
     return computeBsPrices(priceUsd, variante, exchangeRate).finalPriceBs;
   }
 
+  /** El almacén ya no se pide acá para ningún tipo: para VENTA se fija al aprobar, para COMPRA al
+   * completar (ver proforma-approval.service.ts / proforma-completion.service.ts). */
   async create(dto: CreateProformaDto, creadoPorId: string) {
     await this.assertEmpresaExists(dto.empresaId);
 
     if (dto.tipo === TipoProforma.VENTA) {
       if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
-      if (dto.almacenRecepcionId) throw new BadRequestException("almacenRecepcionId no aplica a una proforma de venta.");
       await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
     } else {
-      if (!dto.almacenRecepcionId) throw new BadRequestException("almacenRecepcionId es obligatorio para una proforma de compra.");
       if (dto.clienteId) throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
-      await this.assertAlmacenExists(dto.almacenRecepcionId);
     }
 
     try {
@@ -156,7 +149,6 @@ export class ProformasService {
             tipo: dto.tipo,
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
-            almacenRecepcionId: dto.tipo === TipoProforma.COMPRA ? dto.almacenRecepcionId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
@@ -176,9 +168,6 @@ export class ProformasService {
     this.assertBorrador(existing);
 
     if (existing.tipo === TipoProforma.VENTA) {
-      if (dto.almacenRecepcionId !== undefined) {
-        throw new BadRequestException("almacenRecepcionId no aplica a una proforma de venta.");
-      }
       if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
     } else {
@@ -188,7 +177,6 @@ export class ProformasService {
       if (dto.ciudadEntregaId !== undefined) {
         throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       }
-      if (dto.almacenRecepcionId) await this.assertAlmacenExists(dto.almacenRecepcionId);
     }
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
 
@@ -207,21 +195,13 @@ export class ProformasService {
       throw new BadRequestException("Esta proforma no es de venta.");
     }
 
-    await this.assertAlmacenExists(dto.almacenId, "almacenId");
     const variante = await this.getVarianteParaPrecio(dto.varianteId);
     const precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
     const subtotal = dto.cantidad * precioUnitario;
 
     try {
       await this.prisma.proformaDetalle.create({
-        data: {
-          proformaId: id,
-          varianteId: dto.varianteId,
-          cantidad: dto.cantidad,
-          almacenId: dto.almacenId,
-          precioUnitario,
-          subtotal,
-        },
+        data: { proformaId: id, varianteId: dto.varianteId, cantidad: dto.cantidad, precioUnitario, subtotal },
       });
       return this.findOne(id);
     } catch (error) {
@@ -271,10 +251,8 @@ export class ProformasService {
     let data: Prisma.ProformaDetalleUpdateInput;
 
     if (proforma.tipo === TipoProforma.VENTA) {
-      if (dto.almacenId) await this.assertAlmacenExists(dto.almacenId, "almacenId");
       const precioUnitario = dto.precioUnitario ?? Number(detalle.precioUnitario);
-      const almacenId = dto.almacenId ?? detalle.almacenId ?? undefined;
-      data = { cantidad, precioUnitario, almacen: almacenId ? { connect: { id: almacenId } } : undefined, subtotal: cantidad * precioUnitario };
+      data = { cantidad, precioUnitario, subtotal: cantidad * precioUnitario };
     } else {
       const precioCompra = dto.precioCompra ?? Number(detalle.precioCompra);
       const costoEnvio = dto.costoEnvio ?? Number(detalle.costoEnvio);
@@ -305,22 +283,13 @@ export class ProformasService {
     }
   }
 
-  /** BORRADOR → PENDIENTE. Transición simple: no toca stock, no necesita locking. */
-  async enviar(id: string, usuarioId: string) {
+  /** Solo se puede eliminar una proforma mientras está en BORRADOR — nunca tocó stock, así que no hay
+   * nada que revertir; la cascada (detalles + historial) ya está cubierta por el schema. */
+  async remove(id: string) {
     const proforma = await this.findOne(id);
-    if (proforma.estado !== EstadoProforma.BORRADOR) {
-      throw new ConflictException("Solo se puede enviar a revisión una proforma en BORRADOR.");
-    }
-    if (proforma.detalles.length === 0) {
-      throw new BadRequestException("La proforma no tiene líneas.");
-    }
-
+    this.assertBorrador(proforma);
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.PENDIENTE } });
-        await this.historial.registrar(tx, id, EstadoProforma.PENDIENTE, usuarioId);
-        return tx.proforma.findUniqueOrThrow({ where: { id }, include: includeDetails });
-      });
+      await this.prisma.proforma.delete({ where: { id } });
     } catch (error) {
       rethrowPrismaError(error, "Proforma");
     }

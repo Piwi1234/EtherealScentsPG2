@@ -11,10 +11,6 @@ export class AddDetalleVentaDto {
   @Min(1)
   cantidad!: number;
 
-  @ApiProperty({ description: "Almacén del que se intenta reservar stock al aprobar." })
-  @IsUUID()
-  almacenId!: string;
-
   @ApiPropertyOptional({ description: "Si se omite, nace de ProductVariant.precioFinalBs calculado en vivo." })
   @IsOptional()
   @IsNumber()
