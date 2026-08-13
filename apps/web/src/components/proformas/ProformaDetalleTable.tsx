@@ -51,16 +51,18 @@ function DetalleRow({
   detalle,
   tipo,
   editable,
+  tipoCambioProf,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
   tipo: TipoProforma;
   editable: boolean;
+  tipoCambioProf: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 9) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : 10) + (editable ? 1 : 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -144,6 +146,11 @@ function DetalleRow({
           </>
         )}
         <td className="num cell-primary">{money(detalle.subtotal, tipo === "VENTA" ? "Bs" : "$")}</td>
+        {tipo === "COMPRA" && (
+          <td className="num cell-primary">
+            {tipoCambioProf ? `Bs ${(Number(detalle.subtotal) * Number(tipoCambioProf)).toFixed(2)}` : "—"}
+          </td>
+        )}
         {editable && (
           <td className="num">
             <button type="button" className="action-btn danger" onClick={handleRemove} disabled={removing}>
@@ -196,6 +203,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
               </>
             )}
             <th className="num">Subtotal</th>
+            {tipo === "COMPRA" && <th className="num">Subtotal Bs</th>}
             {editable && <th></th>}
           </tr>
         </thead>
@@ -207,6 +215,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
               detalle={detalle}
               tipo={tipo}
               editable={editable}
+              tipoCambioProf={proforma.tipoCambioProf}
             />
           ))}
         </tbody>

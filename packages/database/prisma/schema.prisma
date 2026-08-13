@@ -416,15 +416,17 @@ model Ciudad {
   @@map("ciudades")
 }
 
-/// Catálogo de ciudades de origen (de dónde viene la mercadería) — todavía sin relaciones, se
-/// conecta a algo más adelante. Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque
-/// son dos conceptos distintos aunque hoy tengan la misma forma.
+/// Catálogo de ciudades de origen (de dónde viene la mercadería) — usada en Proforma.ciudadProcedencia
+/// (solo COMPRA). Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque son dos
+/// conceptos distintos aunque hoy tengan la misma forma.
 model CiudadProcedencia {
   id        String   @id @default(uuid()) @db.Uuid
   nombre    String   @unique
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  proformas Proforma[]
 
   @@map("ciudades_procedencia")
 }
@@ -542,6 +544,13 @@ model Proforma {
   // Solo VENTA: dato informativo de a qué ciudad va el pedido, sin efecto en la lógica de negocio.
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
+
+  // Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
+  // compra puntual — permite valorar en Bs sin depender del tipo de cambio del sistema, que puede
+  // cambiar después de hecha la compra. Ambos null para VENTA.
+  ciudadProcedenciaId String?            @map("ciudad_procedencia_id") @db.Uuid
+  ciudadProcedencia   CiudadProcedencia? @relation(fields: [ciudadProcedenciaId], references: [id], onDelete: Restrict)
+  tipoCambioProf      Decimal?           @map("tipo_cambio_prof") @db.Decimal(12, 4)
 
   creadoPorId String  @map("creado_por_id") @db.Uuid
   creadoPor   Usuario @relation("ProformaCreadaPor", fields: [creadoPorId], references: [id])

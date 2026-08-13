@@ -18,6 +18,7 @@ export const includeDetails = {
   cliente: true,
   almacen: true,
   ciudadEntrega: true,
+  ciudadProcedencia: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
     include: {
@@ -118,6 +119,11 @@ export class ProformasService {
     if (!ciudad) throw new BadRequestException(`ciudadEntregaId inválido: ${id}`);
   }
 
+  private async assertCiudadProcedenciaExists(id: string) {
+    const ciudad = await this.prisma.ciudadProcedencia.findUnique({ where: { id } });
+    if (!ciudad) throw new BadRequestException(`ciudadProcedenciaId inválido: ${id}`);
+  }
+
   private async getVarianteParaPrecio(varianteId: string) {
     const variante = await this.prisma.productVariant.findUnique({
       where: { id: varianteId },
@@ -144,10 +150,18 @@ export class ProformasService {
       if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
       await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
+      if (dto.ciudadProcedenciaId) throw new BadRequestException("ciudadProcedenciaId no aplica a una proforma de venta.");
+      if (dto.tipoCambioProf !== undefined) throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
     } else {
       if (dto.clienteId) throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
+      if (dto.ciudadProcedenciaId) await this.assertCiudadProcedenciaExists(dto.ciudadProcedenciaId);
     }
+
+    // Para COMPRA, si no se manda un tipo de cambio propio, arranca con el del sistema — queda
+    // editable después mientras esté en BORRADOR, por si la compra se hizo a otro tipo de cambio.
+    const tipoCambioProf =
+      dto.tipo === TipoProforma.COMPRA ? dto.tipoCambioProf ?? (await this.settings.getExchangeRate()) : undefined;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -157,6 +171,8 @@ export class ProformasService {
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
+            ciudadProcedenciaId: dto.tipo === TipoProforma.COMPRA ? dto.ciudadProcedenciaId : undefined,
+            tipoCambioProf,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
             adelantoPorcentaje: dto.adelantoPorcentaje,
@@ -177,6 +193,12 @@ export class ProformasService {
     if (existing.tipo === TipoProforma.VENTA) {
       if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
+      if (dto.ciudadProcedenciaId !== undefined) {
+        throw new BadRequestException("ciudadProcedenciaId no aplica a una proforma de venta.");
+      }
+      if (dto.tipoCambioProf !== undefined) {
+        throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
+      }
     } else {
       if (dto.clienteId !== undefined) {
         throw new BadRequestException("clienteId no aplica a una proforma de compra.");
@@ -184,6 +206,7 @@ export class ProformasService {
       if (dto.ciudadEntregaId !== undefined) {
         throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       }
+      if (dto.ciudadProcedenciaId) await this.assertCiudadProcedenciaExists(dto.ciudadProcedenciaId);
     }
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
 

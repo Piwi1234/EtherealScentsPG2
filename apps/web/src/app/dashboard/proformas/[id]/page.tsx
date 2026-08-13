@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
-import type { Almacen, Ciudad, Cliente, Empresa, Page, Proforma } from "../../../../lib/types";
+import type { Almacen, Ciudad, CiudadProcedencia, Cliente, Empresa, Page, Proforma } from "../../../../lib/types";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
@@ -26,13 +26,16 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
   const editableDetalle = proforma.estado === "BORRADOR";
   const mostrarAsignaciones = proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA");
 
-  const [empresasPage, clientesPage, almacenesPage, ciudadesPage] = await Promise.all([
+  const [empresasPage, clientesPage, almacenesPage, ciudadesPage, ciudadesProcedenciaPage] = await Promise.all([
     apiGetServer<Page<Empresa>>("/empresas?pageSize=100"),
     proforma.tipo === "VENTA"
       ? apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200")
       : Promise.resolve<Page<Cliente>>({ items: [], total: 0, page: 1, pageSize: 0 }),
     apiGetServer<Page<Almacen>>("/almacenes?pageSize=200"),
     apiGetServer<Page<Ciudad>>("/ciudades?pageSize=100"),
+    proforma.tipo === "COMPRA"
+      ? apiGetServer<Page<CiudadProcedencia>>("/ciudades-procedencia?pageSize=100")
+      : Promise.resolve<Page<CiudadProcedencia>>({ items: [], total: 0, page: 1, pageSize: 0 }),
   ]);
 
   return (
@@ -55,6 +58,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         empresas={empresasPage.items.filter((e) => e.activo)}
         clientes={clientesPage.items}
         ciudades={ciudadesPage.items}
+        ciudadesProcedencia={ciudadesProcedenciaPage.items.filter((c) => c.activo)}
       />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 12px" }}>

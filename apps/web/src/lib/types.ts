@@ -295,6 +295,9 @@ export type StockRow = {
 export type LoteCompraConDetalle = LoteCompra & {
   variante: { id: string; variantCode: string; product: { id: string; name: string; productCode: string } };
   almacen: { id: string; nombre: string };
+  /** Tipo de cambio propio de la proforma de compra que trajo este lote — para valorar costoUnitario
+   * en Bs. Null en lotes de compras creadas antes de este campo. */
+  proformaDetalle: { proforma: { tipoCambioProf: string | null } };
 };
 
 /** Variante tal como viene anidada en ProformaDetalle — campos crudos, sin los precios calculados en
@@ -356,6 +359,11 @@ export type Proforma = {
   almacen: Almacen | null;
   ciudadEntregaId: string | null;
   ciudadEntrega: Ciudad | null;
+  /** Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
+   * compra puntual, para valorar en Bs sin depender del tipo de cambio del sistema. Ambos null en VENTA. */
+  ciudadProcedenciaId: string | null;
+  ciudadProcedencia: CiudadProcedencia | null;
+  tipoCambioProf: string | null;
   creadoPorId: string;
   creadoPor: { id: string; nombre: string; email: string; rol: Rol };
   /** Aplica sobre el total del documento, no por línea. */
@@ -375,6 +383,8 @@ export type ProformaInput = {
   empresaId: string;
   clienteId?: string;
   ciudadEntregaId?: string;
+  ciudadProcedenciaId?: string;
+  tipoCambioProf?: number;
   descuentoGeneral?: number;
   adelantoPorcentaje?: number;
 };

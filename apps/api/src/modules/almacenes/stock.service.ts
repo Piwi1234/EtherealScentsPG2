@@ -20,6 +20,9 @@ const loteInclude = {
     select: { id: true, variantCode: true, product: { select: { id: true, name: true, productCode: true } } },
   },
   almacen: { select: { id: true, nombre: true } },
+  // Para poder valorar el costo unitario en Bs con el tipo de cambio propio de la compra que trajo
+  // este lote (no el tipo de cambio del sistema, que puede haber cambiado después).
+  proformaDetalle: { select: { proforma: { select: { tipoCambioProf: true } } } },
 } as const;
 
 @Injectable()

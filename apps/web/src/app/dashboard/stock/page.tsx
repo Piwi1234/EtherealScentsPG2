@@ -344,7 +344,8 @@ export default function StockPage() {
                   <th>Fecha</th>
                   <th>Producto / Variante</th>
                   <th>Almacén</th>
-                  <th className="num">Costo unitario</th>
+                  <th className="num">Costo unitario Bs</th>
+                  <th className="num">TC</th>
                   <th className="num">Cant. inicial</th>
                   <th className="num">Cant. disponible</th>
                   <th>Estado</th>
@@ -359,7 +360,16 @@ export default function StockPage() {
                       <div className="cell-muted">{lote.variante.variantCode}</div>
                     </td>
                     <td>{lote.almacen.nombre}</td>
-                    <td className="num">$ {Number(lote.costoUnitario).toFixed(2)}</td>
+                    <td className="num">
+                      {lote.proformaDetalle.proforma.tipoCambioProf
+                        ? `Bs ${(Number(lote.costoUnitario) * Number(lote.proformaDetalle.proforma.tipoCambioProf)).toFixed(2)}`
+                        : "—"}
+                    </td>
+                    <td className="num">
+                      {lote.proformaDetalle.proforma.tipoCambioProf
+                        ? Number(lote.proformaDetalle.proforma.tipoCambioProf).toFixed(2)
+                        : "—"}
+                    </td>
                     <td className="num">{lote.cantidadInicial}</td>
                     <td className="num">{lote.cantidadDisponible}</td>
                     <td>
