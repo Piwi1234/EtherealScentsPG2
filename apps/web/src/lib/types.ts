@@ -211,6 +211,16 @@ export type Ciudad = {
   updatedAt: string;
 };
 
+/** Catálogo de ciudades de origen (de dónde viene la mercadería) — sin relaciones todavía, uso
+ * futuro. Distinto de Ciudad (que es la ciudad de ENTREGA del cliente). */
+export type CiudadProcedencia = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Almacen = {
   id: string;
   nombre: string;

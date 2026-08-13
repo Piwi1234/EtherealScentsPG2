@@ -5,6 +5,7 @@ import type {
   Brand,
   Category,
   Ciudad,
+  CiudadProcedencia,
   Cliente,
   ClienteInput,
   CompletarProformaInput,
@@ -175,6 +176,24 @@ export function createCiudad(nombre: string) {
 
 export function deleteCiudad(id: string) {
   return apiDelete<Ciudad>(`/ciudades/${id}`);
+}
+
+// --- Ciudades de procedencia ---
+
+export function getCiudadesProcedencia(query: { page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<CiudadProcedencia>>(`/ciudades-procedencia${qs ? `?${qs}` : ""}`);
+}
+
+export function createCiudadProcedencia(nombre: string) {
+  return apiPost<CiudadProcedencia>("/ciudades-procedencia", { nombre });
+}
+
+export function deactivateCiudadProcedencia(id: string) {
+  return apiDelete<CiudadProcedencia>(`/ciudades-procedencia/${id}`);
 }
 
 // --- Almacenes ---

@@ -416,6 +416,19 @@ model Ciudad {
   @@map("ciudades")
 }
 
+/// Catálogo de ciudades de origen (de dónde viene la mercadería) — todavía sin relaciones, se
+/// conecta a algo más adelante. Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque
+/// son dos conceptos distintos aunque hoy tengan la misma forma.
+model CiudadProcedencia {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String   @unique
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ciudades_procedencia")
+}
+
 model Empresa {
   id          String      @id @default(uuid()) @db.Uuid
   nombre      String
