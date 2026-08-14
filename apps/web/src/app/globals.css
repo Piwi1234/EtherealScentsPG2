@@ -539,6 +539,85 @@ a {
   gap: 6px;
 }
 
+.date-dropdown {
+  position: relative;
+}
+
+.date-dropdown-trigger {
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.date-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 260px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.date-dropdown-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.date-dropdown-mode-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.date-dropdown-mode-btn.active {
+  background: var(--ink);
+  color: var(--gold);
+  border-color: var(--ink);
+}
+
+.autocomplete-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+}
+
+.autocomplete-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.autocomplete-option:hover {
+  background: var(--paper);
+}
+
 .filter-label {
   font-size: 11px;
   font-weight: 700;

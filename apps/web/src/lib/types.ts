@@ -426,3 +426,24 @@ export type SeguimientoLinea = {
     variante: ProformaDetalleVariante;
   };
 };
+
+/** Una línea de proforma (COMPRA o VENTA) vista desde el ledger de Registros — todas las proformas
+ * de ese tipo a la vez, filtrable por fecha/categoría/marca/producto. */
+export type RegistroLinea = {
+  id: string;
+  cantidad: number;
+  precioUnitario: string | null;
+  precioCompra: string | null;
+  costoEnvio: string | null;
+  costoSeguridad: string | null;
+  costoLogistica: string | null;
+  subtotal: string;
+  proforma: {
+    id: string;
+    fecha: string;
+    empresa: { id: string; nombre: string };
+    ciudadProcedencia: { id: string; nombre: string } | null;
+    tipoCambioProf: string | null;
+  };
+  variante: ProformaDetalleVariante;
+};

@@ -16,8 +16,10 @@ import type {
   EstadoSeguimientoProcura,
   LoteCompraConDetalle,
   Page,
+  Product,
   Proforma,
   ProformaInput,
+  RegistroLinea,
   SeguimientoLinea,
   StockRow,
   UpdateDetalleInput,
@@ -249,6 +251,18 @@ export function getBrands() {
   return apiGet<Brand[]>("/brands");
 }
 
+/** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de
+ * /brands, que hace match exacto — ahí el cascade se resuelve del lado del cliente). */
+export function getProducts(query: { categoryId?: string; brandId?: string; search?: string; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.search) params.set("search", query.search);
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<Product>>(`/products${qs ? `?${qs}` : ""}`);
+}
+
 export function getLotesCompra(
   query: {
     varianteId?: string;
@@ -349,4 +363,30 @@ export function getSeguimientoPendientes(
 
 export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura) {
   return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado });
+}
+
+// --- Registros ---
+
+export function getRegistros(
+  query: {
+    tipo: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    categoryId?: string;
+    brandId?: string;
+    productId?: string;
+    page?: number;
+    limit?: number;
+  },
+) {
+  const params = new URLSearchParams();
+  params.set("tipo", query.tipo);
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.productId) params.set("productId", query.productId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);
 }
