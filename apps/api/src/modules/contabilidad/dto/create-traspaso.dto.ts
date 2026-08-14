@@ -16,7 +16,8 @@ export class CreateTraspasoDto {
   montoOrigen!: number;
 
   @ApiPropertyOptional({
-    description: "Obligatorio si origen y destino tienen monedas distintas. montoDestino = montoOrigen * tipoCambio.",
+    description:
+      "Obligatorio salvo cuando origen y destino son la misma moneda, o el par tiene tasa fija 1:1 (ver traspaso-conversion.util.ts).",
   })
   @IsOptional()
   @IsNumber()

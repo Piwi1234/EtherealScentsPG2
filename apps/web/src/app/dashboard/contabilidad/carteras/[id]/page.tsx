@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -13,7 +13,7 @@ import {
   getTiposMovimiento,
 } from "../../../../../lib/api";
 import type { Cartera, MonedaCartera, MovimientoCartera, NaturalezaMovimiento, Page, TipoMovimiento } from "../../../../../lib/types";
-import { formatMonto } from "../../../../../lib/moneda";
+import { formatMonto, labelTipoCambioTraspaso, monedaPermiteTraspaso, requiereTipoCambioTraspaso } from "../../../../../lib/moneda";
 import { DateRangeDropdown, type DateSelection } from "../../../../../components/DateRangeDropdown";
 import { Modal } from "../../../../../components/Modal";
 
@@ -47,7 +47,7 @@ export default function CarteraDetallePage() {
   const [tiposIngreso, setTiposIngreso] = useState<TipoMovimiento[]>([]);
   const [tiposGasto, setTiposGasto] = useState<TipoMovimiento[]>([]);
 
-  const [otrasCarteras, setOtrasCarteras] = useState<Cartera[]>([]);
+  const [todasCarteras, setTodasCarteras] = useState<Cartera[]>([]);
 
   const [movModalOpen, setMovModalOpen] = useState(false);
   const [movNaturaleza, setMovNaturaleza] = useState<NaturalezaMovimiento>("INGRESO");
@@ -95,7 +95,7 @@ export default function CarteraDetallePage() {
   useEffect(() => {
     loadCartera().catch((e) => setError(e instanceof Error ? e.message : String(e)));
     loadTipos();
-    getCarteras({ activo: true }).then((all) => setOtrasCarteras(all.filter((c) => c.id !== carteraId)));
+    getCarteras({ activo: true }).then((all) => setTodasCarteras(all.filter((c) => c.id !== carteraId)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carteraId]);
 
@@ -142,8 +142,12 @@ export default function CarteraDetallePage() {
     }
   }
 
+  const otrasCarteras = useMemo(
+    () => (cartera ? todasCarteras.filter((c) => monedaPermiteTraspaso(cartera.moneda, c.moneda)) : []),
+    [cartera, todasCarteras],
+  );
   const destinoElegido = otrasCarteras.find((c) => c.id === traspasoDestinoId);
-  const requiereTipoCambio = Boolean(cartera && destinoElegido && destinoElegido.moneda !== cartera.moneda);
+  const requiereTipoCambio = Boolean(cartera && destinoElegido && requiereTipoCambioTraspaso(cartera.moneda, destinoElegido.moneda));
 
   function openTraspasoModal() {
     setTraspasoDestinoId("");
@@ -385,9 +389,9 @@ export default function CarteraDetallePage() {
                 required
               />
             </div>
-            {requiereTipoCambio && (
+            {requiereTipoCambio && destinoElegido && (
               <div>
-                <label>Tipo de cambio ({cartera.moneda} → {destinoElegido?.moneda})</label>
+                <label>Tipo de cambio ({labelTipoCambioTraspaso(cartera.moneda, destinoElegido.moneda)})</label>
                 <input
                   className="field"
                   type="number"
