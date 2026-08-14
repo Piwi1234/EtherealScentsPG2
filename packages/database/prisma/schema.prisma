@@ -31,6 +31,9 @@ model Usuario {
   proformasCreadas  Proforma[] @relation("ProformaCreadaPor")
   proformaHistorial ProformaHistorial[]
 
+  movimientosCartera MovimientoCartera[]
+  traspasosCreados   Traspaso[]
+
   @@map("usuarios")
 }
 
@@ -644,4 +647,115 @@ model ProformaHistorial {
   nota       String?
 
   @@map("proforma_historial")
+}
+
+// --- Financiero (Contabilidad) ---
+
+enum MonedaCartera {
+  BS
+  USDT
+  GS
+  CLP
+  USD
+
+  @@map("moneda_cartera")
+}
+
+enum NaturalezaMovimiento {
+  INGRESO
+  GASTO
+
+  @@map("naturaleza_movimiento")
+}
+
+/// Una billetera/caja dentro de una Cuenta (moneda). saldoActual es un acumulador mantenido en cada
+/// alta de movimiento/traspaso (transaccional, con locking vía cartera-lock.util.ts) — no se
+/// recalcula desde cero en cada lectura, a diferencia del saldo por fila de MovimientoCartera (ver
+/// el doc-comment de ese modelo para el porqué).
+model Cartera {
+  id          String        @id @default(uuid()) @db.Uuid
+  moneda      MonedaCartera
+  nombre      String
+  activo      Boolean       @default(true)
+  saldoActual Decimal       @default(0) @db.Decimal(14, 2) @map("saldo_actual")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  tiposMovimiento  TipoMovimiento[]
+  movimientos      MovimientoCartera[]
+  traspasosOrigen  Traspaso[]          @relation("TraspasoOrigen")
+  traspasosDestino Traspaso[]          @relation("TraspasoDestino")
+
+  @@unique([moneda, nombre])
+  @@map("carteras")
+}
+
+/// Categorías de ingreso/gasto, independientes por cartera (no se comparten ni entre carteras de la
+/// misma moneda). Soft delete vía activo — un tipo usado en movimientos históricos no se puede borrar
+/// de verdad (Restrict), pero se puede ocultar de la lista para cargar movimientos nuevos.
+model TipoMovimiento {
+  id         String               @id @default(uuid()) @db.Uuid
+  carteraId  String               @map("cartera_id") @db.Uuid
+  cartera    Cartera              @relation(fields: [carteraId], references: [id], onDelete: Restrict)
+  nombre     String
+  naturaleza NaturalezaMovimiento
+  activo     Boolean              @default(true)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  movimientos MovimientoCartera[]
+
+  @@unique([carteraId, nombre, naturaleza])
+  @@map("tipos_movimiento")
+}
+
+/// Log de solo-inserción (nunca se edita ni se borra por API) — cada fila es un ingreso o gasto de
+/// una cartera. tipoMovimientoId es obligatorio para carga manual; queda null en las 2 filas que
+/// genera un Traspaso (esas se identifican por traspasoId en cambio, y su detalle se arma solo).
+/// El saldo acumulado ("Total" en la UI) no se guarda acá: con fecha editable, un movimiento cargado
+/// después con fecha pasada dejaría mal un acumulado guardado. Se recalcula en memoria al leer
+/// (movimiento.service.ts), ordenando por fecha — barato a la escala de una caja chica.
+model MovimientoCartera {
+  id               String               @id @default(uuid()) @db.Uuid
+  carteraId        String               @map("cartera_id") @db.Uuid
+  cartera          Cartera              @relation(fields: [carteraId], references: [id], onDelete: Restrict)
+  fecha            DateTime
+  detalle          String
+  naturaleza       NaturalezaMovimiento
+  monto            Decimal              @db.Decimal(14, 2)
+  tipoMovimientoId String?              @map("tipo_movimiento_id") @db.Uuid
+  tipoMovimiento   TipoMovimiento?      @relation(fields: [tipoMovimientoId], references: [id], onDelete: Restrict)
+  traspasoId       String?              @map("traspaso_id") @db.Uuid
+  traspaso         Traspaso?            @relation(fields: [traspasoId], references: [id], onDelete: Restrict)
+  creadoPorId      String               @map("creado_por_id") @db.Uuid
+  creadoPor        Usuario              @relation(fields: [creadoPorId], references: [id])
+  createdAt        DateTime             @default(now()) @map("created_at")
+
+  @@index([carteraId, fecha])
+  @@map("movimientos_cartera")
+}
+
+/// Mueve montoOrigen de carteraOrigen a carteraDestino. Si las monedas difieren, tipoCambio es
+/// obligatorio y montoDestino = montoOrigen * tipoCambio (se guarda ya calculado, para que quede una
+/// constancia histórica estable aunque el tipo de cambio del sistema cambie después). Genera 2
+/// MovimientoCartera (GASTO en origen, INGRESO en destino) atómicamente. Inmutable, igual que
+/// MovimientoCartera.
+model Traspaso {
+  id               String   @id @default(uuid()) @db.Uuid
+  fecha            DateTime
+  carteraOrigenId  String   @map("cartera_origen_id") @db.Uuid
+  carteraOrigen    Cartera  @relation("TraspasoOrigen", fields: [carteraOrigenId], references: [id], onDelete: Restrict)
+  carteraDestinoId String   @map("cartera_destino_id") @db.Uuid
+  carteraDestino   Cartera  @relation("TraspasoDestino", fields: [carteraDestinoId], references: [id], onDelete: Restrict)
+  montoOrigen      Decimal  @db.Decimal(14, 2) @map("monto_origen")
+  tipoCambio       Decimal  @default(1) @db.Decimal(12, 4) @map("tipo_cambio")
+  montoDestino     Decimal  @db.Decimal(14, 2) @map("monto_destino")
+  nota             String?
+  creadoPorId      String   @map("creado_por_id") @db.Uuid
+  creadoPor        Usuario  @relation(fields: [creadoPorId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  movimientos MovimientoCartera[]
+
+  @@map("traspasos")
 }

@@ -22,7 +22,8 @@ function labelMes(anioMes: string): string {
 /**
  * Filtro de fecha desplegable con 3 modos (rango / mes / año) — arma fechaDesde/fechaHasta en el
  * cliente y se los pasa al padre ya resueltos; el backend solo entiende un rango simple. Sin
- * librería de calendario: son inputs nativos date/month + un select de año.
+ * librería de calendario: son inputs nativos date/month + un select de año. Compartido entre
+ * Registros y Contabilidad (no es específico de proformas).
  */
 export function DateRangeDropdown({ onApply }: { onApply: (selection: DateSelection) => void }) {
   const [open, setOpen] = useState(false);

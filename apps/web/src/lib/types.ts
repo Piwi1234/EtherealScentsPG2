@@ -447,3 +447,82 @@ export type RegistroLinea = {
   };
   variante: ProformaDetalleVariante;
 };
+
+// --- Financiero (Contabilidad) ---
+
+export type MonedaCartera = "BS" | "USDT" | "GS" | "CLP" | "USD";
+export type NaturalezaMovimiento = "INGRESO" | "GASTO";
+
+export type Cartera = {
+  id: string;
+  moneda: MonedaCartera;
+  nombre: string;
+  activo: boolean;
+  saldoActual: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CarteraInput = { moneda?: MonedaCartera; nombre?: string; activo?: boolean };
+
+export type TipoMovimiento = {
+  id: string;
+  carteraId: string;
+  nombre: string;
+  naturaleza: NaturalezaMovimiento;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TipoMovimientoInput = { nombre?: string; naturaleza?: NaturalezaMovimiento; activo?: boolean };
+
+/** total es el saldo acumulado de la cartera hasta esta fila (calculado por el backend, no
+ * guardado) — es la columna "Total" del libro de caja. */
+export type MovimientoCartera = {
+  id: string;
+  carteraId: string;
+  fecha: string;
+  detalle: string;
+  naturaleza: NaturalezaMovimiento;
+  monto: string;
+  total: number;
+  tipoMovimiento: { id: string; nombre: string; naturaleza: NaturalezaMovimiento } | null;
+  traspaso: {
+    id: string;
+    carteraOrigen: { id: string; nombre: string };
+    carteraDestino: { id: string; nombre: string };
+  } | null;
+  createdAt: string;
+};
+
+export type MovimientoInput = {
+  fecha: string;
+  detalle: string;
+  naturaleza: NaturalezaMovimiento;
+  monto: number;
+  tipoMovimientoId: string;
+};
+
+export type Traspaso = {
+  id: string;
+  fecha: string;
+  carteraOrigenId: string;
+  carteraOrigen: { id: string; nombre: string; moneda: MonedaCartera };
+  carteraDestinoId: string;
+  carteraDestino: { id: string; nombre: string; moneda: MonedaCartera };
+  montoOrigen: string;
+  tipoCambio: string;
+  montoDestino: string;
+  nota: string | null;
+  createdAt: string;
+};
+
+export type TraspasoInput = {
+  fecha: string;
+  carteraOrigenId: string;
+  carteraDestinoId: string;
+  montoOrigen: number;
+  tipoCambio?: number;
+  nota?: string;
+};

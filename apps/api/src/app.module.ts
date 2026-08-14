@@ -7,6 +7,7 @@ import { ClientesModule } from "./modules/clientes/clientes.module";
 import { EmpresasModule } from "./modules/empresas/empresas.module";
 import { AlmacenesModule } from "./modules/almacenes/almacenes.module";
 import { ProformasModule } from "./modules/proformas/proformas.module";
+import { ContabilidadModule } from "./modules/contabilidad/contabilidad.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { SettingsModule } from "./settings/settings.module";
 
@@ -20,6 +21,7 @@ import { SettingsModule } from "./settings/settings.module";
     EmpresasModule,
     AlmacenesModule,
     ProformasModule,
+    ContabilidadModule,
     CatalogModule,
     SettingsModule,
   ],

@@ -3,6 +3,8 @@ import type {
   Almacen,
   AprobarProformaInput,
   Brand,
+  Cartera,
+  CarteraInput,
   Category,
   Ciudad,
   CiudadProcedencia,
@@ -15,6 +17,10 @@ import type {
   EmpresaInput,
   EstadoSeguimientoProcura,
   LoteCompraConDetalle,
+  MonedaCartera,
+  MovimientoCartera,
+  MovimientoInput,
+  NaturalezaMovimiento,
   Page,
   Product,
   Proforma,
@@ -22,6 +28,10 @@ import type {
   RegistroLinea,
   SeguimientoLinea,
   StockRow,
+  TipoMovimiento,
+  TipoMovimientoInput,
+  Traspaso,
+  TraspasoInput,
   UpdateDetalleInput,
 } from "./types";
 
@@ -389,4 +399,67 @@ export function getRegistros(
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);
+}
+
+// --- Financiero (Contabilidad) ---
+
+export function getCarteras(query: { moneda?: string; activo?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (query.moneda) params.set("moneda", query.moneda);
+  if (query.activo !== undefined) params.set("activo", String(query.activo));
+  const qs = params.toString();
+  return apiGet<Cartera[]>(`/contabilidad/carteras${qs ? `?${qs}` : ""}`);
+}
+
+export function getCartera(id: string) {
+  return apiGet<Cartera>(`/contabilidad/carteras/${id}`);
+}
+
+export function createCartera(data: { moneda: MonedaCartera; nombre: string }) {
+  return apiPost<Cartera>("/contabilidad/carteras", data);
+}
+
+export function updateCartera(id: string, data: CarteraInput) {
+  return apiPatch<Cartera>(`/contabilidad/carteras/${id}`, data);
+}
+
+export function deactivateCartera(id: string) {
+  return apiDelete<Cartera>(`/contabilidad/carteras/${id}`);
+}
+
+export function getTiposMovimiento(carteraId: string, query: { naturaleza?: string; activo?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (query.naturaleza) params.set("naturaleza", query.naturaleza);
+  if (query.activo !== undefined) params.set("activo", String(query.activo));
+  const qs = params.toString();
+  return apiGet<TipoMovimiento[]>(`/contabilidad/carteras/${carteraId}/tipos${qs ? `?${qs}` : ""}`);
+}
+
+export function createTipoMovimiento(carteraId: string, data: { nombre: string; naturaleza: NaturalezaMovimiento }) {
+  return apiPost<TipoMovimiento>(`/contabilidad/carteras/${carteraId}/tipos`, data);
+}
+
+export function updateTipoMovimiento(id: string, data: TipoMovimientoInput) {
+  return apiPatch<TipoMovimiento>(`/contabilidad/tipos/${id}`, data);
+}
+
+export function getMovimientos(
+  carteraId: string,
+  query: { fechaDesde?: string; fechaHasta?: string; page?: number; limit?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<MovimientoCartera>>(`/contabilidad/carteras/${carteraId}/movimientos${qs ? `?${qs}` : ""}`);
+}
+
+export function createMovimiento(carteraId: string, data: MovimientoInput) {
+  return apiPost<MovimientoCartera>(`/contabilidad/carteras/${carteraId}/movimientos`, data);
+}
+
+export function createTraspaso(data: TraspasoInput) {
+  return apiPost<Traspaso>("/contabilidad/traspasos", data);
 }

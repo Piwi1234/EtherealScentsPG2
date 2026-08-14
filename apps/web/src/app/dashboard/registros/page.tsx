@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ApiError, getBrands, getCategories, getProducts, getRegistros } from "../../../lib/api";
 import type { Brand, Category, Page, Product, RegistroLinea, TipoProforma } from "../../../lib/types";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
-import { DateRangeDropdown, type DateSelection } from "../../../components/proformas/DateRangeDropdown";
+import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
 import { ProductoSearchSelect } from "../../../components/proformas/ProductoSearchSelect";
 
 const PAGE_SIZE = 20;
