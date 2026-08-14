@@ -158,6 +158,25 @@ export function UsersIcon({ className }: IconProps) {
   );
 }
 
+export function ContabilidadIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <circle cx="15.5" cy="14.5" r="1.8" />
+    </svg>
+  );
+}
+
+export function CuentaIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v9M14.8 9.8c0-1.3-1.25-2.3-2.8-2.3s-2.8 1-2.8 2.1c0 3.1 5.6 1.6 5.6 4.6 0 1.2-1.25 2.2-2.8 2.2s-2.8-1-2.8-2.3" />
+    </svg>
+  );
+}
+
 export function ListIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

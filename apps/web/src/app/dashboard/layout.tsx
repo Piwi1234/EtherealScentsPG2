@@ -11,6 +11,8 @@ import {
   CategoriesIcon,
   ChevronDownIcon,
   ClientsIcon,
+  ContabilidadIcon,
+  CuentaIcon,
   DashboardIcon,
   EmpresasIcon,
   ExchangeIcon,
@@ -46,6 +48,15 @@ const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
 ];
 
+// Submenú acordeón de Contabilidad: lista plana, todas páginas "Próximamente" por ahora.
+const CONTABILIDAD_ITEMS = [
+  { href: "/dashboard/contabilidad/cuenta-bs", label: "Cuenta Bs", icon: CuentaIcon },
+  { href: "/dashboard/contabilidad/cuenta-usdt", label: "Cuenta USDT", icon: CuentaIcon },
+  { href: "/dashboard/contabilidad/cuenta-gs", label: "Cuenta Gs", icon: CuentaIcon },
+  { href: "/dashboard/contabilidad/cuenta-chile", label: "Cuenta Chile", icon: CuentaIcon },
+  { href: "/dashboard/contabilidad/cuenta-usa", label: "Cuenta USA", icon: CuentaIcon },
+];
+
 // Submenú acordeón dentro de AJUSTES, agrupado por título. "adminOnly" oculta el grupo entero
 // para roles que no sean ADMIN (mismo criterio que antes tenía la sección "Usuarios" suelta).
 const CONFIGURACION_GROUPS = [
@@ -68,6 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<AuthUser | null>(null);
   const [configuracionOpen, setConfiguracionOpen] = useState(false);
   const [clientesOpen, setClientesOpen] = useState(false);
+  const [contabilidadOpen, setContabilidadOpen] = useState(false);
 
   useEffect(() => {
     const stored = getAuthUser();
@@ -97,6 +109,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (clientesHasActiveChild) setClientesOpen(true);
   }, [clientesHasActiveChild]);
+
+  const contabilidadHasActiveChild = pathname.startsWith("/dashboard/contabilidad");
+
+  useEffect(() => {
+    if (contabilidadHasActiveChild) setContabilidadOpen(true);
+  }, [contabilidadHasActiveChild]);
 
   function logout() {
     clearSession();
@@ -160,6 +178,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
+        </nav>
+        <div className="sidebar-section-title">FINANCIERO</div>
+        <nav className="sidebar-nav">
+          <button
+            type="button"
+            className={`sidebar-link sidebar-accordion-toggle${contabilidadHasActiveChild ? " active" : ""}`}
+            onClick={() => setContabilidadOpen((open) => !open)}
+            aria-expanded={contabilidadOpen}
+          >
+            <ContabilidadIcon className="sidebar-link-icon" />
+            <span>Contabilidad</span>
+            <ChevronDownIcon className={`sidebar-accordion-chevron${contabilidadOpen ? " open" : ""}`} />
+          </button>
+          <div className={`sidebar-accordion-panel${contabilidadOpen ? " open" : ""}`}>
+            <div className="sidebar-accordion-panel-inner">
+              {CONTABILIDAD_ITEMS.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
+                  >
+                    <Icon className="sidebar-link-icon" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </nav>
         <div className="sidebar-section-title">AJUSTES</div>
         <nav className="sidebar-nav">
