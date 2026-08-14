@@ -48,13 +48,14 @@ const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
 ];
 
-// Submenú acordeón de Contabilidad: lista plana, todas páginas "Próximamente" por ahora.
+// Submenú acordeón de Contabilidad: las 5 Cuentas (por moneda) + la gestión central de Tipos.
 const CONTABILIDAD_ITEMS = [
   { href: "/dashboard/contabilidad/cuenta-bs", label: "Cuenta Bs", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/cuenta-usdt", label: "Cuenta USDT", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/cuenta-gs", label: "Cuenta Gs", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/cuenta-chile", label: "Cuenta Chile", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/cuenta-usa", label: "Cuenta USA", icon: CuentaIcon },
+  { href: "/dashboard/contabilidad/tipos", label: "Tipos", icon: ListIcon },
 ];
 
 // Submenú acordeón dentro de AJUSTES, agrupado por título. "adminOnly" oculta el grupo entero

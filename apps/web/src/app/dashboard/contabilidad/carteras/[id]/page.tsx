@@ -6,13 +6,11 @@ import { useParams } from "next/navigation";
 import {
   ApiError,
   createMovimiento,
-  createTipoMovimiento,
   createTraspaso,
   getCartera,
   getCarteras,
   getMovimientos,
   getTiposMovimiento,
-  updateTipoMovimiento,
 } from "../../../../../lib/api";
 import type { Cartera, MonedaCartera, MovimientoCartera, NaturalezaMovimiento, Page, TipoMovimiento } from "../../../../../lib/types";
 import { formatMonto } from "../../../../../lib/moneda";
@@ -48,12 +46,6 @@ export default function CarteraDetallePage() {
 
   const [tiposIngreso, setTiposIngreso] = useState<TipoMovimiento[]>([]);
   const [tiposGasto, setTiposGasto] = useState<TipoMovimiento[]>([]);
-
-  const [tipoModalOpen, setTipoModalOpen] = useState(false);
-  const [tipoNaturaleza, setTipoNaturaleza] = useState<NaturalezaMovimiento>("INGRESO");
-  const [tipoNombre, setTipoNombre] = useState("");
-  const [tipoError, setTipoError] = useState("");
-  const [tipoSubmitting, setTipoSubmitting] = useState(false);
 
   const [otrasCarteras, setOtrasCarteras] = useState<Cartera[]>([]);
 
@@ -147,43 +139,6 @@ export default function CarteraDetallePage() {
       setMovError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setMovSubmitting(false);
-    }
-  }
-
-  function openTipoModal(naturaleza: NaturalezaMovimiento) {
-    setTipoNaturaleza(naturaleza);
-    setTipoNombre("");
-    setTipoError("");
-    setTipoModalOpen(true);
-  }
-
-  async function handleSubmitTipo(e: React.FormEvent) {
-    e.preventDefault();
-    setTipoError("");
-    const nombre = tipoNombre.trim();
-    if (!nombre) {
-      setTipoError("Ingresá un nombre.");
-      return;
-    }
-    setTipoSubmitting(true);
-    try {
-      await createTipoMovimiento(carteraId, { nombre, naturaleza: tipoNaturaleza });
-      setTipoModalOpen(false);
-      loadTipos();
-    } catch (e) {
-      setTipoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
-    } finally {
-      setTipoSubmitting(false);
-    }
-  }
-
-  async function handleDeactivateTipo(tipo: TipoMovimiento) {
-    if (!confirm(`¿Desactivar el tipo "${tipo.nombre}"?`)) return;
-    try {
-      await updateTipoMovimiento(tipo.id, { activo: false });
-      loadTipos();
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : String(e));
     }
   }
 
@@ -352,56 +307,6 @@ export default function CarteraDetallePage() {
         )}
       </div>
 
-      <div className="card">
-        <h2 style={{ margin: "0 0 16px", fontSize: 16 }}>Tipos</h2>
-        <div className="grid-2">
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <h3 style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>Ingreso</h3>
-              <button type="button" className="link-button" onClick={() => openTipoModal("INGRESO")}>
-                + Nuevo tipo
-              </button>
-            </div>
-            {tiposIngreso.length === 0 ? (
-              <p className="cell-muted" style={{ fontSize: 13 }}>Ninguno todavía.</p>
-            ) : (
-              tiposIngreso.map((tipo) => (
-                <div key={tipo.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                  <span>{tipo.nombre}</span>
-                  {tipo.activo && (
-                    <button type="button" className="link-button" onClick={() => handleDeactivateTipo(tipo)}>
-                      Desactivar
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <h3 style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>Gasto</h3>
-              <button type="button" className="link-button" onClick={() => openTipoModal("GASTO")}>
-                + Nuevo tipo
-              </button>
-            </div>
-            {tiposGasto.length === 0 ? (
-              <p className="cell-muted" style={{ fontSize: 13 }}>Ninguno todavía.</p>
-            ) : (
-              tiposGasto.map((tipo) => (
-                <div key={tipo.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                  <span>{tipo.nombre}</span>
-                  {tipo.activo && (
-                    <button type="button" className="link-button" onClick={() => handleDeactivateTipo(tipo)}>
-                      Desactivar
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
       {movModalOpen && (
         <Modal title={movNaturaleza === "INGRESO" ? "Nuevo ingreso" : "Nuevo gasto"} onClose={() => setMovModalOpen(false)}>
           <form className="form-grid" onSubmit={handleSubmitMovimiento}>
@@ -415,6 +320,15 @@ export default function CarteraDetallePage() {
                   </option>
                 ))}
               </select>
+              {tiposDelModal.length === 0 && (
+                <p className="cell-muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  No hay tipos todavía —{" "}
+                  <Link href="/dashboard/contabilidad/tipos" className="link-button">
+                    creá uno acá
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
             <div>
               <label>Detalle</label>
@@ -496,26 +410,6 @@ export default function CarteraDetallePage() {
               </button>
               <button type="submit" className="button" disabled={traspasoSubmitting}>
                 {traspasoSubmitting ? "Guardando..." : "Traspasar"}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {tipoModalOpen && (
-        <Modal title={tipoNaturaleza === "INGRESO" ? "Nuevo tipo de ingreso" : "Nuevo tipo de gasto"} onClose={() => setTipoModalOpen(false)}>
-          <form className="form-grid" onSubmit={handleSubmitTipo}>
-            <div>
-              <label>Nombre</label>
-              <input className="field" value={tipoNombre} onChange={(e) => setTipoNombre(e.target.value)} required />
-            </div>
-            {tipoError && <p className="error-text">{tipoError}</p>}
-            <div className="form-actions">
-              <button type="button" className="link-button" onClick={() => setTipoModalOpen(false)}>
-                Cancelar
-              </button>
-              <button type="submit" className="button" disabled={tipoSubmitting}>
-                {tipoSubmitting ? "Guardando..." : "Guardar"}
               </button>
             </div>
           </form>

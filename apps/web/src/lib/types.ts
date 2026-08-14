@@ -477,6 +477,11 @@ export type TipoMovimiento = {
 
 export type TipoMovimientoInput = { nombre?: string; naturaleza?: NaturalezaMovimiento; activo?: boolean };
 
+/** Tipo de movimiento con los datos de su cartera — lo devuelve el listado global (página Tipos). */
+export type TipoMovimientoConCartera = TipoMovimiento & {
+  cartera: { id: string; nombre: string; moneda: MonedaCartera };
+};
+
 /** total es el saldo acumulado de la cartera hasta esta fila (calculado por el backend, no
  * guardado) — es la columna "Total" del libro de caja. */
 export type MovimientoCartera = {

@@ -13,6 +13,16 @@ import { UpdateTipoMovimientoDto } from "./dto/update-tipo-movimiento.dto";
 export class TipoMovimientoController {
   constructor(private readonly tipos: TipoMovimientoService) {}
 
+  @Get("tipos")
+  @ApiOperation({ summary: "Lista todos los tipos de ingreso/gasto de todas las carteras." })
+  findAllGlobal(
+    @Query("carteraId") carteraId?: string,
+    @Query("naturaleza") naturaleza?: NaturalezaMovimiento,
+    @Query("activo") activo?: string,
+  ) {
+    return this.tipos.findAllGlobal({ carteraId, naturaleza, activo });
+  }
+
   @Get("carteras/:carteraId/tipos")
   @ApiOperation({ summary: "Lista los tipos de ingreso/gasto propios de una cartera." })
   findAll(

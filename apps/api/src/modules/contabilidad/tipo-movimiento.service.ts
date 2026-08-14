@@ -23,6 +23,20 @@ export class TipoMovimientoService {
     return this.prisma.tipoMovimiento.findMany({ where, orderBy: { nombre: "asc" } });
   }
 
+  /** Lista global (todas las carteras) para la página central de gestión de Tipos. */
+  async findAllGlobal(query: { carteraId?: string; naturaleza?: NaturalezaMovimiento; activo?: string }) {
+    const where: Prisma.TipoMovimientoWhereInput = {
+      carteraId: query.carteraId,
+      naturaleza: query.naturaleza,
+      activo: query.activo === undefined ? undefined : query.activo === "true",
+    };
+    return this.prisma.tipoMovimiento.findMany({
+      where,
+      include: { cartera: { select: { id: true, nombre: true, moneda: true } } },
+      orderBy: [{ cartera: { nombre: "asc" } }, { nombre: "asc" }],
+    });
+  }
+
   private async findOne(id: string) {
     const tipo = await this.prisma.tipoMovimiento.findUnique({ where: { id } });
     if (!tipo) {

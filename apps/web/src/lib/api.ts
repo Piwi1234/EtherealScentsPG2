@@ -29,6 +29,7 @@ import type {
   SeguimientoLinea,
   StockRow,
   TipoMovimiento,
+  TipoMovimientoConCartera,
   TipoMovimientoInput,
   Traspaso,
   TraspasoInput,
@@ -433,6 +434,15 @@ export function getTiposMovimiento(carteraId: string, query: { naturaleza?: stri
   if (query.activo !== undefined) params.set("activo", String(query.activo));
   const qs = params.toString();
   return apiGet<TipoMovimiento[]>(`/contabilidad/carteras/${carteraId}/tipos${qs ? `?${qs}` : ""}`);
+}
+
+export function getTiposMovimientoGlobal(query: { carteraId?: string; naturaleza?: string; activo?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (query.carteraId) params.set("carteraId", query.carteraId);
+  if (query.naturaleza) params.set("naturaleza", query.naturaleza);
+  if (query.activo !== undefined) params.set("activo", String(query.activo));
+  const qs = params.toString();
+  return apiGet<TipoMovimientoConCartera[]>(`/contabilidad/tipos${qs ? `?${qs}` : ""}`);
 }
 
 export function createTipoMovimiento(carteraId: string, data: { nombre: string; naturaleza: NaturalezaMovimiento }) {
