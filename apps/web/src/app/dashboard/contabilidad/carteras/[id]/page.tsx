@@ -52,15 +52,18 @@ export default function CarteraDetallePage() {
 
   const [tiposIngreso, setTiposIngreso] = useState<TipoMovimiento[]>([]);
   const [tiposGasto, setTiposGasto] = useState<TipoMovimiento[]>([]);
-  const [nuevoTipoIngreso, setNuevoTipoIngreso] = useState("");
-  const [nuevoTipoGasto, setNuevoTipoGasto] = useState("");
+
+  const [tipoModalOpen, setTipoModalOpen] = useState(false);
+  const [tipoNaturaleza, setTipoNaturaleza] = useState<NaturalezaMovimiento>("INGRESO");
+  const [tipoNombre, setTipoNombre] = useState("");
+  const [tipoError, setTipoError] = useState("");
+  const [tipoSubmitting, setTipoSubmitting] = useState(false);
 
   const [otrasCarteras, setOtrasCarteras] = useState<Cartera[]>([]);
 
   const [movModalOpen, setMovModalOpen] = useState(false);
   const [movNaturaleza, setMovNaturaleza] = useState<NaturalezaMovimiento>("INGRESO");
   const [movTipoId, setMovTipoId] = useState("");
-  const [movFecha, setMovFecha] = useState(todayISO());
   const [movDetalle, setMovDetalle] = useState("");
   const [movMonto, setMovMonto] = useState("");
   const [movError, setMovError] = useState("");
@@ -122,7 +125,6 @@ export default function CarteraDetallePage() {
   function openMovModal(naturaleza: NaturalezaMovimiento) {
     setMovNaturaleza(naturaleza);
     setMovTipoId("");
-    setMovFecha(todayISO());
     setMovDetalle("");
     setMovMonto("");
     setMovError("");
@@ -139,7 +141,6 @@ export default function CarteraDetallePage() {
     setMovSubmitting(true);
     try {
       await createMovimiento(carteraId, {
-        fecha: movFecha,
         detalle: movDetalle,
         naturaleza: movNaturaleza,
         monto: Number(movMonto),
@@ -154,16 +155,30 @@ export default function CarteraDetallePage() {
     }
   }
 
-  async function handleCreateTipo(naturaleza: NaturalezaMovimiento) {
-    const nombre = naturaleza === "INGRESO" ? nuevoTipoIngreso.trim() : nuevoTipoGasto.trim();
-    if (!nombre) return;
+  function openTipoModal(naturaleza: NaturalezaMovimiento) {
+    setTipoNaturaleza(naturaleza);
+    setTipoNombre("");
+    setTipoError("");
+    setTipoModalOpen(true);
+  }
+
+  async function handleSubmitTipo(e: React.FormEvent) {
+    e.preventDefault();
+    setTipoError("");
+    const nombre = tipoNombre.trim();
+    if (!nombre) {
+      setTipoError("Ingresá un nombre.");
+      return;
+    }
+    setTipoSubmitting(true);
     try {
-      await createTipoMovimiento(carteraId, { nombre, naturaleza });
-      if (naturaleza === "INGRESO") setNuevoTipoIngreso("");
-      else setNuevoTipoGasto("");
+      await createTipoMovimiento(carteraId, { nombre, naturaleza: tipoNaturaleza });
+      setTipoModalOpen(false);
       loadTipos();
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : String(e));
+      setTipoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setTipoSubmitting(false);
     }
   }
 
@@ -348,7 +363,12 @@ export default function CarteraDetallePage() {
         <h2 style={{ margin: "0 0 16px", fontSize: 16 }}>Tipos</h2>
         <div className="grid-2">
           <div>
-            <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--muted)" }}>Ingreso</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h3 style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>Ingreso</h3>
+              <button type="button" className="link-button" onClick={() => openTipoModal("INGRESO")}>
+                + Nuevo tipo
+              </button>
+            </div>
             {tiposIngreso.length === 0 ? (
               <p className="cell-muted" style={{ fontSize: 13 }}>Ninguno todavía.</p>
             ) : (
@@ -363,20 +383,14 @@ export default function CarteraDetallePage() {
                 </div>
               ))
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <input
-                className="field"
-                placeholder="Nuevo tipo de ingreso"
-                value={nuevoTipoIngreso}
-                onChange={(e) => setNuevoTipoIngreso(e.target.value)}
-              />
-              <button type="button" className="action-btn" onClick={() => handleCreateTipo("INGRESO")}>
-                Agregar
-              </button>
-            </div>
           </div>
           <div>
-            <h3 style={{ fontSize: 13, margin: "0 0 8px", color: "var(--muted)" }}>Gasto</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h3 style={{ fontSize: 13, margin: 0, color: "var(--muted)" }}>Gasto</h3>
+              <button type="button" className="link-button" onClick={() => openTipoModal("GASTO")}>
+                + Nuevo tipo
+              </button>
+            </div>
             {tiposGasto.length === 0 ? (
               <p className="cell-muted" style={{ fontSize: 13 }}>Ninguno todavía.</p>
             ) : (
@@ -391,17 +405,6 @@ export default function CarteraDetallePage() {
                 </div>
               ))
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <input
-                className="field"
-                placeholder="Nuevo tipo de gasto"
-                value={nuevoTipoGasto}
-                onChange={(e) => setNuevoTipoGasto(e.target.value)}
-              />
-              <button type="button" className="action-btn" onClick={() => handleCreateTipo("GASTO")}>
-                Agregar
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -419,10 +422,6 @@ export default function CarteraDetallePage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label>Fecha</label>
-              <input className="field" type="date" value={movFecha} onChange={(e) => setMovFecha(e.target.value)} required />
             </div>
             <div>
               <label>Detalle</label>
@@ -508,6 +507,26 @@ export default function CarteraDetallePage() {
               </button>
               <button type="submit" className="button" disabled={traspasoSubmitting}>
                 {traspasoSubmitting ? "Guardando..." : "Traspasar"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {tipoModalOpen && (
+        <Modal title={tipoNaturaleza === "INGRESO" ? "Nuevo tipo de ingreso" : "Nuevo tipo de gasto"} onClose={() => setTipoModalOpen(false)}>
+          <form className="form-grid" onSubmit={handleSubmitTipo}>
+            <div>
+              <label>Nombre</label>
+              <input className="field" value={tipoNombre} onChange={(e) => setTipoNombre(e.target.value)} required />
+            </div>
+            {tipoError && <p className="error-text">{tipoError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setTipoModalOpen(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="button" disabled={tipoSubmitting}>
+                {tipoSubmitting ? "Guardando..." : "Guardar"}
               </button>
             </div>
           </form>

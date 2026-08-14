@@ -497,7 +497,6 @@ export type MovimientoCartera = {
 };
 
 export type MovimientoInput = {
-  fecha: string;
   detalle: string;
   naturaleza: NaturalezaMovimiento;
   monto: number;

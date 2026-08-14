@@ -86,7 +86,7 @@ export class MovimientoService {
         const movimiento = await tx.movimientoCartera.create({
           data: {
             carteraId,
-            fecha: new Date(dto.fecha),
+            fecha: new Date(),
             detalle: dto.detalle,
             naturaleza: dto.naturaleza,
             monto: dto.monto,

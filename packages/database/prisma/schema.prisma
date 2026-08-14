@@ -712,9 +712,10 @@ model TipoMovimiento {
 /// Log de solo-inserción (nunca se edita ni se borra por API) — cada fila es un ingreso o gasto de
 /// una cartera. tipoMovimientoId es obligatorio para carga manual; queda null en las 2 filas que
 /// genera un Traspaso (esas se identifican por traspasoId en cambio, y su detalle se arma solo).
-/// El saldo acumulado ("Total" en la UI) no se guarda acá: con fecha editable, un movimiento cargado
-/// después con fecha pasada dejaría mal un acumulado guardado. Se recalcula en memoria al leer
-/// (movimiento.service.ts), ordenando por fecha — barato a la escala de una caja chica.
+/// En carga manual, fecha siempre es la fecha actual (no editable desde la API); en las filas que
+/// genera un Traspaso, fecha hereda la del traspaso (esa sí puede ser pasada). El saldo acumulado
+/// ("Total" en la UI) no se guarda acá: como puede haber fechas pasadas por traspasos, se recalcula
+/// en memoria al leer (movimiento.service.ts), ordenando por fecha — barato a la escala de una caja chica.
 model MovimientoCartera {
   id               String               @id @default(uuid()) @db.Uuid
   carteraId        String               @map("cartera_id") @db.Uuid

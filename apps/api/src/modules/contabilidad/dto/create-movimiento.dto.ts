@@ -1,12 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsString, IsUUID, Min } from "class-validator";
+import { IsEnum, IsNotEmpty, IsNumber, IsString, IsUUID, Min } from "class-validator";
 import { NaturalezaMovimiento } from "@app/database";
 
 export class CreateMovimientoDto {
-  @ApiProperty({ description: "Fecha del movimiento (puede ser pasada — no tiene que ser hoy)." })
-  @IsDateString()
-  fecha!: string;
-
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
