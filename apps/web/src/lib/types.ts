@@ -518,7 +518,6 @@ export type Traspaso = {
 };
 
 export type TraspasoInput = {
-  fecha: string;
   carteraOrigenId: string;
   carteraDestinoId: string;
   montoOrigen: number;

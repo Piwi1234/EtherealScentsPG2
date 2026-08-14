@@ -38,6 +38,7 @@ export class TraspasoService {
       tipoCambio = dto.tipoCambio;
     }
     const montoDestino = dto.montoOrigen * tipoCambio;
+    const fecha = new Date();
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -46,7 +47,7 @@ export class TraspasoService {
 
         const traspaso = await tx.traspaso.create({
           data: {
-            fecha: new Date(dto.fecha),
+            fecha,
             carteraOrigenId: dto.carteraOrigenId,
             carteraDestinoId: dto.carteraDestinoId,
             montoOrigen: dto.montoOrigen,
@@ -60,7 +61,7 @@ export class TraspasoService {
         await tx.movimientoCartera.create({
           data: {
             carteraId: dto.carteraOrigenId,
-            fecha: new Date(dto.fecha),
+            fecha,
             detalle: `Traspaso a ${destino.nombre}`,
             naturaleza: NaturalezaMovimiento.GASTO,
             monto: dto.montoOrigen,
@@ -71,7 +72,7 @@ export class TraspasoService {
         await tx.movimientoCartera.create({
           data: {
             carteraId: dto.carteraDestinoId,
-            fecha: new Date(dto.fecha),
+            fecha,
             detalle: `Traspaso desde ${origen.nombre}`,
             naturaleza: NaturalezaMovimiento.INGRESO,
             monto: montoDestino,

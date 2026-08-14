@@ -1,11 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsDateString, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 export class CreateTraspasoDto {
-  @ApiProperty()
-  @IsDateString()
-  fecha!: string;
-
   @ApiProperty()
   @IsUUID()
   carteraOrigenId!: string;

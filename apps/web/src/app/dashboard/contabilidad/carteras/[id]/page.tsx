@@ -34,10 +34,6 @@ function formatFecha(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function CarteraDetallePage() {
   const params = useParams<{ id: string }>();
   const carteraId = params.id;
@@ -73,7 +69,6 @@ export default function CarteraDetallePage() {
   const [traspasoDestinoId, setTraspasoDestinoId] = useState("");
   const [traspasoMonto, setTraspasoMonto] = useState("");
   const [traspasoTipoCambio, setTraspasoTipoCambio] = useState("");
-  const [traspasoFecha, setTraspasoFecha] = useState(todayISO());
   const [traspasoNota, setTraspasoNota] = useState("");
   const [traspasoError, setTraspasoError] = useState("");
   const [traspasoSubmitting, setTraspasoSubmitting] = useState(false);
@@ -199,7 +194,6 @@ export default function CarteraDetallePage() {
     setTraspasoDestinoId("");
     setTraspasoMonto("");
     setTraspasoTipoCambio("");
-    setTraspasoFecha(todayISO());
     setTraspasoNota("");
     setTraspasoError("");
     setTraspasoModalOpen(true);
@@ -219,7 +213,6 @@ export default function CarteraDetallePage() {
     setTraspasoSubmitting(true);
     try {
       await createTraspaso({
-        fecha: traspasoFecha,
         carteraOrigenId: carteraId,
         carteraDestinoId: traspasoDestinoId,
         montoOrigen: Number(traspasoMonto),
@@ -492,10 +485,6 @@ export default function CarteraDetallePage() {
                 />
               </div>
             )}
-            <div>
-              <label>Fecha</label>
-              <input className="field" type="date" value={traspasoFecha} onChange={(e) => setTraspasoFecha(e.target.value)} required />
-            </div>
             <div>
               <label>Nota (opcional)</label>
               <input className="field" value={traspasoNota} onChange={(e) => setTraspasoNota(e.target.value)} />
