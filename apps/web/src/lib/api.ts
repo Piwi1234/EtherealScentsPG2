@@ -217,11 +217,12 @@ export function deactivatePaisProcedencia(id: string) {
 
 // --- Proveedores ---
 
-export function getProveedores(query: { page?: number; pageSize?: number; activo?: string } = {}) {
+export function getProveedores(query: { page?: number; pageSize?: number; activo?: string; search?: string } = {}) {
   const params = new URLSearchParams();
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   if (query.activo) params.set("activo", query.activo);
+  if (query.search) params.set("search", query.search);
   const qs = params.toString();
   return apiGet<Page<Proveedor>>(`/proveedores${qs ? `?${qs}` : ""}`);
 }

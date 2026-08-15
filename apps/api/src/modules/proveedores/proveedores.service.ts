@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -16,13 +17,16 @@ export class ProveedoresService {
     if (!pais) throw new BadRequestException(`paisProcedenciaId inválido: ${id}`);
   }
 
-  async findAll(query: { page?: string; pageSize?: string; activo?: string }) {
+  async findAll(query: { page?: string; pageSize?: string; activo?: string; search?: string }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
     });
 
-    const where = query.activo !== undefined ? { activo: query.activo === "true" } : {};
+    const where: Prisma.ProveedorWhereInput = {
+      activo: query.activo !== undefined ? query.activo === "true" : undefined,
+      nombre: query.search ? { contains: query.search, mode: "insensitive" } : undefined,
+    };
 
     const [items, total] = await Promise.all([
       this.prisma.proveedor.findMany({ where, skip, take, orderBy: { nombre: "asc" }, include }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ApiError,
   createProveedor,
@@ -13,11 +13,17 @@ import type { PaisProcedencia, Proveedor, ProveedorInput } from "../../../lib/ty
 import { Modal } from "../../../components/Modal";
 
 const EMPTY_FORM: ProveedorInput = { nombre: "", paisProcedenciaId: "", nota: "" };
+const DEBOUNCE_MS = 400;
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[] | null>(null);
   const [paises, setPaises] = useState<PaisProcedencia[]>([]);
   const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [activo, setActivo] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Proveedor | null>(null);
@@ -26,7 +32,7 @@ export default function ProveedoresPage() {
   const [submitting, setSubmitting] = useState(false);
 
   function load() {
-    getProveedores({ pageSize: 100 })
+    getProveedores({ pageSize: 100, search: search || undefined, activo: activo || undefined })
       .then((page) => setProveedores(page.items))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
@@ -34,7 +40,21 @@ export default function ProveedoresPage() {
   useEffect(() => {
     load();
     getPaisesProcedencia({ pageSize: 100 }).then((page) => setPaises(page.items.filter((p) => p.activo)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(load, DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, activo]);
 
   function openCreate() {
     setEditing(null);
@@ -92,9 +112,32 @@ export default function ProveedoresPage() {
           <span className="btn-cta-icon">+</span> Nuevo proveedor
         </button>
       </div>
+
+      <div className="filters-bar" style={{ marginBottom: 16 }}>
+        <div className="filter-field">
+          <label className="filter-label">Buscar</label>
+          <input
+            className="field"
+            placeholder="Nombre . . ."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="filter-field">
+          <label className="filter-label">Estado</label>
+          <select className="field" value={activo} onChange={(e) => setActivo(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="true">Activo</option>
+            <option value="false">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
       {error && <p className="error-text">{error}</p>}
       {!proveedores && !error && <p>Cargando...</p>}
-      {proveedores && proveedores.length === 0 && <p>No hay proveedores todavía.</p>}
+      {proveedores && proveedores.length === 0 && (
+        <p>{search || activo ? "No hay proveedores para estos filtros." : "No hay proveedores todavía."}</p>
+      )}
       {proveedores && proveedores.length > 0 && (
         <table className="table table-minimal">
           <thead>

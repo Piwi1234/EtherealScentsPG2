@@ -15,8 +15,13 @@ export class ProveedoresController {
 
   @Get()
   @ApiOperation({ summary: "Lista proveedores (paginado)." })
-  findAll(@Query("page") page?: string, @Query("pageSize") pageSize?: string, @Query("activo") activo?: string) {
-    return this.proveedores.findAll({ page, pageSize, activo });
+  findAll(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("activo") activo?: string,
+    @Query("search") search?: string,
+  ) {
+    return this.proveedores.findAll({ page, pageSize, activo, search });
   }
 
   @Get(":id")
