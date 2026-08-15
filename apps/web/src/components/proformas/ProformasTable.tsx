@@ -17,7 +17,8 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
         <tr>
           <th>Tipo</th>
           <th>Empresa</th>
-          <th>Cliente / Almacén</th>
+          <th>Almacén</th>
+          <th>Cliente / Proveedor</th>
           {mostrarVendedor && <th>Vendedor</th>}
           <th>Estado</th>
           <th>Fecha</th>
@@ -33,8 +34,9 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
           >
             <td className="cell-primary">{proforma.tipo === "VENTA" ? "Venta" : "Compra"}</td>
             <td>{proforma.empresa.nombre}</td>
+            <td className="cell-muted">{proforma.almacen?.nombre ?? "—"}</td>
             <td className="cell-muted">
-              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.almacen?.nombre ?? "—"}
+              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.proveedor?.nombre ?? "—"}
             </td>
             {mostrarVendedor && <td className="cell-muted">{proforma.tipo === "VENTA" ? proforma.creadoPor.nombre : "—"}</td>}
             <td>

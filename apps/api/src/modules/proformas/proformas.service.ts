@@ -18,6 +18,7 @@ export const includeDetails = {
   cliente: true,
   almacen: true,
   ciudadEntrega: true,
+  proveedor: true,
   paisProcedencia: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
@@ -127,6 +128,11 @@ export class ProformasService {
     if (!pais) throw new BadRequestException(`paisProcedenciaId inválido: ${id}`);
   }
 
+  private async assertProveedorExists(id: string) {
+    const proveedor = await this.prisma.proveedor.findUnique({ where: { id } });
+    if (!proveedor) throw new BadRequestException(`proveedorId inválido: ${id}`);
+  }
+
   private async getVarianteParaPrecio(varianteId: string) {
     const variante = await this.prisma.productVariant.findUnique({
       where: { id: varianteId },
@@ -153,11 +159,14 @@ export class ProformasService {
       if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
       await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
+      if (dto.proveedorId) throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
       if (dto.paisProcedenciaId) throw new BadRequestException("paisProcedenciaId no aplica a una proforma de venta.");
       if (dto.tipoCambioProf !== undefined) throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
     } else {
       if (dto.clienteId) throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
+      if (!dto.proveedorId) throw new BadRequestException("proveedorId es obligatorio para una proforma de compra.");
+      await this.assertProveedorExists(dto.proveedorId);
       if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
     }
 
@@ -174,6 +183,7 @@ export class ProformasService {
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
+            proveedorId: dto.tipo === TipoProforma.COMPRA ? dto.proveedorId : undefined,
             paisProcedenciaId: dto.tipo === TipoProforma.COMPRA ? dto.paisProcedenciaId : undefined,
             tipoCambioProf,
             creadoPorId,
@@ -196,6 +206,9 @@ export class ProformasService {
     if (existing.tipo === TipoProforma.VENTA) {
       if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
+      if (dto.proveedorId !== undefined) {
+        throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
+      }
       if (dto.paisProcedenciaId !== undefined) {
         throw new BadRequestException("paisProcedenciaId no aplica a una proforma de venta.");
       }
@@ -209,6 +222,7 @@ export class ProformasService {
       if (dto.ciudadEntregaId !== undefined) {
         throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       }
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
       if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
     }
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);

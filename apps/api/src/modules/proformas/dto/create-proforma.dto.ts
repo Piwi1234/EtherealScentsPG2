@@ -21,6 +21,11 @@ export class CreateProformaDto {
   @IsUUID()
   ciudadEntregaId?: string;
 
+  @ApiPropertyOptional({ description: "Obligatorio si tipo = COMPRA." })
+  @IsOptional()
+  @IsUUID()
+  proveedorId?: string;
+
   @ApiPropertyOptional({ description: "Solo aplica a COMPRA: de dónde viene la mercadería, informativo." })
   @IsOptional()
   @IsUUID()

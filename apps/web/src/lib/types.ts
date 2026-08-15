@@ -431,6 +431,9 @@ export type Proforma = {
   almacen: Almacen | null;
   ciudadEntregaId: string | null;
   ciudadEntrega: Ciudad | null;
+  /** Solo COMPRA: a quién se le compra — mismo rol que cliente cumple en VENTA. */
+  proveedorId: string | null;
+  proveedor: Proveedor | null;
   /** Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
    * compra puntual, para valorar en Bs sin depender del tipo de cambio del sistema. Ambos null en VENTA. */
   paisProcedenciaId: string | null;
@@ -455,6 +458,7 @@ export type ProformaInput = {
   empresaId: string;
   clienteId?: string;
   ciudadEntregaId?: string;
+  proveedorId?: string;
   paisProcedenciaId?: string;
   tipoCambioProf?: number;
   descuentoGeneral?: number;

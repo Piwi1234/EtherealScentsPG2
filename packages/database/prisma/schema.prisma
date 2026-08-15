@@ -496,6 +496,8 @@ model Proveedor {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
+  proformas Proforma[]
+
   @@map("proveedores")
 }
 
@@ -658,6 +660,12 @@ model Proforma {
   // Solo VENTA: dato informativo de a qué ciudad va el pedido, sin efecto en la lógica de negocio.
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
+
+  // Solo COMPRA: a quién se le compra — mismo rol que clienteId cumple en VENTA. Al elegirlo en el
+  // formulario de creación, precarga paisProcedenciaId con el país del proveedor (igual criterio que
+  // clienteId precarga ciudadEntregaId) — sigue editable después.
+  proveedorId String?    @map("proveedor_id") @db.Uuid
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
 
   // Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
   // compra puntual — permite valorar en Bs sin depender del tipo de cambio del sistema, que puede
