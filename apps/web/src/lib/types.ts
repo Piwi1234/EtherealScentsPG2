@@ -231,14 +231,33 @@ export type Ciudad = {
   updatedAt: string;
 };
 
-/** Catálogo de países de origen (de dónde viene la mercadería) — sin relaciones todavía, uso
- * futuro. Distinto de Ciudad (que es la ciudad de ENTREGA del cliente). */
+/** Catálogo de países de origen (de dónde viene la mercadería). Distinto de Ciudad (que es la
+ * ciudad de ENTREGA del cliente). Usado en Proforma (solo COMPRA) y en Proveedor. */
 export type PaisProcedencia = {
   id: string;
   nombre: string;
   activo: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+/** A quién se le compra. paisProcedenciaId es obligatorio a nivel de servicio. */
+export type Proveedor = {
+  id: string;
+  nombre: string;
+  paisProcedenciaId: string | null;
+  paisProcedencia: PaisProcedencia | null;
+  nota: string | null;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProveedorInput = {
+  nombre: string;
+  paisProcedenciaId: string;
+  nota?: string;
+  activo?: boolean;
 };
 
 export type Almacen = {

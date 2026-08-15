@@ -88,6 +88,17 @@ export function ClientsIcon({ className }: IconProps) {
   );
 }
 
+export function ProveedoresIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <rect x="2.5" y="7" width="11" height="9" rx="1" />
+      <path d="M13.5 10h3.5l3.5 3v3h-7v-6Z" />
+      <circle cx="6.5" cy="18" r="1.6" />
+      <circle cx="17" cy="18" r="1.6" />
+    </svg>
+  );
+}
+
 export function EmpresasIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

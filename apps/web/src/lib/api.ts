@@ -27,6 +27,8 @@ import type {
   Product,
   Proforma,
   ProformaInput,
+  Proveedor,
+  ProveedorInput,
   RegistroLinea,
   SeguimientoLinea,
   StockRow,
@@ -211,6 +213,29 @@ export function createPaisProcedencia(nombre: string) {
 
 export function deactivatePaisProcedencia(id: string) {
   return apiDelete<PaisProcedencia>(`/paises-procedencia/${id}`);
+}
+
+// --- Proveedores ---
+
+export function getProveedores(query: { page?: number; pageSize?: number; activo?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query.activo) params.set("activo", query.activo);
+  const qs = params.toString();
+  return apiGet<Page<Proveedor>>(`/proveedores${qs ? `?${qs}` : ""}`);
+}
+
+export function createProveedor(data: ProveedorInput) {
+  return apiPost<Proveedor>("/proveedores", data);
+}
+
+export function updateProveedor(id: string, data: Partial<ProveedorInput>) {
+  return apiPatch<Proveedor>(`/proveedores/${id}`, data);
+}
+
+export function deleteProveedor(id: string) {
+  return apiDelete<Proveedor>(`/proveedores/${id}`);
 }
 
 // --- Almacenes ---

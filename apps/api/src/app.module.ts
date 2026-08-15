@@ -6,6 +6,7 @@ import { UsuariosModule } from "./modules/usuarios/usuarios.module";
 import { ClientesModule } from "./modules/clientes/clientes.module";
 import { EmpresasModule } from "./modules/empresas/empresas.module";
 import { AlmacenesModule } from "./modules/almacenes/almacenes.module";
+import { ProveedoresModule } from "./modules/proveedores/proveedores.module";
 import { ProformasModule } from "./modules/proformas/proformas.module";
 import { ContabilidadModule } from "./modules/contabilidad/contabilidad.module";
 import { CatalogModule } from "./catalog/catalog.module";
@@ -20,6 +21,7 @@ import { SettingsModule } from "./settings/settings.module";
     ClientesModule,
     EmpresasModule,
     AlmacenesModule,
+    ProveedoresModule,
     ProformasModule,
     ContabilidadModule,
     CatalogModule,

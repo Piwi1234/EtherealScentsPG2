@@ -21,6 +21,7 @@ import {
   OrdersIcon,
   ProductsIcon,
   ProformasIcon,
+  ProveedoresIcon,
   RegistrosIcon,
   SeguimientoIcon,
   SettingsIcon,
@@ -39,6 +40,13 @@ const NAV_ITEMS = [
 const CLIENTES_ITEMS = [
   { href: "/dashboard/clientes", label: "Listado", icon: ListIcon },
   { href: "/dashboard/clientes/pedidos", label: "Pedidos", icon: OrdersIcon },
+];
+
+// Submenú acordeón de Proveedores: mismo esqueleto que Clientes (Listado/Pedidos). Pedidos queda
+// "Próximamente" hasta tener pensada su funcionalidad.
+const PROVEEDORES_ITEMS = [
+  { href: "/dashboard/proveedores", label: "Listado", icon: ListIcon },
+  { href: "/dashboard/proveedores/pedidos", label: "Pedidos", icon: OrdersIcon },
 ];
 
 // Submenú acordeón de Stock: existencias/lotes de compra separado del historial de traspasos.
@@ -85,6 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<AuthUser | null>(null);
   const [configuracionOpen, setConfiguracionOpen] = useState(false);
   const [clientesOpen, setClientesOpen] = useState(false);
+  const [proveedoresOpen, setProveedoresOpen] = useState(false);
   const [stockOpen, setStockOpen] = useState(false);
   const [contabilidadOpen, setContabilidadOpen] = useState(false);
 
@@ -116,6 +125,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (clientesHasActiveChild) setClientesOpen(true);
   }, [clientesHasActiveChild]);
+
+  const proveedoresHasActiveChild = pathname.startsWith("/dashboard/proveedores");
+  // "Listado" también cubre /dashboard/proveedores a secas, así que el match más específico
+  // (Pedidos) gana cuando aplica, mismo criterio que Clientes/Pedidos.
+  const proveedoresActiveHref = pathname.startsWith("/dashboard/proveedores/pedidos")
+    ? "/dashboard/proveedores/pedidos"
+    : proveedoresHasActiveChild
+      ? "/dashboard/proveedores"
+      : null;
+
+  useEffect(() => {
+    if (proveedoresHasActiveChild) setProveedoresOpen(true);
+  }, [proveedoresHasActiveChild]);
 
   const stockHasActiveChild = pathname.startsWith("/dashboard/stock");
   // "Existencias" también cubre /dashboard/stock a secas, así que el match más específico
@@ -161,6 +183,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="sidebar-accordion-panel-inner">
               {CLIENTES_ITEMS.map((item) => {
                 const active = item.href === clientesActiveHref;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
+                  >
+                    <Icon className="sidebar-link-icon" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`sidebar-link sidebar-accordion-toggle${proveedoresHasActiveChild ? " active" : ""}`}
+            onClick={() => setProveedoresOpen((open) => !open)}
+            aria-expanded={proveedoresOpen}
+          >
+            <ProveedoresIcon className="sidebar-link-icon" />
+            <span>Proveedores</span>
+            <ChevronDownIcon className={`sidebar-accordion-chevron${proveedoresOpen ? " open" : ""}`} />
+          </button>
+          <div className={`sidebar-accordion-panel${proveedoresOpen ? " open" : ""}`}>
+            <div className="sidebar-accordion-panel-inner">
+              {PROVEEDORES_ITEMS.map((item) => {
+                const active = item.href === proveedoresActiveHref;
                 const Icon = item.icon;
                 return (
                   <Link

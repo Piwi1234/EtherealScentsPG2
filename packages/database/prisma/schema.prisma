@@ -477,9 +477,26 @@ model PaisProcedencia {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  proformas Proforma[]
+  proformas   Proforma[]
+  proveedores Proveedor[]
 
   @@map("paises_procedencia")
+}
+
+/// Catálogo de proveedores (a quién se le compra) — listado desde el sidebar bajo "Proveedores".
+/// paisProcedenciaId es obligatorio a nivel de servicio (nullable acá solo por si en el futuro se
+/// permite un proveedor sin país definido); nota es libre, informativa.
+model Proveedor {
+  id                String           @id @default(uuid()) @db.Uuid
+  nombre            String
+  paisProcedenciaId String?          @map("pais_procedencia_id") @db.Uuid
+  paisProcedencia   PaisProcedencia? @relation(fields: [paisProcedenciaId], references: [id], onDelete: Restrict)
+  nota              String?
+  activo            Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  @@map("proveedores")
 }
 
 model Empresa {
