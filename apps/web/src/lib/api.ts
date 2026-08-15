@@ -34,6 +34,8 @@ import type {
   TipoMovimientoConCartera,
   TipoMovimientoInput,
   Traspaso,
+  TraspasoAlmacen,
+  TraspasoAlmacenInput,
   TraspasoInput,
   UpdateDetalleInput,
 } from "./types";
@@ -293,6 +295,22 @@ export function getLotesCompra(
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<LoteCompraConDetalle>>(`/stock/lotes${qs ? `?${qs}` : ""}`);
+}
+
+export function getTraspasosAlmacen(
+  query: { varianteId?: string; almacenId?: string; page?: number; pageSize?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.varianteId) params.set("varianteId", query.varianteId);
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<TraspasoAlmacen>>(`/traspasos-almacen${qs ? `?${qs}` : ""}`);
+}
+
+export function createTraspasoAlmacen(data: TraspasoAlmacenInput) {
+  return apiPost<TraspasoAlmacen>("/traspasos-almacen", data);
 }
 
 // --- Proformas ---

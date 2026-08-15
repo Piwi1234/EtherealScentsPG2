@@ -33,6 +33,7 @@ model Usuario {
 
   movimientosCartera MovimientoCartera[]
   traspasosCreados   Traspaso[]
+  traspasosAlmacenCreados TraspasoAlmacen[]
 
   @@map("usuarios")
 }
@@ -337,6 +338,7 @@ model ProductVariant {
   stock            Stock[]
   lotesCompra      LoteCompra[]
   proformaDetalles ProformaDetalle[]
+  traspasosAlmacen TraspasoAlmacen[]
 
   @@map("product_variants")
 }
@@ -507,6 +509,8 @@ model Almacen {
   lotesCompra  LoteCompra[]
   proformas    Proforma[]                  @relation("ProformaAlmacen")
   asignaciones ProformaDetalleAsignacion[]
+  traspasosOrigen  TraspasoAlmacen[] @relation("TraspasoAlmacenOrigen")
+  traspasosDestino TraspasoAlmacen[] @relation("TraspasoAlmacenDestino")
 
   @@map("almacenes")
 }
@@ -550,6 +554,8 @@ model LoteCompra {
   fecha              DateTime        @default(now())
 
   consumos LoteCompraConsumo[]
+  traspasosComoOrigen  TraspasoAlmacenLote[] @relation("LoteOrigenTraspaso")
+  traspasosComoDestino TraspasoAlmacenLote[] @relation("LoteDestinoTraspaso")
 
   @@index([varianteId, almacenId, fecha])
   @@index([proformaDetalleId])
@@ -570,6 +576,48 @@ model LoteCompraConsumo {
 
   @@unique([loteCompraId, proformaDetalleAsignacionId])
   @@map("lotes_compra_consumo")
+}
+
+/// Traspaso de stock físico de una variante entre dos almacenes — instantáneo, inmutable (igual
+/// criterio que Traspaso de Contabilidad). Descuenta cantidadFisica del origen y la suma al destino,
+/// moviendo también el/los LoteCompra usados: por cada lote de origen decrementa su
+/// cantidadDisponible y crea un LoteCompra nuevo en el destino con el mismo costoUnitario y el mismo
+/// proformaDetalleId (la compra original no cambia, solo dónde está físicamente ese lote ahora) —
+/// así una venta futura desde el destino sigue eligiendo lotes reales con costo real. No se puede
+/// traspasar stock reservado (cantidadReservada): solo lo disponible (física - reservada).
+model TraspasoAlmacen {
+  id               String         @id @default(uuid()) @db.Uuid
+  fecha            DateTime       @default(now())
+  varianteId       String         @map("variante_id") @db.Uuid
+  variante         ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  almacenOrigenId  String         @map("almacen_origen_id") @db.Uuid
+  almacenOrigen    Almacen        @relation("TraspasoAlmacenOrigen", fields: [almacenOrigenId], references: [id], onDelete: Restrict)
+  almacenDestinoId String         @map("almacen_destino_id") @db.Uuid
+  almacenDestino   Almacen        @relation("TraspasoAlmacenDestino", fields: [almacenDestinoId], references: [id], onDelete: Restrict)
+  cantidad         Int
+  nota             String?
+  creadoPorId      String         @map("creado_por_id") @db.Uuid
+  creadoPor        Usuario        @relation(fields: [creadoPorId], references: [id])
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  lotes TraspasoAlmacenLote[]
+
+  @@map("traspasos_almacen")
+}
+
+/// Detalle de qué lote de origen alimentó qué lote nuevo en destino y cuánto — igual criterio que
+/// LoteCompraConsumo para ventas.
+model TraspasoAlmacenLote {
+  id            String          @id @default(uuid()) @db.Uuid
+  traspasoId    String          @map("traspaso_id") @db.Uuid
+  traspaso      TraspasoAlmacen @relation(fields: [traspasoId], references: [id], onDelete: Cascade)
+  loteOrigenId  String          @map("lote_origen_id") @db.Uuid
+  loteOrigen    LoteCompra      @relation("LoteOrigenTraspaso", fields: [loteOrigenId], references: [id], onDelete: Restrict)
+  loteDestinoId String          @map("lote_destino_id") @db.Uuid
+  loteDestino   LoteCompra      @relation("LoteDestinoTraspaso", fields: [loteDestinoId], references: [id], onDelete: Restrict)
+  cantidad      Int
+
+  @@map("traspasos_almacen_lote")
 }
 
 model Proforma {

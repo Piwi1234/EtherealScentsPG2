@@ -321,6 +321,34 @@ export type LoteCompraConDetalle = LoteCompra & {
   proformaDetalle: { proforma: { tipoCambioProf: string | null } };
 };
 
+export type TraspasoAlmacenLote = { id: string; loteOrigenId: string; loteDestinoId: string; cantidad: number };
+
+/** Traspaso de stock físico entre almacenes — instantáneo e inmutable, mueve también los LoteCompra
+ * usados (ver doc-comment de TraspasoAlmacen en schema.prisma). */
+export type TraspasoAlmacen = {
+  id: string;
+  fecha: string;
+  varianteId: string;
+  variante: { id: string; variantCode: string; unidad: UnidadVariante; product: { id: string; name: string; productCode: string } };
+  almacenOrigenId: string;
+  almacenOrigen: { id: string; nombre: string };
+  almacenDestinoId: string;
+  almacenDestino: { id: string; nombre: string };
+  cantidad: number;
+  nota: string | null;
+  creadoPor: { id: string; nombre: string };
+  createdAt: string;
+  lotes: TraspasoAlmacenLote[];
+};
+
+export type TraspasoAlmacenInput = {
+  varianteId: string;
+  almacenOrigenId: string;
+  almacenDestinoId: string;
+  lotes: { loteCompraId: string; cantidad: number }[];
+  nota?: string;
+};
+
 /** Variante tal como viene anidada en ProformaDetalle — campos crudos, sin los precios calculados en
  * vivo que sí trae el endpoint de catálogo (acá no hace falta: precioUnitario/subtotal ya están en la
  * línea). */
