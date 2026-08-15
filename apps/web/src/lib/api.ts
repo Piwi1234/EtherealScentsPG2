@@ -348,6 +348,7 @@ export function getProformas(
     empresaId?: string;
     creadoPorId?: string;
     clienteId?: string;
+    proveedorId?: string;
     page?: number;
     limit?: number;
   } = {},
@@ -358,6 +359,7 @@ export function getProformas(
   if (query.empresaId) params.set("empresaId", query.empresaId);
   if (query.creadoPorId) params.set("creadoPorId", query.creadoPorId);
   if (query.clienteId) params.set("clienteId", query.clienteId);
+  if (query.proveedorId) params.set("proveedorId", query.proveedorId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
@@ -454,6 +456,7 @@ export function getRegistros(
     brandId?: string;
     productId?: string;
     clienteId?: string;
+    proveedorId?: string;
     page?: number;
     limit?: number;
   },
@@ -466,6 +469,7 @@ export function getRegistros(
   if (query.brandId) params.set("brandId", query.brandId);
   if (query.productId) params.set("productId", query.productId);
   if (query.clienteId) params.set("clienteId", query.clienteId);
+  if (query.proveedorId) params.set("proveedorId", query.proveedorId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);

@@ -38,6 +38,11 @@ export class QueryRegistrosDto {
   @IsUUID()
   clienteId?: string;
 
+  @ApiPropertyOptional({ description: "Solo COMPRA: pedidos de un proveedor puntual." })
+  @IsOptional()
+  @IsUUID()
+  proveedorId?: string;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)

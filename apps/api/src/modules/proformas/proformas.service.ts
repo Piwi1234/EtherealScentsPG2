@@ -76,6 +76,7 @@ export class ProformasService {
       empresaId: query.empresaId,
       creadoPorId: query.creadoPorId,
       clienteId: query.clienteId,
+      proveedorId: query.proveedorId,
     };
     const [items, total] = await Promise.all([
       this.prisma.proforma.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),

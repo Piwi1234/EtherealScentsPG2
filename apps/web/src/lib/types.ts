@@ -527,6 +527,7 @@ export type RegistroLinea = {
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
+    proveedor: { id: string; nombre: string } | null;
     paisProcedencia: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
   };
