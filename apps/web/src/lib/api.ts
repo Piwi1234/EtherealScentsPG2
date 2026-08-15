@@ -22,6 +22,8 @@ import type {
   MovimientoInput,
   NaturalezaMovimiento,
   Page,
+  PresentacionVenta,
+  PresentacionVentaInput,
   Product,
   Proforma,
   ProformaInput,
@@ -327,6 +329,18 @@ export function updateProforma(id: string, data: Partial<ProformaInput>) {
 
 export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
   return apiPost<Proforma>(`/proformas/${proformaId}/detalles/venta`, data);
+}
+
+export function getPresentaciones(varianteId: string) {
+  return apiGet<PresentacionVenta[]>(`/products/variants/${varianteId}/presentaciones`);
+}
+
+export function createPresentacion(varianteId: string, data: { cantidadMl: number; precioVentaBs: number }) {
+  return apiPost<PresentacionVenta>(`/products/variants/${varianteId}/presentaciones`, data);
+}
+
+export function updatePresentacion(id: string, data: PresentacionVentaInput) {
+  return apiPatch<PresentacionVenta>(`/products/presentaciones/${id}`, data);
 }
 
 export function addDetalleCompra(proformaId: string, data: DetalleCompraInput) {

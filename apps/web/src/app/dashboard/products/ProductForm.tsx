@@ -2,9 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
+import {
+  API_ORIGIN,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  apiUpload,
+  ApiError,
+  createPresentacion,
+  getPresentaciones,
+  updatePresentacion,
+} from "../../../lib/api";
 import { consumeFlashMessage, setFlashMessage } from "../../../lib/flash";
-import type { Attribute, Brand, Category, ExchangeRateResponse, Product } from "../../../lib/types";
+import type { Attribute, Brand, Category, ExchangeRateResponse, PresentacionVenta, Product, UnidadVariante } from "../../../lib/types";
+import { Modal } from "../../../components/Modal";
 
 function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
@@ -21,6 +33,7 @@ type VariantFormState = {
   utility: string;
   minPriceBs: string;
   discountBs: string;
+  unidad: UnidadVariante;
 };
 
 const EMPTY_VARIANT_FORM: VariantFormState = {
@@ -29,6 +42,7 @@ const EMPTY_VARIANT_FORM: VariantFormState = {
   utility: "0",
   minPriceBs: "",
   discountBs: "0",
+  unidad: "PZA",
 };
 
 export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
@@ -71,6 +85,14 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [multiValueError, setMultiValueError] = useState("");
   const [newVariantValue, setNewVariantValue] = useState<Record<string, string>>({});
   const [variantValueError, setVariantValueError] = useState("");
+
+  // Presentaciones (subvariantes) de una variante ML — se gestionan en un modal aparte, por variante.
+  const [presentacionesVarianteId, setPresentacionesVarianteId] = useState<string | null>(null);
+  const [presentaciones, setPresentaciones] = useState<PresentacionVenta[]>([]);
+  const [nuevaCantidadMl, setNuevaCantidadMl] = useState("");
+  const [nuevoPrecioBs, setNuevoPrecioBs] = useState("");
+  const [presentacionError, setPresentacionError] = useState("");
+  const [presentacionSubmitting, setPresentacionSubmitting] = useState(false);
 
   const rootCategoryOptions = categories.filter((cat) => cat.parentId === null);
   const subCategoryOptions = categories.filter((cat) => cat.parentId === rootCategoryId);
@@ -316,6 +338,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         utility: Number(variantForm.utility || 0),
         minPriceBs: variantForm.minPriceBs ? Number(variantForm.minPriceBs) : undefined,
         discountBs: Number(variantForm.discountBs || 0),
+        unidad: variantForm.unidad,
         optionValueIds,
       });
       setCurrentProduct(updated);
@@ -335,6 +358,52 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       setCurrentProduct(updated);
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function loadPresentaciones(varianteId: string) {
+    getPresentaciones(varianteId).then(setPresentaciones);
+  }
+
+  function openPresentaciones(varianteId: string) {
+    setPresentacionesVarianteId(varianteId);
+    setNuevaCantidadMl("");
+    setNuevoPrecioBs("");
+    setPresentacionError("");
+    loadPresentaciones(varianteId);
+  }
+
+  async function handleAddPresentacion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!presentacionesVarianteId) return;
+    setPresentacionError("");
+    if (!nuevaCantidadMl || !nuevoPrecioBs) {
+      setPresentacionError("Completá la cantidad en ml y el precio.");
+      return;
+    }
+    setPresentacionSubmitting(true);
+    try {
+      await createPresentacion(presentacionesVarianteId, {
+        cantidadMl: Number(nuevaCantidadMl),
+        precioVentaBs: Number(nuevoPrecioBs),
+      });
+      setNuevaCantidadMl("");
+      setNuevoPrecioBs("");
+      loadPresentaciones(presentacionesVarianteId);
+    } catch (e) {
+      setPresentacionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setPresentacionSubmitting(false);
+    }
+  }
+
+  async function handleDeactivatePresentacion(presentacion: PresentacionVenta) {
+    if (!presentacionesVarianteId || !confirm(`¿Desactivar la presentación de ${presentacion.cantidadMl} ml?`)) return;
+    try {
+      await updatePresentacion(presentacion.id, { activo: false });
+      loadPresentaciones(presentacionesVarianteId);
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : String(e));
     }
   }
 
@@ -664,6 +733,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                             <tr>
                               <th>ID</th>
                               <th>Combinación</th>
+                              <th>Unidad</th>
                               <th>Compra</th>
                               <th>Utilidad</th>
                               <th>Precio $</th>
@@ -682,6 +752,21 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                   {variant.options
                                     .map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`)
                                     .join(" · ")}
+                                </td>
+                                <td>
+                                  <span className={`badge ${variant.unidad === "ML" ? "badge-accent" : "badge-muted"}`}>
+                                    {variant.unidad === "ML" ? "Ml" : "Pza"}
+                                  </span>
+                                  {variant.unidad === "ML" && (
+                                    <button
+                                      type="button"
+                                      className="link-button"
+                                      style={{ marginLeft: 8, fontSize: 12 }}
+                                      onClick={() => openPresentaciones(variant.id)}
+                                    >
+                                      Presentaciones
+                                    </button>
+                                  )}
                                 </td>
                                 <td>${variant.purchasePrice}</td>
                                 <td>${variant.utility}</td>
@@ -730,6 +815,17 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           </div>
                         );
                       })}
+                      <div>
+                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Unidad</label>
+                        <select
+                          className="field"
+                          value={variantForm.unidad}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, unidad: e.target.value as UnidadVariante }))}
+                        >
+                          <option value="PZA">Pieza (de siempre)</option>
+                          <option value="ML">Ml (no se vende directo — solo por presentaciones)</option>
+                        </select>
+                      </div>
                       <div>
                         <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
                         <input
@@ -920,6 +1016,62 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </button>
         </div>
       </form>
+
+      {presentacionesVarianteId && (
+        <Modal title="Presentaciones de venta" onClose={() => setPresentacionesVarianteId(null)}>
+          {presentaciones.length === 0 ? (
+            <p className="cell-muted" style={{ fontSize: 13 }}>Ninguna todavía.</p>
+          ) : (
+            <div style={{ marginBottom: 12 }}>
+              {presentaciones.map((p) => (
+                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                  <span>
+                    {p.cantidadMl} ml — Bs {p.precioVentaBs}
+                    {!p.activo && <span className="badge badge-muted" style={{ marginLeft: 8 }}>Inactiva</span>}
+                  </span>
+                  {p.activo && (
+                    <button type="button" className="link-button" onClick={() => handleDeactivatePresentacion(p)}>
+                      Desactivar
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <form className="form-grid" onSubmit={handleAddPresentacion}>
+            <div className="grid-2">
+              <div>
+                <label>Cantidad (ml)</label>
+                <input
+                  className="field"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={nuevaCantidadMl}
+                  onChange={(e) => setNuevaCantidadMl(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>Precio de venta Bs</label>
+                <input
+                  className="field"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={nuevoPrecioBs}
+                  onChange={(e) => setNuevoPrecioBs(e.target.value)}
+                />
+              </div>
+            </div>
+            {presentacionError && <p className="error-text">{presentacionError}</p>}
+            <div className="form-actions">
+              <button type="submit" className="button" disabled={presentacionSubmitting}>
+                {presentacionSubmitting ? "Agregando..." : "+ Agregar presentación"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

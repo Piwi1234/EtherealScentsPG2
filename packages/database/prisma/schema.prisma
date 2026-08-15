@@ -130,6 +130,17 @@ enum AttributeVariantMode {
   @@map("attribute_variant_mode")
 }
 
+enum UnidadVariante {
+  /// Unidad entera (pieza/botella) — comportamiento de siempre, stock y ventas en unidades.
+  PZA
+  /// La variante se compra/vende en mililitros — su stock representa ml, no unidades, y admite
+  /// subvariantes (PresentacionVenta) para venta fraccionada. Se fija al crear la variante y es
+  /// inmutable después (ver doc-comment de ProductVariant.unidad).
+  ML
+
+  @@map("unidad_variante")
+}
+
 /// Fila única de configuración global del sistema (id fijo "default"). Por ahora solo guarda el
 /// tipo de cambio $ -> Bs usado para calcular los precios en bolívares de los productos.
 model SystemSetting {
@@ -309,7 +320,16 @@ model ProductVariant {
   // verdad para catálogo simple).
   isDefault Boolean @default(false) @map("is_default")
 
-  options ProductVariantOption[]
+  // Se fija al crear la variante; inmutable después (product.service.ts nunca lo aplica en update,
+  // para no corromper el significado de stock ya cargado). PZA = de siempre. ML = esta variante no
+  // se vende directo (ej. "Fraccionado" de un perfume): su stock son ml sueltos, comprados por lote
+  // como cualquier otra variante (cantidad = ml), y vendidos únicamente a través de sus
+  // PresentacionVenta (subvariantes con precio propio, ej. decants de 5/10/30 ml) — ver
+  // PresentacionVenta y addDetalleVenta en proformas.service.ts.
+  unidad UnidadVariante @default(PZA) @map("unidad")
+
+  options        ProductVariantOption[]
+  presentaciones PresentacionVenta[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -352,6 +372,32 @@ model ProductVariantOption {
 
   @@unique([variantId, optionValueId])
   @@map("product_variant_options")
+}
+
+/// Subvariante con precio propio de una ProductVariant con unidad = ML (ej. los decants de 5/10/30 ml
+/// de la variante "Fraccionado" de un perfume) — mismo espíritu que ProductVariant/Attribute
+/// PRICED_VARIANT pero un escalón más abajo: en vez de combinaciones de atributos, es un catálogo
+/// fijo por variante padre, con un precio de venta manual (el costo ya está cubierto por la compra
+/// de la variante padre, no necesita su propio purchasePrice/utility). Vender N unidades de una
+/// subvariante resuelve cantidad = N * cantidadMl y precioUnitario = precioVentaBs / cantidadMl
+/// antes de crear el ProformaDetalle (ver addDetalleVenta en proformas.service.ts) — desde ahí en
+/// adelante es una línea más para el motor genérico de Stock, y descuenta únicamente del stock de
+/// la variante padre (nunca del de las variantes de Tamaño). Solo tiene sentido para variantes con
+/// unidad = ML.
+model PresentacionVenta {
+  id            String         @id @default(uuid()) @db.Uuid
+  varianteId    String         @map("variante_id") @db.Uuid
+  variante      ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  cantidadMl    Int            @map("cantidad_ml")
+  precioVentaBs Decimal        @db.Decimal(12, 2) @map("precio_venta_bs")
+  activo        Boolean        @default(true)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  proformaDetalles ProformaDetalle[]
+
+  @@unique([varianteId, cantidadMl])
+  @@map("presentaciones_venta")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -584,6 +630,13 @@ model ProformaDetalle {
   varianteId String         @map("variante_id") @db.Uuid
   variante   ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
   cantidad   Int
+
+  // VENTA, solo si la variante vendida es unidad=ML: qué PresentacionVenta (subvariante) se eligió.
+  // Puramente informativo/auditoría — cantidad y precioUnitario ya vienen resueltos a partir de acá
+  // en addDetalleVenta (proformas.service.ts) y de ahí en más el resto del flujo (Stock, Procura,
+  // aprobación, completación) no sabe ni le importa que exista una presentación detrás.
+  presentacionVentaId String?            @map("presentacion_venta_id") @db.Uuid
+  presentacionVenta   PresentacionVenta? @relation(fields: [presentacionVentaId], references: [id], onDelete: Restrict)
 
   // VENTA: nace de ProductVariant.precioFinalBs (calculado en vivo al agregar la línea) y es editable
   // después.

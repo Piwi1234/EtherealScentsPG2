@@ -29,6 +29,11 @@ export type AttributeType = "TEXT" | "NUMBER" | "BOOLEAN" | "SELECT";
  */
 export type AttributeVariantMode = "NONE" | "MULTI_VALUE" | "PRICED_VARIANT";
 
+/** PZA: de siempre, stock/venta en unidades. ML: la variante no se vende directo — su stock son ml
+ * sueltos, comprados por lote como cualquier otra variante y vendidos a través de sus
+ * PresentacionVenta (subvariantes con precio propio, ej. decants de 5/10/30 ml). */
+export type UnidadVariante = "PZA" | "ML";
+
 export type AttributeOption = {
   id: string;
   attributeId: string;
@@ -96,8 +101,23 @@ export type ProductVariant = {
   wholesalePriceBs: number;
   /** Calculado en vivo: (minPriceBs si hay, si no wholesalePriceBs) - discountBs. */
   finalPriceBs: number;
+  /** Se fija al crear la variante; inmutable después. */
+  unidad: UnidadVariante;
   options: ProductVariantOption[];
 };
+
+/** Subvariante con precio propio de una ProductVariant con unidad = ML (ej. decant de 10ml). */
+export type PresentacionVenta = {
+  id: string;
+  varianteId: string;
+  cantidadMl: number;
+  precioVentaBs: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PresentacionVentaInput = { cantidadMl?: number; precioVentaBs?: number; activo?: boolean };
 
 export type Product = {
   id: string;
@@ -275,6 +295,7 @@ export type StockVariante = {
   id: string;
   variantCode: string;
   isDefault: boolean;
+  unidad: UnidadVariante;
   product: { id: string; name: string; productCode: string; imageUrl: string | null };
 };
 
@@ -293,7 +314,7 @@ export type StockRow = {
 /** LoteCompra anidado con variante/almacén — para el historial de movimientos del módulo de Stock,
  * distinto del LoteCompra "crudo" (solo FKs) que se usa dentro de ProformaDetalle. */
 export type LoteCompraConDetalle = LoteCompra & {
-  variante: { id: string; variantCode: string; product: { id: string; name: string; productCode: string } };
+  variante: { id: string; variantCode: string; unidad: UnidadVariante; product: { id: string; name: string; productCode: string } };
   almacen: { id: string; nombre: string };
   /** Tipo de cambio propio de la proforma de compra que trajo este lote — para valorar costoUnitario
    * en Bs. Null en lotes de compras creadas antes de este campo. */
@@ -311,6 +332,7 @@ export type ProformaDetalleVariante = {
   minPriceBs: string | null;
   discountBs: string;
   isDefault: boolean;
+  unidad: UnidadVariante;
   options: ProductVariantOption[];
   product: {
     id: string;
@@ -331,6 +353,9 @@ export type ProformaDetalle = {
   varianteId: string;
   variante: ProformaDetalleVariante;
   cantidad: number;
+  /** VENTA de una variante unidad=ML: qué presentación (subvariante) se vendió en esta línea. */
+  presentacionVentaId: string | null;
+  presentacionVenta: PresentacionVenta | null;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
   /** COMPRA: capturados por línea, no heredados del catálogo. */
@@ -389,7 +414,15 @@ export type ProformaInput = {
   adelantoPorcentaje?: number;
 };
 
-export type DetalleVentaInput = { varianteId: string; cantidad: number; precioUnitario?: number };
+// cantidad/precioUnitario son obligatorios salvo que se venda por presentacionVentaId (variante
+// unidad=ML), donde el backend los resuelve solo a partir de numPresentaciones.
+export type DetalleVentaInput = {
+  varianteId: string;
+  cantidad?: number;
+  precioUnitario?: number;
+  presentacionVentaId?: string;
+  numPresentaciones?: number;
+};
 
 export type DetalleCompraInput = {
   varianteId: string;

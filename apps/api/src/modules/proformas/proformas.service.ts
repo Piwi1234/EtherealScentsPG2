@@ -39,6 +39,8 @@ export const includeDetails = {
           options: { include: { optionValue: { include: { attribute: true } } } },
         },
       },
+      // VENTA de una variante unidad=ML: qué presentación (subvariante) se vendió en esta línea.
+      presentacionVenta: true,
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
     },
@@ -226,12 +228,38 @@ export class ProformasService {
     }
 
     const variante = await this.getVarianteParaPrecio(dto.varianteId);
-    const precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
-    const subtotal = dto.cantidad * precioUnitario;
+
+    let cantidad: number;
+    let precioUnitario: number;
+    let presentacionVentaId: string | null = null;
+
+    if (dto.presentacionVentaId) {
+      if (!dto.numPresentaciones) {
+        throw new BadRequestException("numPresentaciones es obligatorio junto con presentacionVentaId.");
+      }
+      const presentacion = await this.prisma.presentacionVenta.findUnique({ where: { id: dto.presentacionVentaId } });
+      if (!presentacion || presentacion.varianteId !== dto.varianteId) {
+        throw new BadRequestException("presentacionVentaId inválido para esta variante.");
+      }
+      if (!presentacion.activo) {
+        throw new BadRequestException("Esta presentación está desactivada.");
+      }
+      presentacionVentaId = presentacion.id;
+      cantidad = dto.numPresentaciones * presentacion.cantidadMl;
+      precioUnitario = Number(presentacion.precioVentaBs) / presentacion.cantidadMl;
+    } else {
+      if (!dto.cantidad) {
+        throw new BadRequestException("cantidad es obligatoria (o presentacionVentaId + numPresentaciones).");
+      }
+      cantidad = dto.cantidad;
+      precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
+    }
+
+    const subtotal = cantidad * precioUnitario;
 
     try {
       await this.prisma.proformaDetalle.create({
-        data: { proformaId: id, varianteId: dto.varianteId, cantidad: dto.cantidad, precioUnitario, subtotal },
+        data: { proformaId: id, varianteId: dto.varianteId, presentacionVentaId, cantidad, precioUnitario, subtotal },
       });
       return this.findOne(id);
     } catch (error) {

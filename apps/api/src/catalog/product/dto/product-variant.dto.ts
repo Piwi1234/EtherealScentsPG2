@@ -1,7 +1,19 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { ArrayMinSize, IsArray, IsEnum, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { UnidadVariante } from "@app/database";
 
 export class CreateProductVariantDto {
+  @ApiPropertyOptional({
+    enum: UnidadVariante,
+    default: UnidadVariante.PZA,
+    description:
+      "PZA (de siempre) o ML — esta variante no se vende directo, su stock son ml sueltos vendidos " +
+      "a través de sus PresentacionVenta. Se fija acá y es inmutable después.",
+  })
+  @IsOptional()
+  @IsEnum(UnidadVariante)
+  unidad?: UnidadVariante;
+
   @ApiProperty({ example: 12, description: "Precio de compra propio de esta variante." })
   @IsNumber()
   @IsPositive()

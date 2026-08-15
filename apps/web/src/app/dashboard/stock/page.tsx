@@ -237,9 +237,12 @@ export default function StockPage() {
                       )}
                     </td>
                     <td>{row.almacen.nombre}</td>
-                    <td className="num">{row.cantidadFisica}</td>
-                    <td className="num">{row.cantidadReservada}</td>
-                    <td className="num">{row.cantidadFisica - row.cantidadReservada}</td>
+                    <td className="num">{row.cantidadFisica}{row.variante.unidad === "ML" ? " ml" : ""}</td>
+                    <td className="num">{row.cantidadReservada}{row.variante.unidad === "ML" ? " ml" : ""}</td>
+                    <td className="num">
+                      {row.cantidadFisica - row.cantidadReservada}
+                      {row.variante.unidad === "ML" ? " ml" : ""}
+                    </td>
                     <td className="cell-muted">{formatDateTime(row.updatedAt)}</td>
                     <td>
                       <div className="row-actions">
@@ -370,8 +373,8 @@ export default function StockPage() {
                         ? Number(lote.proformaDetalle.proforma.tipoCambioProf).toFixed(2)
                         : "—"}
                     </td>
-                    <td className="num">{lote.cantidadInicial}</td>
-                    <td className="num">{lote.cantidadDisponible}</td>
+                    <td className="num">{lote.cantidadInicial}{lote.variante.unidad === "ML" ? " ml" : ""}</td>
+                    <td className="num">{lote.cantidadDisponible}{lote.variante.unidad === "ML" ? " ml" : ""}</td>
                     <td>
                       <span className={`badge ${lote.cantidadDisponible === 0 ? "badge-muted" : "badge-accent"}`}>
                         {lote.cantidadDisponible === 0 ? "Agotado" : "Disponible"}

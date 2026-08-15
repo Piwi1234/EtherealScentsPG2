@@ -7,11 +7,13 @@ import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 
 /** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
- * categoría marcados para mostrarse en proforma — todo concatenado en una sola línea bajo el nombre. */
+ * categoría marcados para mostrarse en proforma +, si es una venta fraccionada (unidad=ML), qué
+ * presentación se vendió (ej. "Presentación: 10 ml") — todo concatenado en una sola línea bajo el nombre. */
 function atributosLabel(detalle: ProformaDetalle): string | null {
   const opciones = detalle.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
   const heredados = formatAtributosVisibles(detalle.variante.product.attributeValues, detalle.variante.product.variantOptionValues);
-  const partes = [...opciones, ...(heredados ? [heredados] : [])];
+  const presentacion = detalle.presentacionVenta ? `Presentación: ${detalle.presentacionVenta.cantidadMl} ml` : null;
+  const partes = [...opciones, ...(heredados ? [heredados] : []), ...(presentacion ? [presentacion] : [])];
   return partes.length > 0 ? partes.join(", ") : null;
 }
 

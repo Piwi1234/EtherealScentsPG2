@@ -9,6 +9,7 @@ const stockInclude = {
       id: true,
       variantCode: true,
       isDefault: true,
+      unidad: true,
       product: { select: { id: true, name: true, productCode: true, imageUrl: true } },
     },
   },
@@ -17,7 +18,7 @@ const stockInclude = {
 
 const loteInclude = {
   variante: {
-    select: { id: true, variantCode: true, product: { select: { id: true, name: true, productCode: true } } },
+    select: { id: true, variantCode: true, unidad: true, product: { select: { id: true, name: true, productCode: true } } },
   },
   almacen: { select: { id: true, nombre: true } },
   // Para poder valorar el costo unitario en Bs con el tipo de cambio propio de la compra que trajo

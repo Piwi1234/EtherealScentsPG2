@@ -1,7 +1,7 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
+import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -442,6 +442,7 @@ export class ProductService {
           utility: dto.utility ?? 0,
           minPriceBs: dto.minPriceBs,
           discountBs: dto.discountBs ?? 0,
+          unidad: dto.unidad ?? UnidadVariante.PZA,
           options: { create: options },
         },
       });

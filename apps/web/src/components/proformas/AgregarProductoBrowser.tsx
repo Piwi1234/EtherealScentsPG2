@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet } from "../../lib/api";
+import { API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
 import type {
   AttributeType,
   AttributeVariantMode,
   Brand,
   Category,
   Page,
+  PresentacionVenta,
   Product,
   TipoProforma,
 } from "../../lib/types";
@@ -73,6 +74,11 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
+  // Venta de variantes unidad=ML: se elige una presentación (subvariante) en vez de cantidad+precio
+  // libres — ver AgregarProductoBrowser.tsx en el plan de "Variantes fraccionadas por ml".
+  const [presentacionesByVariant, setPresentacionesByVariant] = useState<Record<string, PresentacionVenta[]>>({});
+  const [presentacionIdByProduct, setPresentacionIdByProduct] = useState<Record<string, string>>({});
+  const [numPresentacionesByProduct, setNumPresentacionesByProduct] = useState<Record<string, number>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [addedFlash, setAddedFlash] = useState<Record<string, boolean>>({});
   const [rowError, setRowError] = useState<Record<string, string>>({});
@@ -136,6 +142,25 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
     const selectedId = selectedVariantByProduct[product.id] ?? defaultVariantId(product);
     return product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
   }
+
+  // Trae las presentaciones de cualquier variante unidad=ML que esté seleccionada en la página
+  // actual y todavía no esté en caché (lazy — no todas las filas son ML).
+  useEffect(() => {
+    if (!page || tipo !== "VENTA") return;
+    const toFetch = new Set<string>();
+    for (const product of page.items) {
+      const variant = getSelectedVariant(product);
+      if (variant && variant.unidad === "ML" && !presentacionesByVariant[variant.id]) {
+        toFetch.add(variant.id);
+      }
+    }
+    toFetch.forEach((varianteId) => {
+      getPresentaciones(varianteId).then((list) =>
+        setPresentacionesByVariant((prev) => ({ ...prev, [varianteId]: list })),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, selectedVariantByProduct, tipo]);
 
   function renderAttributeCell(product: Product, column: ExtraColumn) {
     if (column.variantMode === "PRICED_VARIANT") {
@@ -224,14 +249,24 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
   async function handleAgregar(product: Product) {
     const variant = getSelectedVariant(product);
     if (!variant) return;
-    const cantidad = cantidadByProduct[product.id] ?? 1;
     setSubmittingId(product.id);
     setRowError((prev) => ({ ...prev, [product.id]: "" }));
     try {
-      if (tipo === "VENTA") {
+      if (tipo === "VENTA" && variant.unidad === "ML") {
+        const presentacionVentaId = presentacionIdByProduct[product.id];
+        const numPresentaciones = numPresentacionesByProduct[product.id] ?? 1;
+        if (!presentacionVentaId) {
+          setRowError((prev) => ({ ...prev, [product.id]: "Elegí una presentación." }));
+          setSubmittingId(null);
+          return;
+        }
+        await addDetalleVenta(proformaId, { varianteId: variant.id, presentacionVentaId, numPresentaciones });
+      } else if (tipo === "VENTA") {
+        const cantidad = cantidadByProduct[product.id] ?? 1;
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
         await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
       } else {
+        const cantidad = cantidadByProduct[product.id] ?? 1;
         await addDetalleCompra(proformaId, {
           varianteId: variant.id,
           cantidad,
@@ -244,6 +279,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
       setAddedFlash((prev) => ({ ...prev, [product.id]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [product.id]: false })), FLASH_MS);
       setCantidadByProduct((prev) => ({ ...prev, [product.id]: 1 }));
+      setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: 1 }));
     } catch (e) {
       setRowError((prev) => ({ ...prev, [product.id]: e instanceof ApiError ? e.message : String(e) }));
     } finally {
@@ -342,6 +378,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                   {atributosProformaColumns.map((column) => (
                     <th key={column.id}>{column.name}</th>
                   ))}
+                  {tipo === "VENTA" && <th>Presentación</th>}
                   <th className="num">Descuento Bs</th>
                   <th className="num">{tipo === "VENTA" && precioTipo === "MAY" ? "▸ " : ""}May Bs</th>
                   <th className="num">{tipo === "VENTA" && precioTipo === "FINAL" ? "▸ " : ""}Precio Final Bs</th>
@@ -353,6 +390,13 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                 {page.items.map((product) => {
                   const selectedVariant = getSelectedVariant(product);
                   const priceSource = selectedVariant ?? product;
+                  const esVentaMl = tipo === "VENTA" && selectedVariant?.unidad === "ML";
+                  const esCompraMl = tipo === "COMPRA" && selectedVariant?.unidad === "ML";
+                  const presentacionesDeVariante = selectedVariant ? presentacionesByVariant[selectedVariant.id] ?? [] : [];
+                  const presentacionActiva = presentacionesDeVariante.filter((p) => p.activo);
+                  const presentacionSeleccionada = presentacionesDeVariante.find(
+                    (p) => p.id === presentacionIdByProduct[product.id],
+                  );
                   return (
                     <tr key={product.id}>
                       <td>
@@ -372,24 +416,67 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                       {atributosProformaColumns.map((column) => (
                         <td key={column.id}>{renderAttributeCell(product, column)}</td>
                       ))}
+                      {tipo === "VENTA" && (
+                        <td>
+                          {esVentaMl ? (
+                            <select
+                              className="field"
+                              value={presentacionIdByProduct[product.id] ?? ""}
+                              onChange={(e) => setPresentacionIdByProduct((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                              style={{ minWidth: 130 }}
+                            >
+                              <option value="">— Presentación —</option>
+                              {presentacionActiva.map((p) => (
+                                <option key={p.id} value={p.id}>{p.cantidadMl} ml — Bs {p.precioVentaBs}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="cell-muted">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
                       <td className={`num${tipo === "VENTA" && precioTipo === "MAY" ? " cell-primary" : ""}`}>
-                        <span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}
+                        {esVentaMl ? "—" : (
+                          <>
+                            <span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}
+                          </>
+                        )}
                       </td>
                       <td className={`num${tipo !== "VENTA" || precioTipo === "FINAL" ? " cell-primary" : ""}`}>
-                        <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                        {esVentaMl ? (
+                          presentacionSeleccionada ? (
+                            <>
+                              <span className="unit">Bs</span> {presentacionSeleccionada.precioVentaBs} c/u
+                            </>
+                          ) : (
+                            "—"
+                          )
+                        ) : (
+                          <>
+                            <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                          </>
+                        )}
                       </td>
                       <td className="num">
                         <input
                           className="field"
                           type="number"
                           min={1}
-                          value={cantidadByProduct[product.id] ?? 1}
-                          onChange={(e) =>
-                            setCantidadByProduct((prev) => ({ ...prev, [product.id]: parseInt(e.target.value, 10) || 1 }))
-                          }
+                          value={(esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1}
+                          onChange={(e) => {
+                            const parsed = parseInt(e.target.value, 10) || 1;
+                            if (esVentaMl) {
+                              setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: parsed }));
+                            } else {
+                              setCantidadByProduct((prev) => ({ ...prev, [product.id]: parsed }));
+                            }
+                          }}
                           style={{ width: 70, textAlign: "center" }}
                         />
+                        {esCompraMl && (
+                          <span className="cell-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>ml</span>
+                        )}
                       </td>
                       <td>
                         <button
