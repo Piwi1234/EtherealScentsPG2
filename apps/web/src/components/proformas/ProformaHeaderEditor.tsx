@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, updateProforma } from "../../lib/api";
-import type { Ciudad, CiudadProcedencia, Cliente, Empresa, Proforma } from "../../lib/types";
-import { CiudadProcedenciaSelector, CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+import type { Ciudad, Cliente, Empresa, PaisProcedencia, Proforma } from "../../lib/types";
+import { CiudadSelector, ClienteSelector, EmpresaSelector, PaisProcedenciaSelector } from "./selectors";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -17,7 +17,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 /**
  * Cabecera de la proforma. Mientras está en BORRADOR es editable inline (empresa, cliente, ciudad de
- * entrega, y en COMPRA ciudad de procedencia + tipo de cambio propio de la compra) — un único botón
+ * entrega, y en COMPRA país de procedencia + tipo de cambio propio de la compra) — un único botón
  * "Guardar cambios" que dispara un solo PATCH /proformas/:id con todo. El almacén ya no se toca acá
  * para ningún tipo: para VENTA se fija al aprobar, para COMPRA al completar — se muestra de solo
  * lectura (`proforma.almacen`) una vez que existe. Fuera de BORRADOR se muestra todo de solo lectura.
@@ -30,20 +30,20 @@ export function ProformaHeaderEditor({
   empresas,
   clientes,
   ciudades,
-  ciudadesProcedencia,
+  paisesProcedencia,
 }: {
   proforma: Proforma;
   editable: boolean;
   empresas: Empresa[];
   clientes: Cliente[];
   ciudades: Ciudad[];
-  ciudadesProcedencia: CiudadProcedencia[];
+  paisesProcedencia: PaisProcedencia[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(proforma.empresaId);
   const [clienteId, setClienteId] = useState(proforma.clienteId ?? "");
   const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
-  const [ciudadProcedenciaId, setCiudadProcedenciaId] = useState(proforma.ciudadProcedenciaId ?? "");
+  const [paisProcedenciaId, setPaisProcedenciaId] = useState(proforma.paisProcedenciaId ?? "");
   const [tipoCambioProf, setTipoCambioProf] = useState(proforma.tipoCambioProf ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +66,7 @@ export function ProformaHeaderEditor({
         empresaId,
         clienteId: proforma.tipo === "VENTA" ? clienteId || undefined : undefined,
         ciudadEntregaId: proforma.tipo === "VENTA" ? ciudadEntregaId || undefined : undefined,
-        ciudadProcedenciaId: proforma.tipo === "COMPRA" ? ciudadProcedenciaId || undefined : undefined,
+        paisProcedenciaId: proforma.tipo === "COMPRA" ? paisProcedenciaId || undefined : undefined,
         tipoCambioProf: proforma.tipo === "COMPRA" && tipoCambioProf !== "" ? Number(tipoCambioProf) : undefined,
       });
       router.refresh();
@@ -89,7 +89,7 @@ export function ProformaHeaderEditor({
         {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
         {proforma.tipo === "VENTA" && <Field label="Vendedor" value={proforma.creadoPor.nombre} />}
         {proforma.tipo === "COMPRA" && (
-          <Field label="Ciudad de Procedencia" value={proforma.ciudadProcedencia?.nombre ?? "—"} />
+          <Field label="País de Procedencia" value={proforma.paisProcedencia?.nombre ?? "—"} />
         )}
         {proforma.tipo === "COMPRA" && (
           <Field label="Tipo de Cambio Prof" value={proforma.tipoCambioProf ? `Bs ${proforma.tipoCambioProf}` : "—"} />
@@ -125,11 +125,11 @@ export function ProformaHeaderEditor({
         )}
         {proforma.tipo === "COMPRA" && (
           <div className="filter-field" style={{ minWidth: 180 }}>
-            <label className="filter-label">Ciudad de Procedencia</label>
-            <CiudadProcedenciaSelector
-              options={ciudadesProcedencia}
-              value={ciudadProcedenciaId}
-              onChange={setCiudadProcedenciaId}
+            <label className="filter-label">País de Procedencia</label>
+            <PaisProcedenciaSelector
+              options={paisesProcedencia}
+              value={paisProcedenciaId}
+              onChange={setPaisProcedenciaId}
               placeholder="— Sin definir —"
             />
           </div>

@@ -16,7 +16,7 @@ const registroInclude = {
       fecha: true,
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
-      ciudadProcedencia: { select: { id: true, nombre: true } },
+      paisProcedencia: { select: { id: true, nombre: true } },
       tipoCambioProf: true,
     },
   },

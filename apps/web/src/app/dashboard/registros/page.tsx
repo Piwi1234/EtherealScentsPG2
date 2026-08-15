@@ -195,7 +195,7 @@ export default function RegistrosPage() {
                   <th className="num">Cant.</th>
                   <th className="num">{tipo === "COMPRA" ? "Costo unitario Bs" : "Precio unitario Bs"}</th>
                   <th className="num">Subtotal Bs</th>
-                  {tipo === "COMPRA" && <th>Ciudad de origen</th>}
+                  {tipo === "COMPRA" && <th>País de origen</th>}
                 </tr>
               </thead>
               <tbody>
@@ -237,7 +237,7 @@ export default function RegistrosPage() {
                       <td className="num">{linea.cantidad}</td>
                       <td className="num">{money(unitarioBs)}</td>
                       <td className="num cell-primary">{money(subtotalBs)}</td>
-                      {tipo === "COMPRA" && <td>{linea.proforma.ciudadProcedencia?.nombre ?? "—"}</td>}
+                      {tipo === "COMPRA" && <td>{linea.proforma.paisProcedencia?.nombre ?? "—"}</td>}
                     </tr>
                   );
                 })}

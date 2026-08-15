@@ -1,8 +1,8 @@
 import { ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { IsBoolean, IsOptional } from "class-validator";
-import { CreateCiudadProcedenciaDto } from "./create-ciudad-procedencia.dto";
+import { CreatePaisProcedenciaDto } from "./create-pais-procedencia.dto";
 
-export class UpdateCiudadProcedenciaDto extends PartialType(CreateCiudadProcedenciaDto) {
+export class UpdatePaisProcedenciaDto extends PartialType(CreatePaisProcedenciaDto) {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

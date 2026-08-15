@@ -231,9 +231,9 @@ export type Ciudad = {
   updatedAt: string;
 };
 
-/** Catálogo de ciudades de origen (de dónde viene la mercadería) — sin relaciones todavía, uso
+/** Catálogo de países de origen (de dónde viene la mercadería) — sin relaciones todavía, uso
  * futuro. Distinto de Ciudad (que es la ciudad de ENTREGA del cliente). */
-export type CiudadProcedencia = {
+export type PaisProcedencia = {
   id: string;
   nombre: string;
   activo: boolean;
@@ -414,8 +414,8 @@ export type Proforma = {
   ciudadEntrega: Ciudad | null;
   /** Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
    * compra puntual, para valorar en Bs sin depender del tipo de cambio del sistema. Ambos null en VENTA. */
-  ciudadProcedenciaId: string | null;
-  ciudadProcedencia: CiudadProcedencia | null;
+  paisProcedenciaId: string | null;
+  paisProcedencia: PaisProcedencia | null;
   tipoCambioProf: string | null;
   creadoPorId: string;
   creadoPor: { id: string; nombre: string; email: string; rol: Rol };
@@ -436,7 +436,7 @@ export type ProformaInput = {
   empresaId: string;
   clienteId?: string;
   ciudadEntregaId?: string;
-  ciudadProcedenciaId?: string;
+  paisProcedenciaId?: string;
   tipoCambioProf?: number;
   descuentoGeneral?: number;
   adelantoPorcentaje?: number;
@@ -504,7 +504,7 @@ export type RegistroLinea = {
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
-    ciudadProcedencia: { id: string; nombre: string } | null;
+    paisProcedencia: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
   };
   variante: ProformaDetalleVariante;

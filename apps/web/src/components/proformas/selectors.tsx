@@ -1,4 +1,4 @@
-import type { Almacen, Ciudad, CiudadProcedencia, Cliente, Empresa } from "../../lib/types";
+import type { Almacen, Ciudad, Cliente, Empresa, PaisProcedencia } from "../../lib/types";
 
 /** Selects reutilizables — reciben las opciones ya cargadas por el Server Component padre, no
  * fetchean solos (evita un waterfall de requests client-side). */
@@ -63,13 +63,13 @@ export function CiudadSelector({ options, value, onChange, placeholder = "— El
   );
 }
 
-export function CiudadProcedenciaSelector({
+export function PaisProcedenciaSelector({
   options,
   value,
   onChange,
-  placeholder = "— Elegir ciudad —",
+  placeholder = "— Elegir país —",
   disabled,
-}: SelectorProps<CiudadProcedencia>) {
+}: SelectorProps<PaisProcedencia>) {
   return (
     <select className="field" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
       <option value="">{placeholder}</option>

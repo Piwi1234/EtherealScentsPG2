@@ -467,10 +467,10 @@ model Ciudad {
   @@map("ciudades")
 }
 
-/// Catálogo de ciudades de origen (de dónde viene la mercadería) — usada en Proforma.ciudadProcedencia
+/// Catálogo de países de origen (de dónde viene la mercadería) — usada en Proforma.paisProcedencia
 /// (solo COMPRA). Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque son dos
-/// conceptos distintos aunque hoy tengan la misma forma.
-model CiudadProcedencia {
+/// conceptos distintos aunque hoy tengan una forma parecida.
+model PaisProcedencia {
   id        String   @id @default(uuid()) @db.Uuid
   nombre    String   @unique
   activo    Boolean  @default(true)
@@ -479,7 +479,7 @@ model CiudadProcedencia {
 
   proformas Proforma[]
 
-  @@map("ciudades_procedencia")
+  @@map("paises_procedencia")
 }
 
 model Empresa {
@@ -645,9 +645,9 @@ model Proforma {
   // Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
   // compra puntual — permite valorar en Bs sin depender del tipo de cambio del sistema, que puede
   // cambiar después de hecha la compra. Ambos null para VENTA.
-  ciudadProcedenciaId String?            @map("ciudad_procedencia_id") @db.Uuid
-  ciudadProcedencia   CiudadProcedencia? @relation(fields: [ciudadProcedenciaId], references: [id], onDelete: Restrict)
-  tipoCambioProf      Decimal?           @map("tipo_cambio_prof") @db.Decimal(12, 4)
+  paisProcedenciaId String?          @map("pais_procedencia_id") @db.Uuid
+  paisProcedencia   PaisProcedencia? @relation(fields: [paisProcedenciaId], references: [id], onDelete: Restrict)
+  tipoCambioProf    Decimal?         @map("tipo_cambio_prof") @db.Decimal(12, 4)
 
   creadoPorId String  @map("creado_por_id") @db.Uuid
   creadoPor   Usuario @relation("ProformaCreadaPor", fields: [creadoPorId], references: [id])

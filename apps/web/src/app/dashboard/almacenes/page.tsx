@@ -5,16 +5,16 @@ import {
   ApiError,
   createAlmacen,
   createCiudad,
-  createCiudadProcedencia,
-  deactivateCiudadProcedencia,
+  createPaisProcedencia,
+  deactivatePaisProcedencia,
   deleteAlmacen,
   deleteCiudad,
   getAlmacenes,
   getCiudades,
-  getCiudadesProcedencia,
+  getPaisesProcedencia,
   updateAlmacen,
 } from "../../../lib/api";
-import type { Almacen, Ciudad, CiudadProcedencia } from "../../../lib/types";
+import type { Almacen, Ciudad, PaisProcedencia } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 export default function AlmacenesPage() {
@@ -25,9 +25,9 @@ export default function AlmacenesPage() {
   const [ciudadNombre, setCiudadNombre] = useState("");
   const [ciudadSubmitting, setCiudadSubmitting] = useState(false);
 
-  const [ciudadesProcedencia, setCiudadesProcedencia] = useState<CiudadProcedencia[]>([]);
-  const [ciudadProcedenciaNombre, setCiudadProcedenciaNombre] = useState("");
-  const [ciudadProcedenciaSubmitting, setCiudadProcedenciaSubmitting] = useState(false);
+  const [paisesProcedencia, setPaisesProcedencia] = useState<PaisProcedencia[]>([]);
+  const [paisProcedenciaNombre, setPaisProcedenciaNombre] = useState("");
+  const [paisProcedenciaSubmitting, setPaisProcedenciaSubmitting] = useState(false);
 
   const [almacenModalOpen, setAlmacenModalOpen] = useState(false);
   const [editingAlmacen, setEditingAlmacen] = useState<Almacen | null>(null);
@@ -40,8 +40,8 @@ export default function AlmacenesPage() {
     return getCiudades({ pageSize: 100 }).then((page) => setCiudades(page.items));
   }
 
-  function loadCiudadesProcedencia() {
-    return getCiudadesProcedencia({ pageSize: 100 }).then((page) => setCiudadesProcedencia(page.items));
+  function loadPaisesProcedencia() {
+    return getPaisesProcedencia({ pageSize: 100 }).then((page) => setPaisesProcedencia(page.items));
   }
 
   function loadAlmacenes() {
@@ -49,7 +49,7 @@ export default function AlmacenesPage() {
   }
 
   useEffect(() => {
-    Promise.all([loadCiudades(), loadCiudadesProcedencia(), loadAlmacenes()]).catch((e) =>
+    Promise.all([loadCiudades(), loadPaisesProcedencia(), loadAlmacenes()]).catch((e) =>
       setError(e instanceof Error ? e.message : String(e)),
     );
   }, []);
@@ -69,26 +69,26 @@ export default function AlmacenesPage() {
     }
   }
 
-  async function handleCreateCiudadProcedencia(e: React.FormEvent) {
+  async function handleCreatePaisProcedencia(e: React.FormEvent) {
     e.preventDefault();
-    if (!ciudadProcedenciaNombre.trim()) return;
-    setCiudadProcedenciaSubmitting(true);
+    if (!paisProcedenciaNombre.trim()) return;
+    setPaisProcedenciaSubmitting(true);
     try {
-      await createCiudadProcedencia(ciudadProcedenciaNombre.trim());
-      setCiudadProcedenciaNombre("");
-      await loadCiudadesProcedencia();
+      await createPaisProcedencia(paisProcedenciaNombre.trim());
+      setPaisProcedenciaNombre("");
+      await loadPaisesProcedencia();
     } catch (e) {
       alert(e instanceof ApiError ? e.message : String(e));
     } finally {
-      setCiudadProcedenciaSubmitting(false);
+      setPaisProcedenciaSubmitting(false);
     }
   }
 
-  async function handleDeactivateCiudadProcedencia(ciudad: CiudadProcedencia) {
-    if (!confirm(`¿Desactivar la ciudad de procedencia "${ciudad.nombre}"?`)) return;
+  async function handleDeactivatePaisProcedencia(pais: PaisProcedencia) {
+    if (!confirm(`¿Desactivar el país de procedencia "${pais.nombre}"?`)) return;
     try {
-      await deactivateCiudadProcedencia(ciudad.id);
-      await loadCiudadesProcedencia();
+      await deactivatePaisProcedencia(pais.id);
+      await loadPaisesProcedencia();
     } catch (e) {
       alert(e instanceof ApiError ? e.message : String(e));
     }
@@ -256,13 +256,13 @@ export default function AlmacenesPage() {
       </div>
 
       <div className="card">
-        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Ciudades de Procedencia</h2>
+        <h2 style={{ margin: "0 0 12px", fontSize: 16 }}>Países de Procedencia</h2>
         <p className="cell-muted" style={{ marginTop: -8, marginBottom: 12 }}>
           De dónde viene la mercadería — todavía sin uso, se conecta a algo más adelante.
         </p>
-        {ciudadesProcedencia.length === 0 ? (
+        {paisesProcedencia.length === 0 ? (
           <p className="cell-muted" style={{ marginBottom: 12 }}>
-            Ninguna todavía.
+            Ninguno todavía.
           </p>
         ) : (
           <table className="table table-minimal" style={{ marginBottom: 16 }}>
@@ -274,21 +274,21 @@ export default function AlmacenesPage() {
               </tr>
             </thead>
             <tbody>
-              {ciudadesProcedencia.map((ciudad) => (
-                <tr key={ciudad.id}>
-                  <td className="cell-primary">{ciudad.nombre}</td>
+              {paisesProcedencia.map((pais) => (
+                <tr key={pais.id}>
+                  <td className="cell-primary">{pais.nombre}</td>
                   <td>
-                    <span className={`badge ${ciudad.activo ? "badge-accent" : "badge-muted"}`}>
-                      {ciudad.activo ? "Activo" : "Inactivo"}
+                    <span className={`badge ${pais.activo ? "badge-accent" : "badge-muted"}`}>
+                      {pais.activo ? "Activo" : "Inactivo"}
                     </span>
                   </td>
                   <td>
                     <div className="row-actions">
-                      {ciudad.activo && (
+                      {pais.activo && (
                         <button
                           type="button"
                           className="action-btn danger"
-                          onClick={() => handleDeactivateCiudadProcedencia(ciudad)}
+                          onClick={() => handleDeactivatePaisProcedencia(pais)}
                         >
                           Desactivar
                         </button>
@@ -300,16 +300,16 @@ export default function AlmacenesPage() {
             </tbody>
           </table>
         )}
-        <form onSubmit={handleCreateCiudadProcedencia} style={{ display: "flex", gap: 8 }}>
+        <form onSubmit={handleCreatePaisProcedencia} style={{ display: "flex", gap: 8 }}>
           <input
             className="field"
-            placeholder="Nombre de la ciudad"
-            value={ciudadProcedenciaNombre}
-            onChange={(e) => setCiudadProcedenciaNombre(e.target.value)}
+            placeholder="Nombre del país"
+            value={paisProcedenciaNombre}
+            onChange={(e) => setPaisProcedenciaNombre(e.target.value)}
             style={{ maxWidth: 260 }}
           />
-          <button type="submit" className="action-btn" disabled={ciudadProcedenciaSubmitting}>
-            {ciudadProcedenciaSubmitting ? "Agregando..." : "Agregar ciudad"}
+          <button type="submit" className="action-btn" disabled={paisProcedenciaSubmitting}>
+            {paisProcedenciaSubmitting ? "Agregando..." : "Agregar país"}
           </button>
         </form>
       </div>

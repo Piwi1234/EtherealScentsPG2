@@ -24,7 +24,7 @@ export class CreateProformaDto {
   @ApiPropertyOptional({ description: "Solo aplica a COMPRA: de dónde viene la mercadería, informativo." })
   @IsOptional()
   @IsUUID()
-  ciudadProcedenciaId?: string;
+  paisProcedenciaId?: string;
 
   @ApiPropertyOptional({
     description: "Solo aplica a COMPRA: tipo de cambio al que se hizo esta compra puntual (para valorar en Bs). Si se omite al crear, se autocompleta con el tipo de cambio del sistema.",
