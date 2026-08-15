@@ -19,6 +19,11 @@ export class QueryProformaDto {
   @IsUUID()
   empresaId?: string;
 
+  @ApiPropertyOptional({ description: "Solo VENTA: pedidos de un cliente puntual." })
+  @IsOptional()
+  @IsUUID()
+  clienteId?: string;
+
   @ApiPropertyOptional({ description: "Filtra por quién la creó (el \"Vendedor\" en el listado de VENTA)." })
   @IsOptional()
   @IsUUID()

@@ -1,17 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ApiError,
-  createTraspasoAlmacen,
-  getAlmacenes,
-  getBrands,
-  getCategories,
-  getLotesCompra,
-  getStock,
-  getTraspasosAlmacen,
-} from "../../../lib/api";
-import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow, TraspasoAlmacen } from "../../../lib/types";
+import { ApiError, createTraspasoAlmacen, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
+import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
 
@@ -56,13 +47,6 @@ export default function StockPage() {
   // usuario pida ver los lotes de un producto puntual desde "Ver lotes".
   const [lotesCargados, setLotesCargados] = useState(false);
 
-  const [traspasosPage, setTraspasosPage] = useState<Page<TraspasoAlmacen> | null>(null);
-  const [traspasosAlmacenId, setTraspasosAlmacenId] = useState("");
-  const [traspasosPageNum, setTraspasosPageNum] = useState(1);
-  const [traspasosLoading, setTraspasosLoading] = useState(false);
-  // Mismo criterio que lotesCargados: no se trae hasta que el usuario lo pide.
-  const [traspasosCargados, setTraspasosCargados] = useState(false);
-
   const [traspasoRow, setTraspasoRow] = useState<StockRow | null>(null);
   const [traspasoDestinoId, setTraspasoDestinoId] = useState("");
   const [traspasoCantidad, setTraspasoCantidad] = useState("");
@@ -106,15 +90,6 @@ export default function StockPage() {
       .finally(() => setLotesLoading(false));
   }
 
-  function loadTraspasos() {
-    if (!traspasosCargados) return;
-    setTraspasosLoading(true);
-    getTraspasosAlmacen({ almacenId: traspasosAlmacenId || undefined, page: traspasosPageNum, pageSize: PAGE_SIZE })
-      .then(setTraspasosPage)
-      .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
-      .finally(() => setTraspasosLoading(false));
-  }
-
   useEffect(() => {
     getAlmacenes({ pageSize: 200 })
       .then((page) => setAlmacenes(page.items))
@@ -132,9 +107,6 @@ export default function StockPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadLotes, [lotesCargados, lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadTraspasos, [traspasosCargados, traspasosAlmacenId, traspasosPageNum]);
 
   function handleStockSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -194,7 +166,6 @@ export default function StockPage() {
       setTraspasoRow(null);
       loadStock();
       loadLotes();
-      loadTraspasos();
     } catch (e) {
       setTraspasoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
@@ -204,7 +175,6 @@ export default function StockPage() {
 
   const stockTotalPages = stockPage ? Math.max(1, Math.ceil(stockPage.total / stockPage.pageSize)) : 1;
   const lotesTotalPages = lotesPage ? Math.max(1, Math.ceil(lotesPage.total / lotesPage.pageSize)) : 1;
-  const traspasosTotalPages = traspasosPage ? Math.max(1, Math.ceil(traspasosPage.total / traspasosPage.pageSize)) : 1;
 
   if (error) {
     return (
@@ -507,105 +477,6 @@ export default function StockPage() {
                   Siguiente →
                 </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Historial de traspasos entre almacenes</h2>
-        </div>
-
-        {!traspasosCargados ? (
-          <button type="button" className="action-btn" onClick={() => setTraspasosCargados(true)}>
-            Cargar historial
-          </button>
-        ) : (
-          <>
-            <div className="filters-bar" style={{ marginBottom: 16 }}>
-              <div className="filter-field">
-                <label className="filter-label">Almacén</label>
-                <select
-                  className="field"
-                  value={traspasosAlmacenId}
-                  onChange={(e) => {
-                    setTraspasosAlmacenId(e.target.value);
-                    setTraspasosPageNum(1);
-                  }}
-                >
-                  <option value="">Todos</option>
-                  {almacenes.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {traspasosLoading ? (
-              <p className="cell-muted">Cargando...</p>
-            ) : !traspasosPage || traspasosPage.items.length === 0 ? (
-              <p>No hay traspasos registrados.</p>
-            ) : (
-              <>
-                <table className="table table-minimal">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Producto / Variante</th>
-                      <th>Origen</th>
-                      <th>Destino</th>
-                      <th className="num">Cantidad</th>
-                      <th>Nota</th>
-                      <th>Usuario</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {traspasosPage.items.map((t) => (
-                      <tr key={t.id}>
-                        <td className="cell-muted">{formatDateTime(t.fecha)}</td>
-                        <td className="cell-primary">
-                          {t.variante.product.name}
-                          <div className="cell-muted">{t.variante.variantCode}</div>
-                        </td>
-                        <td>{t.almacenOrigen.nombre}</td>
-                        <td>{t.almacenDestino.nombre}</td>
-                        <td className="num">
-                          {t.cantidad}
-                          {t.variante.unidad === "ML" ? " ml" : ""}
-                        </td>
-                        <td className="cell-muted">{t.nota ?? "—"}</td>
-                        <td className="cell-muted">{t.creadoPor.nombre}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {traspasosTotalPages > 1 && (
-                  <div className="pagination">
-                    <button
-                      type="button"
-                      className={`pagination-btn${traspasosPageNum <= 1 ? " disabled" : ""}`}
-                      disabled={traspasosPageNum <= 1}
-                      onClick={() => setTraspasosPageNum((p) => p - 1)}
-                    >
-                      ← Anterior
-                    </button>
-                    <span className="pagination-info">
-                      Página {traspasosPageNum} de {traspasosTotalPages}
-                    </span>
-                    <button
-                      type="button"
-                      className={`pagination-btn${traspasosPageNum >= traspasosTotalPages ? " disabled" : ""}`}
-                      disabled={traspasosPageNum >= traspasosTotalPages}
-                      onClick={() => setTraspasosPageNum((p) => p + 1)}
-                    >
-                      Siguiente →
-                    </button>
-                  </div>
-                )}
-              </>
             )}
           </>
         )}

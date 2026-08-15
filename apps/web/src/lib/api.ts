@@ -316,13 +316,22 @@ export function createTraspasoAlmacen(data: TraspasoAlmacenInput) {
 // --- Proformas ---
 
 export function getProformas(
-  query: { tipo?: string; estado?: string; empresaId?: string; creadoPorId?: string; page?: number; limit?: number } = {},
+  query: {
+    tipo?: string;
+    estado?: string;
+    empresaId?: string;
+    creadoPorId?: string;
+    clienteId?: string;
+    page?: number;
+    limit?: number;
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (query.tipo) params.set("tipo", query.tipo);
   if (query.estado) params.set("estado", query.estado);
   if (query.empresaId) params.set("empresaId", query.empresaId);
   if (query.creadoPorId) params.set("creadoPorId", query.creadoPorId);
+  if (query.clienteId) params.set("clienteId", query.clienteId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
@@ -418,6 +427,7 @@ export function getRegistros(
     categoryId?: string;
     brandId?: string;
     productId?: string;
+    clienteId?: string;
     page?: number;
     limit?: number;
   },
@@ -429,6 +439,7 @@ export function getRegistros(
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.brandId) params.set("brandId", query.brandId);
   if (query.productId) params.set("productId", query.productId);
+  if (query.clienteId) params.set("clienteId", query.clienteId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);

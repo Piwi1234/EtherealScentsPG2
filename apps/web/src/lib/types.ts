@@ -503,6 +503,7 @@ export type RegistroLinea = {
     id: string;
     fecha: string;
     empresa: { id: string; nombre: string };
+    cliente: { id: string; nombre: string } | null;
     ciudadProcedencia: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
   };

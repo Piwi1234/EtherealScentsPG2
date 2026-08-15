@@ -33,13 +33,18 @@ const NAV_ITEMS = [
   { href: "/dashboard/categories", label: "Categorías", icon: CategoriesIcon },
   { href: "/dashboard/brands", label: "Marcas", icon: BrandsIcon },
   { href: "/dashboard/products", label: "Productos", icon: ProductsIcon },
-  { href: "/dashboard/stock", label: "Stock", icon: StockIcon },
 ];
 
 // Submenú acordeón de Clientes: lista plana, sin subtítulos de grupo (a diferencia de Configuración).
 const CLIENTES_ITEMS = [
   { href: "/dashboard/clientes", label: "Listado", icon: ListIcon },
   { href: "/dashboard/clientes/pedidos", label: "Pedidos", icon: OrdersIcon },
+];
+
+// Submenú acordeón de Stock: existencias/lotes de compra separado del historial de traspasos.
+const STOCK_ITEMS = [
+  { href: "/dashboard/stock", label: "Existencias", icon: StockIcon },
+  { href: "/dashboard/stock/traspasos", label: "Traspasos", icon: ExchangeIcon },
 ];
 
 const PROFORMAS_NAV_ITEMS = [
@@ -80,6 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<AuthUser | null>(null);
   const [configuracionOpen, setConfiguracionOpen] = useState(false);
   const [clientesOpen, setClientesOpen] = useState(false);
+  const [stockOpen, setStockOpen] = useState(false);
   const [contabilidadOpen, setContabilidadOpen] = useState(false);
 
   useEffect(() => {
@@ -110,6 +116,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (clientesHasActiveChild) setClientesOpen(true);
   }, [clientesHasActiveChild]);
+
+  const stockHasActiveChild = pathname.startsWith("/dashboard/stock");
+  // "Existencias" también cubre /dashboard/stock a secas, así que el match más específico
+  // (Traspasos) gana cuando aplica, mismo criterio que Clientes/Pedidos.
+  const stockActiveHref = pathname.startsWith("/dashboard/stock/traspasos")
+    ? "/dashboard/stock/traspasos"
+    : stockHasActiveChild
+      ? "/dashboard/stock"
+      : null;
+
+  useEffect(() => {
+    if (stockHasActiveChild) setStockOpen(true);
+  }, [stockHasActiveChild]);
 
   const contabilidadHasActiveChild = pathname.startsWith("/dashboard/contabilidad");
 
@@ -166,6 +185,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
+          <button
+            type="button"
+            className={`sidebar-link sidebar-accordion-toggle${stockHasActiveChild ? " active" : ""}`}
+            onClick={() => setStockOpen((open) => !open)}
+            aria-expanded={stockOpen}
+          >
+            <StockIcon className="sidebar-link-icon" />
+            <span>Stock</span>
+            <ChevronDownIcon className={`sidebar-accordion-chevron${stockOpen ? " open" : ""}`} />
+          </button>
+          <div className={`sidebar-accordion-panel${stockOpen ? " open" : ""}`}>
+            <div className="sidebar-accordion-panel-inner">
+              {STOCK_ITEMS.map((item) => {
+                const active = item.href === stockActiveHref;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
+                  >
+                    <Icon className="sidebar-link-icon" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </nav>
         <div className="sidebar-section-title">Proformas</div>
         <nav className="sidebar-nav">
