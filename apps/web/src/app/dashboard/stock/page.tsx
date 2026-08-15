@@ -40,7 +40,10 @@ export default function StockPage() {
   const [lotesVarianteId, setLotesVarianteId] = useState("");
   const [lotesVarianteLabel, setLotesVarianteLabel] = useState("");
   const [lotesPageNum, setLotesPageNum] = useState(1);
-  const [lotesLoading, setLotesLoading] = useState(true);
+  const [lotesLoading, setLotesLoading] = useState(false);
+  // El historial es pesado (todos los lotes de todos los productos) — no se trae hasta que el
+  // usuario pida ver los lotes de un producto puntual desde "Ver lotes".
+  const [lotesCargados, setLotesCargados] = useState(false);
 
   useEffect(() => {
     getAlmacenes({ pageSize: 200 })
@@ -75,6 +78,7 @@ export default function StockPage() {
   }, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockPageNum]);
 
   useEffect(() => {
+    if (!lotesCargados) return;
     setLotesLoading(true);
     getLotesCompra({
       almacenId: lotesAlmacenId || undefined,
@@ -86,7 +90,7 @@ export default function StockPage() {
       .then(setLotesPage)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLotesLoading(false));
-  }, [lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
+  }, [lotesCargados, lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
 
   function handleStockSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,6 +102,7 @@ export default function StockPage() {
     setLotesVarianteId(row.varianteId);
     setLotesVarianteLabel(`${row.variante.product.name} — ${row.variante.variantCode}`);
     setLotesPageNum(1);
+    setLotesCargados(true);
     document.getElementById("historial-lotes")?.scrollIntoView({ behavior: "smooth" });
   }
 
@@ -335,7 +340,9 @@ export default function StockPage() {
           )}
         </div>
 
-        {lotesLoading ? (
+        {!lotesCargados ? (
+          <p className="cell-muted">Elegí &quot;Ver lotes&quot; en un producto de Existencias, arriba, para ver su historial.</p>
+        ) : lotesLoading ? (
           <p className="cell-muted">Cargando...</p>
         ) : !lotesPage || lotesPage.items.length === 0 ? (
           <p>No hay lotes de compra registrados.</p>
