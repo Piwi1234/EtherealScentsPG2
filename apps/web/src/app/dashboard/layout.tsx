@@ -69,6 +69,8 @@ const CONTABILIDAD_ITEMS = [
   { href: "/dashboard/contabilidad/cuenta-chile", label: "Cuenta Chile", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/cuenta-usa", label: "Cuenta USA", icon: CuentaIcon },
   { href: "/dashboard/contabilidad/tipos", label: "Tipos", icon: ListIcon },
+  { href: "/dashboard/contabilidad/cuentas-por-cobrar", label: "Cuentas por Cobrar", icon: ExchangeIcon },
+  { href: "/dashboard/contabilidad/cuentas-por-pagar", label: "Cuentas por Pagar", icon: ExchangeIcon },
 ];
 
 // Submenú acordeón dentro de AJUSTES, agrupado por título. "adminOnly" oculta el grupo entero
