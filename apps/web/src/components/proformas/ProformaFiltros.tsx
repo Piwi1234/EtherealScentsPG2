@@ -1,17 +1,33 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Cliente, Proveedor } from "../../lib/types";
+import { DateRangeDropdown, type DateSelection } from "../DateRangeDropdown";
+import { ClienteSearchSelect } from "./ClienteSearchSelect";
+import { ProveedorSearchSelect } from "./ProveedorSearchSelect";
 
 export function ProformaFiltros({
   initialTipo,
   initialEstado,
   initialCreadoPorId,
+  initialClienteId,
+  initialProveedorId,
+  initialFechaDesde,
+  initialFechaHasta,
   vendedores,
+  clientes,
+  proveedores,
 }: {
   initialTipo: string;
   initialEstado: string;
   initialCreadoPorId: string;
+  initialClienteId: string;
+  initialProveedorId: string;
+  initialFechaDesde: string;
+  initialFechaHasta: string;
   vendedores: { id: string; nombre: string }[];
+  clientes: Cliente[];
+  proveedores: Proveedor[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -27,6 +43,19 @@ export function ProformaFiltros({
     router.push(`${pathname}?${params.toString()}`);
   }
 
+  function handleDateApply(selection: DateSelection) {
+    pushParams({ fechaDesde: selection.fechaDesde ?? "", fechaHasta: selection.fechaHasta ?? "" });
+  }
+
+  const initialDateSelection =
+    initialFechaDesde || initialFechaHasta
+      ? {
+          fechaDesde: initialFechaDesde || undefined,
+          fechaHasta: initialFechaHasta || undefined,
+          label: `${initialFechaDesde || "…"} → ${initialFechaHasta || "…"}`,
+        }
+      : undefined;
+
   return (
     <div className="filters-bar">
       <div className="filter-field">
@@ -34,7 +63,7 @@ export function ProformaFiltros({
         <select
           className="field"
           defaultValue={initialTipo}
-          onChange={(e) => pushParams({ tipo: e.target.value, creadoPorId: "" })}
+          onChange={(e) => pushParams({ tipo: e.target.value, creadoPorId: "", clienteId: "", proveedorId: "" })}
         >
           <option value="">Elegí un tipo…</option>
           <option value="VENTA">Venta</option>
@@ -51,21 +80,34 @@ export function ProformaFiltros({
           <option value="ANULADA">Anulada</option>
         </select>
       </div>
+      {initialTipo && <DateRangeDropdown onApply={handleDateApply} initialSelection={initialDateSelection} />}
       {initialTipo === "VENTA" && (
-        <div className="filter-field">
-          <label className="filter-label">Vendedor</label>
-          <select
-            className="field"
-            defaultValue={initialCreadoPorId}
-            onChange={(e) => pushParams({ creadoPorId: e.target.value })}
-          >
-            <option value="">Todos</option>
-            {vendedores.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.nombre}
-              </option>
-            ))}
-          </select>
+        <>
+          <div className="filter-field">
+            <label className="filter-label">Vendedor</label>
+            <select
+              className="field"
+              defaultValue={initialCreadoPorId}
+              onChange={(e) => pushParams({ creadoPorId: e.target.value })}
+            >
+              <option value="">Todos</option>
+              {vendedores.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-field" style={{ minWidth: 220 }}>
+            <label className="filter-label">Cliente</label>
+            <ClienteSearchSelect clientes={clientes} value={initialClienteId} onChange={(id) => pushParams({ clienteId: id })} />
+          </div>
+        </>
+      )}
+      {initialTipo === "COMPRA" && (
+        <div className="filter-field" style={{ minWidth: 220 }}>
+          <label className="filter-label">Proveedor</label>
+          <ProveedorSearchSelect proveedores={proveedores} value={initialProveedorId} onChange={(id) => pushParams({ proveedorId: id })} />
         </div>
       )}
     </div>

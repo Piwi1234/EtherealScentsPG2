@@ -25,14 +25,21 @@ function labelMes(anioMes: string): string {
  * librería de calendario: son inputs nativos date/month + un select de año. Compartido entre
  * Registros y Contabilidad (no es específico de proformas).
  */
-export function DateRangeDropdown({ onApply }: { onApply: (selection: DateSelection) => void }) {
+export function DateRangeDropdown({
+  onApply,
+  initialSelection,
+}: {
+  onApply: (selection: DateSelection) => void;
+  /** Para filtros manejados por la URL (ej. Proformas): restaura el label/rango al recargar la página. */
+  initialSelection?: DateSelection;
+}) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<DateMode>("rango");
-  const [desde, setDesde] = useState("");
-  const [hasta, setHasta] = useState("");
+  const [desde, setDesde] = useState(initialSelection?.fechaDesde ?? "");
+  const [hasta, setHasta] = useState(initialSelection?.fechaHasta ?? "");
   const [mes, setMes] = useState("");
   const [anio, setAnio] = useState(String(new Date().getFullYear()));
-  const [activeLabel, setActiveLabel] = useState(TODO_EL_TIEMPO.label);
+  const [activeLabel, setActiveLabel] = useState(initialSelection?.label ?? TODO_EL_TIEMPO.label);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

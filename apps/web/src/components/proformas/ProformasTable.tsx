@@ -15,13 +15,13 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
     <table className="table table-minimal">
       <thead>
         <tr>
+          <th>Fecha</th>
           <th>Tipo</th>
           <th>Empresa</th>
           <th>Almacén</th>
           <th>Cliente / Proveedor</th>
           {mostrarVendedor && <th>Vendedor</th>}
           <th>Estado</th>
-          <th>Fecha</th>
           <th className="num">Líneas</th>
         </tr>
       </thead>
@@ -32,6 +32,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             onClick={() => router.push(`/dashboard/proformas/${proforma.id}`)}
             style={{ cursor: "pointer" }}
           >
+            <td className="cell-muted">{formatDate(proforma.fecha)}</td>
             <td className="cell-primary">{proforma.tipo === "VENTA" ? "Venta" : "Compra"}</td>
             <td>{proforma.empresa.nombre}</td>
             <td className="cell-muted">{proforma.almacen?.nombre ?? "—"}</td>
@@ -42,7 +43,6 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             <td>
               <EstadoBadge estado={proforma.estado} />
             </td>
-            <td className="cell-muted">{formatDate(proforma.fecha)}</td>
             <td className="num">{proforma.detalles.length}</td>
           </tr>
         ))}

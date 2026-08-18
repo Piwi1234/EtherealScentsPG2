@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
 import { EstadoProforma, TipoProforma } from "@app/database";
 
 export class QueryProformaDto {
@@ -33,6 +33,16 @@ export class QueryProformaDto {
   @IsOptional()
   @IsUUID()
   creadoPorId?: string;
+
+  @ApiPropertyOptional({ description: "Rango de fechas: desde (inclusive), sobre Proforma.fecha." })
+  @IsOptional()
+  @IsDateString()
+  fechaDesde?: string;
+
+  @ApiPropertyOptional({ description: "Rango de fechas: hasta (inclusive, se extiende al final de ese día)." })
+  @IsOptional()
+  @IsDateString()
+  fechaHasta?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

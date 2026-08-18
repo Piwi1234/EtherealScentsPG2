@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { apiGetServer } from "../../../lib/api-server";
-import type { Page, Proforma } from "../../../lib/types";
+import type { Cliente, Page, Proforma, Proveedor } from "../../../lib/types";
 import { ProformasTable } from "../../../components/proformas/ProformasTable";
 import { ProformaFiltros } from "../../../components/proformas/ProformaFiltros";
 
@@ -10,7 +10,16 @@ const PAGE_SIZE = 20;
 export default async function ProformasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; estado?: string; creadoPorId?: string; page?: string }>;
+  searchParams: Promise<{
+    tipo?: string;
+    estado?: string;
+    creadoPorId?: string;
+    clienteId?: string;
+    proveedorId?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    page?: string;
+  }>;
 }) {
   const params = await searchParams;
   const currentPage = Math.max(1, Number(params.page ?? "1") || 1);
@@ -19,6 +28,10 @@ export default async function ProformasPage({
   if (params.tipo) qs.set("tipo", params.tipo);
   if (params.estado) qs.set("estado", params.estado);
   if (params.tipo === "VENTA" && params.creadoPorId) qs.set("creadoPorId", params.creadoPorId);
+  if (params.tipo === "VENTA" && params.clienteId) qs.set("clienteId", params.clienteId);
+  if (params.tipo === "COMPRA" && params.proveedorId) qs.set("proveedorId", params.proveedorId);
+  if (params.fechaDesde) qs.set("fechaDesde", params.fechaDesde);
+  if (params.fechaHasta) qs.set("fechaHasta", params.fechaHasta);
   qs.set("page", String(currentPage));
   qs.set("limit", String(PAGE_SIZE));
 
@@ -34,6 +47,10 @@ export default async function ProformasPage({
   }
 
   const vendedores = params.tipo === "VENTA" ? await apiGetServer<{ id: string; nombre: string }[]>("/proformas/vendedores") : [];
+  const clientes =
+    params.tipo === "VENTA" ? (await apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=500")).items : [];
+  const proveedores =
+    params.tipo === "COMPRA" ? (await apiGetServer<Page<Proveedor>>("/proveedores?activo=true&pageSize=500")).items : [];
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -62,7 +79,13 @@ export default async function ProformasPage({
           initialTipo={params.tipo ?? ""}
           initialEstado={params.estado ?? ""}
           initialCreadoPorId={params.creadoPorId ?? ""}
+          initialClienteId={params.clienteId ?? ""}
+          initialProveedorId={params.proveedorId ?? ""}
+          initialFechaDesde={params.fechaDesde ?? ""}
+          initialFechaHasta={params.fechaHasta ?? ""}
           vendedores={vendedores}
+          clientes={clientes}
+          proveedores={proveedores}
         />
       </Suspense>
 

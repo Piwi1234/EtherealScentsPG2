@@ -70,6 +70,9 @@ export class ProformasService {
       page: String(query.page ?? 1),
       pageSize: String(query.limit ?? 20),
     });
+    const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
+    if (hasta) hasta.setHours(23, 59, 59, 999);
+
     const where: Prisma.ProformaWhereInput = {
       tipo: query.tipo,
       estado: query.estado,
@@ -77,6 +80,10 @@ export class ProformasService {
       creadoPorId: query.creadoPorId,
       clienteId: query.clienteId,
       proveedorId: query.proveedorId,
+      fecha: {
+        gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
+        lte: hasta,
+      },
     };
     const [items, total] = await Promise.all([
       this.prisma.proforma.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
