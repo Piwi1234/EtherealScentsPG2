@@ -45,19 +45,22 @@ function Row({
  * Igual que la cabecera, el backend solo acepta el PATCH mientras la proforma está en BORRADOR.
  * El adelanto se define como % del total; el monto a pagar y el saldo se calculan en vivo acá, no
  * se guardan (si el total cambia porque se agrega/edita una línea, quedan siempre al día).
+ * Ninguno de los dos aplica a COMPRA (el backend los rechaza para ese tipo) — ahí solo se muestra
+ * el subtotal de las líneas.
  */
 export function ProformaTotales({ proforma, editable }: { proforma: Proforma; editable: boolean }) {
   const router = useRouter();
   const prefix = proforma.tipo === "VENTA" ? "Bs" : "$";
   const subtotal = proforma.detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
+  const esVenta = proforma.tipo === "VENTA";
 
   const [descuentoGeneral, setDescuentoGeneral] = useState(proforma.descuentoGeneral);
   const [adelantoPorcentaje, setAdelantoPorcentaje] = useState(proforma.adelantoPorcentaje ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const total = subtotal - (Number(descuentoGeneral) || 0);
-  const porcentaje = Number(adelantoPorcentaje) || 0;
+  const total = esVenta ? subtotal - (Number(descuentoGeneral) || 0) : subtotal;
+  const porcentaje = esVenta ? Number(adelantoPorcentaje) || 0 : 0;
   const montoAdelanto = total * (porcentaje / 100);
   const saldo = total - montoAdelanto;
 
@@ -74,6 +77,16 @@ export function ProformaTotales({ proforma, editable }: { proforma: Proforma; ed
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!esVenta) {
+    return (
+      <div style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "14px 16px", maxWidth: 340, marginLeft: "auto" }}>
+        <Row label="Total" strong>
+          <span>{money(subtotal, prefix)}</span>
+        </Row>
+      </div>
+    );
   }
 
   return (

@@ -169,6 +169,8 @@ export class ProformasService {
       if (!dto.proveedorId) throw new BadRequestException("proveedorId es obligatorio para una proforma de compra.");
       await this.assertProveedorExists(dto.proveedorId);
       if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
+      if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
+      if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
     }
 
     // Para COMPRA, si no se manda un tipo de cambio propio, arranca con el del sistema — queda
@@ -225,6 +227,8 @@ export class ProformasService {
       }
       if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
       if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
+      if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
+      if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
     }
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
 

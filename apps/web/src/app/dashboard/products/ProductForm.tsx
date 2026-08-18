@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   API_ORIGIN,
@@ -78,6 +78,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [variantForm, setVariantForm] = useState<VariantFormState>(EMPTY_VARIANT_FORM);
   const [variantError, setVariantError] = useState("");
   const [variantSubmitting, setVariantSubmitting] = useState(false);
+  const [variantRowError, setVariantRowError] = useState<Record<string, string>>({});
 
   // Valores propios del producto para atributos MULTI_VALUE ("Sabor") y PRICED_VARIANT ("Tamaño"):
   // inputs de "agregar valor" (por atributo) y su error, separados por sección.
@@ -361,6 +362,23 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
+  /** Precio de compra/Utilidad editables sin recrear la variante — cada campo su propio PATCH. */
+  async function handleUpdateVariantField(variantId: string, field: "purchasePrice" | "utility", raw: string) {
+    if (!currentProduct) return;
+    const value = Number(raw);
+    if (Number.isNaN(value)) return;
+    setVariantRowError((prev) => ({ ...prev, [variantId]: "" }));
+    try {
+      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variants/${variantId}`, { [field]: value });
+      setCurrentProduct(updated);
+    } catch (e) {
+      setVariantRowError((prev) => ({
+        ...prev,
+        [variantId]: e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }
+
   function loadPresentaciones(varianteId: string) {
     getPresentaciones(varianteId).then(setPresentaciones);
   }
@@ -432,7 +450,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   );
 
   return (
-    <div className="card" style={{ maxWidth: 760, margin: "0 auto" }}>
+    <div className="card" style={{ maxWidth: "85%", margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>{editing ? "Editar producto" : "Nuevo producto"}</h1>
         <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
@@ -456,12 +474,13 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* 1. Categoría → Subcategoría */}
+        {/* 1. Datos generales: Categoría → Subcategoría, Marca, Nombre — todo en una fila, ahora que
+            el formulario tiene ancho de sobra para no tener que apilarlos. */}
         <div className="form-section">
-          <h2 className="section-label">Categoría</h2>
-          <div className={subCategoryOptions.length > 0 ? "grid-2" : undefined}>
+          <h2 className="section-label">Datos generales</h2>
+          <div className="grid-4">
             <div>
-              {subCategoryOptions.length > 0 && <label>Categoría</label>}
+              <label>Categoría</label>
               <select
                 className="field"
                 value={rootCategoryId}
@@ -490,32 +509,28 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                 </select>
               </div>
             )}
+            <div>
+              <label>Marca</label>
+              <select
+                className="field"
+                value={brandId}
+                onChange={(e) => setBrandId(e.target.value)}
+                disabled={!rootCategoryId}
+              >
+                <option value="">— Sin marca —</option>
+                {availableBrands.map((brand) => (
+                  <option key={brand.id} value={brand.id}>{brand.name}</option>
+                ))}
+              </select>
+              {!rootCategoryId && (
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Elegí una categoría primero.</p>
+              )}
+            </div>
+            <div>
+              <label>Nombre</label>
+              <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
           </div>
-        </div>
-
-        {/* 2. Marca: depende de la categoría/subcategoría elegida arriba */}
-        <div className="form-section">
-          <h2 className="section-label">Marca</h2>
-          <select
-            className="field"
-            value={brandId}
-            onChange={(e) => setBrandId(e.target.value)}
-            disabled={!rootCategoryId}
-          >
-            <option value="">— Sin marca —</option>
-            {availableBrands.map((brand) => (
-              <option key={brand.id} value={brand.id}>{brand.name}</option>
-            ))}
-          </select>
-          {!rootCategoryId && (
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Elegí una categoría primero.</p>
-          )}
-        </div>
-
-        {/* 3. Nombre */}
-        <div className="form-section">
-          <h2 className="section-label">Nombre</h2>
-          <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
         {/* 4. Atributos: propios de la categoría, múltiples, y variantes con precio propio */}
@@ -524,7 +539,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
             <h2 className="section-label">Atributos</h2>
 
             {regularAttrs.length > 0 && (
-              <div className="grid-2" style={{ marginBottom: multiValueAttrs.length > 0 || pricedVariantAttrs.length > 0 ? 14 : 0 }}>
+              <div className="grid-3" style={{ marginBottom: multiValueAttrs.length > 0 || pricedVariantAttrs.length > 0 ? 14 : 0 }}>
                 {regularAttrs.map((def) => (
                   <div key={def.id} style={def.allowMultiple ? { gridColumn: "1 / -1" } : undefined}>
                     <label>
@@ -746,52 +761,81 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           </thead>
                           <tbody>
                             {currentProduct.variants.map((variant) => (
-                              <tr key={variant.id}>
-                                <td>{variant.variantCode}</td>
-                                <td>
-                                  {variant.options
-                                    .map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`)
-                                    .join(" · ")}
-                                </td>
-                                <td>
-                                  <span className={`badge ${variant.unidad === "ML" ? "badge-accent" : "badge-muted"}`}>
-                                    {variant.unidad === "ML" ? "Ml" : "Pza"}
-                                  </span>
-                                  {variant.unidad === "ML" && (
+                              <Fragment key={variant.id}>
+                                <tr>
+                                  <td>{variant.variantCode}</td>
+                                  <td>
+                                    {variant.options
+                                      .map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`)
+                                      .join(" · ")}
+                                  </td>
+                                  <td>
+                                    <span className={`badge ${variant.unidad === "ML" ? "badge-accent" : "badge-muted"}`}>
+                                      {variant.unidad === "ML" ? "Ml" : "Pza"}
+                                    </span>
+                                    {variant.unidad === "ML" && (
+                                      <button
+                                        type="button"
+                                        className="link-button"
+                                        style={{ marginLeft: 8, fontSize: 12 }}
+                                        onClick={() => openPresentaciones(variant.id)}
+                                      >
+                                        Presentaciones
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <input
+                                      className="field"
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      defaultValue={variant.purchasePrice}
+                                      onBlur={(e) => handleUpdateVariantField(variant.id, "purchasePrice", e.target.value)}
+                                      style={{ width: 90 }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      className="field"
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      defaultValue={variant.utility}
+                                      onBlur={(e) => handleUpdateVariantField(variant.id, "utility", e.target.value)}
+                                      style={{ width: 90 }}
+                                    />
+                                  </td>
+                                  <td>${variant.price.toFixed(2)}</td>
+                                  <td>Bs {variant.wholesalePriceBs.toFixed(2)}</td>
+                                  <td>{variant.minPriceBs !== null ? `Bs ${variant.minPriceBs}` : "—"}</td>
+                                  <td>Bs {variant.discountBs}</td>
+                                  <td>Bs {variant.finalPriceBs.toFixed(2)}</td>
+                                  <td>
                                     <button
                                       type="button"
-                                      className="link-button"
-                                      style={{ marginLeft: 8, fontSize: 12 }}
-                                      onClick={() => openPresentaciones(variant.id)}
+                                      className="link-button danger"
+                                      onClick={() => handleDeleteVariant(variant.id)}
                                     >
-                                      Presentaciones
+                                      Eliminar
                                     </button>
-                                  )}
-                                </td>
-                                <td>${variant.purchasePrice}</td>
-                                <td>${variant.utility}</td>
-                                <td>${variant.price.toFixed(2)}</td>
-                                <td>Bs {variant.wholesalePriceBs.toFixed(2)}</td>
-                                <td>{variant.minPriceBs !== null ? `Bs ${variant.minPriceBs}` : "—"}</td>
-                                <td>Bs {variant.discountBs}</td>
-                                <td>Bs {variant.finalPriceBs.toFixed(2)}</td>
-                                <td>
-                                  <button
-                                    type="button"
-                                    className="link-button danger"
-                                    onClick={() => handleDeleteVariant(variant.id)}
-                                  >
-                                    Eliminar
-                                  </button>
-                                </td>
-                              </tr>
+                                  </td>
+                                </tr>
+                                {variantRowError[variant.id] && (
+                                  <tr>
+                                    <td colSpan={10} className="error-text" style={{ fontSize: 12 }}>
+                                      {variantRowError[variant.id]}
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
                             ))}
                           </tbody>
                         </table>
                       </div>
                     )}
 
-                    <div className="grid-2" style={{ background: "var(--surface)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
+                    <div className="grid-3" style={{ background: "var(--surface)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
                       {pricedVariantAttrs.map((def) => {
                         const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
                         return (
@@ -901,108 +945,119 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </div>
         )}
 
-        {/* 5. Costos y precios */}
-        {selectedCategory && (
-          <div className="form-section">
-            <h2 className="section-label">Costos y precios de &quot;{selectedCategory.name}&quot;</h2>
-            <p className="cost-breakdown-line">
-              Costos heredados — Logística: ${logisticsCostPreview.toFixed(2)} · Envío: ${shippingCostPreview.toFixed(2)} ·
-              Seguridad: ${securityCostPreview.toFixed(2)}
-            </p>
-
-            {pricedVariantAttrs.length === 0 ? (
-              <>
-                <div className="grid-2" style={{ marginTop: 14, marginBottom: 10 }}>
-                  <div>
-                    <label>Precio de compra</label>
-                    <input
-                      className="field"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={purchasePrice}
-                      onChange={(e) => setPurchasePrice(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label>Utilidad</label>
-                    <input
-                      className="field"
-                      type="number"
-                      step="0.01"
-                      value={utility}
-                      onChange={(e) => setUtility(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="grid-2">
-                  <div>
-                    <label>Precio Min Bs</label>
-                    <input
-                      className="field"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={minPriceBs}
-                      onChange={(e) => setMinPriceBs(e.target.value)}
-                      placeholder="Opcional"
-                    />
-                  </div>
-                  <div>
-                    <label>Descuento Bs</label>
-                    <input
-                      className="field"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={discountBs}
-                      onChange={(e) => setDiscountBs(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <p className="cost-breakdown-line" style={{ marginTop: 10 }}>
-                  Tipo de cambio: 1 $ = {exchangeRate} Bs
-                </p>
-                <div className="price-stats">
-                  <div className="price-stat">
-                    <span className="price-stat-label">Precio $</span>
-                    <span className="price-stat-value">${pricePreview.toFixed(2)}</span>
-                  </div>
-                  <div className="price-stat">
-                    <span className="price-stat-label">May Bs</span>
-                    <span className="price-stat-value">Bs {wholesaleBsPreview.toFixed(2)}</span>
-                  </div>
-                  <div className="price-stat price-stat-final">
-                    <span className="price-stat-label">Final Bs</span>
-                    <span className="price-stat-value">Bs {finalBsPreview.toFixed(2)}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                El precio de compra, la utilidad y los precios en Bs se cargan por variante (sección Atributos, arriba).
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* 6. Imagen */}
+        {/* 5. Costos y precios + 6. Imagen: lado a lado — la imagen no necesita todo el ancho, y
+            apilarlas debajo de todo lo demás desperdiciaba el espacio que da un formulario ancho. */}
         <div className="form-section">
-          <h2 className="section-label">Imagen</h2>
-          <div className="image-uploader">
-            {imagePreview ? (
-              <img src={imagePreview} alt="Vista previa" />
-            ) : (
-              <div className="image-uploader-placeholder">Sin imagen</div>
-            )}
-            <input
-              className="field"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
-              style={{ background: "transparent", border: 0, padding: 0 }}
-            />
+          <div className="form-columns">
+            <div>
+              {selectedCategory ? (
+                <>
+                  <h2 className="section-label">Costos y precios de &quot;{selectedCategory.name}&quot;</h2>
+                  <p className="cost-breakdown-line">
+                    Costos heredados — Logística: ${logisticsCostPreview.toFixed(2)} · Envío: ${shippingCostPreview.toFixed(2)} ·
+                    Seguridad: ${securityCostPreview.toFixed(2)}
+                  </p>
+
+                  {pricedVariantAttrs.length === 0 ? (
+                    <>
+                      <div className="grid-2" style={{ marginTop: 14, marginBottom: 10 }}>
+                        <div>
+                          <label>Precio de compra</label>
+                          <input
+                            className="field"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={purchasePrice}
+                            onChange={(e) => setPurchasePrice(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label>Utilidad</label>
+                          <input
+                            className="field"
+                            type="number"
+                            step="0.01"
+                            value={utility}
+                            onChange={(e) => setUtility(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid-2">
+                        <div>
+                          <label>Precio Min Bs</label>
+                          <input
+                            className="field"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={minPriceBs}
+                            onChange={(e) => setMinPriceBs(e.target.value)}
+                            placeholder="Opcional"
+                          />
+                        </div>
+                        <div>
+                          <label>Descuento Bs</label>
+                          <input
+                            className="field"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={discountBs}
+                            onChange={(e) => setDiscountBs(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <p className="cost-breakdown-line" style={{ marginTop: 10 }}>
+                        Tipo de cambio: 1 $ = {exchangeRate} Bs
+                      </p>
+                      <div className="price-stats">
+                        <div className="price-stat">
+                          <span className="price-stat-label">Precio $</span>
+                          <span className="price-stat-value">${pricePreview.toFixed(2)}</span>
+                        </div>
+                        <div className="price-stat">
+                          <span className="price-stat-label">May Bs</span>
+                          <span className="price-stat-value">Bs {wholesaleBsPreview.toFixed(2)}</span>
+                        </div>
+                        <div className="price-stat price-stat-final">
+                          <span className="price-stat-label">Final Bs</span>
+                          <span className="price-stat-value">Bs {finalBsPreview.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)" }}>
+                      El precio de compra, la utilidad y los precios en Bs se cargan por variante (sección Atributos, arriba).
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2 className="section-label">Costos y precios</h2>
+                  <p className="cell-muted" style={{ fontSize: 13 }}>Elegí una categoría para ver los costos y precios.</p>
+                </>
+              )}
+            </div>
+
+            <div>
+              <h2 className="section-label">Imagen</h2>
+              <div className="image-uploader">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Vista previa" />
+                ) : (
+                  <div className="image-uploader-placeholder">Sin imagen</div>
+                )}
+                <input
+                  className="field"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => handleImageSelect(e.target.files?.[0] ?? null)}
+                  style={{ background: "transparent", border: 0, padding: 0 }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 

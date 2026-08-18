@@ -64,7 +64,7 @@ function DetalleRow({
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 10) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : 11) + (editable ? 1 : 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -145,6 +145,14 @@ function DetalleRow({
                 money(detalle.costoLogistica, "$")
               )}
             </td>
+            <td className="num">
+              {tipoCambioProf
+                ? `Bs ${(
+                    (Number(detalle.precioCompra) + Number(detalle.costoEnvio) + Number(detalle.costoSeguridad) + Number(detalle.costoLogistica)) *
+                    Number(tipoCambioProf)
+                  ).toFixed(2)}`
+                : "—"}
+            </td>
           </>
         )}
         <td className="num cell-primary">{money(detalle.subtotal, tipo === "VENTA" ? "Bs" : "$")}</td>
@@ -202,6 +210,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
                 <th className="num">Envío</th>
                 <th className="num">Seguridad</th>
                 <th className="num">Logística</th>
+                <th className="num">Precio Unit Bs</th>
               </>
             )}
             <th className="num">Subtotal</th>
