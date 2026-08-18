@@ -5,8 +5,18 @@ import { ApiError, createTraspasoAlmacen, getAlmacenes, getBrands, getCategories
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
+import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 
 const PAGE_SIZE = 20;
+
+/** Atributos que distinguen esta variante puntual (ej. "Sabor: Menta") + los heredados de la
+ * categoría marcados mostrarEnProforma — reemplaza al código de producto en la tabla de Existencias. */
+function atributosLabel(row: StockRow): string | null {
+  const opciones = row.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
+  const heredados = formatAtributosVisibles(row.variante.product.attributeValues, row.variante.product.variantOptionValues);
+  const partes = [...opciones, ...(heredados ? [heredados] : [])];
+  return partes.length > 0 ? partes.join(", ") : null;
+}
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -108,11 +118,14 @@ export default function StockPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadLotes, [lotesCargados, lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
 
-  function handleStockSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setStockPageNum(1);
-    setStockSearch(stockSearchInput.trim());
-  }
+  // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setStockSearch(stockSearchInput.trim());
+      setStockPageNum(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [stockSearchInput]);
 
   function handleVerLotes(row: StockRow) {
     setLotesVarianteId(row.varianteId);
@@ -191,7 +204,25 @@ export default function StockPage() {
           <h1 style={{ margin: 0, fontSize: 20 }}>Existencias</h1>
         </div>
 
-        <form onSubmit={handleStockSearchSubmit} className="filters-bar" style={{ marginBottom: 16 }}>
+        <div className="filters-bar" style={{ marginBottom: 16 }}>
+          <div className="filter-field">
+            <label className="filter-label">Almacén</label>
+            <select
+              className="field"
+              value={stockAlmacenId}
+              onChange={(e) => {
+                setStockAlmacenId(e.target.value);
+                setStockPageNum(1);
+              }}
+            >
+              <option value="">Todos</option>
+              {almacenes.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="filter-field">
             <label className="filter-label">Categoría</label>
             <select
@@ -241,30 +272,7 @@ export default function StockPage() {
               style={{ maxWidth: 240 }}
             />
           </div>
-          <div className="filter-field">
-            <label className="filter-label">Almacén</label>
-            <select
-              className="field"
-              value={stockAlmacenId}
-              onChange={(e) => {
-                setStockAlmacenId(e.target.value);
-                setStockPageNum(1);
-              }}
-            >
-              <option value="">Todos</option>
-              {almacenes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button type="submit" className="action-btn">
-              Buscar
-            </button>
-          </div>
-        </form>
+        </div>
 
         {!stockCategoryId ? (
           <p className="cell-muted">Elegí una categoría arriba para ver las existencias.</p>
@@ -277,8 +285,8 @@ export default function StockPage() {
             <table className="table table-minimal">
               <thead>
                 <tr>
+                  <th>Marca</th>
                   <th>Producto</th>
-                  <th>Variante</th>
                   <th>Almacén</th>
                   <th className="num">Física</th>
                   <th className="num">Reservada</th>
@@ -288,19 +296,19 @@ export default function StockPage() {
                 </tr>
               </thead>
               <tbody>
-                {stockPage.items.map((row) => (
+                {stockPage.items.map((row) => {
+                  const etiqueta = atributosLabel(row);
+                  return (
                   <tr key={`${row.varianteId}-${row.almacenId}`}>
+                    <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
                     <td className="cell-primary">
                       {row.variante.product.name}
-                      <div className="cell-muted">{row.variante.product.productCode}</div>
-                    </td>
-                    <td>
-                      {row.variante.variantCode}
                       {row.variante.isDefault && (
                         <span className="badge badge-muted" style={{ marginLeft: 6 }}>
                           Default
                         </span>
                       )}
+                      {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
                     </td>
                     <td>{row.almacen.nombre}</td>
                     <td className="num">{row.cantidadFisica}{row.variante.unidad === "ML" ? " ml" : ""}</td>
@@ -321,7 +329,8 @@ export default function StockPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {stockTotalPages > 1 && (

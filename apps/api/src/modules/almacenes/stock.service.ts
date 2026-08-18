@@ -10,7 +10,21 @@ const stockInclude = {
       variantCode: true,
       isDefault: true,
       unidad: true,
-      product: { select: { id: true, name: true, productCode: true, imageUrl: true } },
+      // attributeValues+variantOptionValues: atributos marcados mostrarEnProforma (NONE y MULTI_VALUE
+      // respectivamente). options: qué distingue a ESTA variante puntual (ej. "Tamaño: 50 ML") —
+      // juntos arman la etiqueta que reemplaza al código de producto en la tabla de Existencias.
+      product: {
+        select: {
+          id: true,
+          name: true,
+          productCode: true,
+          imageUrl: true,
+          brand: { select: { id: true, name: true } },
+          attributeValues: { include: { attribute: true, option: true } },
+          variantOptionValues: { include: { attribute: true } },
+        },
+      },
+      options: { include: { optionValue: { include: { attribute: true } } } },
     },
   },
   almacen: { select: { id: true, nombre: true } },

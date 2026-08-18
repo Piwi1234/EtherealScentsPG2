@@ -315,7 +315,16 @@ export type StockVariante = {
   variantCode: string;
   isDefault: boolean;
   unidad: UnidadVariante;
-  product: { id: string; name: string; productCode: string; imageUrl: string | null };
+  product: {
+    id: string;
+    name: string;
+    productCode: string;
+    imageUrl: string | null;
+    brand: { id: string; name: string } | null;
+    attributeValues: ProductAttributeValue[];
+    variantOptionValues: ProductVariantOptionValue[];
+  };
+  options: ProductVariantOption[];
 };
 
 export type StockAlmacenRef = { id: string; nombre: string };

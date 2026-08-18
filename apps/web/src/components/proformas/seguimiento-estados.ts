@@ -7,3 +7,9 @@ export const LABELS_SEGUIMIENTO: Record<EstadoSeguimientoProcura, string> = {
   COMPRADO: "Comprado",
   ENVIADO: "Enviado",
 };
+
+export const CLASES_SEGUIMIENTO: Record<EstadoSeguimientoProcura, string> = {
+  PENDIENTE: "badge badge-muted",
+  COMPRADO: "badge badge-accent",
+  ENVIADO: "badge badge-accent",
+};

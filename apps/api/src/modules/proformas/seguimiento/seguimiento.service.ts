@@ -89,6 +89,14 @@ export class SeguimientoService {
     return { items, total, page, pageSize };
   }
 
+  /**
+   * Puede venir parcial: el seguimiento de una compra a veces avanza de a poco (ej. el proveedor
+   * despacha 20 de 50 unidades pedidas). Si `dto.cantidad` cubre toda la línea, se actualiza in-place;
+   * si es menor, la línea se parte en dos — la cantidad indicada pasa al nuevo estado en una fila
+   * nueva, el resto queda en la fila original tal cual estaba. Seguro de hacer: las filas PROCURA
+   * nunca tienen `consumos` (eso solo aplica a filas STOCK, ver proforma-completion.service.ts), así
+   * que partir la fila no deja nada huérfano.
+   */
   async updateEstado(id: string, dto: UpdateEstadoSeguimientoDto) {
     const asignacion = await this.prisma.proformaDetalleAsignacion.findUnique({ where: { id } });
     if (!asignacion) {
@@ -97,11 +105,34 @@ export class SeguimientoService {
     if (asignacion.origen !== OrigenAsignacion.PROCURA) {
       throw new BadRequestException("El seguimiento solo aplica a líneas a Procura.");
     }
+    if (dto.cantidad > asignacion.cantidad) {
+      throw new BadRequestException(`La cantidad no puede superar la cantidad pendiente de la línea (${asignacion.cantidad}).`);
+    }
 
-    return this.prisma.proformaDetalleAsignacion.update({
-      where: { id },
-      data: { estadoSeguimiento: dto.estado },
-      include: includeLinea,
+    if (dto.estado === asignacion.estadoSeguimiento) {
+      return this.prisma.proformaDetalleAsignacion.findUniqueOrThrow({ where: { id }, include: includeLinea });
+    }
+
+    if (dto.cantidad === asignacion.cantidad) {
+      return this.prisma.proformaDetalleAsignacion.update({
+        where: { id },
+        data: { estadoSeguimiento: dto.estado },
+        include: includeLinea,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.proformaDetalleAsignacion.update({ where: { id }, data: { cantidad: { decrement: dto.cantidad } } });
+      return tx.proformaDetalleAsignacion.create({
+        data: {
+          proformaDetalleId: asignacion.proformaDetalleId,
+          almacenId: asignacion.almacenId,
+          cantidad: dto.cantidad,
+          origen: asignacion.origen,
+          estadoSeguimiento: dto.estado,
+        },
+        include: includeLinea,
+      });
     });
   }
 }

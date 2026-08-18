@@ -441,8 +441,8 @@ export function getSeguimientoPendientes(
   return apiGet<Page<SeguimientoLinea>>(`/proformas/seguimiento${qs ? `?${qs}` : ""}`);
 }
 
-export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura) {
-  return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado });
+export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura, cantidad: number) {
+  return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado, cantidad });
 }
 
 // --- Registros ---
