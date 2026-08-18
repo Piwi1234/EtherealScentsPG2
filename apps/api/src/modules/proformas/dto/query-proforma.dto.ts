@@ -29,6 +29,16 @@ export class QueryProformaDto {
   @IsUUID()
   proveedorId?: string;
 
+  @ApiPropertyOptional({ description: "Solo VENTA: ciudad de entrega puntual." })
+  @IsOptional()
+  @IsUUID()
+  ciudadEntregaId?: string;
+
+  @ApiPropertyOptional({ description: "Solo COMPRA: país de procedencia puntual." })
+  @IsOptional()
+  @IsUUID()
+  paisProcedenciaId?: string;
+
   @ApiPropertyOptional({ description: "Filtra por quién la creó (el \"Vendedor\" en el listado de VENTA)." })
   @IsOptional()
   @IsUUID()

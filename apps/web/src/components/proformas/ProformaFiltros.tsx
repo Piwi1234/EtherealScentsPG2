@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Cliente, Proveedor } from "../../lib/types";
+import type { Ciudad, Cliente, PaisProcedencia, Proveedor } from "../../lib/types";
 import { DateRangeDropdown, type DateSelection } from "../DateRangeDropdown";
 import { ClienteSearchSelect } from "./ClienteSearchSelect";
 import { ProveedorSearchSelect } from "./ProveedorSearchSelect";
@@ -12,22 +12,30 @@ export function ProformaFiltros({
   initialCreadoPorId,
   initialClienteId,
   initialProveedorId,
+  initialCiudadEntregaId,
+  initialPaisProcedenciaId,
   initialFechaDesde,
   initialFechaHasta,
   vendedores,
   clientes,
   proveedores,
+  ciudades,
+  paisesProcedencia,
 }: {
   initialTipo: string;
   initialEstado: string;
   initialCreadoPorId: string;
   initialClienteId: string;
   initialProveedorId: string;
+  initialCiudadEntregaId: string;
+  initialPaisProcedenciaId: string;
   initialFechaDesde: string;
   initialFechaHasta: string;
   vendedores: { id: string; nombre: string }[];
   clientes: Cliente[];
   proveedores: Proveedor[];
+  ciudades: Ciudad[];
+  paisesProcedencia: PaisProcedencia[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -63,7 +71,16 @@ export function ProformaFiltros({
         <select
           className="field"
           defaultValue={initialTipo}
-          onChange={(e) => pushParams({ tipo: e.target.value, creadoPorId: "", clienteId: "", proveedorId: "" })}
+          onChange={(e) =>
+            pushParams({
+              tipo: e.target.value,
+              creadoPorId: "",
+              clienteId: "",
+              proveedorId: "",
+              ciudadEntregaId: "",
+              paisProcedenciaId: "",
+            })
+          }
         >
           <option value="">Elegí un tipo…</option>
           <option value="VENTA">Venta</option>
@@ -80,6 +97,23 @@ export function ProformaFiltros({
           <option value="ANULADA">Anulada</option>
         </select>
       </div>
+      {initialTipo === "VENTA" && (
+        <div className="filter-field">
+          <label className="filter-label">Ciudad</label>
+          <select
+            className="field"
+            defaultValue={initialCiudadEntregaId}
+            onChange={(e) => pushParams({ ciudadEntregaId: e.target.value })}
+          >
+            <option value="">Todas</option>
+            {ciudades.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {initialTipo && <DateRangeDropdown onApply={handleDateApply} initialSelection={initialDateSelection} />}
       {initialTipo === "VENTA" && (
         <>
@@ -105,10 +139,27 @@ export function ProformaFiltros({
         </>
       )}
       {initialTipo === "COMPRA" && (
-        <div className="filter-field" style={{ minWidth: 220 }}>
-          <label className="filter-label">Proveedor</label>
-          <ProveedorSearchSelect proveedores={proveedores} value={initialProveedorId} onChange={(id) => pushParams({ proveedorId: id })} />
-        </div>
+        <>
+          <div className="filter-field" style={{ minWidth: 220 }}>
+            <label className="filter-label">Proveedor</label>
+            <ProveedorSearchSelect proveedores={proveedores} value={initialProveedorId} onChange={(id) => pushParams({ proveedorId: id })} />
+          </div>
+          <div className="filter-field">
+            <label className="filter-label">País de procedencia</label>
+            <select
+              className="field"
+              defaultValue={initialPaisProcedenciaId}
+              onChange={(e) => pushParams({ paisProcedenciaId: e.target.value })}
+            >
+              <option value="">Todos</option>
+              {paisesProcedencia.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
     </div>
   );

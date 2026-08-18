@@ -80,6 +80,8 @@ export class ProformasService {
       creadoPorId: query.creadoPorId,
       clienteId: query.clienteId,
       proveedorId: query.proveedorId,
+      ciudadEntregaId: query.ciudadEntregaId,
+      paisProcedenciaId: query.paisProcedenciaId,
       fecha: {
         gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
         lte: hasta,
