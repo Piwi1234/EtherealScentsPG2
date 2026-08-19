@@ -324,11 +324,26 @@ export function getLotesCompra(
 }
 
 export function getTraspasosAlmacen(
-  query: { varianteId?: string; almacenId?: string; page?: number; pageSize?: number } = {},
+  query: {
+    varianteId?: string;
+    almacenId?: string;
+    categoryId?: string;
+    brandId?: string;
+    productId?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (query.varianteId) params.set("varianteId", query.varianteId);
   if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.productId) params.set("productId", query.productId);
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();

@@ -17,14 +17,19 @@ export class TraspasoAlmacenController {
   constructor(private readonly traspasos: TraspasoAlmacenService) {}
 
   @Get()
-  @ApiOperation({ summary: "Lista traspasos de stock entre almacenes (paginado, filtro por variante/almacén)." })
+  @ApiOperation({ summary: "Lista traspasos de stock entre almacenes (paginado, filtro por variante/almacén/categoría/marca/producto/fecha)." })
   findAll(
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("varianteId") varianteId?: string,
     @Query("almacenId") almacenId?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("brandId") brandId?: string,
+    @Query("productId") productId?: string,
+    @Query("fechaDesde") fechaDesde?: string,
+    @Query("fechaHasta") fechaHasta?: string,
   ) {
-    return this.traspasos.findAll({ page, pageSize, varianteId, almacenId });
+    return this.traspasos.findAll({ page, pageSize, varianteId, almacenId, categoryId, brandId, productId, fechaDesde, fechaHasta });
   }
 
   @Post()

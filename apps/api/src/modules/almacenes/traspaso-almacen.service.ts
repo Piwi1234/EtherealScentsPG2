@@ -8,7 +8,24 @@ import { resolverProcuraPendiente } from "../proformas/procura.util";
 import { CreateTraspasoAlmacenDto } from "./dto/create-traspaso-almacen.dto";
 
 const traspasoInclude = {
-  variante: { select: { id: true, variantCode: true, unidad: true, product: { select: { id: true, name: true, productCode: true } } } },
+  variante: {
+    select: {
+      id: true,
+      variantCode: true,
+      unidad: true,
+      product: {
+        select: {
+          id: true,
+          name: true,
+          productCode: true,
+          brand: { select: { id: true, name: true } },
+          attributeValues: { include: { attribute: true, option: true } },
+          variantOptionValues: { include: { attribute: true } },
+        },
+      },
+      options: { include: { optionValue: { include: { attribute: true } } } },
+    },
+  },
   almacenOrigen: { select: { id: true, nombre: true } },
   almacenDestino: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
@@ -26,14 +43,53 @@ const traspasoInclude = {
 export class TraspasoAlmacenService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: { page?: string; pageSize?: string; varianteId?: string; almacenId?: string }) {
+  /** El filtro de categoría del frontend solo ofrece categorías padre — acá se expande a ese padre
+   * más todas sus subcategorías (a cualquier profundidad), mismo criterio que Existencias/Seguimiento. */
+  private async collectCategoryIds(rootId: string): Promise<string[]> {
+    const ids = [rootId];
+    let frontier = [rootId];
+    while (frontier.length > 0) {
+      const children = await this.prisma.category.findMany({ where: { parentId: { in: frontier } }, select: { id: true } });
+      if (children.length === 0) break;
+      frontier = children.map((c) => c.id);
+      ids.push(...frontier);
+    }
+    return ids;
+  }
+
+  async findAll(query: {
+    page?: string;
+    pageSize?: string;
+    varianteId?: string;
+    almacenId?: string;
+    categoryId?: string;
+    brandId?: string;
+    productId?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+  }) {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
+
+    const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
+    const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
+    if (hasta) hasta.setHours(23, 59, 59, 999);
 
     const where: Prisma.TraspasoAlmacenWhereInput = {
       varianteId: query.varianteId,
       ...(query.almacenId
         ? { OR: [{ almacenOrigenId: query.almacenId }, { almacenDestinoId: query.almacenId }] }
         : {}),
+      variante: {
+        productId: query.productId,
+        product: {
+          categoryId: categoryIds ? { in: categoryIds } : undefined,
+          brandId: query.brandId,
+        },
+      },
+      fecha: {
+        gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
+        lte: hasta,
+      },
     };
 
     const [items, total] = await Promise.all([

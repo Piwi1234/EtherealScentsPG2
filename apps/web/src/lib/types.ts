@@ -357,7 +357,20 @@ export type TraspasoAlmacen = {
   id: string;
   fecha: string;
   varianteId: string;
-  variante: { id: string; variantCode: string; unidad: UnidadVariante; product: { id: string; name: string; productCode: string } };
+  variante: {
+    id: string;
+    variantCode: string;
+    unidad: UnidadVariante;
+    product: {
+      id: string;
+      name: string;
+      productCode: string;
+      brand: { id: string; name: string } | null;
+      attributeValues: ProductAttributeValue[];
+      variantOptionValues: ProductVariantOptionValue[];
+    };
+    options: ProductVariantOption[];
+  };
   almacenOrigenId: string;
   almacenOrigen: { id: string; nombre: string };
   almacenDestinoId: string;
