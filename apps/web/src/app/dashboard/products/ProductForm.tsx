@@ -379,6 +379,22 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
+  /** Sube inmediatamente (no queda pendiente al submit del form, a diferencia de la imagen del
+   * producto): la variante ya existe en este punto, no hace falta esperar a nada más. */
+  async function handleUploadVariantImage(variantId: string, file: File) {
+    if (!currentProduct) return;
+    setVariantRowError((prev) => ({ ...prev, [variantId]: "" }));
+    try {
+      const updated = await apiUpload<Product>(`/products/${currentProduct.id}/variants/${variantId}/image`, file);
+      setCurrentProduct(updated);
+    } catch (e) {
+      setVariantRowError((prev) => ({
+        ...prev,
+        [variantId]: e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }
+
   function loadPresentaciones(varianteId: string) {
     getPresentaciones(varianteId).then(setPresentaciones);
   }
@@ -743,9 +759,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
                     {currentProduct.variants.length > 0 && (
                       <div style={{ overflowX: "auto", marginBottom: 14 }}>
-                        <table className="table" style={{ background: "var(--surface)" }}>
+                        <table className="table">
                           <thead>
                             <tr>
+                              <th>Imagen</th>
                               <th>ID</th>
                               <th>Combinación</th>
                               <th>Unidad</th>
@@ -763,6 +780,32 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                             {currentProduct.variants.map((variant) => (
                               <Fragment key={variant.id}>
                                 <tr>
+                                  <td>
+                                    {variant.unidad === "PZA" ? (
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        {productImageSrc(variant.imageUrl) ? (
+                                          <img
+                                            src={productImageSrc(variant.imageUrl)!}
+                                            alt=""
+                                            style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 4, border: "1px solid var(--color-divider, var(--line))" }}
+                                          />
+                                        ) : (
+                                          <span className="cell-muted" style={{ fontSize: 11 }}>Sin imagen</span>
+                                        )}
+                                        <input
+                                          type="file"
+                                          accept="image/jpeg,image/png,image/webp,image/gif"
+                                          style={{ width: 90, fontSize: 11 }}
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleUploadVariantImage(variant.id, file);
+                                          }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="cell-muted">—</span>
+                                    )}
+                                  </td>
                                   <td>{variant.variantCode}</td>
                                   <td>
                                     {variant.options
@@ -823,7 +866,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                 </tr>
                                 {variantRowError[variant.id] && (
                                   <tr>
-                                    <td colSpan={10} className="error-text" style={{ fontSize: 12 }}>
+                                    <td colSpan={11} className="error-text" style={{ fontSize: 12 }}>
                                       {variantRowError[variant.id]}
                                     </td>
                                   </tr>
@@ -835,7 +878,15 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                       </div>
                     )}
 
-                    <div className="grid-3" style={{ background: "var(--surface)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
+                    <div
+                      className="grid-3"
+                      style={{
+                        background: "var(--color-surface, var(--surface))",
+                        padding: 12,
+                        borderRadius: 8,
+                        border: "1px solid var(--color-divider, var(--line))",
+                      }}
+                    >
                       {pricedVariantAttrs.map((def) => {
                         const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
                         return (

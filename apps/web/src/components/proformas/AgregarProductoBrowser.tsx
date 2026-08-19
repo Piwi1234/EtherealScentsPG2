@@ -400,9 +400,9 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                   return (
                     <tr key={product.id}>
                       <td>
-                        {productImageSrc(product.imageUrl) ? (
+                        {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
                           <img
-                            src={productImageSrc(product.imageUrl)!}
+                            src={productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl)!}
                             alt={product.name}
                             style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
                           />

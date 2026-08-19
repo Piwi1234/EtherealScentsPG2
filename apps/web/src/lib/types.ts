@@ -105,6 +105,9 @@ export type ProductVariant = {
   finalPriceBs: number;
   /** Se fija al crear la variante; inmutable después. */
   unidad: UnidadVariante;
+  /** Imagen propia de esta variante — solo aplica a unidad=PZA. Si es null, los listados caen al
+   * imageUrl del producto. */
+  imageUrl: string | null;
   options: ProductVariantOption[];
 };
 

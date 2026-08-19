@@ -333,6 +333,11 @@ model ProductVariant {
   // PresentacionVenta y addDetalleVenta en proformas.service.ts.
   unidad UnidadVariante @default(PZA) @map("unidad")
 
+  // Imagen propia de esta variante puntual, para distinguirla a simple vista de las demás del mismo
+  // producto — solo aplica a variantes unidad=PZA (product.service.ts lo valida). Si no tiene, los
+  // listados caen al Product.imageUrl genérico.
+  imageUrl String? @map("image_url")
+
   options        ProductVariantOption[]
   presentaciones PresentacionVenta[]
 

@@ -340,6 +340,19 @@ export class ProductService {
 
         return tx.product.findUniqueOrThrow({ where: { id }, include: includeDetails });
       });
+
+      // Best-effort: las variantes borradas por el cambio de categoría (arriba) pueden haber tenido
+      // imagen propia — no dejar huérfanos en disco.
+      if (categoryChanged) {
+        for (const variant of existing.variants) {
+          if (!variant.imageUrl) continue;
+          const filename = variant.imageUrl.split("/").pop();
+          if (filename) {
+            await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
+          }
+        }
+      }
+
       return withPrice(product, await this.settings.getExchangeRate());
     } catch (error) {
       rethrowPrismaError(error, "Producto");
@@ -367,6 +380,38 @@ export class ProductService {
       return withPrice(updated, await this.settings.getExchangeRate());
     } catch (error) {
       rethrowPrismaError(error, "Producto");
+    }
+  }
+
+  /** Solo variantes unidad=PZA — las ML se venden a través de sus PresentacionVenta, no tiene
+   * sentido identificarlas con una imagen propia. */
+  async setVariantImage(productId: string, variantId: string, file: Express.Multer.File) {
+    const product = await this.findOne(productId);
+    const variant = product.variants.find((v) => v.id === variantId);
+    if (!variant) {
+      throw new NotFoundException("Variante no encontrada.");
+    }
+    if (variant.unidad !== UnidadVariante.PZA) {
+      throw new BadRequestException("Solo las variantes unidad=PZA pueden tener una imagen propia.");
+    }
+
+    try {
+      await this.prisma.productVariant.update({
+        where: { id: variantId },
+        data: { imageUrl: `/uploads/products/${file.filename}` },
+      });
+
+      // Best-effort: borra el archivo anterior para no acumular huérfanos en disco.
+      if (variant.imageUrl) {
+        const previousFilename = variant.imageUrl.split("/").pop();
+        if (previousFilename) {
+          await unlink(join(PRODUCT_IMAGES_DIR, previousFilename)).catch(() => {});
+        }
+      }
+
+      return this.findOne(productId);
+    } catch (error) {
+      rethrowPrismaError(error, "Variante de producto");
     }
   }
 
@@ -489,11 +534,18 @@ export class ProductService {
 
   async removeVariant(productId: string, variantId: string) {
     const product = await this.findOne(productId);
-    if (!product.variants.some((v) => v.id === variantId)) {
+    const variant = product.variants.find((v) => v.id === variantId);
+    if (!variant) {
       throw new NotFoundException("Variante no encontrada.");
     }
     try {
       await this.prisma.productVariant.delete({ where: { id: variantId } });
+      if (variant.imageUrl) {
+        const filename = variant.imageUrl.split("/").pop();
+        if (filename) {
+          await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
+        }
+      }
     } catch (error) {
       rethrowPrismaError(error, "Variante de producto");
     }
@@ -562,8 +614,9 @@ export class ProductService {
     const existing = await this.findOne(id);
     try {
       await this.prisma.product.delete({ where: { id } });
-      if (existing.imageUrl) {
-        const filename = existing.imageUrl.split("/").pop();
+      const imageUrls = [existing.imageUrl, ...existing.variants.map((v) => v.imageUrl)].filter((url): url is string => Boolean(url));
+      for (const imageUrl of imageUrls) {
+        const filename = imageUrl.split("/").pop();
         if (filename) {
           await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
         }

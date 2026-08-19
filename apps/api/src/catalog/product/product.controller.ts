@@ -20,6 +20,7 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
 import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { productImageMulterOptions } from "./product-image.multer";
+import { productVariantImageMulterOptions } from "./product-variant-image.multer";
 
 @ApiTags("products")
 @Controller("products")
@@ -80,6 +81,19 @@ export class ProductController {
   @Delete(":id/variants/:variantId")
   removeVariant(@Param("id", ParseUUIDPipe) id: string, @Param("variantId", ParseUUIDPipe) variantId: string) {
     return this.products.removeVariant(id, variantId);
+  }
+
+  @Post(":id/variants/:variantId/image")
+  @UseInterceptors(FileInterceptor("file", productVariantImageMulterOptions))
+  uploadVariantImage(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("variantId", ParseUUIDPipe) variantId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.products.setVariantImage(id, variantId, file);
   }
 
   @Post(":id/variant-options")
