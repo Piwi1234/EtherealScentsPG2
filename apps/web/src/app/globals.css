@@ -1937,6 +1937,20 @@ a {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
 }
 
+.login-logo {
+  position: absolute;
+  top: -160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(245, 244, 240, 0.92);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
 .login-badge {
   position: absolute;
   top: -22px;

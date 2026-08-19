@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiPost } from "../../lib/api";
+import { API_ORIGIN, apiGet, apiPost } from "../../lib/api";
 import { saveSession, type AuthUser } from "../../lib/auth";
 
 function UserIcon() {
@@ -29,6 +29,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [logo, setLogo] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
+
+  useEffect(() => {
+    apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo")
+      .then(setLogo)
+      .catch(() => {});
+  }, []);
 
   async function submit() {
     setLoading(true);
@@ -48,6 +55,9 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-card">
+        {logo?.logoUrl && (
+          <img className="login-logo" src={`${API_ORIGIN}${logo.logoUrl}`} alt={logo.nombre ?? "Logo"} />
+        )}
         <div className="login-badge">Iniciar sesión</div>
 
         <div className="login-field">

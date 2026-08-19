@@ -16,6 +16,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../auth/decorators/roles.decorator";
+import { Public } from "../auth/decorators/public.decorator";
 import { EmpresasService } from "./empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
@@ -32,6 +33,15 @@ export class EmpresasController {
   @ApiOperation({ summary: "Lista empresas (paginado)." })
   findAll(@Query("page") page?: string, @Query("pageSize") pageSize?: string) {
     return this.empresas.findAll({ page, pageSize });
+  }
+
+  // Antes de ":id" a propósito: si no, ":id" la capturaría como un uuid inválido.
+  @Public()
+  @Roles()
+  @Get("casa-matriz-logo")
+  @ApiOperation({ summary: "Nombre/logo de la empresa casa matriz — público, lo usa la página de login." })
+  getCasaMatrizLogo() {
+    return this.empresas.getCasaMatrizLogo();
   }
 
   @Get(":id")

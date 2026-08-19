@@ -1,6 +1,7 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { TipoEmpresa } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -24,6 +25,17 @@ export class EmpresasService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /** Público (sin auth) — la página de login lo usa para mostrar el logo de la empresa arriba del
+   * formulario, antes de que exista ninguna sesión. Solo nombre/logoUrl, nada sensible. */
+  async getCasaMatrizLogo() {
+    const empresa = await this.prisma.empresa.findFirst({
+      where: { tipo: TipoEmpresa.CASA_MATRIZ, activo: true },
+      select: { nombre: true, logoUrl: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return { nombre: empresa?.nombre ?? null, logoUrl: empresa?.logoUrl ?? null };
   }
 
   async findOne(id: string) {
