@@ -8,6 +8,7 @@ import { ClientesService } from "./clientes.service";
 import { CreateClienteDto } from "./dto/create-cliente.dto";
 import { UpdateClienteDto } from "./dto/update-cliente.dto";
 import { QueryClienteDto } from "./dto/query-cliente.dto";
+import { QueryPagosClienteDto } from "./dto/query-pagos-cliente.dto";
 
 @ApiTags("clientes")
 @ApiBearerAuth()
@@ -27,6 +28,12 @@ export class ClientesController {
   @ApiResponse({ status: 404, description: "Cliente no encontrado." })
   findOne(@Param("id", ParseUUIDPipe) id: string) {
     return this.clientes.findOne(id);
+  }
+
+  @Get(":id/pagos")
+  @ApiOperation({ summary: "Movimientos de cartera (adelanto, cobros de Cuenta por Cobrar y reversos) ligados a las ventas de este cliente." })
+  findPagos(@Param("id", ParseUUIDPipe) id: string, @Query() query: QueryPagosClienteDto) {
+    return this.clientes.findPagos(id, query);
   }
 
   @Post()

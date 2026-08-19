@@ -6,6 +6,7 @@ import type { Cliente, TipoDocumento } from "../../../../lib/types";
 import { ClienteStatusBadge } from "../../../../components/clientes/ClienteStatusBadge";
 import { ClienteOrigenBadge } from "../../../../components/clientes/ClienteOrigenBadge";
 import { ClienteAcciones } from "../../../../components/clientes/ClienteAcciones";
+import { ClientePagosTable } from "../../../../components/clientes/ClientePagosTable";
 
 const TIPO_DOC_LABELS: Record<TipoDocumento, string> = {
   DNI: "DNI",
@@ -78,6 +79,9 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
       </div>
 
       <ClienteAcciones clienteId={cliente.id} activo={cliente.activo} />
+
+      <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Pagos</h2>
+      <ClientePagosTable clienteId={cliente.id} />
     </div>
   );
 }

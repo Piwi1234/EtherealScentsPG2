@@ -638,6 +638,18 @@ export type MovimientoInput = {
   tipoMovimientoId: string;
 };
 
+/** Movimiento de cartera ligado a una venta de un cliente puntual — adelanto, cobro de Cuenta por
+ * Cobrar, o el reverso de un adelanto si se anuló la venta. Ver GET /clientes/:id/pagos. */
+export type PagoCliente = {
+  id: string;
+  fecha: string;
+  detalle: string;
+  naturaleza: NaturalezaMovimiento;
+  monto: string;
+  cartera: { id: string; nombre: string; moneda: MonedaCartera };
+  proforma: { id: string; codigo: string };
+};
+
 export type Traspaso = {
   id: string;
   fecha: string;

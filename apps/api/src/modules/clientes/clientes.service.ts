@@ -6,6 +6,7 @@ import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CreateClienteDto } from "./dto/create-cliente.dto";
 import { UpdateClienteDto } from "./dto/update-cliente.dto";
 import { QueryClienteDto } from "./dto/query-cliente.dto";
+import { QueryPagosClienteDto } from "./dto/query-pagos-cliente.dto";
 
 @Injectable()
 export class ClientesService {
@@ -69,6 +70,37 @@ export class ClientesService {
       throw new NotFoundException("Cliente no encontrado.");
     }
     return cliente;
+  }
+
+  /** Todo movimiento de cartera (adelanto al aprobar, cobro de Cuenta por Cobrar, y su reverso si se
+   * anuló una venta aprobada) ligado a alguna proforma de VENTA de este cliente — ver proformaId en
+   * MovimientoCartera. Abarca varias carteras a la vez (el cliente pudo haber pagado en cualquiera),
+   * por eso no hay un "Total" acumulado como en el libro de caja de una única cartera. */
+  async findPagos(clienteId: string, query: QueryPagosClienteDto) {
+    await this.findOne(clienteId);
+
+    const { page, pageSize, skip, take } = getPagination({
+      page: String(query.page ?? 1),
+      pageSize: String(query.limit ?? 20),
+    });
+
+    const where: Prisma.MovimientoCarteraWhereInput = { proforma: { clienteId } };
+
+    const [items, total] = await Promise.all([
+      this.prisma.movimientoCartera.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { fecha: "desc" },
+        include: {
+          cartera: { select: { id: true, nombre: true, moneda: true } },
+          proforma: { select: { id: true, codigo: true } },
+        },
+      }),
+      this.prisma.movimientoCartera.count({ where }),
+    ]);
+
+    return { items, total, page, pageSize };
   }
 
   async create(dto: CreateClienteDto, creadoPorId: string) {

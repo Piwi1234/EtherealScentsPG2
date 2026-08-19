@@ -23,6 +23,7 @@ import type {
   MovimientoInput,
   NaturalezaMovimiento,
   Page,
+  PagoCliente,
   PaisProcedencia,
   PresentacionVenta,
   PresentacionVentaInput,
@@ -153,6 +154,14 @@ export function createCliente(data: ClienteInput) {
 
 export function updateCliente(id: string, data: Partial<ClienteInput>) {
   return apiPatch<Cliente>(`/clientes/${id}`, data);
+}
+
+export function getPagosCliente(id: string, query: { page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<PagoCliente>>(`/clientes/${id}/pagos${qs ? `?${qs}` : ""}`);
 }
 
 export function deleteCliente(id: string) {
