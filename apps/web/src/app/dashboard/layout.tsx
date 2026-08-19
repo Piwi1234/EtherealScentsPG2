@@ -158,11 +158,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   }
 
-  // El tema "Nocturne" del mockup solo cubre Dashboard y Productos por ahora (ver
-  // .design-sync/NOTES.md o el chat que lo pidió) — el resto de las páginas se queda con el tema
-  // actual. El sidebar/topbar, en cambio, son chrome compartido y llevan el tema siempre.
-  const isNocturneArea = pathname === "/dashboard" || pathname.startsWith("/dashboard/products");
-
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <aside className="sidebar nocturne-theme">
@@ -339,10 +334,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span>Logout</span>
         </button>
       </aside>
-      <div
-        style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}
-        className={isNocturneArea ? "nocturne-theme" : undefined}
-      >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }} className="nocturne-theme">
         <header className="topbar">
           <span>{user ? `${user.nombre} (${user.rol})` : "Cargando..."}</span>
           <Link href="/" className="button">Catálogo</Link>
