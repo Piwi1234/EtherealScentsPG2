@@ -1,12 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 import { TipoProforma } from "@app/database";
 
 export class QueryRegistrosDto {
   @ApiProperty({ enum: TipoProforma, description: "COMPRA o VENTA — obligatorio, es el filtro que habilita la carga." })
   @IsEnum(TipoProforma)
   tipo!: TipoProforma;
+
+  @ApiPropertyOptional({ description: "Código corto de la proforma (Proforma.codigo), búsqueda exacta sin importar mayúsculas." })
+  @IsOptional()
+  @IsString()
+  codigo?: string;
 
   @ApiPropertyOptional({ description: "Rango de fechas: desde (inclusive), sobre Proforma.fecha." })
   @IsOptional()

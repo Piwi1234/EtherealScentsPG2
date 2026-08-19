@@ -13,6 +13,7 @@ const registroInclude = {
   proforma: {
     select: {
       id: true,
+      codigo: true,
       fecha: true,
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
@@ -61,6 +62,7 @@ export class RegistrosService {
     const where: Prisma.ProformaDetalleWhereInput = {
       proforma: {
         tipo: query.tipo,
+        codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
         clienteId: query.clienteId,
         proveedorId: query.proveedorId,
         estado: { in: ESTADOS_REGISTRABLES },

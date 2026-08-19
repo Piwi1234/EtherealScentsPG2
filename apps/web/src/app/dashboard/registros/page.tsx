@@ -35,6 +35,8 @@ export default function RegistrosPage() {
   const [categoryId, setCategoryId] = useState("");
   const [brandId, setBrandId] = useState("");
   const [productId, setProductId] = useState("");
+  const [codigoInput, setCodigoInput] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [pageNum, setPageNum] = useState(1);
 
   const [data, setData] = useState<Page<RegistroLinea> | null>(null);
@@ -60,6 +62,15 @@ export default function RegistrosPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryId, brandId]);
 
+  // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setCodigo(codigoInput.trim());
+      setPageNum(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [codigoInput]);
+
   useEffect(() => {
     if (!tipo) {
       setData(null);
@@ -68,6 +79,7 @@ export default function RegistrosPage() {
     setLoading(true);
     getRegistros({
       tipo,
+      codigo: codigo || undefined,
       fechaDesde: dateSelection.fechaDesde,
       fechaHasta: dateSelection.fechaHasta,
       categoryId: categoryId || undefined,
@@ -79,7 +91,7 @@ export default function RegistrosPage() {
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [tipo, dateSelection, categoryId, brandId, productId, pageNum]);
+  }, [tipo, codigo, dateSelection, categoryId, brandId, productId, pageNum]);
 
   function handleTipoChange(value: string) {
     setTipo(value as "" | TipoProforma);
@@ -137,6 +149,17 @@ export default function RegistrosPage() {
 
         {tipo && (
           <>
+            <div className="filter-field">
+              <label className="filter-label">Código proforma</label>
+              <input
+                className="field"
+                placeholder="Ej. 4HRNPZW"
+                value={codigoInput}
+                onChange={(e) => setCodigoInput(e.target.value)}
+                style={{ width: 130 }}
+              />
+            </div>
+
             <DateRangeDropdown onApply={handleDateApply} />
 
             <div className="filter-field">
@@ -188,6 +211,7 @@ export default function RegistrosPage() {
               <thead>
                 <tr>
                   <th>Fecha</th>
+                  <th>Código proforma</th>
                   <th>Proforma</th>
                   <th>Código</th>
                   <th>Marca</th>
@@ -223,6 +247,11 @@ export default function RegistrosPage() {
                   return (
                     <tr key={linea.id}>
                       <td className="cell-muted">{formatDate(linea.proforma.fecha)}</td>
+                      <td>
+                        <Link href={`/dashboard/proformas/${linea.proforma.id}`} className="link-button">
+                          {linea.proforma.codigo}
+                        </Link>
+                      </td>
                       <td>
                         <Link href={`/dashboard/proformas/${linea.proforma.id}`} className="link-button">
                           {linea.proforma.empresa.nombre}

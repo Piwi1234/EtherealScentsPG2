@@ -548,6 +548,7 @@ export type RegistroLinea = {
   subtotal: string;
   proforma: {
     id: string;
+    codigo: string;
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;

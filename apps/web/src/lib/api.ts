@@ -465,6 +465,7 @@ export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoPro
 export function getRegistros(
   query: {
     tipo: string;
+    codigo?: string;
     fechaDesde?: string;
     fechaHasta?: string;
     categoryId?: string;
@@ -478,6 +479,7 @@ export function getRegistros(
 ) {
   const params = new URLSearchParams();
   params.set("tipo", query.tipo);
+  if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
   if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
   if (query.categoryId) params.set("categoryId", query.categoryId);
