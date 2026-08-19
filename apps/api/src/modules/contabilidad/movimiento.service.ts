@@ -56,7 +56,7 @@ export class MovimientoService {
 
     const desde = query.fechaDesde ? new Date(query.fechaDesde) : undefined;
     const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
-    if (hasta) hasta.setHours(23, 59, 59, 999);
+    if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
     const filtrados = conTotal.filter((m) => (!desde || m.fecha >= desde) && (!hasta || m.fecha <= hasta));
     const masRecientePrimero = filtrados.slice().reverse();

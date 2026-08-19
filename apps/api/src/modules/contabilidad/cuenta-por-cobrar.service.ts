@@ -34,7 +34,20 @@ export class CuentaPorCobrarService {
       pageSize: String(query.limit ?? 20),
     });
 
-    const where: Prisma.CuentaPorCobrarWhereInput = { estado: query.estado };
+    const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
+    if (hasta) hasta.setUTCHours(23, 59, 59, 999);
+
+    const where: Prisma.CuentaPorCobrarWhereInput = {
+      estado: query.estado,
+      proforma: {
+        clienteId: query.clienteId,
+        codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
+        fecha: {
+          gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
+          lte: hasta,
+        },
+      },
+    };
 
     const [items, total] = await Promise.all([
       this.prisma.cuentaPorCobrar.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include }),

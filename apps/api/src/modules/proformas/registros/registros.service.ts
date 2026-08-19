@@ -57,7 +57,7 @@ export class RegistrosService {
     const categoryIds = query.categoryId ? await this.categories.getDescendantIds(query.categoryId) : undefined;
 
     const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
-    if (hasta) hasta.setHours(23, 59, 59, 999);
+    if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
     const where: Prisma.ProformaDetalleWhereInput = {
       proforma: {

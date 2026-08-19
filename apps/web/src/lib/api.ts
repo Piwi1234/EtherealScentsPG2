@@ -575,9 +575,23 @@ export function createTraspaso(data: TraspasoInput) {
   return apiPost<Traspaso>("/contabilidad/traspasos", data);
 }
 
-export function getCuentasPorCobrar(query: { estado?: EstadoCuentaPorCobrar; page?: number; limit?: number } = {}) {
+export function getCuentasPorCobrar(
+  query: {
+    estado?: EstadoCuentaPorCobrar;
+    clienteId?: string;
+    codigo?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
   const params = new URLSearchParams();
   if (query.estado) params.set("estado", query.estado);
+  if (query.clienteId) params.set("clienteId", query.clienteId);
+  if (query.codigo) params.set("codigo", query.codigo);
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();

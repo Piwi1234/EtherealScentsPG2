@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, cobrarCuenta, getCarteras, getCuentasPorCobrar } from "../../../../lib/api";
-import type { Cartera, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
+import { ApiError, cobrarCuenta, getCarteras, getClientes, getCuentasPorCobrar } from "../../../../lib/api";
+import type { Cartera, Cliente, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 import { CarteraSelector } from "../../../../components/proformas/selectors";
+import { ClienteSearchSelect } from "../../../../components/proformas/ClienteSearchSelect";
+import { DateRangeDropdown, type DateSelection } from "../../../../components/DateRangeDropdown";
 
 const PAGE_SIZE = 20;
+const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -23,31 +26,66 @@ function EstadoCuentaBadge({ estado }: { estado: EstadoCuentaPorCobrar }) {
 
 export default function CuentasPorCobrarPage() {
   const [estado, setEstado] = useState<"" | EstadoCuentaPorCobrar>("PENDIENTE");
+  const [clienteId, setClienteId] = useState("");
+  const [codigoInput, setCodigoInput] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<Page<CuentaPorCobrarConProforma> | null>(null);
   const [carterasBs, setCarterasBs] = useState<Cartera[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cobrando, setCobrando] = useState<CuentaPorCobrarConProforma | null>(null);
 
   function load() {
     setLoading(true);
-    getCuentasPorCobrar({ estado: estado || undefined, page: pageNum, limit: PAGE_SIZE })
+    getCuentasPorCobrar({
+      estado: estado || undefined,
+      clienteId: clienteId || undefined,
+      codigo: codigo || undefined,
+      fechaDesde: dateSelection.fechaDesde,
+      fechaHasta: dateSelection.fechaHasta,
+      page: pageNum,
+      limit: PAGE_SIZE,
+    })
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [estado, pageNum]);
+  useEffect(load, [estado, clienteId, codigo, dateSelection, pageNum]);
 
   useEffect(() => {
     getCarteras({ moneda: "BS", activo: true })
       .then(setCarterasBs)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getClientes({ activo: "true", limit: 500 })
+      .then((page) => setClientes(page.items))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
+
+  // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setCodigo(codigoInput.trim());
+      setPageNum(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [codigoInput]);
 
   function handleEstadoChange(value: string) {
     setEstado(value as "" | EstadoCuentaPorCobrar);
+    setPageNum(1);
+  }
+
+  function handleClienteChange(id: string) {
+    setClienteId(id);
+    setPageNum(1);
+  }
+
+  function handleDateApply(selection: DateSelection) {
+    setDateSelection(selection);
     setPageNum(1);
   }
 
@@ -76,6 +114,21 @@ export default function CuentasPorCobrarPage() {
             <option value="COMPLETADO">Completado</option>
           </select>
         </div>
+        <div className="filter-field">
+          <label className="filter-label">N° proforma</label>
+          <input
+            className="field"
+            placeholder="Ej. 4HRNPZW"
+            value={codigoInput}
+            onChange={(e) => setCodigoInput(e.target.value)}
+            style={{ width: 130 }}
+          />
+        </div>
+        <div className="filter-field" style={{ minWidth: 220 }}>
+          <label className="filter-label">Cliente</label>
+          <ClienteSearchSelect clientes={clientes} value={clienteId} onChange={handleClienteChange} />
+        </div>
+        <DateRangeDropdown onApply={handleDateApply} />
       </div>
 
       {loading ? (

@@ -74,7 +74,7 @@ export class ProformasService {
       pageSize: String(query.limit ?? 20),
     });
     const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
-    if (hasta) hasta.setHours(23, 59, 59, 999);
+    if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
     const where: Prisma.ProformaWhereInput = {
       tipo: query.tipo,
