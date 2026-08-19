@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
-import type { Almacen, Ciudad, Cliente, Empresa, Page, PaisProcedencia, Proforma, Proveedor } from "../../../../lib/types";
+import type { Almacen, Cartera, Ciudad, Cliente, Empresa, Page, PaisProcedencia, Proforma, Proveedor } from "../../../../lib/types";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
@@ -26,7 +26,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
   const editableDetalle = proforma.estado === "BORRADOR";
   const mostrarAsignaciones = proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA");
 
-  const [empresasPage, clientesPage, almacenesPage, ciudadesPage, proveedoresPage, paisesProcedenciaPage] = await Promise.all([
+  const [empresasPage, clientesPage, almacenesPage, ciudadesPage, proveedoresPage, paisesProcedenciaPage, carterasBs] = await Promise.all([
     apiGetServer<Page<Empresa>>("/empresas?pageSize=100"),
     proforma.tipo === "VENTA"
       ? apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200")
@@ -39,7 +39,17 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
     proforma.tipo === "COMPRA"
       ? apiGetServer<Page<PaisProcedencia>>("/paises-procedencia?pageSize=100")
       : Promise.resolve<Page<PaisProcedencia>>({ items: [], total: 0, page: 1, pageSize: 0 }),
+    proforma.tipo === "VENTA"
+      ? apiGetServer<Cartera[]>("/contabilidad/carteras?moneda=BS&activo=true")
+      : Promise.resolve<Cartera[]>([]),
   ]);
+
+  // Mismo cálculo que ProformaTotales — se usa acá solo para saber si ProformaAcciones debe pedir
+  // una cartera en Bs al aprobar (adelanto > 0), no se persiste.
+  const subtotal = proforma.detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
+  const totalVenta = proforma.tipo === "VENTA" ? subtotal - (Number(proforma.descuentoGeneral) || 0) : subtotal;
+  const porcentajeAdelanto = proforma.tipo === "VENTA" ? Number(proforma.adelantoPorcentaje) || 0 : 0;
+  const montoAdelanto = totalVenta * (porcentajeAdelanto / 100);
 
   return (
     <div className="card" style={{ maxWidth: 1300, margin: "0 auto" }}>
@@ -95,6 +105,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           estado={proforma.estado}
           tipo={proforma.tipo}
           almacenes={almacenesPage.items.filter((a) => a.activo)}
+          montoAdelanto={montoAdelanto}
+          carterasBs={carterasBs}
         />
       </div>
     </div>

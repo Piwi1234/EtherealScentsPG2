@@ -1,4 +1,4 @@
-import type { Almacen, Ciudad, Cliente, Empresa, PaisProcedencia, Proveedor } from "../../lib/types";
+import type { Almacen, Cartera, Ciudad, Cliente, Empresa, PaisProcedencia, Proveedor } from "../../lib/types";
 
 /** Selects reutilizables — reciben las opciones ya cargadas por el Server Component padre, no
  * fetchean solos (evita un waterfall de requests client-side). */
@@ -70,6 +70,19 @@ export function AlmacenSelector({ options, value, onChange, placeholder = "— E
 }
 
 export function CiudadSelector({ options, value, onChange, placeholder = "— Elegir ciudad —", disabled }: SelectorProps<Ciudad>) {
+  return (
+    <select className="field" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
+      <option value="">{placeholder}</option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function CarteraSelector({ options, value, onChange, placeholder = "— Elegir cartera —", disabled }: SelectorProps<Cartera>) {
   return (
     <select className="field" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
       <option value="">{placeholder}</option>

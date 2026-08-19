@@ -1,11 +1,22 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
+import { lockCarteras } from "../contabilidad/cartera-lock.util";
+
+/** Mismo cálculo que ProformaTotales.tsx (frontend) — nada se persiste server-side hasta ahora, así
+ * que se replica acá para saber cuánto ingresar en la cartera al aprobar. Redondeado a 2 decimales
+ * (Decimal(14,2) de MovimientoCartera.monto). */
+function calcularMontoAdelanto(detalles: { subtotal: Prisma.Decimal }[], descuentoGeneral: Prisma.Decimal, adelantoPorcentaje: Prisma.Decimal | null): number {
+  const subtotal = detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
+  const total = subtotal - Number(descuentoGeneral);
+  const porcentaje = Number(adelantoPorcentaje ?? 0);
+  return Math.round(total * (porcentaje / 100) * 100) / 100;
+}
 
 /**
  * Motor de aprobación: bloqueo transaccional + reserva de stock contra el único almacén elegido para
@@ -27,7 +38,7 @@ export class ProformaApprovalService {
     private readonly proformas: ProformasService,
   ) {}
 
-  async aprobar(id: string, usuarioId: string, almacenId?: string) {
+  async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -58,7 +69,7 @@ export class ProformaApprovalService {
           const almacen = await tx.almacen.findUnique({ where: { id: almacenId } });
           if (!almacen) throw new BadRequestException(`almacenId inválido: ${almacenId}`);
 
-          await this.aprobarVenta(tx, id, usuarioId, almacenId);
+          await this.aprobarVenta(tx, id, usuarioId, almacenId, carteraId);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -74,8 +85,31 @@ export class ProformaApprovalService {
    * cuando se completa una compra que trae stock para esa variante+almacén (ver
    * proforma-completion.service.ts).
    */
-  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string) {
-    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true } });
+  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true, cliente: true } });
+
+    const montoAdelanto = calcularMontoAdelanto(proforma.detalles, proforma.descuentoGeneral, proforma.adelantoPorcentaje);
+    if (montoAdelanto > 0) {
+      if (!carteraId) throw new BadRequestException("carteraId es obligatorio: la proforma tiene un adelanto a registrar en una cartera en Bs.");
+      const cartera = await tx.cartera.findUnique({ where: { id: carteraId } });
+      if (!cartera || !cartera.activo) throw new BadRequestException(`carteraId inválido o inactivo: ${carteraId}`);
+      if (cartera.moneda !== MonedaCartera.BS) throw new BadRequestException("La cartera del adelanto debe ser en Bs.");
+
+      await lockCarteras(tx, [carteraId]);
+      const porcentaje = Number(proforma.adelantoPorcentaje ?? 0);
+      await tx.movimientoCartera.create({
+        data: {
+          carteraId,
+          fecha: new Date(),
+          detalle: `CL: ${proforma.cliente?.nombre ?? "—"} - PR: ${id} - ADL: ${porcentaje}%`,
+          naturaleza: NaturalezaMovimiento.INGRESO,
+          monto: montoAdelanto,
+          proformaId: id,
+          creadoPorId: usuarioId,
+        },
+      });
+      await tx.cartera.update({ where: { id: carteraId }, data: { saldoActual: { increment: montoAdelanto } } });
+    }
 
     const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
     const stockPorPar = await lockStockRows(tx, pares);
@@ -154,6 +188,31 @@ export class ProformaApprovalService {
     });
   }
 
+  /** Si esta venta tuvo un adelanto registrado al aprobarla (ver aprobarVenta), revertirlo con un
+   * gasto por el mismo monto en la misma cartera — mismo formato de detalle que el ingreso original,
+   * agregando al final la marca ANULADA y el motivo escrito al anular (si lo hay). */
+  private async revertirAdelanto(tx: Prisma.TransactionClient, proformaId: string, usuarioId: string, nota?: string) {
+    const ingreso = await tx.movimientoCartera.findFirst({
+      where: { proformaId, naturaleza: NaturalezaMovimiento.INGRESO },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!ingreso) return;
+
+    await lockCarteras(tx, [ingreso.carteraId]);
+    await tx.movimientoCartera.create({
+      data: {
+        carteraId: ingreso.carteraId,
+        fecha: new Date(),
+        detalle: `${ingreso.detalle} - ANULADA${nota ? ` - MOTIVO: ${nota}` : ""}`,
+        naturaleza: NaturalezaMovimiento.GASTO,
+        monto: ingreso.monto,
+        proformaId,
+        creadoPorId: usuarioId,
+      },
+    });
+    await tx.cartera.update({ where: { id: ingreso.carteraId }, data: { saldoActual: { decrement: ingreso.monto } } });
+  }
+
   /** APROBADA → ANULADA únicamente (BORRADOR se elimina en vez de anularse; COMPLETADA es terminal). */
   async anular(id: string, usuarioId: string, nota?: string) {
     try {
@@ -172,6 +231,7 @@ export class ProformaApprovalService {
 
           if (lock.tipo === TipoProforma.VENTA) {
             await this.liberarReservas(tx, id);
+            await this.revertirAdelanto(tx, id, usuarioId, nota);
           }
 
           await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.ANULADA } });

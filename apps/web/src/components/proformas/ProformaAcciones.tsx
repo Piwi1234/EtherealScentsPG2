@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, anularProforma, aprobarProforma, completarProforma, deleteProforma } from "../../lib/api";
-import type { Almacen, EstadoProforma, TipoProforma } from "../../lib/types";
+import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
-import { AlmacenSelector } from "./selectors";
+import { AlmacenSelector, CarteraSelector } from "./selectors";
 
 type Transicion = "aprobar" | "anular" | "eliminar";
 
@@ -26,11 +26,15 @@ export function ProformaAcciones({
   estado,
   tipo,
   almacenes,
+  montoAdelanto = 0,
+  carterasBs = [],
 }: {
   proformaId: string;
   estado: EstadoProforma;
   tipo: TipoProforma;
   almacenes: Almacen[];
+  montoAdelanto?: number;
+  carterasBs?: Cartera[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState<Transicion | "completar" | null>(null);
@@ -38,13 +42,16 @@ export function ProformaAcciones({
   const [modal, setModal] = useState<"aprobar" | "anular" | "eliminar" | "completar" | null>(null);
   const [nota, setNota] = useState("");
   const [almacenId, setAlmacenId] = useState("");
+  const [carteraId, setCarteraId] = useState("");
 
   const puede = (t: Transicion) => PERMITIDAS[t].includes(estado);
   const puedeCompletar = estado === "APROBADA";
+  const requiereCartera = tipo === "VENTA" && montoAdelanto > 0;
 
   function abrirModal(m: "aprobar" | "anular" | "eliminar" | "completar") {
     setError("");
     setAlmacenId("");
+    setCarteraId("");
     setNota("");
     setModal(m);
   }
@@ -54,10 +61,14 @@ export function ProformaAcciones({
       setError("Elegí el almacén contra el que se reserva stock.");
       return;
     }
+    if (requiereCartera && !carteraId) {
+      setError("Elegí la cartera en Bs donde se registra el adelanto.");
+      return;
+    }
     setSubmitting("aprobar");
     setError("");
     try {
-      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId } : {});
+      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera ? { carteraId } : {}) } : {});
       setModal(null);
       router.refresh();
     } catch (e) {
@@ -144,6 +155,12 @@ export function ProformaAcciones({
             <label className="filter-label">Almacén</label>
             <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
           </div>
+          {requiereCartera && (
+            <div className="filter-field" style={{ marginBottom: 12 }}>
+              <label className="filter-label">Cartera del adelanto (Bs)</label>
+              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} />
+            </div>
+          )}
           {error && <p className="error-text">{error}</p>}
           <div className="form-actions">
             <button type="button" className="link-button" onClick={() => setModal(null)}>

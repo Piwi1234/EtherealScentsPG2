@@ -689,8 +689,9 @@ model Proforma {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  detalles  ProformaDetalle[]
-  historial ProformaHistorial[]
+  detalles           ProformaDetalle[]
+  historial          ProformaHistorial[]
+  movimientosCartera MovimientoCartera[]
 
   @@index([tipo, estado])
   @@map("proformas")
@@ -837,7 +838,9 @@ model TipoMovimiento {
 
 /// Log de solo-inserción (nunca se edita ni se borra por API) — cada fila es un ingreso o gasto de
 /// una cartera. tipoMovimientoId es obligatorio para carga manual; queda null en las 2 filas que
-/// genera un Traspaso (esas se identifican por traspasoId en cambio, y su detalle se arma solo).
+/// genera un Traspaso (esas se identifican por traspasoId en cambio, y su detalle se arma solo) y en
+/// las que genera la aprobación/anulación de adelanto de una proforma de venta (identificadas por
+/// proformaId, ver proforma-approval.service.ts).
 /// fecha siempre es la fecha/hora actual del servidor al momento de crear (no editable desde la
 /// API, ni en carga manual ni en traspasos) — coincide con createdAt. El saldo acumulado ("Total"
 /// en la UI) no se guarda acá: se recalcula en memoria al leer (movimiento.service.ts), ordenando
@@ -854,11 +857,14 @@ model MovimientoCartera {
   tipoMovimiento   TipoMovimiento?      @relation(fields: [tipoMovimientoId], references: [id], onDelete: Restrict)
   traspasoId       String?              @map("traspaso_id") @db.Uuid
   traspaso         Traspaso?            @relation(fields: [traspasoId], references: [id], onDelete: Restrict)
+  proformaId       String?              @map("proforma_id") @db.Uuid
+  proforma         Proforma?            @relation(fields: [proformaId], references: [id], onDelete: Restrict)
   creadoPorId      String               @map("creado_por_id") @db.Uuid
   creadoPor        Usuario              @relation(fields: [creadoPorId], references: [id])
   createdAt        DateTime             @default(now()) @map("created_at")
 
   @@index([carteraId, fecha])
+  @@index([proformaId])
   @@map("movimientos_cartera")
 }
 

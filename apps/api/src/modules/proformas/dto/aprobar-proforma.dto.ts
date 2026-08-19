@@ -6,4 +6,12 @@ export class AprobarProformaDto {
   @IsOptional()
   @IsUUID()
   almacenId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Obligatorio si la proforma de VENTA tiene adelanto (adelantoPorcentaje > 0): cartera en Bs donde se registra el ingreso del adelanto.",
+  })
+  @IsOptional()
+  @IsUUID()
+  carteraId?: string;
 }
