@@ -697,6 +697,10 @@ model Proforma {
   detalles           ProformaDetalle[]
   historial          ProformaHistorial[]
   movimientosCartera MovimientoCartera[]
+  // Solo VENTA, y solo si al completar quedó saldo pendiente (> 0) — ver
+  // proforma-completion.service.ts. Null si no hubo saldo pendiente (incluye adelanto 100%) o si
+  // todavía no se completó.
+  cuentaPorCobrar    CuentaPorCobrar?
 
   @@index([tipo, estado])
   @@map("proformas")
@@ -800,6 +804,13 @@ enum NaturalezaMovimiento {
   @@map("naturaleza_movimiento")
 }
 
+enum EstadoCuentaPorCobrar {
+  PENDIENTE
+  COMPLETADO
+
+  @@map("estado_cuenta_por_cobrar")
+}
+
 /// Una billetera/caja dentro de una Cuenta (moneda). saldoActual es un acumulador mantenido en cada
 /// alta de movimiento/traspaso (transaccional, con locking vía cartera-lock.util.ts) — no se
 /// recalcula desde cero en cada lectura, a diferencia del saldo por fila de MovimientoCartera (ver
@@ -896,4 +907,24 @@ model Traspaso {
   movimientos MovimientoCartera[]
 
   @@map("traspasos")
+}
+
+/// Saldo que un cliente todavía debe de una VENTA ya completada (proforma-completion.service.ts crea
+/// esta fila cuando, al completar, queda saldo > 0 después de descontar el adelanto ya cobrado — si
+/// no queda saldo, no se crea fila). montoAdeudado es un acumulador mantenido en cada cobro
+/// (transaccional, mismo criterio que Cartera.saldoActual) — arranca en el saldo pendiente al
+/// completar y baja con cada cobro parcial hasta llegar a 0, momento en que estado pasa a
+/// COMPLETADO. Cada cobro genera además un MovimientoCartera INGRESO en la cartera Bs elegida (ligado
+/// vía proformaId, igual mecanismo que el adelanto).
+model CuentaPorCobrar {
+  id            String                @id @default(uuid()) @db.Uuid
+  proformaId    String                @unique @map("proforma_id") @db.Uuid
+  proforma      Proforma              @relation(fields: [proformaId], references: [id], onDelete: Restrict)
+  montoAdeudado Decimal               @map("monto_adeudado") @db.Decimal(14, 2)
+  estado        EstadoCuentaPorCobrar @default(PENDIENTE)
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  @@index([estado])
+  @@map("cuentas_por_cobrar")
 }

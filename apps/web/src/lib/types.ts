@@ -473,8 +473,27 @@ export type Proforma = {
   fecha: string;
   detalles: ProformaDetalle[];
   historial: ProformaHistorial[];
+  /** Solo VENTA, y solo si al completar quedó saldo pendiente (ver proforma-completion.service.ts). */
+  cuentaPorCobrar: CuentaPorCobrar | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type EstadoCuentaPorCobrar = "PENDIENTE" | "COMPLETADO";
+
+export type CuentaPorCobrar = {
+  id: string;
+  montoAdeudado: string;
+  estado: EstadoCuentaPorCobrar;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** La misma fila, pero con la proforma que la originó — así vienen el listado y el cobro del gestor
+ * de Cuentas por Cobrar (GET/POST /contabilidad/cuentas-por-cobrar). La que cuelga embebida de
+ * Proforma.cuentaPorCobrar es la versión sin este campo (evita el ciclo proforma → cuenta → proforma). */
+export type CuentaPorCobrarConProforma = CuentaPorCobrar & {
+  proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
 };
 
 export type ProformaInput = {

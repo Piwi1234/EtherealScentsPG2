@@ -51,6 +51,8 @@ export const includeDetails = {
     orderBy: { fecha: "desc" as const },
     include: { usuario: { select: { id: true, nombre: true } } },
   },
+  // Solo VENTA, y solo si quedó saldo pendiente al completar (ver proforma-completion.service.ts).
+  cuentaPorCobrar: true,
 } satisfies Prisma.ProformaInclude;
 
 /**

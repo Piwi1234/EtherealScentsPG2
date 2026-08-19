@@ -7,9 +7,11 @@ import { MovimientoController } from "./movimiento.controller";
 import { MovimientoService } from "./movimiento.service";
 import { TraspasoController } from "./traspaso.controller";
 import { TraspasoService } from "./traspaso.service";
+import { CuentaPorCobrarController } from "./cuenta-por-cobrar.controller";
+import { CuentaPorCobrarService } from "./cuenta-por-cobrar.service";
 
 @Module({
-  controllers: [CarteraController, TipoMovimientoController, MovimientoController, TraspasoController],
-  providers: [CarteraService, TipoMovimientoService, MovimientoService, TraspasoService],
+  controllers: [CarteraController, TipoMovimientoController, MovimientoController, TraspasoController, CuentaPorCobrarController],
+  providers: [CarteraService, TipoMovimientoService, MovimientoService, TraspasoService, CuentaPorCobrarService],
 })
 export class ContabilidadModule {}

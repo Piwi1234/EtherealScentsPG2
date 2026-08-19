@@ -6,6 +6,7 @@ import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
+import { calcularTotalesVenta } from "./proforma-totales.util";
 import { AsignacionLoteDto, CompletarProformaDto } from "./dto/completar-proforma.dto";
 
 /**
@@ -57,7 +58,9 @@ export class ProformaCompletionService {
 
           await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.COMPLETADA } });
           await this.historial.registrar(tx, id, EstadoProforma.COMPLETADA, usuarioId);
-          await this.onProformaCompletada(id, tx);
+          if (lock.tipo === TipoProforma.VENTA) {
+            await this.crearCuentaPorCobrarSiCorresponde(tx, id);
+          }
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -197,10 +200,18 @@ export class ProformaCompletionService {
   }
 
   /**
-   * Punto de extensión para integraciones futuras (facturación/contabilidad) al completar una
-   * proforma — hoy no hace nada. Se llama al final de ambos flujos de completado (COMPRA y VENTA).
+   * Al completar una VENTA: si queda saldo pendiente (total - adelanto ya cobrado > 0), crea la
+   * Cuenta por Cobrar con ese saldo — el "monto a cancelar" que se pide justo después de completar
+   * (ver ProformaAcciones/CompletarVentaForm en el frontend) es, ni más ni menos, el primer cobro
+   * contra esta misma fila (mismo endpoint que usa el gestor de Cuentas por Cobrar). Si no queda
+   * saldo (sin adelanto pero total=0, o adelanto al 100%) no se crea nada — no hay nada que cobrar.
    */
-  private async onProformaCompletada(proformaId: string, _tx: Prisma.TransactionClient): Promise<void> {
-    this.logger.debug(`onProformaCompletada(${proformaId}): sin integraciones configuradas todavía.`);
+  private async crearCuentaPorCobrarSiCorresponde(tx: Prisma.TransactionClient, proformaId: string): Promise<void> {
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id: proformaId }, include: { detalles: true } });
+    const { saldo } = calcularTotalesVenta(proforma);
+    if (saldo <= 0) return;
+
+    await tx.cuentaPorCobrar.create({ data: { proformaId, montoAdeudado: saldo } });
+    this.logger.debug(`Cuenta por cobrar creada para proforma ${proformaId}: Bs ${saldo}.`);
   }
 }

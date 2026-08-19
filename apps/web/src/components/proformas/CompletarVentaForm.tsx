@@ -2,22 +2,35 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, completarProforma } from "../../lib/api";
-import type { Proforma } from "../../lib/types";
+import { ApiError, cobrarCuenta, completarProforma } from "../../lib/api";
+import type { Cartera, CuentaPorCobrar, Proforma } from "../../lib/types";
+import { Modal } from "../Modal";
 import { LoteAsignacionTable } from "./LoteAsignacionTable";
+import { CarteraSelector } from "./selectors";
 
 type Linea = { asignacionId: string; varianteId: string; cantidad: number; nombreProducto: string };
 
 /** Reparto manual de lotes para completar una VENTA — una tabla por línea con asignación STOCK
  * (siempre contra `proforma.almacenId`, ya fijado al aprobar). No incluye líneas con Procura
- * pendiente: la página que renderiza este formulario ya bloqueó ese caso antes de llegar acá. */
-export function CompletarVentaForm({ proforma }: { proforma: Proforma }) {
+ * pendiente: la página que renderiza este formulario ya bloqueó ese caso antes de llegar acá.
+ *
+ * Al completar, si queda saldo pendiente (backend crea la Cuenta por Cobrar), se ofrece cobrar ese
+ * saldo ahora mismo — es un paso aparte (otra llamada al backend, no atómico con el completar) que
+ * usa el mismo endpoint que el gestor de Cuentas por Cobrar. Si se omite, la cuenta queda PENDIENTE
+ * y se puede cobrar después desde ese gestor. */
+export function CompletarVentaForm({ proforma, carterasBs }: { proforma: Proforma; carterasBs: Cartera[] }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [entradasPorAsignacion, setEntradasPorAsignacion] = useState<Record<string, { loteCompraId: string; cantidad: number }[]>>(
     {},
   );
+
+  const [cuenta, setCuenta] = useState<CuentaPorCobrar | null>(null);
+  const [montoInput, setMontoInput] = useState("");
+  const [carteraId, setCarteraId] = useState("");
+  const [pagoSubmitting, setPagoSubmitting] = useState(false);
+  const [pagoError, setPagoError] = useState("");
 
   const lineas: Linea[] = proforma.detalles.flatMap((detalle) =>
     detalle.asignaciones
@@ -51,11 +64,47 @@ export function CompletarVentaForm({ proforma }: { proforma: Proforma }) {
           cantidad: e.cantidad,
         })),
       );
-      await completarProforma(proforma.id, { asignaciones });
-      router.push(`/dashboard/proformas/${proforma.id}`);
+      const actualizada = await completarProforma(proforma.id, { asignaciones });
+      if (actualizada.cuentaPorCobrar) {
+        setCuenta(actualizada.cuentaPorCobrar);
+        setMontoInput(actualizada.cuentaPorCobrar.montoAdeudado);
+        setSubmitting(false);
+      } else {
+        router.push(`/dashboard/proformas/${proforma.id}`);
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setSubmitting(false);
+    }
+  }
+
+  function irADetalle() {
+    router.push(`/dashboard/proformas/${proforma.id}`);
+  }
+
+  async function confirmarPago() {
+    if (!cuenta) return;
+    const monto = Number(montoInput);
+    if (Number.isNaN(monto) || monto < 0 || monto > Number(cuenta.montoAdeudado)) {
+      setPagoError(`Ingresá un monto entre 0 y Bs ${cuenta.montoAdeudado}.`);
+      return;
+    }
+    if (monto === 0) {
+      irADetalle();
+      return;
+    }
+    if (!carteraId) {
+      setPagoError("Elegí la cartera en Bs donde se registra el cobro.");
+      return;
+    }
+    setPagoSubmitting(true);
+    setPagoError("");
+    try {
+      await cobrarCuenta(cuenta.id, { monto, carteraId });
+      irADetalle();
+    } catch (e) {
+      setPagoError(e instanceof ApiError ? e.message : String(e));
+      setPagoSubmitting(false);
     }
   }
 
@@ -94,6 +143,42 @@ export function CompletarVentaForm({ proforma }: { proforma: Proforma }) {
           {submitting ? "Completando..." : "Completar"}
         </button>
       </div>
+
+      {cuenta && (
+        <Modal title="Registrar cobro" onClose={irADetalle}>
+          <p>
+            Quedó un saldo pendiente de <strong>Bs {cuenta.montoAdeudado}</strong>. Ingresá cuánto se cancela ahora — podés
+            dejarlo en 0 y cobrarlo después desde Cuentas por Cobrar.
+          </p>
+          <div className="filter-field" style={{ marginBottom: 12 }}>
+            <label className="filter-label">Monto a cancelar (Bs)</label>
+            <input
+              className="field"
+              type="number"
+              min={0}
+              max={Number(cuenta.montoAdeudado)}
+              step="0.01"
+              value={montoInput}
+              onChange={(e) => setMontoInput(e.target.value)}
+            />
+          </div>
+          {Number(montoInput) > 0 && (
+            <div className="filter-field" style={{ marginBottom: 12 }}>
+              <label className="filter-label">Cartera (Bs)</label>
+              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} />
+            </div>
+          )}
+          {pagoError && <p className="error-text">{pagoError}</p>}
+          <div className="form-actions">
+            <button type="button" className="link-button" onClick={irADetalle}>
+              Omitir
+            </button>
+            <button type="button" className="button" onClick={confirmarPago} disabled={pagoSubmitting}>
+              {pagoSubmitting ? "Guardando..." : "Confirmar"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

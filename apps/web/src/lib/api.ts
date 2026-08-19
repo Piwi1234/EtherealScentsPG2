@@ -10,10 +10,12 @@ import type {
   Cliente,
   ClienteInput,
   CompletarProformaInput,
+  CuentaPorCobrarConProforma,
   DetalleCompraInput,
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
+  EstadoCuentaPorCobrar,
   EstadoSeguimientoProcura,
   LoteCompraConDetalle,
   MonedaCartera,
@@ -562,4 +564,17 @@ export function createMovimiento(carteraId: string, data: MovimientoInput) {
 
 export function createTraspaso(data: TraspasoInput) {
   return apiPost<Traspaso>("/contabilidad/traspasos", data);
+}
+
+export function getCuentasPorCobrar(query: { estado?: EstadoCuentaPorCobrar; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<CuentaPorCobrarConProforma>>(`/contabilidad/cuentas-por-cobrar${qs ? `?${qs}` : ""}`);
+}
+
+export function cobrarCuenta(id: string, data: { monto: number; carteraId: string }) {
+  return apiPost<CuentaPorCobrarConProforma>(`/contabilidad/cuentas-por-cobrar/${id}/cobrar`, data);
 }

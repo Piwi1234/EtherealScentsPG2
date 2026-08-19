@@ -6,17 +6,8 @@ import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
+import { calcularTotalesVenta } from "./proforma-totales.util";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
-
-/** Mismo cálculo que ProformaTotales.tsx (frontend) — nada se persiste server-side hasta ahora, así
- * que se replica acá para saber cuánto ingresar en la cartera al aprobar. Redondeado a 2 decimales
- * (Decimal(14,2) de MovimientoCartera.monto). */
-function calcularMontoAdelanto(detalles: { subtotal: Prisma.Decimal }[], descuentoGeneral: Prisma.Decimal, adelantoPorcentaje: Prisma.Decimal | null): number {
-  const subtotal = detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
-  const total = subtotal - Number(descuentoGeneral);
-  const porcentaje = Number(adelantoPorcentaje ?? 0);
-  return Math.round(total * (porcentaje / 100) * 100) / 100;
-}
 
 /**
  * Motor de aprobación: bloqueo transaccional + reserva de stock contra el único almacén elegido para
@@ -88,7 +79,7 @@ export class ProformaApprovalService {
   private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
     const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true, cliente: true } });
 
-    const montoAdelanto = calcularMontoAdelanto(proforma.detalles, proforma.descuentoGeneral, proforma.adelantoPorcentaje);
+    const { montoAdelanto } = calcularTotalesVenta(proforma);
     if (montoAdelanto > 0) {
       if (!carteraId) throw new BadRequestException("carteraId es obligatorio: la proforma tiene un adelanto a registrar en una cartera en Bs.");
       const cartera = await tx.cartera.findUnique({ where: { id: carteraId } });
@@ -101,7 +92,7 @@ export class ProformaApprovalService {
         data: {
           carteraId,
           fecha: new Date(),
-          detalle: `CL: ${proforma.cliente?.nombre ?? "—"} - PR: ${id} - ADL: ${porcentaje}%`,
+          detalle: `CL: ${proforma.cliente?.nombre ?? "—"} - PR: ${proforma.codigo} - ADL: ${porcentaje}%`,
           naturaleza: NaturalezaMovimiento.INGRESO,
           monto: montoAdelanto,
           proformaId: id,

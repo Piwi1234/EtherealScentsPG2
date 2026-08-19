@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { apiGetServer } from "../../../../../lib/api-server";
 import { ApiError } from "../../../../../lib/api";
-import type { Proforma } from "../../../../../lib/types";
+import type { Cartera, Proforma } from "../../../../../lib/types";
 import { CompletarVentaForm } from "../../../../../components/proformas/CompletarVentaForm";
 
 export default async function CompletarVentaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +15,8 @@ export default async function CompletarVentaPage({ params }: { params: Promise<{
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
+
+  const carterasBs = await apiGetServer<Cartera[]>("/contabilidad/carteras?moneda=BS&activo=true");
 
   const hayProcuraPendiente = proforma.detalles.some((d) =>
     d.asignaciones.some((a) => a.origen === "PROCURA" && a.cantidad > 0),
@@ -34,7 +36,7 @@ export default async function CompletarVentaPage({ params }: { params: Promise<{
           ← Volver a la proforma
         </Link>
       </div>
-      <CompletarVentaForm proforma={proforma} />
+      <CompletarVentaForm proforma={proforma} carterasBs={carterasBs} />
     </div>
   );
 }
