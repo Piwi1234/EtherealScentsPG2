@@ -56,7 +56,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ margin: 0, fontSize: 20 }}>
-            Proforma de {proforma.tipo === "VENTA" ? "venta" : "compra"}
+            Proforma de {proforma.tipo === "VENTA" ? "venta" : "compra"} — {proforma.codigo}
           </h1>
           <EstadoBadge estado={proforma.estado} />
         </div>

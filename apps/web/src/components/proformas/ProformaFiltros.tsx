@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Ciudad, Cliente, PaisProcedencia, Proveedor } from "../../lib/types";
 import { DateRangeDropdown, type DateSelection } from "../DateRangeDropdown";
@@ -9,6 +10,7 @@ import { ProveedorSearchSelect } from "./ProveedorSearchSelect";
 export function ProformaFiltros({
   initialTipo,
   initialEstado,
+  initialCodigo,
   initialCreadoPorId,
   initialClienteId,
   initialProveedorId,
@@ -24,6 +26,7 @@ export function ProformaFiltros({
 }: {
   initialTipo: string;
   initialEstado: string;
+  initialCodigo: string;
   initialCreadoPorId: string;
   initialClienteId: string;
   initialProveedorId: string;
@@ -40,6 +43,7 @@ export function ProformaFiltros({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [codigoInput, setCodigoInput] = useState(initialCodigo);
 
   function pushParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -55,6 +59,15 @@ export function ProformaFiltros({
     pushParams({ fechaDesde: selection.fechaDesde ?? "", fechaHasta: selection.fechaHasta ?? "" });
   }
 
+  // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (codigoInput.trim() !== initialCodigo) pushParams({ codigo: codigoInput.trim() });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codigoInput]);
+
   const initialDateSelection =
     initialFechaDesde || initialFechaHasta
       ? {
@@ -66,6 +79,16 @@ export function ProformaFiltros({
 
   return (
     <div className="filters-bar">
+      <div className="filter-field">
+        <label className="filter-label">Código</label>
+        <input
+          className="field"
+          placeholder="Ej. 4HRNPZW"
+          value={codigoInput}
+          onChange={(e) => setCodigoInput(e.target.value)}
+          style={{ width: 130 }}
+        />
+      </div>
       <div className="filter-field">
         <label className="filter-label">Tipo</label>
         <select

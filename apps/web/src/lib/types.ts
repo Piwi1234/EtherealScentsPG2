@@ -441,6 +441,8 @@ export type ProformaDetalle = {
 
 export type Proforma = {
   id: string;
+  /** Código corto para mostrar/buscar en vez del id UUID — no secuencial (ver schema.prisma). */
+  codigo: string;
   tipo: TipoProforma;
   estado: EstadoProforma;
   empresaId: string;

@@ -12,6 +12,7 @@ export default async function ProformasPage({
 }: {
   searchParams: Promise<{
     tipo?: string;
+    codigo?: string;
     estado?: string;
     creadoPorId?: string;
     clienteId?: string;
@@ -28,6 +29,7 @@ export default async function ProformasPage({
 
   const qs = new URLSearchParams();
   if (params.tipo) qs.set("tipo", params.tipo);
+  if (params.codigo) qs.set("codigo", params.codigo);
   if (params.estado) qs.set("estado", params.estado);
   if (params.tipo === "VENTA" && params.creadoPorId) qs.set("creadoPorId", params.creadoPorId);
   if (params.tipo === "VENTA" && params.clienteId) qs.set("clienteId", params.clienteId);
@@ -42,8 +44,9 @@ export default async function ProformasPage({
   let data: Page<Proforma> | null = null;
   let error = "";
   try {
-    // Sin tipo elegido no cargamos proformas — hay que filtrar primero.
-    if (params.tipo) {
+    // Sin tipo ni código no cargamos proformas — hay que filtrar primero (o buscar por código, que
+    // no necesita tipo: es único y ya identifica una sola proforma).
+    if (params.tipo || params.codigo) {
       data = await apiGetServer<Page<Proforma>>(`/proformas?${qs.toString()}`);
     }
   } catch (e) {
@@ -85,6 +88,7 @@ export default async function ProformasPage({
       <Suspense fallback={null}>
         <ProformaFiltros
           initialTipo={params.tipo ?? ""}
+          initialCodigo={params.codigo ?? ""}
           initialEstado={params.estado ?? ""}
           initialCreadoPorId={params.creadoPorId ?? ""}
           initialClienteId={params.clienteId ?? ""}
@@ -103,17 +107,17 @@ export default async function ProformasPage({
 
       {error && <p className="error-text">{error}</p>}
 
-      {!error && !params.tipo && (
-        <p className="cell-muted">Elegí un tipo arriba para ver las proformas.</p>
+      {!error && !params.tipo && !params.codigo && (
+        <p className="cell-muted">Elegí un tipo o buscá por código arriba.</p>
       )}
 
-      {!error && params.tipo && data && data.items.length === 0 && (
+      {!error && (params.tipo || params.codigo) && data && data.items.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 0" }}>
           <p style={{ color: "var(--muted)" }}>No hay proformas registradas aún</p>
         </div>
       )}
 
-      {!error && params.tipo && data && data.items.length > 0 && (
+      {!error && (params.tipo || params.codigo) && data && data.items.length > 0 && (
         <>
           <ProformasTable proformas={data.items} mostrarVendedor={params.tipo === "VENTA"} />
           {totalPages > 1 && (

@@ -5,6 +5,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
+import { generateUniqueEntityCode } from "../../catalog/entity-code";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
@@ -82,6 +83,7 @@ export class ProformasService {
       proveedorId: query.proveedorId,
       ciudadEntregaId: query.ciudadEntregaId,
       paisProcedenciaId: query.paisProcedenciaId,
+      codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
       fecha: {
         gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
         lte: hasta,
@@ -160,6 +162,15 @@ export class ProformasService {
     return computeBsPrices(priceUsd, variante, exchangeRate).finalPriceBs;
   }
 
+  /** Código corto para mostrar/buscar en vez del id UUID — ver doc-comment de Proforma.codigo en
+   * schema.prisma. Mismo mecanismo que Product.productCode / ProductVariant.variantCode. */
+  private generateCodigo() {
+    return generateUniqueEntityCode(async (code) => {
+      const existing = await this.prisma.proforma.findUnique({ where: { codigo: code }, select: { id: true } });
+      return Boolean(existing);
+    });
+  }
+
   /** El almacén ya no se pide acá para ningún tipo: para VENTA se fija al aprobar, para COMPRA al
    * completar (ver proforma-approval.service.ts / proforma-completion.service.ts). */
   async create(dto: CreateProformaDto, creadoPorId: string) {
@@ -186,12 +197,14 @@ export class ProformasService {
     // editable después mientras esté en BORRADOR, por si la compra se hizo a otro tipo de cambio.
     const tipoCambioProf =
       dto.tipo === TipoProforma.COMPRA ? dto.tipoCambioProf ?? (await this.settings.getExchangeRate()) : undefined;
+    const codigo = await this.generateCodigo();
 
     try {
       return await this.prisma.$transaction(async (tx) => {
         const proforma = await tx.proforma.create({
           data: {
             tipo: dto.tipo,
+            codigo,
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,

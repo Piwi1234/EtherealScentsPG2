@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 import { EstadoProforma, TipoProforma } from "@app/database";
 
 export class QueryProformaDto {
@@ -8,6 +8,11 @@ export class QueryProformaDto {
   @IsOptional()
   @IsEnum(TipoProforma)
   tipo?: TipoProforma;
+
+  @ApiPropertyOptional({ description: "Código corto mostrado en la UI (ej. \"4HRNPZW\"), búsqueda exacta sin importar mayúsculas." })
+  @IsOptional()
+  @IsString()
+  codigo?: string;
 
   @ApiPropertyOptional({ enum: EstadoProforma })
   @IsOptional()

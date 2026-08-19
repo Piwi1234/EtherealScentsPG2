@@ -644,6 +644,11 @@ model Proforma {
   tipo   TipoProforma
   estado EstadoProforma @default(BORRADOR)
 
+  // Código corto para mostrar/buscar en vez del id UUID (mismo mecanismo que Product.productCode /
+  // ProductVariant.variantCode — generateUniqueEntityCode, alfanumérico de 7, no lo escribe el
+  // usuario). No secuencial a propósito.
+  codigo String @unique
+
   empresaId String  @map("empresa_id") @db.Uuid
   empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 

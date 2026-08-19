@@ -15,6 +15,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
     <table className="table table-minimal">
       <thead>
         <tr>
+          <th>Código</th>
           <th>Fecha</th>
           <th>Tipo</th>
           <th>Empresa</th>
@@ -33,6 +34,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             onClick={() => router.push(`/dashboard/proformas/${proforma.id}`)}
             style={{ cursor: "pointer" }}
           >
+            <td className="cell-primary">{proforma.codigo}</td>
             <td className="cell-muted">{formatDate(proforma.fecha)}</td>
             <td className="cell-primary">{proforma.tipo === "VENTA" ? "Venta" : "Compra"}</td>
             <td>{proforma.empresa.nombre}</td>
