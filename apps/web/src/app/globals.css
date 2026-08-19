@@ -1,3 +1,9 @@
+/* "Nocturne" theme (.nocturne-theme, near the end of this file): a separate dark design system
+   applied only to the sidebar/topbar (always) and the Dashboard + Products pages (scoped) — every
+   other page keeps the theme below untouched. Its font import has to live at the top of the file
+   (CSS requires @import before any other rule), even though the rules that use it are much later. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
   --ink: #1a1a2e;
   --gold: #c9a96e;
@@ -1312,4 +1318,280 @@ a {
   justify-content: center;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   "Nocturne" theme — dark design system from the "Panel Nocturne" mockup
+   built in Claude Design (synced from the "Nocturne" design-system project).
+   Scoped entirely under .nocturne-theme so nothing here can collide with or
+   leak into the light theme above: every rule below is either
+   `.nocturne-theme` itself, a compound selector on the SAME element
+   (`.sidebar.nocturne-theme`), or a descendant selector
+   (`.nocturne-theme .card`) — never a bare class name.
+
+   Scope: the sidebar + topbar carry the class unconditionally (shared
+   chrome). The Dashboard and Products pages get it conditionally, decided
+   by route in dashboard/layout.tsx. Every other page is untouched — same
+   class names, same light theme, because they never sit inside an element
+   carrying `.nocturne-theme`.
+   ══════════════════════════════════════════════════════════════════════ */
+.nocturne-theme {
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --font-heading: "Inter", system-ui, sans-serif;
+  --font-heading-weight: 500;
+  --font-body: "Inter", system-ui, sans-serif;
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  font-family: var(--font-body);
+}
+
+.nocturne-theme h1,
+.nocturne-theme h2,
+.nocturne-theme h3,
+.nocturne-theme h4 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: -0.015em;
+}
+
+/* — sidebar (always themed — shared chrome) — */
+.sidebar.nocturne-theme {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.nocturne-theme .sidebar-brand {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  color: var(--color-text);
+}
+
+.nocturne-theme .sidebar-section-title {
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.nocturne-theme .sidebar-link {
+  color: var(--color-text);
+  opacity: 1;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nocturne-theme .sidebar-link:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.nocturne-theme .sidebar-link.active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.nocturne-theme .sidebar-accordion-toggle {
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+}
+
+.nocturne-theme .sidebar-accordion-panel {
+  border-left-color: var(--color-divider);
+}
+
+.nocturne-theme .sidebar-accordion-group-title {
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
+}
+
+/* After .sidebar-link so display:block/opacity/no-border here win the tie (same specificity,
+   source order decides) — nested links are a plain list, not left-accented rows. */
+.nocturne-theme .sidebar-link-nested {
+  display: block;
+  border-left: none;
+  border-radius: var(--radius-sm);
+  opacity: 0.8;
+}
+
+.nocturne-theme .sidebar-link-nested:hover {
+  opacity: 1;
+}
+
+.nocturne-theme .sidebar-link-nested.active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border-left: none;
+}
+
+.nocturne-theme .sidebar-logout {
+  border-color: var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.nocturne-theme .sidebar-logout:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: transparent;
+}
+
+/* — topbar + main content area (conditional — only when the current route opts in) — */
+.nocturne-theme .topbar {
+  background: var(--color-surface);
+  border-bottom-color: var(--color-divider);
+  color: var(--color-text);
+}
+
+.nocturne-theme .dashboard-main {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.nocturne-theme .button {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+}
+
+.nocturne-theme .button:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* — cards — */
+.nocturne-theme .card {
+  background: var(--color-surface);
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.nocturne-theme .cell-muted {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* — buttons (Nuevo producto) — */
+.nocturne-theme .btn-cta {
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+}
+
+.nocturne-theme .btn-cta:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.nocturne-theme .btn-cta-icon {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* — filters — */
+.nocturne-theme .filters-bar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+}
+
+.nocturne-theme .filter-label {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.nocturne-theme .field {
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+
+.nocturne-theme .field:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.nocturne-theme .field:focus-visible {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+/* — table — */
+.nocturne-theme .table th,
+.nocturne-theme .table td {
+  border-bottom-color: var(--color-divider);
+}
+
+.nocturne-theme .table-minimal th {
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  border-bottom-color: var(--color-divider);
+}
+
+.nocturne-theme .table-minimal tbody tr:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.nocturne-theme .table-minimal tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.nocturne-theme .table-minimal .cell-code {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.nocturne-theme .table-minimal .unit {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.nocturne-theme .table .col-group-start {
+  border-left-color: var(--color-divider);
+}
+
+.nocturne-theme .action-btn {
+  background: transparent;
+  border-color: var(--color-divider);
+  color: var(--color-text);
+}
+
+.nocturne-theme .action-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.nocturne-theme .action-btn.danger {
+  color: #e08585;
+  border-color: color-mix(in srgb, #e08585 35%, transparent);
+}
+
+.nocturne-theme .action-btn.danger:hover {
+  background: color-mix(in srgb, #e08585 10%, transparent);
+  border-color: #e08585;
+}
+
+.nocturne-theme .link-button {
+  color: var(--color-accent);
+}
+
+.nocturne-theme .error-text {
+  color: #e08585;
+}
+
+.nocturne-theme .success-banner {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-text);
 }

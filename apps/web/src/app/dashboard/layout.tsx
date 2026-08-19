@@ -4,30 +4,23 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getAuthUser, type AuthUser } from "../../lib/auth";
+// El sidebar es chrome compartido: siempre lleva el tema "Nocturne" (ver el className condicional
+// más abajo para el resto de la página), así que usa el set de íconos de esa skin, no el de
+// icons.tsx. El mockup solo muestra ícono en el toggle/nav de primer nivel — los ítems anidados
+// (Listado, Pedidos, Cuenta Bs, Atributos, etc.) son texto solo, sin ícono.
 import {
-  AlmacenesIcon,
-  AttributesIcon,
   BrandsIcon,
   CategoriesIcon,
   ChevronDownIcon,
   ClientsIcon,
   ContabilidadIcon,
-  CuentaIcon,
   DashboardIcon,
-  EmpresasIcon,
-  ExchangeIcon,
-  ListIcon,
   LogoutIcon,
-  OrdersIcon,
   ProductsIcon,
   ProformasIcon,
-  ProveedoresIcon,
-  RegistrosIcon,
-  SeguimientoIcon,
   SettingsIcon,
   StockIcon,
-  UsersIcon,
-} from "../../components/icons";
+} from "../../components/nocturne-icons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, exact: true },
@@ -38,53 +31,53 @@ const NAV_ITEMS = [
 
 // Submenú acordeón de Clientes: lista plana, sin subtítulos de grupo (a diferencia de Configuración).
 const CLIENTES_ITEMS = [
-  { href: "/dashboard/clientes", label: "Listado", icon: ListIcon },
-  { href: "/dashboard/clientes/pedidos", label: "Pedidos", icon: OrdersIcon },
+  { href: "/dashboard/clientes", label: "Listado" },
+  { href: "/dashboard/clientes/pedidos", label: "Pedidos" },
 ];
 
 // Submenú acordeón de Proveedores: mismo esqueleto que Clientes (Listado/Pedidos). Pedidos queda
 // "Próximamente" hasta tener pensada su funcionalidad.
 const PROVEEDORES_ITEMS = [
-  { href: "/dashboard/proveedores", label: "Listado", icon: ListIcon },
-  { href: "/dashboard/proveedores/pedidos", label: "Pedidos", icon: OrdersIcon },
+  { href: "/dashboard/proveedores", label: "Listado" },
+  { href: "/dashboard/proveedores/pedidos", label: "Pedidos" },
 ];
 
 // Submenú acordeón de Stock: existencias/lotes de compra separado del historial de traspasos.
 const STOCK_ITEMS = [
-  { href: "/dashboard/stock", label: "Existencias", icon: StockIcon },
-  { href: "/dashboard/stock/traspasos", label: "Traspasos", icon: ExchangeIcon },
+  { href: "/dashboard/stock", label: "Existencias" },
+  { href: "/dashboard/stock/traspasos", label: "Traspasos" },
 ];
 
 const PROFORMAS_NAV_ITEMS = [
   { href: "/dashboard/proformas", label: "Proformas", icon: ProformasIcon },
-  { href: "/dashboard/registros", label: "Registros", icon: RegistrosIcon },
-  { href: "/dashboard/seguimiento", label: "Seguimiento", icon: SeguimientoIcon },
+  { href: "/dashboard/registros", label: "Registros", icon: ProformasIcon },
+  { href: "/dashboard/seguimiento", label: "Seguimiento", icon: ProformasIcon },
 ];
 
 // Submenú acordeón de Contabilidad: las 5 Cuentas (por moneda) + la gestión central de Tipos.
 const CONTABILIDAD_ITEMS = [
-  { href: "/dashboard/contabilidad/cuenta-bs", label: "Cuenta Bs", icon: CuentaIcon },
-  { href: "/dashboard/contabilidad/cuenta-usdt", label: "Cuenta USDT", icon: CuentaIcon },
-  { href: "/dashboard/contabilidad/cuenta-gs", label: "Cuenta Gs", icon: CuentaIcon },
-  { href: "/dashboard/contabilidad/cuenta-chile", label: "Cuenta Chile", icon: CuentaIcon },
-  { href: "/dashboard/contabilidad/cuenta-usa", label: "Cuenta USA", icon: CuentaIcon },
-  { href: "/dashboard/contabilidad/tipos", label: "Tipos", icon: ListIcon },
-  { href: "/dashboard/contabilidad/cuentas-por-cobrar", label: "Cuentas por Cobrar", icon: ExchangeIcon },
-  { href: "/dashboard/contabilidad/cuentas-por-pagar", label: "Cuentas por Pagar", icon: ExchangeIcon },
+  { href: "/dashboard/contabilidad/cuenta-bs", label: "Cuenta Bs" },
+  { href: "/dashboard/contabilidad/cuenta-usdt", label: "Cuenta USDT" },
+  { href: "/dashboard/contabilidad/cuenta-gs", label: "Cuenta Gs" },
+  { href: "/dashboard/contabilidad/cuenta-chile", label: "Cuenta Chile" },
+  { href: "/dashboard/contabilidad/cuenta-usa", label: "Cuenta USA" },
+  { href: "/dashboard/contabilidad/tipos", label: "Tipos" },
+  { href: "/dashboard/contabilidad/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
+  { href: "/dashboard/contabilidad/cuentas-por-pagar", label: "Cuentas por Pagar" },
 ];
 
 // Submenú acordeón dentro de AJUSTES, agrupado por título. "adminOnly" oculta el grupo entero
 // para roles que no sean ADMIN (mismo criterio que antes tenía la sección "Usuarios" suelta).
 const CONFIGURACION_GROUPS = [
-  { title: "Usuarios", adminOnly: true, items: [{ href: "/dashboard/users", label: "Roles y Permisos", icon: UsersIcon }] },
-  { title: "Productos", adminOnly: false, items: [{ href: "/dashboard/attributes", label: "Atributos", icon: AttributesIcon }] },
+  { title: "Usuarios", adminOnly: true, items: [{ href: "/dashboard/users", label: "Roles y Permisos" }] },
+  { title: "Productos", adminOnly: false, items: [{ href: "/dashboard/attributes", label: "Atributos" }] },
   {
     title: "Global",
     adminOnly: false,
     items: [
-      { href: "/dashboard/empresas", label: "Empresas", icon: EmpresasIcon },
-      { href: "/dashboard/almacenes", label: "Almacenes", icon: AlmacenesIcon },
-      { href: "/dashboard/configuracion/tipo-cambio", label: "Tipo de cambio", icon: ExchangeIcon },
+      { href: "/dashboard/empresas", label: "Empresas" },
+      { href: "/dashboard/almacenes", label: "Almacenes" },
+      { href: "/dashboard/configuracion/tipo-cambio", label: "Tipo de cambio" },
     ],
   },
 ];
@@ -165,9 +158,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   }
 
+  // El tema "Nocturne" del mockup solo cubre Dashboard y Productos por ahora (ver
+  // .design-sync/NOTES.md o el chat que lo pidió) — el resto de las páginas se queda con el tema
+  // actual. El sidebar/topbar, en cambio, son chrome compartido y llevan el tema siempre.
+  const isNocturneArea = pathname === "/dashboard" || pathname.startsWith("/dashboard/products");
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <aside className="sidebar">
+      <aside className="sidebar nocturne-theme">
         <div className="sidebar-brand">Panel</div>
         <div className="sidebar-section-title">Principal</div>
         <nav className="sidebar-nav">
@@ -185,14 +183,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="sidebar-accordion-panel-inner">
               {CLIENTES_ITEMS.map((item) => {
                 const active = item.href === clientesActiveHref;
-                const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
                   >
-                    <Icon className="sidebar-link-icon" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -205,7 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setProveedoresOpen((open) => !open)}
             aria-expanded={proveedoresOpen}
           >
-            <ProveedoresIcon className="sidebar-link-icon" />
+            <ClientsIcon className="sidebar-link-icon" />
             <span>Proveedores</span>
             <ChevronDownIcon className={`sidebar-accordion-chevron${proveedoresOpen ? " open" : ""}`} />
           </button>
@@ -213,14 +209,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="sidebar-accordion-panel-inner">
               {PROVEEDORES_ITEMS.map((item) => {
                 const active = item.href === proveedoresActiveHref;
-                const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
                   >
-                    <Icon className="sidebar-link-icon" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -251,14 +245,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="sidebar-accordion-panel-inner">
               {STOCK_ITEMS.map((item) => {
                 const active = item.href === stockActiveHref;
-                const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
                   >
-                    <Icon className="sidebar-link-icon" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -295,14 +287,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="sidebar-accordion-panel-inner">
               {CONTABILIDAD_ITEMS.map((item) => {
                 const active = pathname.startsWith(item.href);
-                const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
                   >
-                    <Icon className="sidebar-link-icon" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -329,14 +319,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="sidebar-accordion-group-title">{group.title}</div>
                   {group.items.map((item) => {
                     const active = pathname.startsWith(item.href);
-                    const Icon = item.icon;
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         className={`sidebar-link sidebar-link-nested${active ? " active" : ""}`}
                       >
-                        <Icon className="sidebar-link-icon" />
                         <span>{item.label}</span>
                       </Link>
                     );
@@ -351,7 +339,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span>Logout</span>
         </button>
       </aside>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div
+        style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}
+        className={isNocturneArea ? "nocturne-theme" : undefined}
+      >
         <header className="topbar">
           <span>{user ? `${user.nombre} (${user.rol})` : "Cargando..."}</span>
           <Link href="/" className="button">Catálogo</Link>
