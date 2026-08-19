@@ -25,6 +25,9 @@ export class CategoryService {
     if (this.hasCostFields(dto) && !dto.parentId) {
       throw new BadRequestException("Los costos logísticos solo se pueden definir en subcategorías.");
     }
+    if (dto.comentario !== undefined && dto.parentId) {
+      throw new BadRequestException("El comentario solo se puede definir en categorías raíz.");
+    }
 
     try {
       return await this.prisma.category.create({
@@ -35,6 +38,7 @@ export class CategoryService {
           logisticsCost: dto.logisticsCost,
           shippingCost: dto.shippingCost,
           securityCost: dto.securityCost,
+          comentario: dto.parentId ? undefined : dto.comentario,
         },
       });
     } catch (error) {
@@ -146,8 +150,13 @@ export class CategoryService {
     if (this.hasCostFields(dto) && !effectiveParentId) {
       throw new BadRequestException("Los costos logísticos solo se pueden definir en subcategorías.");
     }
+    if (dto.comentario !== undefined && effectiveParentId) {
+      throw new BadRequestException("El comentario solo se puede definir en categorías raíz.");
+    }
     // Si deja de tener padre, no queda como categoría raíz con costos huérfanos.
     const clearingParent = dto.parentId === null;
+    // Si pasa a tener padre (se vuelve subcategoría), no queda como subcategoría con un comentario huérfano.
+    const becomingSubcategory = Boolean(dto.parentId);
 
     try {
       return await this.prisma.category.update({
@@ -159,6 +168,7 @@ export class CategoryService {
           logisticsCost: clearingParent ? null : dto.logisticsCost,
           shippingCost: clearingParent ? null : dto.shippingCost,
           securityCost: clearingParent ? null : dto.securityCost,
+          comentario: becomingSubcategory ? null : dto.comentario,
         },
       });
     } catch (error) {

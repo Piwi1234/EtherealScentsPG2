@@ -7,6 +7,8 @@ export type Category = {
   logisticsCost: string | null;
   shippingCost: string | null;
   securityCost: string | null;
+  // Solo aplica a categorías raíz (sin padre) — nota interna libre.
+  comentario: string | null;
   createdAt: string;
   updatedAt: string;
 };

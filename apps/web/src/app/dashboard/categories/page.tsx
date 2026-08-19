@@ -81,6 +81,7 @@ export default function CategoriesPage() {
   const [logisticsCost, setLogisticsCost] = useState("");
   const [shippingCost, setShippingCost] = useState("");
   const [securityCost, setSecurityCost] = useState("");
+  const [comentario, setComentario] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -99,6 +100,7 @@ export default function CategoriesPage() {
     setLogisticsCost("");
     setShippingCost("");
     setSecurityCost("");
+    setComentario("");
     setFormError("");
     setModalOpen(true);
   }
@@ -110,6 +112,7 @@ export default function CategoriesPage() {
     setLogisticsCost(node.logisticsCost ?? "");
     setShippingCost(node.shippingCost ?? "");
     setSecurityCost(node.securityCost ?? "");
+    setComentario(node.comentario ?? "");
     setFormError("");
     setModalOpen(true);
   }
@@ -133,7 +136,8 @@ export default function CategoriesPage() {
     setFormError("");
     setSubmitting(true);
     try {
-      // Los costos solo aplican a subcategorías (con padre elegido en el formulario).
+      // Los costos solo aplican a subcategorías (con padre elegido en el formulario); el comentario
+      // es al revés, solo aplica a categorías raíz (sin padre).
       const costs = parentId
         ? {
             logisticsCost: parseCost(logisticsCost),
@@ -141,7 +145,8 @@ export default function CategoriesPage() {
             securityCost: parseCost(securityCost),
           }
         : {};
-      const payload = { name, parentId: parentId || undefined, ...costs };
+      const comentarioField = parentId ? {} : { comentario: comentario.trim() || null };
+      const payload = { name, parentId: parentId || undefined, ...costs, ...comentarioField };
       if (editing) {
         await apiPatch(`/categories/${editing.id}`, { ...payload, parentId: parentId || null });
       } else {
@@ -162,6 +167,8 @@ export default function CategoriesPage() {
       setLogisticsCost("");
       setShippingCost("");
       setSecurityCost("");
+    } else {
+      setComentario("");
     }
   }
 
@@ -216,6 +223,17 @@ export default function CategoriesPage() {
                   ))}
               </select>
             </div>
+            {!parentId && (
+              <div>
+                <label>Comentario (opcional)</label>
+                <textarea
+                  className="field"
+                  rows={3}
+                  value={comentario}
+                  onChange={(e) => setComentario(e.target.value)}
+                />
+              </div>
+            )}
             {parentId && (
               <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
                 <label style={{ display: "block", marginBottom: 8 }}>

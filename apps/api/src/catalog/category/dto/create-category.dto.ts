@@ -35,4 +35,9 @@ export class CreateCategoryDto {
   @IsNumber()
   @Min(0)
   securityCost?: number;
+
+  @ApiPropertyOptional({ description: "Solo válido en categorías raíz (sin padre): nota interna libre." })
+  @IsOptional()
+  @IsString()
+  comentario?: string;
 }

@@ -165,6 +165,10 @@ model Category {
   shippingCost  Decimal? @map("shipping_cost") @db.Decimal(12, 2)
   securityCost  Decimal? @map("security_cost") @db.Decimal(12, 2)
 
+  // Nota interna libre — solo aplica a categorías raíz (sin padre), simétrico al criterio inverso de
+  // los costos de arriba.
+  comentario String?
+
   brands     BrandCategory[]
   attributes Attribute[]
   products   Product[]
