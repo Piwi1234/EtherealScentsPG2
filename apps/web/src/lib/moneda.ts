@@ -15,14 +15,16 @@ export function formatMonto(value: string | number, moneda: MonedaCartera): stri
 /**
  * Pares de moneda habilitados para traspaso directo — debe reflejar exactamente
  * traspaso-conversion.util.ts del backend (que es quien manda en el cálculo real). `a`/`b` fijan la
- * convención: ir de `a` a `b` multiplica por el tipo de cambio, de `b` a `a` divide. USDT↔USD es
- * 1:1 fijo, sin pedir tipo de cambio. Se usa acá solo para decidir qué mostrar en el formulario.
+ * convención: ir de `a` a `b` multiplica por el tipo de cambio, de `b` a `a` divide. `a` es siempre
+ * la moneda "de referencia" tal como se cotiza en la calle (ej. "el dólar está a 14 bolivianos" →
+ * a=USDT/USD, b=BS). USDT↔USD es 1:1 fijo, sin pedir tipo de cambio. Se usa acá solo para decidir
+ * qué mostrar en el formulario.
  */
 type FormulaTraspaso = "MULTIPLICA" | "FIJO_1A1";
 
 const PARES_TRASPASO: { a: MonedaCartera; b: MonedaCartera; formula: FormulaTraspaso }[] = [
-  { a: "BS", b: "USDT", formula: "MULTIPLICA" },
-  { a: "BS", b: "USD", formula: "MULTIPLICA" },
+  { a: "USDT", b: "BS", formula: "MULTIPLICA" },
+  { a: "USD", b: "BS", formula: "MULTIPLICA" },
   { a: "BS", b: "CLP", formula: "MULTIPLICA" },
   { a: "USDT", b: "GS", formula: "MULTIPLICA" },
   { a: "USDT", b: "CLP", formula: "MULTIPLICA" },

@@ -6,13 +6,15 @@ type FormulaTraspaso = "MULTIPLICA" | "FIJO_1A1";
 /**
  * Pares de moneda habilitados para traspaso directo. `a`/`b` fijan una convención: transferir de
  * `a` a `b` multiplica el monto por el tipo de cambio (tipoCambio = cuántos `b` vale 1 `a`);
- * transferir de `b` a `a` divide por ese mismo tipo de cambio. USDT↔USD es 1:1 fijo (ambos
+ * transferir de `b` a `a` divide por ese mismo tipo de cambio. `a` es siempre la moneda "de
+ * referencia" tal como se cotiza en la calle (ej. "el dólar está a 14 bolivianos" → a=USDT/USD,
+ * b=BS, tipoCambio=14), no necesariamente la primera moneda alfabética. USDT↔USD es 1:1 fijo (ambos
  * referencian el dólar), sin pedir tipo de cambio. Cualquier par no listado (y que no sea la misma
  * moneda) no permite traspaso directo.
  */
 const PARES_TRASPASO: { a: MonedaCartera; b: MonedaCartera; formula: FormulaTraspaso }[] = [
-  { a: "BS", b: "USDT", formula: "MULTIPLICA" },
-  { a: "BS", b: "USD", formula: "MULTIPLICA" },
+  { a: "USDT", b: "BS", formula: "MULTIPLICA" },
+  { a: "USD", b: "BS", formula: "MULTIPLICA" },
   { a: "BS", b: "CLP", formula: "MULTIPLICA" },
   { a: "USDT", b: "GS", formula: "MULTIPLICA" },
   { a: "USDT", b: "CLP", formula: "MULTIPLICA" },
