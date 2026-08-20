@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -7,6 +8,7 @@ import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { ProformasService } from "./proformas.service";
 import { ProformaApprovalService } from "./proforma-approval.service";
 import { ProformaCompletionService } from "./proforma-completion.service";
+import { ProformaPdfService } from "./proforma-pdf.service";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
@@ -30,6 +32,7 @@ export class ProformasController {
     private readonly proformas: ProformasService,
     private readonly approval: ProformaApprovalService,
     private readonly completion: ProformaCompletionService,
+    private readonly pdf: ProformaPdfService,
   ) {}
 
   @Get()
@@ -49,6 +52,18 @@ export class ProformasController {
   @ApiOperation({ summary: "Detalle completo de una proforma: líneas, asignaciones, historial." })
   findOne(@Param("id", ParseUUIDPipe) id: string) {
     return this.proformas.findOne(id);
+  }
+
+  @Get(":id/pdf")
+  @ApiOperation({ summary: "Descarga el PDF de la proforma (sin reparto por almacén ni historial)." })
+  async downloadPdf(@Param("id", ParseUUIDPipe) id: string, @Res() res: Response) {
+    const buffer = await this.pdf.generate(id);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="proforma-${id}.pdf"`,
+      "Content-Length": String(buffer.length),
+    });
+    res.send(buffer);
   }
 
   @Post()

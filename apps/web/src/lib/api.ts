@@ -125,6 +125,44 @@ export function apiDelete<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "DELETE" });
 }
 
+/** Para respuestas binarias (ej. PDF) — apiRequest asume texto/JSON, esto dispara la descarga en el
+ * navegador directamente en vez de devolver el body parseado. */
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const url = `${API_BASE}${path}`;
+  const headers: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("app_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers });
+  } catch (error) {
+    throw new Error(`API request failed: ${url} — ${String(error)}`);
+  }
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    clearSession();
+    window.location.href = "/login";
+    throw new ApiError(401, "Sesión expirada.");
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(response.status, text || "No se pudo descargar el archivo.");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export function apiUpload<T>(path: string, file: File): Promise<T> {
   const formData = new FormData();
   formData.append("file", file);
@@ -450,6 +488,10 @@ export function anularProforma(id: string, nota?: string) {
 
 export function completarProforma(id: string, data: CompletarProformaInput) {
   return apiPost<Proforma>(`/proformas/${id}/completar`, data);
+}
+
+export function downloadProformaPdf(id: string, codigo: string) {
+  return apiDownload(`/proformas/${id}/pdf`, `proforma-${codigo}.pdf`);
 }
 
 // --- Seguimiento (Procura pendiente) ---

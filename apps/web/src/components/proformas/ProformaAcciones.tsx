@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, anularProforma, aprobarProforma, completarProforma, deleteProforma } from "../../lib/api";
+import { ApiError, anularProforma, aprobarProforma, completarProforma, deleteProforma, downloadProformaPdf } from "../../lib/api";
 import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
@@ -23,6 +23,7 @@ const PERMITIDAS: Record<Transicion, EstadoProforma[]> = {
  */
 export function ProformaAcciones({
   proformaId,
+  codigo,
   estado,
   tipo,
   almacenes,
@@ -30,6 +31,7 @@ export function ProformaAcciones({
   carterasBs = [],
 }: {
   proformaId: string;
+  codigo: string;
   estado: EstadoProforma;
   tipo: TipoProforma;
   almacenes: Almacen[];
@@ -43,6 +45,20 @@ export function ProformaAcciones({
   const [nota, setNota] = useState("");
   const [almacenId, setAlmacenId] = useState("");
   const [carteraId, setCarteraId] = useState("");
+  const [descargando, setDescargando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState("");
+
+  async function handleDescargarPdf() {
+    setDescargando(true);
+    setErrorPdf("");
+    try {
+      await downloadProformaPdf(proformaId, codigo);
+    } catch (e) {
+      setErrorPdf(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDescargando(false);
+    }
+  }
 
   const puede = (t: Transicion) => PERMITIDAS[t].includes(estado);
   const puedeCompletar = estado === "APROBADA";
@@ -112,10 +128,6 @@ export function ProformaAcciones({
     }
   }
 
-  if (estado === "COMPLETADA" || estado === "ANULADA") {
-    return null;
-  }
-
   return (
     <div>
       <div className="row-actions" style={{ justifyContent: "flex-start" }}>
@@ -144,8 +156,12 @@ export function ProformaAcciones({
             Eliminar
           </button>
         )}
+        <button type="button" className="action-btn" onClick={handleDescargarPdf} disabled={descargando}>
+          {descargando ? "Generando..." : "Descargar PDF"}
+        </button>
       </div>
 
+      {errorPdf && <p className="error-text" style={{ marginTop: 8 }}>{errorPdf}</p>}
       {error && !modal && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
 
       {modal === "aprobar" && (
