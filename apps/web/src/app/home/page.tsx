@@ -87,13 +87,20 @@ export default function HomePage() {
             {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
           </div>
           <nav className="landing-navbar-links">
-            {categoryTree.map((cat) => (
-              <div className="landing-navbar-item" key={cat.id}>
-                <a href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
-                  {cat.name}
-                </a>
-                {cat.children.length > 0 && (
-                  <div className="landing-navbar-dropdown">
+            <div className="landing-navbar-item">
+              <a href="#catalogo" onClick={(e) => { e.preventDefault(); goToSection("catalogo"); }}>
+                Categorías
+              </a>
+              <div className="landing-navbar-dropdown">
+                {categoryTree.map((cat) => (
+                  <div className="landing-navbar-dropdown-group" key={cat.id}>
+                    <a
+                      className="landing-navbar-dropdown-heading"
+                      href="#catalogo"
+                      onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}
+                    >
+                      {cat.name}
+                    </a>
                     {cat.children.map((sub) => (
                       <a
                         key={sub.id}
@@ -104,9 +111,9 @@ export default function HomePage() {
                       </a>
                     ))}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            </div>
             <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
             <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           </nav>
@@ -133,7 +140,11 @@ export default function HomePage() {
           <nav className="landing-navbar-mobile">
             {categoryTree.map((cat) => (
               <div className="landing-navbar-mobile-group" key={cat.id}>
-                <a href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
+                <a
+                  className="landing-navbar-mobile-heading"
+                  href="#catalogo"
+                  onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}
+                >
                   {cat.name}
                 </a>
                 {cat.children.map((sub) => (
