@@ -2074,16 +2074,34 @@ a {
   color: #ffffff;
 }
 
-/* --- Navbar --- */
+/* --- Navbar ---
+   Transparente y superpuesta sobre el hero al cargar; al pasar ~80px de scroll
+   (ver handleScroll en home/page.tsx) suma la clase --scrolled con fondo sólido,
+   sombra y blur. Todo el cambio de color se anima vía las custom properties
+   --nav-fg/--nav-fg-muted, así los hijos (links, marca, toggle) no necesitan
+   sus propias transiciones duplicadas. */
 
 .landing-navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 40;
-  background: rgba(250, 249, 247, 0.88);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  --nav-fg: #f5f4f0;
+  --nav-fg-muted: rgba(245, 244, 240, 0.75);
+  color: var(--nav-fg);
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, color 0.3s ease;
+}
+
+.landing-navbar--scrolled {
+  --nav-fg: var(--lp-text);
+  --nav-fg-muted: var(--lp-muted);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
-  border-bottom: 1px solid var(--lp-border);
+  box-shadow: 0 4px 24px rgba(26, 26, 46, 0.08);
 }
 
 .landing-navbar-inner {
@@ -2106,11 +2124,9 @@ a {
 }
 
 .landing-navbar-logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--lp-border);
+  height: 42px;
+  width: auto;
+  object-fit: contain;
 }
 
 .landing-navbar-links {
@@ -2126,6 +2142,50 @@ a {
   color: var(--lp-accent-dark);
 }
 
+.landing-navbar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.landing-navbar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 190px;
+  transform: translate(-50%, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.landing-navbar-item:hover .landing-navbar-dropdown,
+.landing-navbar-item:focus-within .landing-navbar-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.landing-navbar-dropdown a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--lp-text);
+  font-weight: 500;
+}
+
+.landing-navbar-dropdown a:hover {
+  background: var(--lp-bg);
+  color: var(--lp-accent-dark);
+}
+
 .landing-navbar-actions {
   display: flex;
   align-items: center;
@@ -2136,12 +2196,85 @@ a {
 
 .landing-navbar-manage {
   font-size: 13px;
-  color: var(--lp-muted);
+  color: var(--nav-fg-muted);
   white-space: nowrap;
 }
 
 .landing-navbar-manage:hover {
+  color: var(--nav-fg);
+}
+
+/* Hamburguesa — solo visible en mobile, ver breakpoint 768px más abajo */
+.landing-navbar-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.landing-navbar-toggle span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.landing-navbar-toggle--open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.landing-navbar-toggle--open span:nth-child(2) {
+  opacity: 0;
+}
+
+.landing-navbar-toggle--open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.landing-navbar-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 24px 24px;
+  background: var(--lp-surface);
+  border-top: 1px solid var(--lp-border);
+  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.12);
+}
+
+.landing-navbar-mobile-group a {
+  display: block;
+  padding: 10px 4px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--lp-text);
+}
+
+.landing-navbar-mobile-sub {
+  padding-left: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--lp-muted);
+}
+
+.landing-navbar-mobile-cta {
+  margin-top: 10px;
+  align-self: flex-start;
+}
+
+/* El navbar es fixed y no reserva espacio en el flujo — compensamos el scroll
+   por anchor (scrollIntoView) para que no quede tapado bajo el navbar. */
+#catalogo,
+#nosotros,
+#contacto {
+  scroll-margin-top: 88px;
 }
 
 /* --- Hero --- */
@@ -2494,10 +2627,6 @@ a {
 /* --- Responsive: mobile-first, colapsa a 1 columna --- */
 
 @media (max-width: 900px) {
-  .landing-navbar-links {
-    display: none;
-  }
-
   .landing-hero h1 {
     font-size: 34px;
   }
@@ -2519,6 +2648,19 @@ a {
 
   .landing-footer-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Navbar mobile: colapsa links + acciones secundarias a una hamburguesa */
+@media (max-width: 768px) {
+  .landing-navbar-links,
+  .landing-navbar-manage,
+  .landing-navbar-actions .landing-btn-primary {
+    display: none;
+  }
+
+  .landing-navbar-toggle {
+    display: flex;
   }
 }
 

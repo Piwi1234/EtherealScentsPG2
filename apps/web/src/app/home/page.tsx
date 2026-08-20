@@ -30,7 +30,16 @@ export default function HomePage() {
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [error, setError] = useState("");
 
+  // --- Navbar: transparente sobre el hero, sólido al pasar 80px de scroll ---
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const rootCategories = categories.filter((cat) => cat.parentId === null);
+  // Cada categoría padre con sus subcategorías, para el desplegable del navbar.
+  const categoryTree = rootCategories.map((cat) => ({
+    ...cat,
+    children: categories.filter((c) => c.parentId === cat.id),
+  }));
 
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
@@ -46,9 +55,24 @@ export default function HomePage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter]);
 
+  useEffect(() => {
+    function handleScroll() {
+      setScrolled(window.scrollY > 80);
+    }
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   function explorarCategoria(categoryId: string) {
     setCategoryFilter(categoryId);
     scrollToId("catalogo");
+    setMobileMenuOpen(false);
+  }
+
+  function goToSection(id: string) {
+    scrollToId(id);
+    setMobileMenuOpen(false);
   }
 
   const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
@@ -57,28 +81,85 @@ export default function HomePage() {
   return (
     <div className="landing-page">
       {/* ============================== 1. Navbar ============================== */}
-      <header className="landing-navbar">
+      <header className={`landing-navbar${scrolled ? " landing-navbar--scrolled" : ""}`}>
         <div className="landing-container landing-navbar-inner">
           <div className="landing-navbar-brand">
-            {logoSrc && <img className="landing-navbar-logo" src={logoSrc} alt={brandName} />}
-            {brandName}
+            {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
           </div>
           <nav className="landing-navbar-links">
-            {rootCategories.map((cat) => (
-              <a key={cat.id} href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
-                {cat.name}
-              </a>
+            {categoryTree.map((cat) => (
+              <div className="landing-navbar-item" key={cat.id}>
+                <a href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
+                  {cat.name}
+                </a>
+                {cat.children.length > 0 && (
+                  <div className="landing-navbar-dropdown">
+                    {cat.children.map((sub) => (
+                      <a
+                        key={sub.id}
+                        href="#catalogo"
+                        onClick={(e) => { e.preventDefault(); explorarCategoria(sub.id); }}
+                      >
+                        {sub.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
-            <a href="#nosotros" onClick={(e) => { e.preventDefault(); scrollToId("nosotros"); }}>Nosotros</a>
-            <a href="#contacto" onClick={(e) => { e.preventDefault(); scrollToId("contacto"); }}>Contacto</a>
+            <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
+            <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           </nav>
           <div className="landing-navbar-actions">
             <Link href="/dashboard" className="landing-navbar-manage">Gestión</Link>
             <button type="button" className="landing-btn landing-btn-primary" onClick={() => scrollToId("catalogo")}>
               Ver catálogo
             </button>
+            <button
+              type="button"
+              className={`landing-navbar-toggle${mobileMenuOpen ? " landing-navbar-toggle--open" : ""}`}
+              aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </div>
         </div>
+
+        {mobileMenuOpen && (
+          <nav className="landing-navbar-mobile">
+            {categoryTree.map((cat) => (
+              <div className="landing-navbar-mobile-group" key={cat.id}>
+                <a href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
+                  {cat.name}
+                </a>
+                {cat.children.map((sub) => (
+                  <a
+                    key={sub.id}
+                    className="landing-navbar-mobile-sub"
+                    href="#catalogo"
+                    onClick={(e) => { e.preventDefault(); explorarCategoria(sub.id); }}
+                  >
+                    {sub.name}
+                  </a>
+                ))}
+              </div>
+            ))}
+            <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
+            <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
+            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
+            <button
+              type="button"
+              className="landing-btn landing-btn-primary landing-navbar-mobile-cta"
+              onClick={() => goToSection("catalogo")}
+            >
+              Ver catálogo
+            </button>
+          </nav>
+        )}
       </header>
 
       {/* ============================== 2. Hero ============================== */}
