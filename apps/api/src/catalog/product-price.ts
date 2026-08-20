@@ -44,13 +44,14 @@ function roundUpToTen(value: number): number {
 
 /**
  * Precios en bolívares, a partir del precio $ ya calculado:
- * - Precio May Bs = precio $ * tipo de cambio del sistema, redondeado hacia arriba a un múltiplo de 10.
- * - Precio Final Bs = (Precio Min Bs si se cargó, si no Precio May Bs ya redondeado) - Descuento,
- *   redondeado hacia arriba a un múltiplo de 10.
+ * - Precio May Bs = precio $ * tipo de cambio del sistema, sin redondear (precio real).
+ * - Precio Final Bs = (Precio Min Bs si se cargó, si no Precio May Bs sin redondear) - Descuento,
+ *   redondeado hacia arriba a un múltiplo de 10 (esa sí es intencional: es el precio de venta que
+ *   se le muestra al cliente).
  * Ninguno de los dos se persiste (salvo minPriceBs/discountBs, que son la entrada manual).
  */
 export function computeBsPrices(priceUsd: number, bs: BsPriceFields, exchangeRate: number) {
-  const wholesalePriceBs = roundUpToTen(priceUsd * exchangeRate);
+  const wholesalePriceBs = priceUsd * exchangeRate;
   const basePriceBs = bs.minPriceBs !== null ? toNumber(bs.minPriceBs) : wholesalePriceBs;
   const finalPriceBs = roundUpToTen(basePriceBs - toNumber(bs.discountBs));
   return { wholesalePriceBs, finalPriceBs };
