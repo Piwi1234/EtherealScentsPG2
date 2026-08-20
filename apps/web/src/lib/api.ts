@@ -216,6 +216,11 @@ export function getEmpresas(query: { page?: number; pageSize?: number } = {}) {
   return apiGet<Page<Empresa>>(`/empresas${qs ? `?${qs}` : ""}`);
 }
 
+/** Público (sin auth) — nombre/logo de la casa matriz, para el navbar de la landing y el login. */
+export function getCasaMatrizLogo() {
+  return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
+}
+
 export function createEmpresa(data: EmpresaInput) {
   return apiPost<Empresa>("/empresas", data);
 }
