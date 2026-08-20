@@ -1,45 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { API_ORIGIN, apiGet, getCasaMatrizLogo } from "../../lib/api";
+import { apiGet, getCasaMatrizLogo } from "../../lib/api";
+import { displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
-
-function productImageSrc(imageUrl: string | null): string | null {
-  return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
-}
-
-/** Si el producto tiene variantes con precio propio, se muestra "Desde" el precio más bajo entre ellas. */
-function displayPrice(product: Product): { bs: number; usd: number; fromPrice: boolean } {
-  if (product.variants.length > 0) {
-    const cheapest = product.variants.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), product.variants[0]);
-    return { bs: cheapest.finalPriceBs, usd: cheapest.price, fromPrice: product.variants.length > 1 };
-  }
-  return { bs: product.finalPriceBs, usd: product.price, fromPrice: false };
-}
+import { LandingNavbar } from "../../components/landing/LandingNavbar";
+import { LandingFooter } from "../../components/landing/LandingFooter";
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 export default function HomePage() {
-  // --- Datos: empresa (logo del navbar), categorías reales y productos del catálogo público ---
-  const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
+  // --- Datos: empresa (nombre para textos propios), categorías reales y productos del catálogo público ---
+  const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [error, setError] = useState("");
 
-  // --- Navbar: transparente sobre el hero, sólido al pasar 80px de scroll ---
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const rootCategories = categories.filter((cat) => cat.parentId === null);
-  // Cada categoría padre con sus subcategorías, para el desplegable del navbar.
-  const categoryTree = rootCategories.map((cat) => ({
-    ...cat,
-    children: categories.filter((c) => c.parentId === cat.id),
-  }));
 
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
@@ -55,123 +35,16 @@ export default function HomePage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter]);
 
-  useEffect(() => {
-    function handleScroll() {
-      setScrolled(window.scrollY > 80);
-    }
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
   function explorarCategoria(categoryId: string) {
     setCategoryFilter(categoryId);
     scrollToId("catalogo");
-    setMobileMenuOpen(false);
   }
 
-  function goToSection(id: string) {
-    scrollToId(id);
-    setMobileMenuOpen(false);
-  }
-
-  const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
   const brandName = empresa?.nombre ?? "Ethereal Scents";
 
   return (
     <div className="landing-page">
-      {/* ============================== 1. Navbar ============================== */}
-      <header className={`landing-navbar${scrolled ? " landing-navbar--scrolled" : ""}`}>
-        <div className="landing-container landing-navbar-inner">
-          <div className="landing-navbar-brand">
-            {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
-          </div>
-          <nav className="landing-navbar-links">
-            <div className="landing-navbar-item">
-              <a href="#catalogo" onClick={(e) => { e.preventDefault(); goToSection("catalogo"); }}>
-                Categorías
-              </a>
-              <div className="landing-navbar-dropdown">
-                {categoryTree.map((cat) => (
-                  <div className="landing-navbar-dropdown-group" key={cat.id}>
-                    <a
-                      className="landing-navbar-dropdown-heading"
-                      href="#catalogo"
-                      onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}
-                    >
-                      {cat.name}
-                    </a>
-                    {cat.children.map((sub) => (
-                      <a
-                        key={sub.id}
-                        href="#catalogo"
-                        onClick={(e) => { e.preventDefault(); explorarCategoria(sub.id); }}
-                      >
-                        {sub.name}
-                      </a>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
-            <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
-          </nav>
-          <div className="landing-navbar-actions">
-            <Link href="/dashboard" className="landing-navbar-manage">Gestión</Link>
-            <button type="button" className="landing-btn landing-btn-primary" onClick={() => scrollToId("catalogo")}>
-              Ver catálogo
-            </button>
-            <button
-              type="button"
-              className={`landing-navbar-toggle${mobileMenuOpen ? " landing-navbar-toggle--open" : ""}`}
-              aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
-              aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <nav className="landing-navbar-mobile">
-            {categoryTree.map((cat) => (
-              <div className="landing-navbar-mobile-group" key={cat.id}>
-                <a
-                  className="landing-navbar-mobile-heading"
-                  href="#catalogo"
-                  onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}
-                >
-                  {cat.name}
-                </a>
-                {cat.children.map((sub) => (
-                  <a
-                    key={sub.id}
-                    className="landing-navbar-mobile-sub"
-                    href="#catalogo"
-                    onClick={(e) => { e.preventDefault(); explorarCategoria(sub.id); }}
-                  >
-                    {sub.name}
-                  </a>
-                ))}
-              </div>
-            ))}
-            <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
-            <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
-            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
-            <button
-              type="button"
-              className="landing-btn landing-btn-primary landing-navbar-mobile-cta"
-              onClick={() => goToSection("catalogo")}
-            >
-              Ver catálogo
-            </button>
-          </nav>
-        )}
-      </header>
+      <LandingNavbar />
 
       {/* ============================== 2. Hero ============================== */}
       <section className="landing-hero">
@@ -335,46 +208,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ============================== 8. Footer ============================== */}
-      <footer id="contacto" className="landing-footer">
-        <div className="landing-container">
-          <div className="landing-footer-grid">
-            <div>
-              <p className="landing-footer-brand">{brandName}</p>
-              <p className="landing-footer-tagline">Todo lo que necesitas en un solo lugar.</p>
-            </div>
-            <div className="landing-footer-col">
-              <p className="landing-footer-col-title">Catálogo</p>
-              {rootCategories.map((cat) => (
-                <a key={cat.id} href="#catalogo" onClick={(e) => { e.preventDefault(); explorarCategoria(cat.id); }}>
-                  {cat.name}
-                </a>
-              ))}
-              <Link href="/dashboard">Gestión</Link>
-            </div>
-            <div className="landing-footer-col">
-              <p className="landing-footer-col-title">Contacto</p>
-              {/* Datos de ejemplo — reemplazar por los reales. */}
-              <p>+591 700 00000</p>
-              <p>hola@etherealscents.com</p>
-              <p>Cochabamba, Bolivia</p>
-            </div>
-            <div className="landing-footer-col">
-              <p className="landing-footer-col-title">Seguinos</p>
-              {/* Enlaces de ejemplo — reemplazar por las redes reales. */}
-              <div className="landing-footer-social">
-                <a href="#" aria-label="Instagram" onClick={(e) => e.preventDefault()}>IG</a>
-                <a href="#" aria-label="Facebook" onClick={(e) => e.preventDefault()}>FB</a>
-                <a href="#" aria-label="WhatsApp" onClick={(e) => e.preventDefault()}>WA</a>
-              </div>
-            </div>
-          </div>
-          <div className="landing-footer-bottom">
-            <span>© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</span>
-            <span>Panel de gestión interno — no es una tienda con checkout online.</span>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }

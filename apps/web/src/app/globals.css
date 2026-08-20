@@ -2358,6 +2358,88 @@ a {
   margin: 0 0 34px;
 }
 
+/* --- Banner de página de categoría (/categoria/[id]) ---
+   Mismo tratamiento oscuro que el hero para que el navbar transparente se
+   siga leyendo bien al cargar la página. */
+
+.landing-category-banner {
+  padding: 130px 24px 56px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
+    linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
+  color: #f5f4f0;
+}
+
+.landing-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(245, 244, 240, 0.65);
+  margin-bottom: 16px;
+}
+
+.landing-breadcrumb a:hover {
+  color: #f5f4f0;
+}
+
+.landing-breadcrumb-current {
+  color: #f5f4f0;
+  font-weight: 600;
+}
+
+.landing-category-banner h1 {
+  font-size: 36px;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.landing-category-lead {
+  font-size: 15px;
+  color: rgba(245, 244, 240, 0.8);
+  max-width: 620px;
+}
+
+/* --- Toolbar de filtros (subcategoría/marca) + orden --- */
+
+.landing-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.landing-toolbar-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.landing-toolbar-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+}
+
+.landing-select {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.landing-toolbar-filters .landing-filter-pills {
+  margin-bottom: 0;
+}
+
 /* --- Grid de categorías/productos --- */
 
 .landing-filter-pills {
@@ -2713,6 +2795,14 @@ a {
 
   .landing-hero h1 {
     font-size: 28px;
+  }
+
+  .landing-category-banner {
+    padding: 100px 20px 40px;
+  }
+
+  .landing-category-banner h1 {
+    font-size: 26px;
   }
 
   .landing-product-grid {
