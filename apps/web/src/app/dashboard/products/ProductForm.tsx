@@ -379,6 +379,20 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
+  async function handleUpdateVariantDisponible(variantId: string, disponible: boolean) {
+    if (!currentProduct) return;
+    setVariantRowError((prev) => ({ ...prev, [variantId]: "" }));
+    try {
+      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variants/${variantId}`, { disponible });
+      setCurrentProduct(updated);
+    } catch (e) {
+      setVariantRowError((prev) => ({
+        ...prev,
+        [variantId]: e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }
+
   /** Sube inmediatamente (no queda pendiente al submit del form, a diferencia de la imagen del
    * producto): la variante ya existe en este punto, no hace falta esperar a nada más. */
   async function handleUploadVariantImage(variantId: string, file: File) {
@@ -763,6 +777,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           <thead>
                             <tr>
                               <th>Imagen</th>
+                              <th>Disponible</th>
                               <th>ID</th>
                               <th>Combinación</th>
                               <th>Unidad</th>
@@ -805,6 +820,17 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                     ) : (
                                       <span className="cell-muted">—</span>
                                     )}
+                                  </td>
+                                  <td>
+                                    <select
+                                      className="field"
+                                      value={variant.disponible ? "1" : "0"}
+                                      onChange={(e) => handleUpdateVariantDisponible(variant.id, e.target.value === "1")}
+                                      style={{ width: 130 }}
+                                    >
+                                      <option value="1">Disponible</option>
+                                      <option value="0">No disponible</option>
+                                    </select>
                                   </td>
                                   <td>{variant.variantCode}</td>
                                   <td>
@@ -866,7 +892,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                 </tr>
                                 {variantRowError[variant.id] && (
                                   <tr>
-                                    <td colSpan={11} className="error-text" style={{ fontSize: 12 }}>
+                                    <td colSpan={12} className="error-text" style={{ fontSize: 12 }}>
                                       {variantRowError[variant.id]}
                                     </td>
                                   </tr>
@@ -1077,6 +1103,19 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           <span className="price-stat-value">Bs {finalBsPreview.toFixed(2)}</span>
                         </div>
                       </div>
+                      {currentProduct && currentProduct.variants[0] && (
+                        <div style={{ marginTop: 14, maxWidth: 220 }}>
+                          <label>Disponible</label>
+                          <select
+                            className="field"
+                            value={currentProduct.variants[0].disponible ? "1" : "0"}
+                            onChange={(e) => handleUpdateVariantDisponible(currentProduct.variants[0].id, e.target.value === "1")}
+                          >
+                            <option value="1">Disponible</option>
+                            <option value="0">No disponible</option>
+                          </select>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)" }}>

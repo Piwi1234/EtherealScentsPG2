@@ -488,6 +488,7 @@ export class ProductService {
           minPriceBs: dto.minPriceBs,
           discountBs: dto.discountBs ?? 0,
           unidad: dto.unidad ?? UnidadVariante.PZA,
+          disponible: dto.disponible,
           options: { create: options },
         },
       });
@@ -523,6 +524,7 @@ export class ProductService {
             utility: dto.utility,
             minPriceBs: dto.minPriceBs,
             discountBs: dto.discountBs,
+            disponible: dto.disponible,
           },
         });
       });

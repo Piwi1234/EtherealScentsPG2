@@ -338,6 +338,10 @@ model ProductVariant {
   // listados caen al Product.imageUrl genérico.
   imageUrl String? @map("image_url")
 
+  // Control de catálogo (todavía no lo consume ningún flujo automático — punto de extensión para
+  // filtrar el catálogo público más adelante). Aplica a cualquier variante, PZA o ML.
+  disponible Boolean @default(true)
+
   options        ProductVariantOption[]
   presentaciones PresentacionVenta[]
 

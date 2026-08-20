@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { API_ORIGIN, apiDelete, apiGet } from "../../../lib/api";
+import { API_ORIGIN, ApiError, apiDelete, apiGet, apiPatch } from "../../../lib/api";
 import { consumeFlashMessage } from "../../../lib/flash";
 import type { AttributeType, AttributeVariantMode, Brand, Category, Page, Product, ProductVariant } from "../../../lib/types";
 
@@ -125,6 +125,18 @@ export default function ProductsPage() {
       loadProducts();
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Control de catálogo de la variante representativa de la fila (la misma que ya se usa para
+   * mostrar precio) — para granularidad por variante en productos con precio propio, se edita desde
+   * el formulario de producto, no acá. */
+  async function handleUpdateDisponible(productId: string, variantId: string, disponible: boolean) {
+    try {
+      await apiPatch(`/products/${productId}/variants/${variantId}`, { disponible });
+      loadProducts();
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -322,6 +334,7 @@ export default function ProductsPage() {
                   <th className="num">Min Bs</th>
                   <th className="num">Desc. Bs</th>
                   <th className="num">Final Bs</th>
+                  <th>Disponible</th>
                   <th></th>
                 </tr>
               </thead>
@@ -368,6 +381,22 @@ export default function ProductsPage() {
                       <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
                       <td className="num cell-primary">
                         <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                      </td>
+                      <td>
+                        {selectedVariant ? (
+                          <select
+                            className="field"
+                            value={selectedVariant.disponible ? "1" : "0"}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => handleUpdateDisponible(product.id, selectedVariant.id, e.target.value === "1")}
+                            style={{ width: 130 }}
+                          >
+                            <option value="1">Disponible</option>
+                            <option value="0">No disponible</option>
+                          </select>
+                        ) : (
+                          <span className="cell-muted">—</span>
+                        )}
                       </td>
                       <td>
                         <div className="row-actions">

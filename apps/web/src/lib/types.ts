@@ -108,6 +108,8 @@ export type ProductVariant = {
   /** Imagen propia de esta variante — solo aplica a unidad=PZA. Si es null, los listados caen al
    * imageUrl del producto. */
   imageUrl: string | null;
+  /** Control de catálogo — todavía no lo consume ningún flujo automático. */
+  disponible: boolean;
   options: ProductVariantOption[];
 };
 

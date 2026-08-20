@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsEnum, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
 import { UnidadVariante } from "@app/database";
 
 export class CreateProductVariantDto {
@@ -46,6 +46,11 @@ export class CreateProductVariantDto {
   @ArrayMinSize(1)
   @IsUUID(undefined, { each: true })
   optionValueIds!: string[];
+
+  @ApiPropertyOptional({ default: true, description: "Control de catálogo — no afecta stock/proformas todavía." })
+  @IsOptional()
+  @IsBoolean()
+  disponible?: boolean;
 }
 
 export class UpdateProductVariantDto extends PartialType(CreateProductVariantDto) {}
