@@ -337,7 +337,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }} className="nocturne-theme">
         <header className="topbar">
           <span>{user ? `${user.nombre} (${user.rol})` : "Cargando..."}</span>
-          <Link href="/" className="button">Catálogo</Link>
+          <Link href="/home" className="button">Catálogo</Link>
         </header>
         <main className="dashboard-main">{children}</main>
       </div>

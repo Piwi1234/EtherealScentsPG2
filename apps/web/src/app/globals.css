@@ -1955,7 +1955,7 @@ a {
 }
 
 /* ==========================================================================
-   Landing page (Home, "/") — self-contained design system, igual criterio que
+   Landing page (Home, "/home" — la raíz "/" solo redirige ahí) — self-contained design system, igual criterio que
    .nocturne-theme y .login-*: variables propias, no toca --surface/--ink base.
    Paleta clara elegante + el mismo acento morado que ya usa el panel (Nocturne).
    ========================================================================== */
