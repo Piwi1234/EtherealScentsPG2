@@ -50,15 +50,17 @@ export default function HomePage() {
 
       {/* ============================== 2. Hero ============================== */}
       <section className="landing-hero">
-        <div className="landing-hero-content">
-          <p className="landing-hero-eyebrow">{brandName.toUpperCase()}</p>
-          <h1>Todo lo que necesitas en un solo lugar.</h1>
-          <p className="landing-hero-subtitle">
-            Perfumes y vapes seleccionados, con stock real y precios claros — sin vueltas.
-          </p>
-          <button type="button" className="landing-btn landing-btn-outline" onClick={() => scrollToId("catalogo")}>
-            Ver catálogo
-          </button>
+        <div className="landing-container">
+          <div className="landing-hero-content">
+            <p className="landing-hero-eyebrow">{brandName.toUpperCase()}</p>
+            <h1>Todo lo que necesitas en un solo lugar.</h1>
+            <p className="landing-hero-subtitle">
+              Perfumes y vapes seleccionados, con stock real y precios claros — sin vueltas.
+            </p>
+            <button type="button" className="landing-btn landing-btn-outline">
+              Explora nuestras ofertas
+            </button>
+          </div>
         </div>
       </section>
 

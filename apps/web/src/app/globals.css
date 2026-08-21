@@ -2054,12 +2054,13 @@ a {
 }
 
 .landing-btn-outline {
-  background: transparent;
-  border-color: currentColor;
+  background: #ffffff;
+  border-color: #ffffff;
+  color: var(--lp-text);
 }
 
 .landing-btn-outline:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.85);
   transform: translateY(-1px);
 }
 
@@ -2367,17 +2368,23 @@ a {
 .landing-hero {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
   min-height: 78vh;
-  text-align: center;
-  padding: 100px 24px;
+  padding: 100px 0;
   background:
     radial-gradient(circle at 18% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
     radial-gradient(circle at 82% 78%, rgba(145, 132, 217, 0.25), transparent 50%),
     linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
   color: #f5f4f0;
   overflow: hidden;
+}
+
+/* El .landing-container comparte el max-width/centrado del resto del sitio — acá lo pegamos al
+   borde izquierdo (en vez de centrarlo) para que el texto del hero arranque bien a la izquierda,
+   sin depender del ancho de la ventana. */
+.landing-hero .landing-container {
+  margin-left: 0;
+  padding-left: 48px;
 }
 
 .landing-hero-content {
@@ -3397,7 +3404,7 @@ a {
 
   .landing-hero {
     min-height: 60vh;
-    padding: 72px 20px;
+    padding: 72px 0;
   }
 
   .landing-hero h1 {
