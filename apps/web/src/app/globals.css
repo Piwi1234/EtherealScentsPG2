@@ -2404,9 +2404,9 @@ a {
 
 .landing-toolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 28px;
 }
@@ -2438,6 +2438,88 @@ a {
 
 .landing-toolbar-filters .landing-filter-pills {
   margin-bottom: 0;
+}
+
+.landing-toolbar-count {
+  font-size: 13px;
+  color: var(--lp-muted);
+  margin: 0;
+  flex: 1;
+}
+
+/* Botón "Filtros" que reemplaza al sidebar en mobile — oculto en desktop, ver breakpoint 900px. */
+.landing-filters-mobile-btn {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- Drawer de filtros (mobile) --- */
+
+.landing-filters-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(26, 26, 46, 0.45);
+}
+
+.landing-filters-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-surface);
+}
+
+.landing-filters-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.landing-filters-drawer-header .landing-toolbar-filter-label {
+  font-size: 14px;
+}
+
+.landing-filters-drawer-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--lp-text);
+  cursor: pointer;
+}
+
+.landing-filters-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-filters-drawer-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--lp-border);
+}
+
+.landing-filters-drawer-footer .landing-btn {
+  flex: 1;
 }
 
 /* --- Sidebar de filtros por atributo (página de categoría) --- */
@@ -2478,38 +2560,84 @@ a {
 }
 
 .landing-filter-group {
-  padding-top: 14px;
-  border-top: 1px solid var(--lp-border);
-}
-
-.landing-filter-group:first-of-type {
   padding-top: 0;
   border-top: none;
+}
+
+/* El divisor va ENTRE grupos, no antes del primero — no depende de cuál sea primero en el DOM
+   (el header con "Limpiar" también es un div hermano). */
+.landing-filter-group + .landing-filter-group {
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--lp-border);
 }
 
 .landing-filter-group-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--lp-text);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
+/* Checkbox uniforme para todos los filtros (subcategoría, precio, marca, atributos). */
 .landing-filter-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 5px 0;
   font-size: 13.5px;
   color: var(--lp-muted);
   cursor: pointer;
+  user-select: none;
 }
 
 .landing-filter-checkbox:hover {
   color: var(--lp-text);
 }
 
-.landing-filter-checkbox input {
-  accent-color: var(--lp-accent);
+.landing-filter-checkbox input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid var(--lp-border);
+  border-radius: 4px;
+  background: var(--lp-surface);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-filter-checkbox:hover input[type="checkbox"] {
+  border-color: var(--lp-text);
+}
+
+.landing-filter-checkbox input[type="checkbox"]:checked {
+  background: var(--lp-text);
+  border-color: var(--lp-text);
+}
+
+.landing-filter-checkbox input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.landing-filter-checkbox-label {
+  flex: 1;
+}
+
+.landing-filter-count {
+  font-size: 12px;
+  color: var(--lp-muted);
 }
 
 .landing-filter-swatch {
@@ -2518,6 +2646,133 @@ a {
   border-radius: 50%;
   border: 1px solid var(--lp-border);
   flex-shrink: 0;
+}
+
+.landing-filter-search {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 13px;
+}
+
+.landing-filter-search:focus {
+  outline: none;
+  border-color: var(--lp-accent);
+}
+
+/* --- Slider de rango de precio (dos <input type="range"> superpuestos) --- */
+
+.landing-price-slider {
+  position: relative;
+  height: 20px;
+  margin: 6px 0 2px;
+}
+
+.landing-price-slider-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  transform: translateY(-50%);
+  background: var(--lp-border);
+  border-radius: 999px;
+}
+
+.landing-price-slider-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--lp-accent);
+  border-radius: 999px;
+}
+
+.landing-price-slider-input {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  transform: translateY(-50%);
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.landing-price-slider-input:focus {
+  outline: none;
+}
+
+/* Solo el "thumb" (la perilla) es clickeable — el track pasa el click al elemento de abajo, así
+   los dos sliders superpuestos se pueden arrastrar cada uno por separado. */
+.landing-price-slider-input::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  background: transparent;
+  height: 4px;
+}
+
+.landing-price-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--lp-accent);
+  border: 2px solid var(--lp-surface);
+  box-shadow: 0 1px 4px rgba(26, 26, 46, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+  /* Centra la perilla (16px) sobre el track (4px): sin esto, WebKit la apoya arriba del track
+     en vez de centrarla. */
+  margin-top: -6px;
+}
+
+.landing-price-slider-input::-moz-range-track {
+  background: transparent;
+  height: 4px;
+  border: none;
+}
+
+.landing-price-slider-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--lp-accent);
+  border: 2px solid var(--lp-surface);
+  box-shadow: 0 1px 4px rgba(26, 26, 46, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.landing-price-slider-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.landing-price-slider-value {
+  font-size: 12.5px;
+  color: var(--lp-muted);
+}
+
+.landing-price-slider-btn {
+  padding: 7px 16px;
+  font-size: 12.5px;
+}
+
+.landing-price-slider-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+  background: transparent;
+  color: var(--lp-text);
 }
 
 /* --- Grid de categorías/productos --- */
@@ -2850,11 +3105,11 @@ a {
   }
 
   .landing-filters-sidebar {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 24px;
-    margin-bottom: 8px;
+    display: none;
+  }
+
+  .landing-filters-mobile-btn {
+    display: inline-flex;
   }
 
   .landing-footer-grid {
