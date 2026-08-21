@@ -312,7 +312,7 @@ export default function CategoriaPage() {
                   const image = productImageSrc(cardImageUrl(product, variant));
                   const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
                   return (
-                    <div className="landing-product-card" key={product.id}>
+                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
                       {image ? (
                         <img className="landing-product-image" src={image} alt={product.name} />
                       ) : (
@@ -326,7 +326,7 @@ export default function CategoriaPage() {
                           {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

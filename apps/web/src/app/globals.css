@@ -2104,6 +2104,54 @@ a {
   box-shadow: 0 4px 24px rgba(26, 26, 46, 0.08);
 }
 
+/* Fondo negro fijo (páginas de detalle sin hero oscuro debajo) — colores de texto/desplegable
+   ajustados para leerse bien sobre negro en vez del blanco de siempre. */
+.landing-navbar--dark {
+  --nav-fg: #f5f4f0;
+  --nav-fg-muted: rgba(245, 244, 240, 0.7);
+  background: #111114;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.landing-navbar--dark .landing-navbar-dropdown {
+  background: #1a1a1d;
+  border-color: rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar--dark .landing-navbar-dropdown-group + .landing-navbar-dropdown-group {
+  border-left-color: rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar--dark .landing-navbar-dropdown a {
+  color: rgba(245, 244, 240, 0.85);
+}
+
+.landing-navbar--dark .landing-navbar-dropdown a:hover {
+  background: rgba(245, 244, 240, 0.08);
+  color: #ffffff;
+}
+
+.landing-navbar--dark .landing-navbar-dropdown a.landing-navbar-dropdown-heading {
+  color: #e08585;
+}
+
+.landing-navbar--dark .landing-navbar-dropdown a.landing-navbar-dropdown-heading:hover {
+  color: #f2a5a5;
+}
+
+.landing-navbar--dark .landing-navbar-mobile {
+  background: #111114;
+  border-top-color: rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar--dark .landing-navbar-mobile a {
+  color: rgba(245, 244, 240, 0.9);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-heading {
+  color: #e08585;
+}
+
 .landing-navbar-inner {
   display: flex;
   align-items: center;
@@ -2817,6 +2865,7 @@ a {
 }
 
 .landing-product-card {
+  display: block;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
   border-radius: 16px;
@@ -3082,9 +3131,215 @@ a {
   gap: 8px;
 }
 
+/* --- Página de producto (/producto/[id]) ---
+   Sin hero: el navbar es fijo y oscuro (LandingNavbar variant="dark"), así que el breadcrumb
+   necesita su propio padding-top para no quedar tapado. */
+
+.landing-product-page .landing-breadcrumb-bar {
+  padding-top: 100px;
+}
+
+.landing-product-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: start;
+}
+
+.landing-product-detail-image-col {
+  position: sticky;
+  top: 100px;
+}
+
+.landing-product-detail-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 16px;
+}
+
+.landing-product-detail-image-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--lp-font-display);
+  font-size: 64px;
+  color: var(--lp-muted);
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 16px;
+}
+
+.landing-product-detail-note {
+  font-size: 12px;
+  color: var(--lp-muted);
+  margin-top: 14px;
+  line-height: 1.5;
+}
+
+.landing-product-detail-brand {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-accent-dark);
+  margin: 0 0 6px;
+}
+
+.landing-product-detail-brand-logo {
+  max-height: 40px;
+  max-width: 160px;
+  object-fit: contain;
+  margin: 0 0 12px;
+}
+
+.landing-product-detail-name {
+  font-size: 26px;
+  margin: 0 0 8px;
+}
+
+.landing-product-detail-code {
+  font-size: 12.5px;
+  color: var(--lp-muted);
+  margin: 0 0 22px;
+}
+
+.landing-product-detail-variant-group {
+  margin-bottom: 20px;
+}
+
+.landing-product-detail-variant-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lp-text);
+  margin: 0 0 8px;
+}
+
+.landing-product-detail-variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.landing-product-detail-variant-btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.landing-product-detail-variant-btn:hover {
+  border-color: var(--lp-text);
+}
+
+.landing-product-detail-variant-btn--active {
+  background: var(--lp-text);
+  border-color: var(--lp-text);
+  color: #ffffff;
+}
+
+.landing-product-detail-price-usd {
+  font-size: 13px;
+  color: var(--lp-muted);
+  margin: 4px 0 2px;
+}
+
+.landing-product-detail-price-usd span {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.landing-product-detail-price-bs {
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.landing-product-detail-availability {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.landing-product-detail-availability--yes {
+  color: #2e7d32;
+}
+
+.landing-product-detail-availability--no {
+  color: #c0392b;
+}
+
+.landing-product-detail-divider {
+  border-top: 1px solid var(--lp-border);
+  margin: 22px 0;
+}
+
+.landing-product-detail-block-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lp-text);
+  margin: 0 0 8px;
+}
+
+.landing-product-detail-block-text {
+  font-size: 13.5px;
+  color: var(--lp-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.landing-product-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-product-detail-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.landing-product-detail-list-row span:first-child {
+  color: var(--lp-muted);
+}
+
+.landing-product-detail-list-row span:last-child {
+  color: var(--lp-text);
+  font-weight: 600;
+  text-align: right;
+}
+
 /* --- Responsive: mobile-first, colapsa a 1 columna --- */
 
 @media (max-width: 900px) {
+  .landing-product-detail-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .landing-product-detail-image-col {
+    position: static;
+  }
+
   .landing-hero h1 {
     font-size: 34px;
   }

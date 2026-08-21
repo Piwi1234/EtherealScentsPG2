@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
@@ -76,6 +76,16 @@ export class CatalogBrowseService {
     ]);
 
     return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
+  }
+
+  /** Detalle público de un producto (página de producto del catálogo). */
+  async getProduct(id: string) {
+    const product = await this.prisma.product.findUnique({ where: { id }, include: includeDetails });
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado.");
+    }
+    const exchangeRate = await this.settings.getExchangeRate();
+    return withPrice(product, exchangeRate);
   }
 
   /**

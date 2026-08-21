@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
@@ -101,7 +102,7 @@ export default function HomePage() {
                 const image = productImageSrc(cardImageUrl(product, variant));
                 const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
                 return (
-                  <div className="landing-product-card" key={product.id}>
+                  <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
                     {image ? (
                       <img className="landing-product-image" src={image} alt={product.name} />
                     ) : (
@@ -115,7 +116,7 @@ export default function HomePage() {
                         {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

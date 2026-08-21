@@ -1,9 +1,12 @@
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CreateBrandDto } from "./dto/create-brand.dto";
 import { UpdateBrandDto } from "./dto/update-brand.dto";
+import { BRAND_LOGOS_DIR } from "./brand-logo.multer";
 
 const includeCategories = {
   categories: { include: { category: true } },
@@ -101,6 +104,30 @@ export class BrandService {
     await this.findOne(id);
     try {
       await this.prisma.brand.delete({ where: { id } });
+    } catch (error) {
+      rethrowPrismaError(error, "Marca");
+    }
+  }
+
+  async setLogo(id: string, file: Express.Multer.File) {
+    const existing = await this.findOne(id);
+
+    try {
+      const updated = await this.prisma.brand.update({
+        where: { id },
+        data: { logoUrl: `/uploads/brands/${file.filename}` },
+        include: includeCategories,
+      });
+
+      // Best-effort: borra el logo anterior para no acumular huérfanos en disco.
+      if (existing.logoUrl) {
+        const previousFilename = existing.logoUrl.split("/").pop();
+        if (previousFilename) {
+          await unlink(join(BRAND_LOGOS_DIR, previousFilename)).catch(() => {});
+        }
+      }
+
+      return updated;
     } catch (error) {
       rethrowPrismaError(error, "Marca");
     }

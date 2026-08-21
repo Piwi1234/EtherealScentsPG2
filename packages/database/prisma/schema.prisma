@@ -180,9 +180,10 @@ model Category {
 }
 
 model Brand {
-  id   String @id @default(uuid()) @db.Uuid
-  name String
-  slug String @unique
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  slug    String  @unique
+  logoUrl String? @map("logo_url")
 
   categories BrandCategory[]
   products   Product[]

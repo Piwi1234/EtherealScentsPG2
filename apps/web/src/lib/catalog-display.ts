@@ -23,6 +23,43 @@ export function cardImageUrl(product: Product, variant: ProductVariant | null): 
   return variant?.imageUrl ?? product.imageUrl;
 }
 
+export type AttributeDetail = { key: string; nombre: string; valor: string; orden: number };
+
+/**
+ * Todos los atributos con valor del producto (a diferencia de `AtributosVisibles`/
+ * `formatAtributosVisibles`, que solo trae los marcados mostrarEnProforma) — para la sección
+ * "Detalles" de la página de producto, donde sí interesa mostrar la ficha completa. Excluye a
+ * propósito los de precio propio (MULTI_VALUE no, esos sí se listan; PRICED_VARIANT no, esos ya se
+ * muestran como los botones de variante).
+ */
+export function getAllAttributeDetails(product: Product): AttributeDetail[] {
+  const porAtributo = new Map<string, AttributeDetail>();
+
+  for (const pv of product.attributeValues) {
+    const valor = pv.option
+      ? pv.option.value
+      : pv.valueText !== null
+        ? pv.valueText
+        : pv.valueNumber !== null
+          ? pv.valueNumber
+          : pv.valueBoolean !== null
+            ? pv.valueBoolean
+              ? "Sí"
+              : "No"
+            : "—";
+    porAtributo.set(pv.attributeId, { key: pv.attributeId, nombre: pv.attribute.name, valor, orden: pv.attribute.orden });
+  }
+
+  for (const v of product.variantOptionValues) {
+    if (v.attribute.variantMode !== "MULTI_VALUE") continue;
+    const existing = porAtributo.get(v.attributeId);
+    if (existing) existing.valor = `${existing.valor}, ${v.value}`;
+    else porAtributo.set(v.attributeId, { key: v.attributeId, nombre: v.attribute.name, valor: v.value, orden: v.attribute.orden });
+  }
+
+  return Array.from(porAtributo.values()).sort((a, b) => a.orden - b.orden);
+}
+
 export type AttributeFilterOption = { value: string; label: string; color: string | null };
 
 /**

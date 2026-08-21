@@ -13,8 +13,11 @@ import type { Category } from "../../lib/types";
  * "Contacto" intentan hacer scroll a una sección con ese id en la página
  * actual (el footer trae #contacto en todas partes); si no existe, navegan a
  * /home con el hash correspondiente.
+ *
+ * variant="dark": fondo negro fijo (no transparente, no cambia con el scroll) — para páginas sin
+ * hero de fondo oscuro debajo, como el detalle de producto.
  */
-export function LandingNavbar() {
+export function LandingNavbar({ variant = "default" }: { variant?: "default" | "dark" }) {
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [scrolled, setScrolled] = useState(false);
@@ -53,9 +56,16 @@ export function LandingNavbar() {
 
   const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
   const brandName = empresa?.nombre ?? "Ethereal Scents";
+  const navbarClass = [
+    "landing-navbar",
+    variant === "default" && scrolled ? "landing-navbar--scrolled" : "",
+    variant === "dark" ? "landing-navbar--dark" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <header className={`landing-navbar${scrolled ? " landing-navbar--scrolled" : ""}`}>
+    <header className={navbarClass}>
       <div className="landing-container landing-navbar-inner">
         <Link href="/home" className="landing-navbar-brand" onClick={() => setMobileMenuOpen(false)}>
           {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}

@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "../../../lib/api";
+import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
 import type { Brand, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
+
+// Marcas sembradas antes de este cambio podrían tener logoUrl absoluto; los subidos desde acá en
+// adelante son siempre relativos ("/uploads/brands/...").
+function logoSrc(logoUrl: string | null): string | null {
+  if (!logoUrl) return null;
+  return logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`;
+}
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[] | null>(null);
@@ -14,8 +21,16 @@ export default function BrandsPage() {
   const [editing, setEditing] = useState<Brand | null>(null);
   const [name, setName] = useState("");
   const [categoryIds, setCategoryIds] = useState<Set<string>>(new Set());
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  function handleLogoSelect(file: File | null, currentLogoUrl: string | null) {
+    if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
+    setLogoFile(file);
+    setLogoPreview(file ? URL.createObjectURL(file) : logoSrc(currentLogoUrl));
+  }
 
   function loadBrands() {
     apiGet<Brand[]>("/brands")
@@ -32,6 +47,8 @@ export default function BrandsPage() {
     setEditing(null);
     setName("");
     setCategoryIds(new Set());
+    setLogoFile(null);
+    setLogoPreview(null);
     setFormError("");
     setModalOpen(true);
   }
@@ -40,6 +57,8 @@ export default function BrandsPage() {
     setEditing(brand);
     setName(brand.name);
     setCategoryIds(new Set(brand.categories.map((c) => c.categoryId)));
+    setLogoFile(null);
+    setLogoPreview(logoSrc(brand.logoUrl));
     setFormError("");
     setModalOpen(true);
   }
@@ -85,10 +104,9 @@ export default function BrandsPage() {
     setSubmitting(true);
     try {
       const payload = { name, categoryIds: Array.from(categoryIds) };
-      if (editing) {
-        await apiPatch(`/brands/${editing.id}`, payload);
-      } else {
-        await apiPost("/brands", payload);
+      const saved = editing ? await apiPatch<Brand>(`/brands/${editing.id}`, payload) : await apiPost<Brand>("/brands", payload);
+      if (logoFile) {
+        await apiUpload(`/brands/${saved.id}/logo`, logoFile);
       }
       setModalOpen(false);
       loadBrands();
@@ -114,6 +132,7 @@ export default function BrandsPage() {
         <table className="table table-minimal">
           <thead>
             <tr>
+              <th>Logo</th>
               <th>Nombre</th>
               <th>Subcategorías asignadas</th>
               <th></th>
@@ -122,6 +141,13 @@ export default function BrandsPage() {
           <tbody>
             {brands.map((brand) => (
               <tr key={brand.id}>
+                <td>
+                  {logoSrc(brand.logoUrl) ? (
+                    <img src={logoSrc(brand.logoUrl)!} alt={brand.name} style={{ width: 32, height: 32, objectFit: "contain" }} />
+                  ) : (
+                    <span className="cell-muted">—</span>
+                  )}
+                </td>
                 <td className="cell-primary">{brand.name}</td>
                 <td>
                   {brand.categories.length === 0
@@ -148,6 +174,23 @@ export default function BrandsPage() {
             <div>
               <label>Nombre</label>
               <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div>
+              <label>Logo (opcional)</label>
+              <div className="image-uploader">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Vista previa" />
+                ) : (
+                  <div className="image-uploader-placeholder">Sin logo</div>
+                )}
+                <input
+                  className="field"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => handleLogoSelect(e.target.files?.[0] ?? null, editing?.logoUrl ?? null)}
+                  style={{ background: "transparent", border: 0, padding: 0 }}
+                />
+              </div>
             </div>
             <div>
               <label>Subcategorías</label>
