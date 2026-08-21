@@ -150,6 +150,7 @@ export type Product = {
   attributeValues: ProductAttributeValue[];
   variantOptionValues: ProductVariantOptionValue[];
   variants: ProductVariant[];
+  createdAt: string;
 };
 
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };

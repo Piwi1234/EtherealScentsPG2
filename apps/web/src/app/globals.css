@@ -2495,6 +2495,19 @@ a {
   color: var(--lp-muted);
 }
 
+.landing-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: default;
+}
+
+.landing-sort-label {
+  font-size: 13px;
+  color: var(--lp-muted);
+  white-space: nowrap;
+}
+
 .landing-select {
   padding: 9px 14px;
   border-radius: 999px;

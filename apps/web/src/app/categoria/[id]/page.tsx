@@ -10,7 +10,7 @@ import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 
-type SortBy = "relevancia" | "precio-asc" | "precio-desc" | "nombre-asc";
+type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 type BrandCount = { id: string; name: string; count: number };
 type PriceRange = [number, number];
 
@@ -59,22 +59,34 @@ export default function CategoriaPage() {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     apiGet<Attribute[]>(`/catalog/categories/${id}/filters`).then(setFilterableAttributes).catch(() => {});
     apiGet<Category>(`/categories/${id}`)
-      .then(setCategory)
+      .then((cat) => {
+        setCategory(cat);
+        // Si se entra directo a una subcategoría (ej. desde el desplegable del navbar), esa
+        // subcategoría arranca marcada en el filtro — el grid ya la mostraba igual, esto solo
+        // hace que el checkbox y sus hermanas aparezcan.
+        if (cat.parentId) setSubCategoryFilter(cat.id);
+      })
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);
         else setError(e instanceof Error ? e.message : String(e));
       });
   }, [id]);
 
+  // Categoría raíz "efectiva": si `category` ya es una subcategoría, sus hermanas están bajo su
+  // propio padre, no bajo ella misma. De acá salen tanto la lista de subcategorías del sidebar
+  // como `basePage` (para que los contadores/rango de precio/marcas cubran todas las hermanas, no
+  // solo la actual).
+  const effectiveRootId = category ? category.parentId ?? category.id : null;
+
   useEffect(() => {
-    if (!category) return;
+    if (!effectiveRootId) return;
     const params = new URLSearchParams();
-    params.set("categoryId", category.id);
+    params.set("categoryId", effectiveRootId);
     params.set("pageSize", "200");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setBasePage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category]);
+  }, [effectiveRootId]);
 
   useEffect(() => {
     if (!category) return;
@@ -152,7 +164,7 @@ export default function CategoriaPage() {
   const activeFilterCount =
     Object.keys(attributeFilters).length + (subCategoryFilter ? 1 : 0) + brandFilters.length + (priceApplied ? 1 : 0);
 
-  const subcategories = categories.filter((c) => c.parentId === id);
+  const subcategories = categories.filter((c) => c.parentId === effectiveRootId);
   const parentCategory = category?.parentId ? categories.find((c) => c.id === category.parentId) ?? null : null;
 
   const subcategoryCounts = useMemo(() => {
@@ -183,7 +195,8 @@ export default function CategoriaPage() {
       });
     }
     items = [...items];
-    if (sortBy === "precio-asc") items.sort((a, b) => displayPrice(a).bs - displayPrice(b).bs);
+    if (sortBy === "recientes") items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    else if (sortBy === "precio-asc") items.sort((a, b) => displayPrice(a).bs - displayPrice(b).bs);
     else if (sortBy === "precio-desc") items.sort((a, b) => displayPrice(b).bs - displayPrice(a).bs);
     else if (sortBy === "nombre-asc") items.sort((a, b) => a.name.localeCompare(b.name));
     return items;
@@ -286,17 +299,20 @@ export default function CategoriaPage() {
               <p className="landing-toolbar-count">
                 {productsPage ? `${displayedProducts.length} producto${displayedProducts.length === 1 ? "" : "s"}` : ""}
               </p>
-              <select
-                className="landing-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-                aria-label="Ordenar por"
-              >
-                <option value="relevancia">Relevancia</option>
-                <option value="precio-asc">Precio: menor a mayor</option>
-                <option value="precio-desc">Precio: mayor a menor</option>
-                <option value="nombre-asc">Nombre: A-Z</option>
-              </select>
+              <label className="landing-sort-control">
+                <span className="landing-sort-label">Ordenar por:</span>
+                <select
+                  className="landing-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                >
+                  <option value="relevancia">Relevancia</option>
+                  <option value="recientes">Más recientes</option>
+                  <option value="precio-asc">Precio: menor a mayor</option>
+                  <option value="precio-desc">Precio: mayor a menor</option>
+                  <option value="nombre-asc">Nombre: A-Z</option>
+                </select>
+              </label>
             </div>
 
             {error && <p className="error-text">{error}</p>}
