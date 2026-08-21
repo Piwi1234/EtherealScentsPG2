@@ -3191,10 +3191,11 @@ a {
 }
 
 .landing-product-detail-brand-logo {
-  max-height: 40px;
-  max-width: 160px;
+  display: block;
+  max-height: 100px;
+  max-width: 400px;
   object-fit: contain;
-  margin: 0 0 12px;
+  margin: 0 auto 12px;
 }
 
 .landing-product-detail-name {

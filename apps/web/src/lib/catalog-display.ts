@@ -47,7 +47,11 @@ export function getAllAttributeDetails(product: Product): AttributeDetail[] {
               ? "Sí"
               : "No"
             : "—";
-    porAtributo.set(pv.attributeId, { key: pv.attributeId, nombre: pv.attribute.name, valor, orden: pv.attribute.orden });
+    // Un atributo "select" con allowMultiple (ej. Acordes) trae una fila de attributeValues por
+    // cada opción elegida — se acumulan todas en vez de quedarse con la última.
+    const existing = porAtributo.get(pv.attributeId);
+    if (existing) existing.valor = `${existing.valor}, ${valor}`;
+    else porAtributo.set(pv.attributeId, { key: pv.attributeId, nombre: pv.attribute.name, valor, orden: pv.attribute.orden });
   }
 
   for (const v of product.variantOptionValues) {

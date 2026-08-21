@@ -30,12 +30,19 @@ function visiblesOrdenados(
 
   for (const pv of attributeValues) {
     if (!pv.attribute.mostrarEnProforma) continue;
-    porAtributo.set(pv.attributeId, {
-      key: pv.attributeId,
-      orden: pv.attribute.orden,
-      nombre: pv.attribute.name,
-      valor: formatValue(pv),
-    });
+    // Un atributo "select" con allowMultiple (ej. Acordes) trae una fila de attributeValues por
+    // cada opción elegida — se acumulan todas en vez de quedarse con la última.
+    const existing = porAtributo.get(pv.attributeId);
+    if (existing) {
+      existing.valor = `${existing.valor}, ${formatValue(pv)}`;
+    } else {
+      porAtributo.set(pv.attributeId, {
+        key: pv.attributeId,
+        orden: pv.attribute.orden,
+        nombre: pv.attribute.name,
+        valor: formatValue(pv),
+      });
+    }
   }
 
   for (const v of variantOptionValues) {
