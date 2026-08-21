@@ -123,6 +123,10 @@ export default function AttributesPage() {
   const [newOptionColor, setNewOptionColor] = useState(DEFAULT_OPTION_COLOR);
   const [optionError, setOptionError] = useState("");
 
+  // Un atributo con precio propio nunca aparece como filtro del catálogo público (ya tiene su
+  // propio mecanismo de selección de variante) — se bloquea acá para que quede claro en el form.
+  const isPricedVariant = (editing ? editing.variantMode : variantMode) === "PRICED_VARIANT";
+
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [convertSubmitting, setConvertSubmitting] = useState(false);
   const [convertError, setConvertError] = useState("");
@@ -399,6 +403,7 @@ export default function AttributesPage() {
                     const nextMode = e.target.value as AttributeVariantMode;
                     setVariantMode(nextMode);
                     if (nextMode !== "NONE") setAllowMultiple(false);
+                    if (nextMode === "PRICED_VARIANT") setIsFilterable(false);
                   }}
                 >
                   {(Object.keys(VARIANT_MODE_LABELS) as AttributeVariantMode[]).map((mode) => (
@@ -418,10 +423,20 @@ export default function AttributesPage() {
                 )}
               </div>
             )}
-            <label className="checkbox-row">
-              <input type="checkbox" checked={isFilterable} onChange={(e) => setIsFilterable(e.target.checked)} />
+            <label className="checkbox-row" title={isPricedVariant ? "Los atributos con precio propio no se ofrecen como filtro." : undefined}>
+              <input
+                type="checkbox"
+                checked={isFilterable}
+                disabled={isPricedVariant}
+                onChange={(e) => setIsFilterable(e.target.checked)}
+              />
               Filtrable en el catálogo
             </label>
+            {isPricedVariant && (
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "-6px 0 0" }}>
+                No aplica: este atributo ya se elige como variante con precio propio, no como filtro lateral.
+              </p>
+            )}
             <label className="checkbox-row">
               <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} />
               Requerido al cargar un producto

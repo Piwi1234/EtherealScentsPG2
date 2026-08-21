@@ -2440,6 +2440,86 @@ a {
   margin-bottom: 0;
 }
 
+/* --- Sidebar de filtros por atributo (página de categoría) --- */
+
+.landing-category-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: start;
+  gap: 40px;
+}
+
+.landing-category-main {
+  min-width: 0;
+}
+
+.landing-filters-sidebar {
+  position: sticky;
+  top: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.landing-filters-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-filter-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lp-accent-dark);
+  cursor: pointer;
+}
+
+.landing-filter-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--lp-border);
+}
+
+.landing-filter-group:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.landing-filter-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lp-text);
+  margin-bottom: 8px;
+}
+
+.landing-filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13.5px;
+  color: var(--lp-muted);
+  cursor: pointer;
+}
+
+.landing-filter-checkbox:hover {
+  color: var(--lp-text);
+}
+
+.landing-filter-checkbox input {
+  accent-color: var(--lp-accent);
+}
+
+.landing-filter-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-border);
+  flex-shrink: 0;
+}
+
 /* --- Grid de categorías/productos --- */
 
 .landing-filter-pills {
@@ -2763,6 +2843,18 @@ a {
 
   .landing-feature-reverse .landing-feature-visual {
     order: 0;
+  }
+
+  .landing-category-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-filters-sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 8px;
   }
 
   .landing-footer-grid {

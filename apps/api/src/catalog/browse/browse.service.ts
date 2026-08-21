@@ -78,10 +78,16 @@ export class CatalogBrowseService {
     return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
   }
 
-  /** Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones. */
+  /**
+   * Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones.
+   * Los atributos con precio propio (variantMode PRICED_VARIANT) nunca se ofrecen como filtro acá,
+   * aunque estén marcados isFilterable: ya tienen su propio mecanismo de selección de variante.
+   */
   async getFiltersForCategory(categoryId: string) {
     const attributes = await this.attributes.listForCategory(categoryId, true);
-    return attributes.filter((attribute) => attribute.isFilterable);
+    return attributes.filter(
+      (attribute) => attribute.isFilterable && attribute.variantMode !== AttributeVariantMode.PRICED_VARIANT,
+    );
   }
 
   private async buildAttributeFilters(attrQuery: Record<string, string>): Promise<Prisma.ProductWhereInput[]> {

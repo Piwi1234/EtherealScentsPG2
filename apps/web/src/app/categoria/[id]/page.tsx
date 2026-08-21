@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { displayPrice, productImageSrc } from "../../../lib/catalog-display";
-import type { Category, Page, Product } from "../../../lib/types";
+import { displayPrice, getAttributeFilterOptions, productImageSrc } from "../../../lib/catalog-display";
+import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 
@@ -24,14 +24,21 @@ export default function CategoriaPage() {
   const [brandFilter, setBrandFilter] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
 
+  // Atributos filtrables de esta categoría (los que se marcaron "Filtrable en el catálogo" en
+  // Atributos, salvo los de precio propio) + los valores elegidos en el sidebar, por atributo.
+  const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
+  const [attributeFilters, setAttributeFilters] = useState<Record<string, string[]>>({});
+
   // Todas las categorías (para armar el breadcrumb y las subcategorías) — la categoría cambia con la ruta.
   useEffect(() => {
     setSubCategoryFilter("");
     setBrandFilter("");
     setSortBy("relevancia");
+    setAttributeFilters({});
     setNotFound(false);
     setCategory(null);
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    apiGet<Attribute[]>(`/catalog/categories/${id}/filters`).then(setFilterableAttributes).catch(() => {});
     apiGet<Category>(`/categories/${id}`)
       .then(setCategory)
       .catch((e) => {
@@ -45,11 +52,26 @@ export default function CategoriaPage() {
     const params = new URLSearchParams();
     params.set("categoryId", subCategoryFilter || category.id);
     params.set("pageSize", "60");
+    for (const [attributeId, values] of Object.entries(attributeFilters)) {
+      if (values.length > 0) params.set(`attr[${attributeId}]`, values.join(","));
+    }
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setProductsPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category, subCategoryFilter]);
+  }, [category, subCategoryFilter, attributeFilters]);
 
+  function toggleAttributeValue(attributeId: string, value: string) {
+    setAttributeFilters((prev) => {
+      const current = prev[attributeId] ?? [];
+      const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+      const updated = { ...prev };
+      if (next.length > 0) updated[attributeId] = next;
+      else delete updated[attributeId];
+      return updated;
+    });
+  }
+
+  const hasActiveAttributeFilters = Object.keys(attributeFilters).length > 0;
   const subcategories = categories.filter((c) => c.parentId === id);
   const parentCategory = category?.parentId ? categories.find((c) => c.id === category.parentId) ?? null : null;
 
@@ -113,7 +135,42 @@ export default function CategoriaPage() {
       </section>
 
       <section className="landing-section">
-        <div className="landing-container">
+        <div className="landing-container landing-category-layout">
+          {filterableAttributes.length > 0 && (
+            <aside className="landing-filters-sidebar">
+              <div className="landing-filters-sidebar-header">
+                <p className="landing-toolbar-filter-label">Filtros</p>
+                {hasActiveAttributeFilters && (
+                  <button type="button" className="landing-filter-clear" onClick={() => setAttributeFilters({})}>
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              {filterableAttributes.map((attribute) => {
+                const options = getAttributeFilterOptions(attribute, productsPage?.items ?? []);
+                if (options.length === 0) return null;
+                const selected = attributeFilters[attribute.id] ?? [];
+                return (
+                  <div className="landing-filter-group" key={attribute.id}>
+                    <p className="landing-filter-group-title">{attribute.name}</p>
+                    {options.map((option) => (
+                      <label className="landing-filter-checkbox" key={option.value}>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(option.value)}
+                          onChange={() => toggleAttributeValue(attribute.id, option.value)}
+                        />
+                        {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                );
+              })}
+            </aside>
+          )}
+
+          <div className="landing-category-main">
           <div className="landing-toolbar">
             <div className="landing-toolbar-filters">
               {subcategories.length > 0 && (
@@ -210,6 +267,7 @@ export default function CategoriaPage() {
               })}
             </div>
           )}
+          </div>
         </div>
       </section>
 
