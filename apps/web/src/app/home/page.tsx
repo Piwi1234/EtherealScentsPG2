@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
-import { displayPrice, productImageSrc } from "../../lib/catalog-display";
+import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
+import { formatAtributosVisibles } from "../../components/proformas/AtributosVisibles";
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -96,8 +97,9 @@ export default function HomePage() {
           {productsPage && productsPage.items.length > 0 && (
             <div className="landing-product-grid">
               {productsPage.items.map((product) => {
-                const { bs, usd, fromPrice } = displayPrice(product);
-                const image = productImageSrc(product.imageUrl);
+                const { bs, fromPrice, variant } = displayPrice(product);
+                const image = productImageSrc(cardImageUrl(product, variant));
+                const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
                 return (
                   <div className="landing-product-card" key={product.id}>
                     {image ? (
@@ -108,10 +110,10 @@ export default function HomePage() {
                     <div className="landing-product-body">
                       {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
                       <p className="landing-product-name">{product.name}</p>
+                      {atributos && <p className="landing-product-attrs">{atributos}</p>}
                       <span className="landing-product-price">
                         {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
                       </span>
-                      <span className="landing-product-price-usd">(${usd.toFixed(2)})</span>
                     </div>
                   </div>
                 );

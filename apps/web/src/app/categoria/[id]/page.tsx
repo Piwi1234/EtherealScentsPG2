@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { displayPrice, getAttributeFilterOptions, productImageSrc } from "../../../lib/catalog-display";
+import { cardImageUrl, displayPrice, getAttributeFilterOptions, productImageSrc } from "../../../lib/catalog-display";
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
+import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 
 type SortBy = "relevancia" | "precio-asc" | "precio-desc" | "nombre-asc";
 type BrandCount = { id: string; name: string; count: number };
@@ -302,8 +303,9 @@ export default function CategoriaPage() {
             {displayedProducts.length > 0 && (
               <div className="landing-product-grid">
                 {displayedProducts.map((product) => {
-                  const { bs, usd, fromPrice } = displayPrice(product);
-                  const image = productImageSrc(product.imageUrl);
+                  const { bs, fromPrice, variant } = displayPrice(product);
+                  const image = productImageSrc(cardImageUrl(product, variant));
+                  const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
                   return (
                     <div className="landing-product-card" key={product.id}>
                       {image ? (
@@ -314,10 +316,10 @@ export default function CategoriaPage() {
                       <div className="landing-product-body">
                         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
                         <p className="landing-product-name">{product.name}</p>
+                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
                         <span className="landing-product-price">
                           {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
                         </span>
-                        <span className="landing-product-price-usd">(${usd.toFixed(2)})</span>
                       </div>
                     </div>
                   );
