@@ -192,7 +192,7 @@ export default function CategoriaPage() {
   if (notFound) {
     return (
       <div className="landing-page">
-        <LandingNavbar />
+        <LandingNavbar variant="light" />
         <section className="landing-category-banner">
           <h1>Categoría no encontrada</h1>
           <p className="landing-category-lead">
@@ -233,7 +233,7 @@ export default function CategoriaPage() {
 
   return (
     <div className="landing-page">
-      <LandingNavbar />
+      <LandingNavbar variant="light" />
 
       <section className="landing-category-banner">
         <div className="landing-container">

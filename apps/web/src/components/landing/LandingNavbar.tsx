@@ -16,8 +16,9 @@ import type { Category } from "../../lib/types";
  *
  * variant="dark": fondo negro fijo (no transparente, no cambia con el scroll) — para páginas sin
  * hero de fondo oscuro debajo, como el detalle de producto.
+ * variant="light": fondo blanco fijo, sin la animación de fade — para las páginas de categoría.
  */
-export function LandingNavbar({ variant = "default" }: { variant?: "default" | "dark" }) {
+export function LandingNavbar({ variant = "default" }: { variant?: "default" | "dark" | "light" }) {
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [scrolled, setScrolled] = useState(false);
@@ -60,6 +61,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
     "landing-navbar",
     variant === "default" && scrolled ? "landing-navbar--scrolled" : "",
     variant === "dark" ? "landing-navbar--dark" : "",
+    variant === "light" ? "landing-navbar--light" : "",
   ]
     .filter(Boolean)
     .join(" ");

@@ -2153,6 +2153,17 @@ a {
   color: #e08585;
 }
 
+/* Fondo blanco fijo y sin la animación de fade del navbar por defecto (transparente→sólido con el
+   scroll) — para las páginas de categoría, que no tienen un hero oscuro debajo para justificarla.
+   El desplegable y el menú mobile no necesitan overrides: su estilo base ya es claro. */
+.landing-navbar--light {
+  --nav-fg: var(--lp-text);
+  --nav-fg-muted: var(--lp-muted);
+  background: var(--lp-surface);
+  box-shadow: 0 4px 24px rgba(26, 26, 46, 0.08);
+  transition: none;
+}
+
 .landing-navbar-inner {
   display: flex;
   align-items: center;
