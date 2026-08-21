@@ -237,6 +237,15 @@ export default function CategoriaPage() {
 
       <section className="landing-category-banner">
         <div className="landing-container">
+          <h1>{category?.name ?? "Cargando..."}</h1>
+          <p className="landing-category-lead">
+            {category?.comentario || `Descubrí nuestra selección de ${(category?.name ?? "").toLowerCase()}, con stock real y precios claros.`}
+          </p>
+        </div>
+      </section>
+
+      <div className="landing-breadcrumb-bar">
+        <div className="landing-container">
           <p className="landing-breadcrumb">
             <Link href="/home">Inicio</Link>
             <span>/</span>
@@ -248,12 +257,8 @@ export default function CategoriaPage() {
             )}
             <span className="landing-breadcrumb-current">{category?.name ?? "..."}</span>
           </p>
-          <h1>{category?.name ?? "Cargando..."}</h1>
-          <p className="landing-category-lead">
-            {category?.comentario || `Descubrí nuestra selección de ${(category?.name ?? "").toLowerCase()}, con stock real y precios claros.`}
-          </p>
         </div>
-      </section>
+      </div>
 
       <section className="landing-section">
         <div className="landing-container landing-category-layout">
