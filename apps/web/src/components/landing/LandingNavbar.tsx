@@ -97,7 +97,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
             </div>
           </div>
           <div className="landing-navbar-item">
-            <a href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+            <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
             <div className="landing-navbar-dropdown">
               {rootCategories.map((cat) => (
                 <div className="landing-navbar-dropdown-group" key={cat.id}>
@@ -116,10 +116,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
         </nav>
         <div className="landing-navbar-actions">
-          <Link href="/dashboard" className="landing-navbar-manage">Gestión</Link>
-          <button type="button" className="landing-btn landing-btn-primary" onClick={() => goToSection("catalogo")}>
-            Ver catálogo
-          </button>
+          <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
           <button
             type="button"
             className={`landing-navbar-toggle${mobileMenuOpen ? " landing-navbar-toggle--open" : ""}`}
@@ -171,13 +168,6 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
-          <button
-            type="button"
-            className="landing-btn landing-btn-primary landing-navbar-mobile-cta"
-            onClick={() => goToSection("catalogo")}
-          >
-            Ver catálogo
-          </button>
         </nav>
       )}
     </header>

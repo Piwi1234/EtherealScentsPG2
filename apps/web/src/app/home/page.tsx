@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
@@ -13,12 +13,23 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+const OFFERS_SLIDE_SIZE = 5;
+const OFFERS_AUTOPLAY_MS = 7000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 export default function HomePage() {
   // --- Datos: empresa (nombre para textos propios), categorías reales y productos del catálogo público ---
   const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
+  const [offersSlide, setOffersSlide] = useState(0);
+  const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [landingImages, setLandingImages] = useState<{
     heroImageUrl: string | null;
     valueImageUrl: string | null;
@@ -34,14 +45,40 @@ export default function HomePage() {
     getLandingImages().then(setLandingImages).catch(() => {});
   }, []);
 
+  // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
+  // modificación), de 5 en 5.
   useEffect(() => {
     const params = new URLSearchParams();
     if (categoryFilter) params.set("categoryId", categoryFilter);
-    params.set("pageSize", "48");
+    params.set("pageSize", "40");
+    params.set("onlyDiscounted", "true");
+    params.set("sortBy", "actualizados");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
-      .then(setProductsPage)
+      .then((page) => {
+        setProductsPage(page);
+        setOffersSlide(0);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter]);
+
+  const offersChunks = useMemo(() => chunk(productsPage?.items ?? [], OFFERS_SLIDE_SIZE), [productsPage]);
+
+  // Avanza sola cada 7s; se reinicia cuando el usuario navega a mano (offersAutoKey) para no
+  // "pelear" con un click reciente.
+  useEffect(() => {
+    if (offersChunks.length <= 1) return;
+    const timer = setInterval(() => {
+      setOffersSlide((s) => (s + 1) % offersChunks.length);
+    }, OFFERS_AUTOPLAY_MS);
+    return () => clearInterval(timer);
+  }, [offersChunks.length, offersAutoKey]);
+
+  function goToOffersSlide(index: number) {
+    const total = offersChunks.length;
+    if (total === 0) return;
+    setOffersSlide(((index % total) + total) % total);
+    setOffersAutoKey((k) => k + 1);
+  }
 
   function explorarCategoria(categoryId: string) {
     setCategoryFilter(categoryId);
@@ -81,12 +118,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ================= 3. Grid de categorías/productos ================= */}
+      {/* ================= 3. Descuento y Ofertas ================= */}
       <section id="catalogo" className="landing-section">
         <div className="landing-container">
           <p className="landing-eyebrow">Catálogo</p>
-          <h2 className="landing-section-title">Explorá lo que tenemos</h2>
-          <p className="landing-section-lead">Datos en vivo de nuestro catálogo — filtrá por categoría.</p>
+          <h2 className="landing-section-title">Descuento y Ofertas</h2>
+          <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
 
           <div className="landing-filter-pills">
             <button
@@ -111,33 +148,55 @@ export default function HomePage() {
           {error && <p className="error-text">{error}</p>}
           {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
           {productsPage && productsPage.items.length === 0 && (
-            <p className="landing-empty-note">No hay productos para mostrar todavía.</p>
+            <p className="landing-empty-note">No hay productos en oferta por el momento.</p>
           )}
 
-          {productsPage && productsPage.items.length > 0 && (
-            <div className="landing-product-grid">
-              {productsPage.items.map((product) => {
-                const { bs, fromPrice, variant } = displayPrice(product);
-                const image = productImageSrc(cardImageUrl(product, variant));
-                const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
-                return (
-                  <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
-                    {image ? (
-                      <img className="landing-product-image" src={image} alt={product.name} />
-                    ) : (
-                      <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
-                    )}
-                    <div className="landing-product-body">
-                      {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
-                      <p className="landing-product-name">{product.name}</p>
-                      {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                      <span className="landing-product-price">
-                        {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+          {offersChunks.length > 0 && (
+            <div className="landing-carousel">
+              <button
+                type="button"
+                className="landing-carousel-arrow landing-carousel-arrow--prev"
+                aria-label="Ofertas anteriores"
+                onClick={() => goToOffersSlide(offersSlide - 1)}
+                disabled={offersChunks.length <= 1}
+              >
+                ‹
+              </button>
+
+              <div className="landing-product-grid landing-product-grid--carousel">
+                {offersChunks[offersSlide].map((product) => {
+                  const { bs, fromPrice, variant } = displayPrice(product);
+                  const image = productImageSrc(cardImageUrl(product, variant));
+                  const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
+                  return (
+                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                      {image ? (
+                        <img className="landing-product-image" src={image} alt={product.name} />
+                      ) : (
+                        <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
+                      )}
+                      <div className="landing-product-body">
+                        {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
+                        <p className="landing-product-name">{product.name}</p>
+                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
+                        <span className="landing-product-price">
+                          {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                className="landing-carousel-arrow landing-carousel-arrow--next"
+                aria-label="Siguientes ofertas"
+                onClick={() => goToOffersSlide(offersSlide + 1)}
+                disabled={offersChunks.length <= 1}
+              >
+                ›
+              </button>
             </div>
           )}
         </div>

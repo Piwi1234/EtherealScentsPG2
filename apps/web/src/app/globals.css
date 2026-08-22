@@ -2215,6 +2215,14 @@ a {
   color: var(--lp-accent-dark);
 }
 
+.landing-navbar-item > a.landing-navbar-ofertas {
+  color: #e53935;
+}
+
+.landing-navbar-item > a.landing-navbar-ofertas:hover {
+  color: #c62828;
+}
+
 .landing-navbar-item {
   position: relative;
   display: flex;
@@ -2290,16 +2298,6 @@ a {
   gap: 14px;
   flex: 1;
   justify-content: flex-end;
-}
-
-.landing-navbar-manage {
-  font-size: 13px;
-  color: var(--nav-fg-muted);
-  white-space: nowrap;
-}
-
-.landing-navbar-manage:hover {
-  color: var(--nav-fg);
 }
 
 /* Hamburguesa — solo visible en mobile, ver breakpoint 768px más abajo */
@@ -2903,6 +2901,74 @@ a {
   gap: 24px;
 }
 
+/* --- Carrusel de "Descuento y Ofertas" (home): 5 tarjetas por página --- */
+
+.landing-carousel {
+  position: relative;
+  padding: 0 52px;
+}
+
+.landing-product-grid--carousel {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.landing-product-grid--carousel .landing-product-body {
+  padding: 14px 16px 18px;
+}
+
+.landing-product-grid--carousel .landing-product-name {
+  font-size: 13.5px;
+}
+
+.landing-product-grid--carousel .landing-product-attrs {
+  font-size: 11px;
+}
+
+.landing-product-grid--carousel .landing-product-price {
+  font-size: 15px;
+}
+
+.landing-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(26, 26, 46, 0.12);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.landing-carousel-arrow:hover {
+  background: var(--lp-text);
+  color: #ffffff;
+}
+
+.landing-carousel-arrow--prev {
+  left: 0;
+}
+
+.landing-carousel-arrow--next {
+  right: 0;
+}
+
+.landing-carousel-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .landing-product-card {
   display: block;
   background: var(--lp-surface);
@@ -3373,6 +3439,12 @@ a {
 
 /* --- Responsive: mobile-first, colapsa a 1 columna --- */
 
+@media (max-width: 1200px) {
+  .landing-product-grid--carousel {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   .landing-product-detail-layout {
     grid-template-columns: 1fr;
@@ -3389,6 +3461,20 @@ a {
 
   .landing-product-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-product-grid--carousel {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-carousel {
+    padding: 0 44px;
+  }
+
+  .landing-carousel-arrow {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
   }
 
   .landing-feature,
@@ -3422,7 +3508,6 @@ a {
 /* Navbar mobile: colapsa links + acciones secundarias a una hamburguesa */
 @media (max-width: 768px) {
   .landing-navbar-links,
-  .landing-navbar-manage,
   .landing-navbar-actions .landing-btn-primary {
     display: none;
   }
@@ -3456,6 +3541,20 @@ a {
 
   .landing-product-grid {
     grid-template-columns: 1fr;
+  }
+
+  .landing-product-grid--carousel {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-carousel {
+    padding: 0 40px;
+  }
+
+  .landing-carousel-arrow {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
   }
 
   .landing-newsletter-form {

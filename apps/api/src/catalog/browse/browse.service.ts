@@ -28,6 +28,9 @@ export interface FindCatalogProductsQuery {
    * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
    * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). */
   onlyDiscounted?: string;
+  /** "actualizados": orden por última modificación (usado por el carrusel de ofertas del home).
+   * Cualquier otro valor (u omitido) mantiene el orden por defecto, más reciente creado primero. */
+  sortBy?: string;
 }
 
 @Injectable()
@@ -78,9 +81,11 @@ export class CatalogBrowseService {
     }
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
+    const orderBy: Prisma.ProductOrderByWithRelationInput =
+      query.sortBy === "actualizados" ? { updatedAt: "desc" } : { createdAt: "desc" };
 
     const [items, total, exchangeRate] = await Promise.all([
-      this.prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
+      this.prisma.product.findMany({ where, skip, take, orderBy, include: includeDetails }),
       this.prisma.product.count({ where }),
       this.settings.getExchangeRate(),
     ]);
