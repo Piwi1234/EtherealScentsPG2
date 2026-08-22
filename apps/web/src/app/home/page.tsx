@@ -60,7 +60,7 @@ export default function HomePage() {
         style={
           landingImages?.heroImageUrl
             ? {
-                backgroundImage: `linear-gradient(160deg, rgba(32, 28, 51, 0.78) 0%, rgba(23, 20, 38, 0.7) 60%, rgba(16, 14, 28, 0.82) 100%), url(${productImageSrc(landingImages.heroImageUrl)})`,
+                backgroundImage: `url(${productImageSrc(landingImages.heroImageUrl)})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }

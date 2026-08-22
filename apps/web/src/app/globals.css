@@ -2091,7 +2091,12 @@ a {
   --nav-fg: #f5f4f0;
   --nav-fg-muted: rgba(245, 244, 240, 0.75);
   color: var(--nav-fg);
-  background: transparent;
+  /* Velo oscuro translúcido (no sólido) — se sigue viendo el fondo del hero detrás, pero el menú
+     queda legible incluso sobre zonas claras de la foto. Un color plano (no degradado) para que
+     siga animando suave al pasar al fondo blanco sólido de --scrolled. */
+  background: rgba(16, 14, 28, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   box-shadow: none;
   transition: background-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, color 0.3s ease;
 }
@@ -2401,6 +2406,9 @@ a {
 .landing-hero-content {
   position: relative;
   max-width: 640px;
+  /* Sin velo oscuro sobre la imagen de fondo (se sacó a pedido) — la sombra ayuda a que el texto
+     blanco se siga leyendo sobre cualquier foto. */
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 .landing-hero-eyebrow {
