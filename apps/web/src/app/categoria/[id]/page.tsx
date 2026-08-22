@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { cardImageUrl, displayPrice, getAttributeFilterOptions, productImageSrc } from "../../../lib/catalog-display";
+import { cardImageUrl, displayPrice, getAttributeFilterOptions, hasDiscount, productImageSrc } from "../../../lib/catalog-display";
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
@@ -30,6 +30,7 @@ export default function CategoriaPage() {
   const [error, setError] = useState("");
 
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
+  const [discountOnly, setDiscountOnly] = useState(false);
   // priceRange: posición actual del slider (se ve en vivo). priceApplied: lo que realmente filtra
   // — se actualiza recién al tocar "Filtrar", como en el mock de referencia.
   const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
@@ -46,6 +47,9 @@ export default function CategoriaPage() {
   // Todas las categorías (para armar el breadcrumb y las subcategorías) — la categoría cambia con la ruta.
   useEffect(() => {
     setSubCategoryFilter("");
+    // "?descuento=true" (link desde el desplegable de ¡¡OFERTAS!! del navbar) arranca el filtro de
+    // Ofertas ya marcado.
+    setDiscountOnly(new URLSearchParams(window.location.search).get("descuento") === "true");
     setPriceRange(null);
     setPriceApplied(null);
     setBrandFilters([]);
@@ -96,10 +100,11 @@ export default function CategoriaPage() {
     for (const [attributeId, values] of Object.entries(attributeFilters)) {
       if (values.length > 0) params.set(`attr[${attributeId}]`, values.join(","));
     }
+    if (discountOnly) params.set("onlyDiscounted", "true");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setProductsPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category, subCategoryFilter, attributeFilters]);
+  }, [category, subCategoryFilter, attributeFilters, discountOnly]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría. Se fija recién
   // cuando se conoce (basePage llega después de category) y solo se resetea si cambia de techo.
@@ -133,6 +138,10 @@ export default function CategoriaPage() {
     setSubCategoryFilter((prev) => (prev === subId ? "" : subId));
   }
 
+  function toggleDiscountOnly() {
+    setDiscountOnly((prev) => !prev);
+  }
+
   function handlePriceMinChange(value: number) {
     setPriceRange((prev) => {
       const max = prev ? prev[1] : priceBoundsMax;
@@ -153,6 +162,7 @@ export default function CategoriaPage() {
 
   function clearAllFilters() {
     setSubCategoryFilter("");
+    setDiscountOnly(false);
     setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
     setPriceApplied(null);
     setBrandFilters([]);
@@ -160,9 +170,14 @@ export default function CategoriaPage() {
   }
 
   const hasActiveAttributeFilters = Object.keys(attributeFilters).length > 0;
-  const hasActiveFilters = hasActiveAttributeFilters || subCategoryFilter !== "" || brandFilters.length > 0 || priceApplied !== null;
+  const hasActiveFilters =
+    hasActiveAttributeFilters || subCategoryFilter !== "" || discountOnly || brandFilters.length > 0 || priceApplied !== null;
   const activeFilterCount =
-    Object.keys(attributeFilters).length + (subCategoryFilter ? 1 : 0) + brandFilters.length + (priceApplied ? 1 : 0);
+    Object.keys(attributeFilters).length +
+    (subCategoryFilter ? 1 : 0) +
+    (discountOnly ? 1 : 0) +
+    brandFilters.length +
+    (priceApplied ? 1 : 0);
 
   const subcategories = categories.filter((c) => c.parentId === effectiveRootId);
   const parentCategory = category?.parentId ? categories.find((c) => c.id === category.parentId) ?? null : null;
@@ -172,6 +187,8 @@ export default function CategoriaPage() {
     for (const p of basePage?.items ?? []) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
     return counts;
   }, [basePage]);
+
+  const discountCount = useMemo(() => (basePage?.items ?? []).filter(hasDiscount).length, [basePage]);
 
   const brandsWithCounts: BrandCount[] = useMemo(() => {
     const byId = new Map<string, BrandCount>();
@@ -218,9 +235,16 @@ export default function CategoriaPage() {
   }
 
   const hasSidebarContent =
-    subcategories.length > 0 || priceBoundsMax > 0 || brandsWithCounts.length > 0 || filterableAttributes.length > 0;
+    subcategories.length > 0 ||
+    discountCount > 0 ||
+    priceBoundsMax > 0 ||
+    brandsWithCounts.length > 0 ||
+    filterableAttributes.length > 0;
 
   const filterGroupsProps = {
+    discountOnly,
+    onToggleDiscountOnly: toggleDiscountOnly,
+    discountCount,
     subcategories,
     subCategoryFilter,
     onSelectSubcategory: selectSubcategory,
@@ -388,6 +412,9 @@ export default function CategoriaPage() {
 }
 
 type FilterGroupsProps = {
+  discountOnly: boolean;
+  onToggleDiscountOnly: () => void;
+  discountCount: number;
   subcategories: Category[];
   subCategoryFilter: string;
   onSelectSubcategory: (id: string) => void;
@@ -412,8 +439,11 @@ type FilterGroupsProps = {
 };
 
 /** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden:
- * Subcategoría, Atributos, Precio, Marca. */
+ * Ofertas, Subcategoría, Atributos, Precio, Marca. */
 function FilterGroups({
+  discountOnly,
+  onToggleDiscountOnly,
+  discountCount,
   subcategories,
   subCategoryFilter,
   onSelectSubcategory,
@@ -442,6 +472,17 @@ function FilterGroups({
 
   return (
     <>
+      {(discountCount > 0 || discountOnly) && (
+        <div className="landing-filter-group">
+          <p className="landing-filter-group-title">Ofertas</p>
+          <label className="landing-filter-checkbox">
+            <input type="checkbox" checked={discountOnly} onChange={onToggleDiscountOnly} />
+            <span className="landing-filter-checkbox-label">Productos con Descuento</span>
+            <span className="landing-filter-count">({discountCount})</span>
+          </label>
+        </div>
+      )}
+
       {subcategories.length > 0 && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Subcategoría</p>

@@ -23,6 +23,17 @@ export function cardImageUrl(product: Product, variant: ProductVariant | null): 
   return variant?.imageUrl ?? product.imageUrl;
 }
 
+/**
+ * true si el producto está en oferta: descuento propio, o el de alguna de sus variantes con precio
+ * propio. No mira la variante "default" auto-provista (isDefault) — su discountBs queda congelado al
+ * crearse y el producto sigue siendo la fuente de verdad para catálogo simple. Misma lógica que el
+ * filtro `onlyDiscounted` del backend (browse.service.ts).
+ */
+export function hasDiscount(product: Product): boolean {
+  if (Number(product.discountBs) > 0) return true;
+  return product.variants.some((v) => !v.isDefault && Number(v.discountBs) > 0);
+}
+
 export type AttributeDetail = { key: string; nombre: string; valor: string; orden: number };
 
 /**

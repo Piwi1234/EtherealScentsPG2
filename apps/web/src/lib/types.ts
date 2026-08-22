@@ -100,6 +100,9 @@ export type ProductVariant = {
   /** Precio Min Bs (manual, opcional) y Descuento Bs (manual) propios de esta variante. */
   minPriceBs: string | null;
   discountBs: string;
+  /** true = variante "default" auto-provista (catálogo simple); su discountBs queda congelado al
+   * crearse, así que no sirve para saber si el producto está en oferta (ver `hasDiscount`). */
+  isDefault: boolean;
   /** Calculado en vivo, misma fórmula que el producto pero con la purchasePrice/utility de la variante. */
   price: number;
   /** Calculado en vivo: price * tipo de cambio del sistema. */

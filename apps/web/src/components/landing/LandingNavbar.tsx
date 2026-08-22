@@ -96,6 +96,22 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
               ))}
             </div>
           </div>
+          <div className="landing-navbar-item">
+            <a href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+            <div className="landing-navbar-dropdown">
+              {rootCategories.map((cat) => (
+                <div className="landing-navbar-dropdown-group" key={cat.id}>
+                  <Link
+                    className="landing-navbar-dropdown-heading"
+                    href={`/categoria/${cat.id}?descuento=true`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {cat.name}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
         </nav>
@@ -140,6 +156,17 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
                 </Link>
               ))}
             </div>
+          ))}
+          <p className="landing-navbar-mobile-heading">¡¡OFERTAS!!</p>
+          {rootCategories.map((cat) => (
+            <Link
+              key={`oferta-${cat.id}`}
+              className="landing-navbar-mobile-sub"
+              href={`/categoria/${cat.id}?descuento=true`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {cat.name}
+            </Link>
           ))}
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>

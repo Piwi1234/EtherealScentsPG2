@@ -24,6 +24,10 @@ export interface FindCatalogProductsQuery {
   search?: string;
   /** Filtros dinámicos por atributo filtrable: { [attributeId]: "valor1,valor2" }. */
   attr?: Record<string, string>;
+  /** "true": solo productos con descuento (descuento propio, o el de alguna de sus variantes con
+   * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
+   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). */
+  onlyDiscounted?: string;
 }
 
 @Injectable()
@@ -65,6 +69,12 @@ export class CatalogBrowseService {
 
     if (query.attr && Object.keys(query.attr).length > 0) {
       andConditions.push(...(await this.buildAttributeFilters(query.attr)));
+    }
+
+    if (query.onlyDiscounted === "true") {
+      andConditions.push({
+        OR: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } }],
+      });
     }
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
