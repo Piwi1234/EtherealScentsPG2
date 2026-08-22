@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, getClientes, getProformas, getRegistros } from "../../../../lib/api";
-import type { Cliente, Page, Proforma, RegistroLinea } from "../../../../lib/types";
+import { ApiError, getBrands, getClientes, getProducts, getProformas, getRegistros } from "../../../../lib/api";
+import type { Brand, Cliente, Page, Proforma, Product, RegistroLinea } from "../../../../lib/types";
 import { formatAtributosVisibles } from "../../../../components/proformas/AtributosVisibles";
 import { ClienteSearchSelect } from "../../../../components/proformas/ClienteSearchSelect";
+import { ProductoSearchSelect } from "../../../../components/proformas/ProductoSearchSelect";
 import { DateRangeDropdown, type DateSelection } from "../../../../components/DateRangeDropdown";
 import { ProformasTable } from "../../../../components/proformas/ProformasTable";
 
@@ -34,6 +35,11 @@ export default function PedidosClientesPage() {
   const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [pageNum, setPageNum] = useState(1);
 
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const [productId, setProductId] = useState("");
+
   const [lineas, setLineas] = useState<Page<RegistroLinea> | null>(null);
   const [proformas, setProformas] = useState<Page<Proforma> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,7 +49,15 @@ export default function PedidosClientesPage() {
     getClientes({ activo: "true", limit: 500 })
       .then((page) => setClientes(page.items))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getBrands().then(setBrands).catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
+
+  // La lista de productos se acota por marca cuando hay una elegida (igual que en Registros).
+  useEffect(() => {
+    getProducts({ brandId: brandId || undefined, pageSize: 200 })
+      .then((page) => setProducts(page.items))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [brandId]);
 
   useEffect(() => {
     if (!clienteId) {
@@ -58,6 +72,8 @@ export default function PedidosClientesPage() {
         clienteId,
         fechaDesde: dateSelection.fechaDesde,
         fechaHasta: dateSelection.fechaHasta,
+        brandId: brandId || undefined,
+        productId: productId || undefined,
         page: pageNum,
         limit: PAGE_SIZE,
       })
@@ -65,12 +81,19 @@ export default function PedidosClientesPage() {
         .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
         .finally(() => setLoading(false));
     } else {
-      getProformas({ tipo: "VENTA", clienteId, page: pageNum, limit: PAGE_SIZE })
+      getProformas({
+        tipo: "VENTA",
+        clienteId,
+        fechaDesde: dateSelection.fechaDesde,
+        fechaHasta: dateSelection.fechaHasta,
+        page: pageNum,
+        limit: PAGE_SIZE,
+      })
         .then(setProformas)
         .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
         .finally(() => setLoading(false));
     }
-  }, [clienteId, vista, dateSelection, pageNum]);
+  }, [clienteId, vista, dateSelection, brandId, productId, pageNum]);
 
   function handleClienteChange(id: string) {
     setClienteId(id);
@@ -84,6 +107,17 @@ export default function PedidosClientesPage() {
 
   function handleDateApply(selection: DateSelection) {
     setDateSelection(selection);
+    setPageNum(1);
+  }
+
+  function handleBrandChange(value: string) {
+    setBrandId(value);
+    setProductId("");
+    setPageNum(1);
+  }
+
+  function handleProductChange(value: string) {
+    setProductId(value);
     setPageNum(1);
   }
 
@@ -136,7 +170,32 @@ export default function PedidosClientesPage() {
           </div>
         )}
 
-        {clienteId && vista === "productos" && <DateRangeDropdown onApply={handleDateApply} />}
+        {clienteId && vista === "productos" && (
+          <>
+            <DateRangeDropdown onApply={handleDateApply} initialSelection={dateSelection} />
+
+            <div className="filter-field">
+              <label className="filter-label">Marca</label>
+              <select className="field" value={brandId} onChange={(e) => handleBrandChange(e.target.value)}>
+                <option value="">Todas</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Producto</label>
+              <ProductoSearchSelect products={products} value={productId} onChange={handleProductChange} />
+            </div>
+          </>
+        )}
+
+        {clienteId && vista === "proformas" && (
+          <DateRangeDropdown onApply={handleDateApply} initialSelection={dateSelection} />
+        )}
       </div>
 
       {!clienteId && <p className="cell-muted">Elegí un cliente arriba para ver sus pedidos.</p>}

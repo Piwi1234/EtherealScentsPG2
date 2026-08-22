@@ -418,6 +418,8 @@ export function getProformas(
     creadoPorId?: string;
     clienteId?: string;
     proveedorId?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
     page?: number;
     limit?: number;
   } = {},
@@ -429,6 +431,8 @@ export function getProformas(
   if (query.creadoPorId) params.set("creadoPorId", query.creadoPorId);
   if (query.clienteId) params.set("clienteId", query.clienteId);
   if (query.proveedorId) params.set("proveedorId", query.proveedorId);
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
