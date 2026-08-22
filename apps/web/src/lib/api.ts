@@ -3,6 +3,7 @@ import type {
   Almacen,
   AprobarProformaInput,
   Brand,
+  BrandImportReport,
   Cartera,
   CarteraInput,
   Category,
@@ -352,6 +353,14 @@ export function getCategories() {
 
 export function getBrands() {
   return apiGet<Brand[]>("/brands");
+}
+
+export function downloadBrandsImportTemplate() {
+  return apiDownload("/brands/import/template", "plantilla-importacion-marcas.xlsx");
+}
+
+export function importBrandsFromFile(file: File) {
+  return apiUpload<BrandImportReport>("/brands/import", file);
 }
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de

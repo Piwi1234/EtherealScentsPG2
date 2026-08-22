@@ -25,6 +25,13 @@ export type Brand = {
   categories: { categoryId: string; category: Category }[];
 };
 
+export type BrandImportReport = {
+  total: number;
+  created: number;
+  updated: number;
+  errors: { row: number; message: string }[];
+};
+
 export type AttributeType = "TEXT" | "NUMBER" | "BOOLEAN" | "SELECT";
 
 /**

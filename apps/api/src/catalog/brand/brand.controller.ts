@@ -9,24 +9,52 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import { BrandService } from "./brand.service";
+import { BrandImportService } from "./brand-import.service";
 import { CreateBrandDto } from "./dto/create-brand.dto";
 import { UpdateBrandDto } from "./dto/update-brand.dto";
 import { brandLogoMulterOptions } from "./brand-logo.multer";
+import { brandImportMulterOptions } from "./brand-import.multer";
 
 @ApiTags("brands")
 @Controller("brands")
 export class BrandController {
-  constructor(private readonly brands: BrandService) {}
+  constructor(
+    private readonly brands: BrandService,
+    private readonly brandImport: BrandImportService,
+  ) {}
 
   @Get()
   findAll(@Query("categoryId") categoryId?: string) {
     return this.brands.findAll({ categoryId });
+  }
+
+  // Antes de ":id" — "import" no es un uuid, pero se declara primero para que quede a la vista
+  // junto al resto de rutas fijas.
+  @Get("import/template")
+  async downloadImportTemplate(@Res() res: Response) {
+    const buffer = await this.brandImport.buildTemplate();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="plantilla-importacion-marcas.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post("import")
+  @UseInterceptors(FileInterceptor("file", brandImportMulterOptions))
+  importBrands(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser un Excel (.xlsx) de hasta 5MB.");
+    }
+    return this.brandImport.importFromFile(file.buffer);
   }
 
   @Get(":id")

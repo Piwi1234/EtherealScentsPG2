@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_ORIGIN, apiDelete, apiGet, apiPatch, apiPost, apiUpload, ApiError } from "../../../lib/api";
-import type { Brand, Category } from "../../../lib/types";
+import { useRef, useEffect, useState } from "react";
+import {
+  API_ORIGIN,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  apiUpload,
+  ApiError,
+  downloadBrandsImportTemplate,
+  importBrandsFromFile,
+} from "../../../lib/api";
+import type { Brand, BrandImportReport, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 // Marcas sembradas antes de este cambio podrían tener logoUrl absoluto; los subidos desde acá en
@@ -12,10 +22,14 @@ function logoSrc(logoUrl: string | null): string | null {
   return logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`;
 }
 
+const PAGE_SIZE = 20;
+
 export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Brand | null>(null);
@@ -25,6 +39,12 @@ export default function BrandsPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importReport, setImportReport] = useState<BrandImportReport | null>(null);
+  const [importReportError, setImportReportError] = useState("");
 
   function handleLogoSelect(file: File | null, currentLogoUrl: string | null) {
     if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
@@ -80,12 +100,45 @@ export default function BrandsPage() {
     .map(([parentId, subs]) => ({ parentId, parentName: parentNameById.get(parentId) ?? "Otra", subs }))
     .sort((a, b) => a.parentName.localeCompare(b.parentName));
 
+  const filteredBrands = (brands ?? []).filter((brand) =>
+    brand.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredBrands.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedBrands = filteredBrands.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   function toggleCategory(id: string) {
     setCategoryIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  async function handleDownloadTemplate() {
+    setDownloadingTemplate(true);
+    try {
+      await downloadBrandsImportTemplate();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setImportReportError("");
+    setImportReport(null);
+    try {
+      const report = await importBrandsFromFile(file);
+      setImportReport(report);
+      if (report.errors.length === 0) loadBrands();
+    } catch (e) {
+      setImportReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function handleDelete(brand: Brand) {
@@ -119,16 +172,54 @@ export default function BrandsPage() {
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Marcas</h1>
-        <button type="button" className="btn-cta" onClick={openCreate}>
-          <span className="btn-cta-icon">+</span> Nueva marca
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" className="action-btn" onClick={handleDownloadTemplate} disabled={downloadingTemplate}>
+            {downloadingTemplate ? "Descargando..." : "Descargar plantilla"}
+          </button>
+          <button type="button" className="action-btn" onClick={() => importInputRef.current?.click()} disabled={importing}>
+            {importing ? "Importando..." : "Importar marcas"}
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleImportFile(file);
+            }}
+          />
+          <button type="button" className="btn-cta" onClick={openCreate}>
+            <span className="btn-cta-icon">+</span> Nueva marca
+          </button>
+        </div>
       </div>
+      {importReportError && <p className="error-text">{importReportError}</p>}
       {error && <p className="error-text">{error}</p>}
       {!brands && !error && <p>Cargando...</p>}
       {brands && brands.length === 0 && <p>No hay marcas todavía.</p>}
       {brands && brands.length > 0 && (
+        <div className="filters-bar" style={{ marginBottom: 16 }}>
+          <div className="filter-field" style={{ minWidth: 240, flex: 1 }}>
+            <label className="filter-label">Buscar por nombre</label>
+            <input
+              className="field"
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Nombre de la marca"
+            />
+          </div>
+        </div>
+      )}
+      {brands && brands.length > 0 && filteredBrands.length === 0 && <p>Ninguna marca coincide con "{search}".</p>}
+      {brands && filteredBrands.length > 0 && (
         <table className="table table-minimal">
           <thead>
             <tr>
@@ -139,7 +230,7 @@ export default function BrandsPage() {
             </tr>
           </thead>
           <tbody>
-            {brands.map((brand) => (
+            {pagedBrands.map((brand) => (
               <tr key={brand.id}>
                 <td>
                   {logoSrc(brand.logoUrl) ? (
@@ -166,6 +257,29 @@ export default function BrandsPage() {
             ))}
           </tbody>
         </table>
+      )}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            type="button"
+            className={`pagination-btn${currentPage <= 1 ? " disabled" : ""}`}
+            disabled={currentPage <= 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            ← Anterior
+          </button>
+          <span className="pagination-info">
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className={`pagination-btn${currentPage >= totalPages ? " disabled" : ""}`}
+            disabled={currentPage >= totalPages}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Siguiente →
+          </button>
+        </div>
       )}
 
       {modalOpen && (
@@ -225,6 +339,37 @@ export default function BrandsPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {importReport && (
+        <Modal title="Resultado de la importación" onClose={() => setImportReport(null)}>
+          {importReport.errors.length === 0 ? (
+            <p>
+              Listo: {importReport.created} marca{importReport.created === 1 ? "" : "s"} creada
+              {importReport.created === 1 ? "" : "s"} y {importReport.updated} actualizada
+              {importReport.updated === 1 ? "" : "s"}.
+            </p>
+          ) : (
+            <>
+              <p className="error-text">
+                No se importó nada — hay {importReport.errors.length} error{importReport.errors.length === 1 ? "" : "es"} en la
+                planilla. Corregilos y volvé a subir el archivo.
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {importReport.errors.map((err, i) => (
+                  <li key={i}>
+                    Fila {err.row}: {err.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="form-actions">
+            <button type="button" className="button" onClick={() => setImportReport(null)}>
+              Cerrar
+            </button>
+          </div>
         </Modal>
       )}
     </div>
