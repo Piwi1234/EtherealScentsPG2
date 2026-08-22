@@ -14,7 +14,7 @@ type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombr
 type BrandCount = { id: string; name: string; count: number };
 type PriceRange = [number, number];
 
-const BRAND_VISIBLE_DEFAULT = 10;
+const FILTER_VISIBLE_DEFAULT = 10;
 
 export default function CategoriaPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,8 +36,6 @@ export default function CategoriaPage() {
   const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
   const [priceApplied, setPriceApplied] = useState<PriceRange | null>(null);
   const [brandFilters, setBrandFilters] = useState<string[]>([]);
-  const [brandSearch, setBrandSearch] = useState("");
-  const [brandShowAll, setBrandShowAll] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
@@ -53,8 +51,6 @@ export default function CategoriaPage() {
     setPriceRange(null);
     setPriceApplied(null);
     setBrandFilters([]);
-    setBrandSearch("");
-    setBrandShowAll(false);
     setSortBy("relevancia");
     setAttributeFilters({});
     setFiltersDrawerOpen(false);
@@ -242,6 +238,7 @@ export default function CategoriaPage() {
     filterableAttributes.length > 0;
 
   const filterGroupsProps = {
+    resetKey: id,
     discountOnly,
     onToggleDiscountOnly: toggleDiscountOnly,
     discountCount,
@@ -262,10 +259,6 @@ export default function CategoriaPage() {
     brandsWithCounts,
     brandFilters,
     onToggleBrand: toggleBrand,
-    brandSearch,
-    onBrandSearchChange: setBrandSearch,
-    brandShowAll,
-    onToggleBrandShowAll: () => setBrandShowAll((v) => !v),
   };
 
   return (
@@ -412,6 +405,10 @@ export default function CategoriaPage() {
 }
 
 type FilterGroupsProps = {
+  /** Route param de la categoría actual — se usa como `key` de los grupos con buscador propio
+   * (Subcategoría/Atributos/Marca) para que su texto de búsqueda y "mostrar más" arranquen frescos
+   * al navegar a otra categoría. */
+  resetKey: string;
   discountOnly: boolean;
   onToggleDiscountOnly: () => void;
   discountCount: number;
@@ -432,15 +429,14 @@ type FilterGroupsProps = {
   brandsWithCounts: BrandCount[];
   brandFilters: string[];
   onToggleBrand: (id: string) => void;
-  brandSearch: string;
-  onBrandSearchChange: (value: string) => void;
-  brandShowAll: boolean;
-  onToggleBrandShowAll: () => void;
 };
 
 /** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden:
- * Ofertas, Subcategoría, Atributos, Precio, Marca. */
+ * Ofertas, Subcategoría, Atributos, Precio, Marca. Subcategoría/Atributos/Marca están ordenados
+ * alfabéticamente y, si superan los 10 valores, se comportan como el filtro de Marca (buscador +
+ * "Mostrar más/menos") — ver `FilterOptionList`. */
 function FilterGroups({
+  resetKey,
   discountOnly,
   onToggleDiscountOnly,
   discountCount,
@@ -461,15 +457,7 @@ function FilterGroups({
   brandsWithCounts,
   brandFilters,
   onToggleBrand,
-  brandSearch,
-  onBrandSearchChange,
-  brandShowAll,
-  onToggleBrandShowAll,
 }: FilterGroupsProps) {
-  const search = brandSearch.trim().toLowerCase();
-  const filteredBrands = search ? brandsWithCounts.filter((b) => b.name.toLowerCase().includes(search)) : brandsWithCounts;
-  const visibleBrands = search || brandShowAll ? filteredBrands : filteredBrands.slice(0, BRAND_VISIBLE_DEFAULT);
-
   return (
     <>
       {(discountCount > 0 || discountOnly) && (
@@ -484,37 +472,31 @@ function FilterGroups({
       )}
 
       {subcategories.length > 0 && (
-        <div className="landing-filter-group">
-          <p className="landing-filter-group-title">Subcategoría</p>
-          {subcategories.map((sub) => (
-            <label className="landing-filter-checkbox" key={sub.id}>
-              <input type="checkbox" checked={subCategoryFilter === sub.id} onChange={() => onSelectSubcategory(sub.id)} />
-              <span className="landing-filter-checkbox-label">{sub.name}</span>
-              <span className="landing-filter-count">({subcategoryCounts.get(sub.id) ?? 0})</span>
-            </label>
-          ))}
-        </div>
+        <FilterOptionList
+          key={`${resetKey}-subcategoria`}
+          title="Subcategoría"
+          options={subcategories.map((sub) => ({
+            value: sub.id,
+            label: sub.name,
+            count: subcategoryCounts.get(sub.id) ?? 0,
+          }))}
+          selected={subCategoryFilter ? [subCategoryFilter] : []}
+          onToggle={onSelectSubcategory}
+        />
       )}
 
       {filterableAttributes.map((attribute) => {
         const options = getAttributeFilterOptions(attribute, baseItems);
         if (options.length === 0) return null;
-        const selected = attributeFilters[attribute.id] ?? [];
         return (
-          <div className="landing-filter-group" key={attribute.id}>
-            <p className="landing-filter-group-title">{attribute.name}</p>
-            {options.map((option) => (
-              <label className="landing-filter-checkbox" key={option.value}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(option.value)}
-                  onChange={() => onToggleAttributeValue(attribute.id, option.value)}
-                />
-                {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
-                <span className="landing-filter-checkbox-label">{option.label}</span>
-              </label>
-            ))}
-          </div>
+          <FilterOptionList
+            key={`${resetKey}-${attribute.id}`}
+            title={attribute.name}
+            options={options}
+            selected={attributeFilters[attribute.id] ?? []}
+            onToggle={(value) => onToggleAttributeValue(attribute.id, value)}
+            variant="scroll"
+          />
         );
       })}
 
@@ -567,34 +549,86 @@ function FilterGroups({
       )}
 
       {brandsWithCounts.length > 0 && (
-        <div className="landing-filter-group">
-          <p className="landing-filter-group-title">Marca</p>
-          <input
-            type="search"
-            className="landing-filter-search"
-            placeholder="Buscar marca..."
-            value={brandSearch}
-            onChange={(e) => onBrandSearchChange(e.target.value)}
-          />
-          {visibleBrands.map((brand) => (
-            <label className="landing-filter-checkbox" key={brand.id}>
-              <input type="checkbox" checked={brandFilters.includes(brand.id)} onChange={() => onToggleBrand(brand.id)} />
-              <span className="landing-filter-checkbox-label">{brand.name}</span>
-              <span className="landing-filter-count">({brand.count})</span>
-            </label>
-          ))}
-          {visibleBrands.length === 0 && (
-            <p className="landing-empty-note" style={{ margin: 0, fontSize: 12.5 }}>
-              Sin resultados.
-            </p>
-          )}
-          {!search && filteredBrands.length > BRAND_VISIBLE_DEFAULT && (
-            <button type="button" className="landing-filter-clear" style={{ marginTop: 6 }} onClick={onToggleBrandShowAll}>
-              {brandShowAll ? "Mostrar menos" : `Mostrar más (${filteredBrands.length - BRAND_VISIBLE_DEFAULT})`}
-            </button>
-          )}
-        </div>
+        <FilterOptionList
+          key={`${resetKey}-marca`}
+          title="Marca"
+          options={brandsWithCounts.map((brand) => ({ value: brand.id, label: brand.name, count: brand.count }))}
+          selected={brandFilters}
+          onToggle={onToggleBrand}
+        />
       )}
     </>
+  );
+}
+
+type FilterOption = { value: string; label: string; count?: number; color?: string | null };
+
+/**
+ * Lista de checkboxes ordenada alfabéticamente por `label`; si hay más de FILTER_VISIBLE_DEFAULT
+ * opciones, suma un buscador interno. Dos formas de ver el resto:
+ * - "expand" (Subcategoría, Marca): 10 visibles por defecto + "Mostrar más/menos".
+ * - "scroll" (Atributos, ej. Acordes): todas las opciones de una, dentro de una caja con scroll
+ *   propio — no empuja el resto del sidebar hacia abajo.
+ */
+function FilterOptionList({
+  title,
+  options,
+  selected,
+  onToggle,
+  variant = "expand",
+}: {
+  title: string;
+  options: FilterOption[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  variant?: "expand" | "scroll";
+}) {
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  const sorted = useMemo(() => [...options].sort((a, b) => a.label.localeCompare(b.label)), [options]);
+  const term = search.trim().toLowerCase();
+  const filtered = term ? sorted.filter((o) => o.label.toLowerCase().includes(term)) : sorted;
+  const needsSearch = sorted.length > FILTER_VISIBLE_DEFAULT;
+  const visible =
+    variant === "scroll" ? filtered : term || showAll ? filtered : filtered.slice(0, FILTER_VISIBLE_DEFAULT);
+
+  const list = (
+    <>
+      {visible.map((option) => (
+        <label className="landing-filter-checkbox" key={option.value}>
+          <input type="checkbox" checked={selected.includes(option.value)} onChange={() => onToggle(option.value)} />
+          {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
+          <span className="landing-filter-checkbox-label">{option.label}</span>
+          {option.count !== undefined && <span className="landing-filter-count">({option.count})</span>}
+        </label>
+      ))}
+      {visible.length === 0 && (
+        <p className="landing-empty-note" style={{ margin: 0, fontSize: 12.5 }}>
+          Sin resultados.
+        </p>
+      )}
+    </>
+  );
+
+  return (
+    <div className="landing-filter-group">
+      <p className="landing-filter-group-title">{title}</p>
+      {needsSearch && (
+        <input
+          type="search"
+          className="landing-filter-search"
+          placeholder={`Buscar ${title.toLowerCase()}...`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      )}
+      {variant === "scroll" && needsSearch ? <div className="landing-filter-options-scroll">{list}</div> : list}
+      {variant === "expand" && !term && filtered.length > FILTER_VISIBLE_DEFAULT && (
+        <button type="button" className="landing-filter-clear" style={{ marginTop: 6 }} onClick={() => setShowAll((v) => !v)}>
+          {showAll ? "Mostrar menos" : `Mostrar más (${filtered.length - FILTER_VISIBLE_DEFAULT})`}
+        </button>
+      )}
+    </div>
   );
 }

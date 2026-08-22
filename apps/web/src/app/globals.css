@@ -2753,6 +2753,24 @@ a {
   border-color: var(--lp-accent);
 }
 
+/* Variante "scroll" de FilterOptionList (ej. Acordes): en vez de truncar a 10 + "Mostrar más", se
+ * ve la lista completa dentro de una caja de alto fijo con su propio scroll. */
+.landing-filter-options-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-right: -6px;
+}
+
+.landing-filter-options-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.landing-filter-options-scroll::-webkit-scrollbar-thumb {
+  background: var(--lp-border);
+  border-radius: 999px;
+}
+
 /* --- Slider de rango de precio (dos <input type="range"> superpuestos) --- */
 
 .landing-price-slider {
