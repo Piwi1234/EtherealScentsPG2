@@ -29,6 +29,7 @@ import type {
   PresentacionVenta,
   PresentacionVentaInput,
   Product,
+  ProductImportReport,
   Proforma,
   ProformaInput,
   Proveedor,
@@ -373,6 +374,14 @@ export function getProducts(query: { categoryId?: string; brandId?: string; sear
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<Product>>(`/products${qs ? `?${qs}` : ""}`);
+}
+
+export function downloadProductsImportTemplate() {
+  return apiDownload("/products/import/template", "plantilla-importacion-productos.xlsx");
+}
+
+export function importProductsFromFile(file: File) {
+  return apiUpload<ProductImportReport>("/products/import", file);
 }
 
 export function getLotesCompra(
