@@ -24,13 +24,17 @@ export class SettingsService {
     return Number(setting.exchangeRate);
   }
 
-  /** Público (sin auth) — las imágenes de "Propuesta de valor" y "Sobre nosotros" del home. */
+  /** Público (sin auth) — las imágenes del hero, "Propuesta de valor" y "Sobre nosotros" del home. */
   async getLandingImages() {
     const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
-    return { valueImageUrl: setting?.valueImageUrl ?? null, aboutImageUrl: setting?.aboutImageUrl ?? null };
+    return {
+      heroImageUrl: setting?.heroImageUrl ?? null,
+      valueImageUrl: setting?.valueImageUrl ?? null,
+      aboutImageUrl: setting?.aboutImageUrl ?? null,
+    };
   }
 
-  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
+  private async setLandingImage(field: "heroImageUrl" | "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
     const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
     const url = `/uploads/landing/${file.filename}`;
 
@@ -50,6 +54,10 @@ export class SettingsService {
     }
 
     return updated;
+  }
+
+  setHeroImage(file: Express.Multer.File) {
+    return this.setLandingImage("heroImageUrl", file);
   }
 
   setValueImage(file: Express.Multer.File) {

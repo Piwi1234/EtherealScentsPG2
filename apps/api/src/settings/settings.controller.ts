@@ -29,6 +29,15 @@ export class SettingsController {
     return this.settings.getLandingImages();
   }
 
+  @Post("landing-images/hero")
+  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("hero")))
+  uploadHeroImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.setHeroImage(file);
+  }
+
   @Post("landing-images/value")
   @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("value")))
   uploadValueImage(@UploadedFile() file?: Express.Multer.File) {

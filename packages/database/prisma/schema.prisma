@@ -151,6 +151,9 @@ model SystemSetting {
   // secciones muestran un placeholder con gradiente (ver Grid Imágenes en Configuración).
   valueImageUrl String? @map("value_image_url")
   aboutImageUrl String? @map("about_image_url")
+  // Imagen de fondo del hero — sin esto, el hero usa solo el degradado de siempre. Se muestra con
+  // object-fit:cover + un velo oscuro encima (para que el texto blanco del hero se siga leyendo).
+  heroImageUrl  String? @map("hero_image_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

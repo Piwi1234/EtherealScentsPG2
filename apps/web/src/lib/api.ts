@@ -221,10 +221,12 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
-/** Público (sin auth) — imágenes de "Propuesta de valor" y "Sobre nosotros" del home (ver Grid
- * Imágenes en Configuración). */
+/** Público (sin auth) — imágenes del hero, "Propuesta de valor" y "Sobre nosotros" del home (ver
+ * Grid Imágenes en Configuración). */
 export function getLandingImages() {
-  return apiGet<{ valueImageUrl: string | null; aboutImageUrl: string | null }>("/settings/landing-images");
+  return apiGet<{ heroImageUrl: string | null; valueImageUrl: string | null; aboutImageUrl: string | null }>(
+    "/settings/landing-images",
+  );
 }
 
 export function createEmpresa(data: EmpresaInput) {

@@ -9,8 +9,8 @@ function imgSrc(url: string | null): string | null {
 }
 
 type Slot =
-  | { kind: "category"; id: string; label: string; imageUrl: string | null }
-  | { kind: "value" | "about"; label: string; imageUrl: string | null };
+  | { kind: "category"; id: string; label: string; imageUrl: string | null; hint?: string }
+  | { kind: "hero" | "value" | "about"; label: string; imageUrl: string | null; hint?: string };
 
 /**
  * Imágenes usadas en las secciones visuales del home (Producto destacado por categoría raíz,
@@ -19,9 +19,11 @@ type Slot =
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
-  const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
-    null,
-  );
+  const [landingImages, setLandingImages] = useState<{
+    heroImageUrl: string | null;
+    valueImageUrl: string | null;
+    aboutImageUrl: string | null;
+  } | null>(null);
   const [error, setError] = useState("");
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
@@ -52,6 +54,12 @@ export default function GridImagenesPage() {
   const rootCategories = (categories ?? []).filter((c) => c.parentId === null);
 
   const slots: Slot[] = [
+    {
+      kind: "hero" as const,
+      label: "Hero principal",
+      imageUrl: landingImages?.heroImageUrl ?? null,
+      hint: "Recomendado: 2400×1350px o más (relación 16:9), horizontal. Se recorta para cubrir todo el ancho de pantalla (object-fit: cover) — no hay un tamaño exacto que \"entre completa\" porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son lo primero que se recorta en pantallas angostas.",
+    },
     ...rootCategories.map((cat) => ({ kind: "category" as const, id: cat.id, label: cat.name, imageUrl: cat.heroImageUrl })),
     { kind: "value" as const, label: "Propuesta de valor", imageUrl: landingImages?.valueImageUrl ?? null },
     { kind: "about" as const, label: "Sobre nosotros", imageUrl: landingImages?.aboutImageUrl ?? null },
@@ -74,7 +82,12 @@ export default function GridImagenesPage() {
             const uploadPath = slot.kind === "category" ? `/categories/${slot.id}/image` : `/settings/landing-images/${slot.kind}`;
             return (
               <div key={slotId} style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 12 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>{slot.label}</label>
+                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>{slot.label}</label>
+                {slot.hint && (
+                  <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 8px", lineHeight: 1.4 }}>
+                    {slot.hint}
+                  </p>
+                )}
                 <div className="image-uploader">
                   {imgSrc(slot.imageUrl) ? (
                     <img src={imgSrc(slot.imageUrl)!} alt={slot.label} />

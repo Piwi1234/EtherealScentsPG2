@@ -6,7 +6,7 @@ export const LANDING_IMAGES_DIR = join(process.cwd(), "uploads", "landing");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 
-export function landingImageMulterOptions(slot: "value" | "about") {
+export function landingImageMulterOptions(slot: "hero" | "value" | "about") {
   return {
     storage: diskStorage({
       destination: LANDING_IMAGES_DIR,

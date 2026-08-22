@@ -19,9 +19,11 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
-  const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
-    null,
-  );
+  const [landingImages, setLandingImages] = useState<{
+    heroImageUrl: string | null;
+    valueImageUrl: string | null;
+    aboutImageUrl: string | null;
+  } | null>(null);
   const [error, setError] = useState("");
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
@@ -53,7 +55,18 @@ export default function HomePage() {
       <LandingNavbar />
 
       {/* ============================== 2. Hero ============================== */}
-      <section className="landing-hero">
+      <section
+        className="landing-hero"
+        style={
+          landingImages?.heroImageUrl
+            ? {
+                backgroundImage: `linear-gradient(160deg, rgba(32, 28, 51, 0.78) 0%, rgba(23, 20, 38, 0.7) 60%, rgba(16, 14, 28, 0.82) 100%), url(${productImageSrc(landingImages.heroImageUrl)})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         <div className="landing-container">
           <div className="landing-hero-content">
             <p className="landing-hero-eyebrow">{brandName.toUpperCase()}</p>
