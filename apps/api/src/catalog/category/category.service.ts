@@ -1,3 +1,5 @@
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Category } from "@app/database";
 import { slugify } from "@app/shared";
@@ -5,6 +7,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
+import { CATEGORY_IMAGES_DIR } from "./category-image.multer";
 
 export interface CategoryTreeNode extends Category {
   children: CategoryTreeNode[];
@@ -171,6 +174,33 @@ export class CategoryService {
           comentario: becomingSubcategory ? null : dto.comentario,
         },
       });
+    } catch (error) {
+      rethrowPrismaError(error, "Categoría");
+    }
+  }
+
+  /** Solo aplica a categorías raíz — es la imagen de la sección "Producto destacado" del home. */
+  async setImage(id: string, file: Express.Multer.File) {
+    const existing = await this.findOne(id);
+    if (existing.parentId) {
+      throw new BadRequestException("La imagen destacada solo se puede definir en categorías raíz.");
+    }
+
+    try {
+      const updated = await this.prisma.category.update({
+        where: { id },
+        data: { heroImageUrl: `/uploads/categories/${file.filename}` },
+      });
+
+      // Best-effort: borra la imagen anterior para no acumular huérfanos en disco.
+      if (existing.heroImageUrl) {
+        const previousFilename = existing.heroImageUrl.split("/").pop();
+        if (previousFilename) {
+          await unlink(join(CATEGORY_IMAGES_DIR, previousFilename)).catch(() => {});
+        }
+      }
+
+      return updated;
     } catch (error) {
       rethrowPrismaError(error, "Categoría");
     }

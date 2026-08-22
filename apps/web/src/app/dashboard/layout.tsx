@@ -80,6 +80,11 @@ const CONFIGURACION_GROUPS = [
       { href: "/dashboard/configuracion/tipo-cambio", label: "Tipo de cambio" },
     ],
   },
+  {
+    title: "Grid Imágenes",
+    adminOnly: false,
+    items: [{ href: "/dashboard/configuracion/grid-imagenes", label: "Grid Imágenes" }],
+  },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

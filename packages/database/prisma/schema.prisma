@@ -147,6 +147,10 @@ enum UnidadVariante {
 model SystemSetting {
   id           String   @id @default("default")
   exchangeRate Decimal  @default(0) @map("exchange_rate") @db.Decimal(12, 4)
+  // Imágenes de las secciones "Propuesta de valor" y "Sobre nosotros" del home — sin esto, esas
+  // secciones muestran un placeholder con gradiente (ver Grid Imágenes en Configuración).
+  valueImageUrl String? @map("value_image_url")
+  aboutImageUrl String? @map("about_image_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
@@ -168,6 +172,10 @@ model Category {
   // Nota interna libre — solo aplica a categorías raíz (sin padre), simétrico al criterio inverso de
   // los costos de arriba.
   comentario String?
+  // Imagen destacada de la categoría — solo aplica a categorías raíz, la usa la sección "Producto
+  // destacado" del home (ver Grid Imágenes en Configuración). Sin esto, esa sección muestra un
+  // placeholder con gradiente y el nombre de la categoría.
+  heroImageUrl String? @map("hero_image_url")
 
   brands     BrandCategory[]
   attributes Attribute[]

@@ -9,6 +9,8 @@ export type Category = {
   securityCost: string | null;
   // Solo aplica a categorías raíz (sin padre) — nota interna libre.
   comentario: string | null;
+  // Solo aplica a categorías raíz — la usa la sección "Producto destacado" del home.
+  heroImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };

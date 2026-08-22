@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, getCasaMatrizLogo } from "../../lib/api";
+import { apiGet, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
@@ -19,6 +19,9 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
+  const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
+    null,
+  );
   const [error, setError] = useState("");
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
@@ -26,6 +29,7 @@ export default function HomePage() {
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    getLandingImages().then(setLandingImages).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -142,12 +146,18 @@ export default function HomePage() {
                   Explorar {cat.name}
                 </button>
               </div>
-              <div
-                className="landing-feature-visual"
-                style={{ background: i % 2 === 0 ? "linear-gradient(150deg, #9184d9, #4b3f8f)" : "linear-gradient(150deg, #201c33, #100e1c)" }}
-              >
-                {cat.name}
-              </div>
+              {cat.heroImageUrl ? (
+                <div className="landing-feature-visual">
+                  <img className="landing-feature-visual-image" src={productImageSrc(cat.heroImageUrl)!} alt={cat.name} />
+                </div>
+              ) : (
+                <div
+                  className="landing-feature-visual"
+                  style={{ background: i % 2 === 0 ? "linear-gradient(150deg, #9184d9, #4b3f8f)" : "linear-gradient(150deg, #201c33, #100e1c)" }}
+                >
+                  {cat.name}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -164,14 +174,22 @@ export default function HomePage() {
               información clara de precio y disponibilidad desde el primer momento — sin sorpresas.
             </p>
           </div>
-          <div className="landing-value-visual" />
+          {landingImages?.valueImageUrl ? (
+            <img className="landing-value-visual" src={productImageSrc(landingImages.valueImageUrl)!} alt="" />
+          ) : (
+            <div className="landing-value-visual" />
+          )}
         </div>
       </section>
 
       {/* ============================== 6. Sobre nosotros ============================== */}
       <section id="nosotros" className="landing-section landing-section-alt">
         <div className="landing-container landing-about">
-          <div className="landing-about-visual" />
+          {landingImages?.aboutImageUrl ? (
+            <img className="landing-about-visual" src={productImageSrc(landingImages.aboutImageUrl)!} alt="" />
+          ) : (
+            <div className="landing-about-visual" />
+          )}
           <div>
             <p className="landing-eyebrow">Nuestra historia</p>
             <h2 className="landing-section-title">Sobre {brandName}</h2>
