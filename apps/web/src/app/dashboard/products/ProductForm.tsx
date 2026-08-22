@@ -362,8 +362,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
-  /** Precio de compra/Utilidad editables sin recrear la variante — cada campo su propio PATCH. */
-  async function handleUpdateVariantField(variantId: string, field: "purchasePrice" | "utility", raw: string) {
+  /** Precio de compra/Utilidad/Min Bs/Descuento editables sin recrear la variante — cada campo su propio PATCH. */
+  async function handleUpdateVariantField(
+    variantId: string,
+    field: "purchasePrice" | "utility" | "minPriceBs" | "discountBs",
+    raw: string,
+  ) {
     if (!currentProduct) return;
     const value = Number(raw);
     if (Number.isNaN(value)) return;
@@ -877,8 +881,29 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                   </td>
                                   <td>${variant.price.toFixed(2)}</td>
                                   <td>Bs {variant.wholesalePriceBs.toFixed(2)}</td>
-                                  <td>{variant.minPriceBs !== null ? `Bs ${variant.minPriceBs}` : "—"}</td>
-                                  <td>Bs {variant.discountBs}</td>
+                                  <td>
+                                    <input
+                                      className="field"
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      placeholder="—"
+                                      defaultValue={variant.minPriceBs ?? ""}
+                                      onBlur={(e) => handleUpdateVariantField(variant.id, "minPriceBs", e.target.value)}
+                                      style={{ width: 90 }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      className="field"
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      defaultValue={variant.discountBs}
+                                      onBlur={(e) => handleUpdateVariantField(variant.id, "discountBs", e.target.value)}
+                                      style={{ width: 90 }}
+                                    />
+                                  </td>
                                   <td>Bs {variant.finalPriceBs.toFixed(2)}</td>
                                   <td>
                                     <button
