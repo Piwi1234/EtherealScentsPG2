@@ -8,15 +8,15 @@ import { productImageSrc } from "../../lib/catalog-display";
 import type { Category } from "../../lib/types";
 
 /**
- * Navbar de todo el sitio público (home + páginas de categoría): transparente
- * sobre el contenido al cargar, sólido al pasar ~80px de scroll. "Nosotros" y
- * "Contacto" intentan hacer scroll a una sección con ese id en la página
- * actual (el footer trae #contacto en todas partes); si no existe, navegan a
+ * Navbar de todo el sitio público. "Nosotros" y "Contacto" intentan hacer scroll a una sección con
+ * ese id en la página actual (el footer trae #contacto en todas partes); si no existe, navegan a
  * /home con el hash correspondiente.
  *
- * variant="dark": fondo negro fijo (no transparente, no cambia con el scroll) — para páginas sin
- * hero de fondo oscuro debajo, como el detalle de producto.
- * variant="light": fondo blanco fijo, sin la animación de fade — para las páginas de categoría.
+ * variant="default": transparente sobre el contenido al cargar, pasa a la misma variante oscura de
+ * abajo (fondo negro sólido) recién al superar ~80px de scroll — para el home, con el hero de fondo
+ * debajo.
+ * variant="dark": fondo negro fijo, sin depender del scroll — para páginas sin hero de fondo debajo
+ * (detalle de producto, categoría, marcas).
  *
  * overlay=true (default): el navbar es `position: fixed`, sobrepuesto al contenido — el hero de esa
  * página debe compensar con su propio padding-top para no quedar tapado. overlay=false: el navbar
@@ -27,7 +27,7 @@ export function LandingNavbar({
   variant = "default",
   overlay = true,
 }: {
-  variant?: "default" | "dark" | "light";
+  variant?: "default" | "dark";
   overlay?: boolean;
 }) {
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
@@ -48,13 +48,14 @@ export function LandingNavbar({
   }, []);
 
   useEffect(() => {
+    if (variant !== "default") return;
     function handleScroll() {
       setScrolled(window.scrollY > 80);
     }
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [variant]);
 
   function goToSection(id: string) {
     setMobileMenuOpen(false);
@@ -70,9 +71,7 @@ export function LandingNavbar({
   const brandName = empresa?.nombre ?? "Ethereal Scents";
   const navbarClass = [
     "landing-navbar",
-    variant === "default" && scrolled ? "landing-navbar--scrolled" : "",
-    variant === "dark" ? "landing-navbar--dark" : "",
-    variant === "light" ? "landing-navbar--light" : "",
+    variant === "dark" || (variant === "default" && scrolled) ? "landing-navbar--dark" : "",
     !overlay ? "landing-navbar--static" : "",
   ]
     .filter(Boolean)

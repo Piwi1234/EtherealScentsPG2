@@ -66,7 +66,7 @@ export default function MarcasPage() {
 
   return (
     <div className="landing-page">
-      <LandingNavbar variant="light" />
+      <LandingNavbar variant="dark" />
 
       <section className="landing-category-banner">
         {marcasHeroImages.length > 0 && (

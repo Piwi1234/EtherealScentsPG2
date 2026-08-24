@@ -2116,7 +2116,7 @@ a {
   color: var(--nav-fg);
   /* Velo oscuro translúcido (no sólido) — se sigue viendo el fondo del hero detrás, pero el menú
      queda legible incluso sobre zonas claras de la foto. Un color plano (no degradado) para que
-     siga animando suave al pasar al fondo blanco sólido de --scrolled. */
+     siga animando suave al pasar al fondo negro sólido de --dark una vez que se scrollea. */
   background: rgba(16, 14, 28, 0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -2129,15 +2129,6 @@ a {
  * static) para que el navbar se siga viendo si se baja de página, en vez de desaparecer con el scroll. */
 .landing-navbar--static {
   position: sticky;
-}
-
-.landing-navbar--scrolled {
-  --nav-fg: var(--lp-text);
-  --nav-fg-muted: var(--lp-muted);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  box-shadow: 0 4px 24px rgba(26, 26, 46, 0.08);
 }
 
 /* Fondo negro fijo (páginas de detalle sin hero oscuro debajo) — colores de texto/desplegable
@@ -2186,17 +2177,6 @@ a {
 
 .landing-navbar--dark .landing-navbar-mobile-heading {
   color: #e08585;
-}
-
-/* Fondo blanco fijo y sin la animación de fade del navbar por defecto (transparente→sólido con el
-   scroll) — para las páginas de categoría, que no tienen un hero oscuro debajo para justificarla.
-   El desplegable y el menú mobile no necesitan overrides: su estilo base ya es claro. */
-.landing-navbar--light {
-  --nav-fg: var(--lp-text);
-  --nav-fg-muted: var(--lp-muted);
-  background: var(--lp-surface);
-  box-shadow: 0 4px 24px rgba(26, 26, 46, 0.08);
-  transition: none;
 }
 
 .landing-navbar-inner {

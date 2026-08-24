@@ -241,7 +241,7 @@ export default function CategoriaPage() {
   if (notFound) {
     return (
       <div className="landing-page">
-        <LandingNavbar variant="light" overlay={false} />
+        <LandingNavbar variant="dark" overlay={false} />
         <section className="landing-category-banner landing-category-banner--no-overlay">
           <h1>Categoría no encontrada</h1>
           <p className="landing-category-lead">
@@ -286,7 +286,7 @@ export default function CategoriaPage() {
 
   return (
     <div className="landing-page">
-      <LandingNavbar variant="light" overlay={false} />
+      <LandingNavbar variant="dark" overlay={false} />
 
       <section className="landing-category-banner landing-category-banner--no-overlay">
         {rootCategoryForBanner && rootCategoryForBanner.heroCarouselImages.length > 0 && (
