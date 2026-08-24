@@ -28,7 +28,7 @@ export class CreateProductDto {
   @ApiPropertyOptional({
     example: 350,
     description:
-      "Precio Min Bs (manual). Si no se carga, Precio Final Bs usa Precio May Bs como base. Igual que " +
+      "\"Add May\" (manual): monto que se suma a Precio May Bs para armar Precio Final Bs. Igual que " +
       "purchasePrice, si la categoría tiene atributos con precio propio se carga por variante en su lugar.",
   })
   @IsOptional()

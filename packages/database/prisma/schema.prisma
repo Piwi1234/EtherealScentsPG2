@@ -272,9 +272,10 @@ model Product {
   // el precio $ se calcula en vivo como purchasePrice + costos de `category` + utility.
   utility       Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
   // Precios en bolívares. Precio May Bs (mayorista) se calcula en vivo (precio $ * tipo de cambio
-  // del sistema); Precio Min Bs y Descuento se cargan a mano; Precio Final Bs = (Precio Min Bs si
-  // hay, si no Precio May Bs) - Descuento. Si la categoría tiene variantes con precio propio, estos
-  // dos campos manuales se cargan por variante en lugar de acá (mismo criterio que purchasePrice/utility).
+  // del sistema); "Add May" (este campo, minPriceBs — el nombre no cambió, solo su significado) y
+  // Descuento se cargan a mano; Precio Final Bs = (Precio May Bs + Add May) - Descuento. Si la
+  // categoría tiene variantes con precio propio, estos dos campos manuales se cargan por variante en
+  // lugar de acá (mismo criterio que purchasePrice/utility).
   minPriceBs    Decimal? @map("min_price_bs") @db.Decimal(12, 2)
   discountBs    Decimal  @default(0) @map("discount_bs") @db.Decimal(12, 2)
   brandId       String?  @map("brand_id") @db.Uuid
@@ -325,7 +326,7 @@ model ProductVariant {
   variantCode   String   @unique @map("variant_code") @db.VarChar(7)
   purchasePrice Decimal  @map("purchase_price") @db.Decimal(12, 2)
   utility       Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
-  // Mismo criterio que en Product: Precio Min Bs y Descuento propios de esta variante.
+  // Mismo criterio que en Product: "Add May" (este campo) y Descuento propios de esta variante.
   minPriceBs    Decimal? @map("min_price_bs") @db.Decimal(12, 2)
   discountBs    Decimal  @default(0) @map("discount_bs") @db.Decimal(12, 2)
 

@@ -331,7 +331,7 @@ export default function ProductsPage() {
                   <th className="num">Utilidad $</th>
                   <th className="num">Precio $</th>
                   <th className="num col-group-start">May Bs</th>
-                  <th className="num">Min Bs</th>
+                  <th className="num">Add May</th>
                   <th className="num">Desc. Bs</th>
                   <th className="num">Final Bs</th>
                   <th>Disponible</th>

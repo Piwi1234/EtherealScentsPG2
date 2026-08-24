@@ -362,7 +362,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
-  /** Precio de compra/Utilidad/Min Bs/Descuento editables sin recrear la variante — cada campo su propio PATCH. */
+  /** Precio de compra/Utilidad/Add May/Descuento editables sin recrear la variante — cada campo su propio PATCH. */
   async function handleUpdateVariantField(
     variantId: string,
     field: "purchasePrice" | "utility" | "minPriceBs" | "discountBs",
@@ -467,10 +467,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const securityCostPreview = Number(selectedCategory?.securityCost ?? 0);
   const pricePreview =
     Number(purchasePrice || 0) + logisticsCostPreview + shippingCostPreview + securityCostPreview + Number(utility || 0);
-  // Precio May Bs = Precio $ * tipo de cambio; Precio Final Bs = (Precio Min Bs si hay, si no
-  // Precio May Bs) - Descuento. Mismas fórmulas que el backend.
+  // Precio May Bs = Precio $ * tipo de cambio; Precio Final Bs = (Precio May Bs + Add May) -
+  // Descuento. Mismas fórmulas que el backend.
   const wholesaleBsPreview = pricePreview * exchangeRate;
-  const finalBsPreview = roundUpToTen((minPriceBs ? Number(minPriceBs) : wholesaleBsPreview) - Number(discountBs || 0));
+  const finalBsPreview = roundUpToTen(wholesaleBsPreview + Number(minPriceBs || 0) - Number(discountBs || 0));
 
   const variantPricePreview =
     Number(variantForm.purchasePrice || 0) +
@@ -480,7 +480,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     Number(variantForm.utility || 0);
   const variantWholesaleBsPreview = variantPricePreview * exchangeRate;
   const variantFinalBsPreview = roundUpToTen(
-    (variantForm.minPriceBs ? Number(variantForm.minPriceBs) : variantWholesaleBsPreview) - Number(variantForm.discountBs || 0),
+    variantWholesaleBsPreview + Number(variantForm.minPriceBs || 0) - Number(variantForm.discountBs || 0),
   );
 
   return (
@@ -789,7 +789,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                               <th>Utilidad</th>
                               <th>Precio $</th>
                               <th>May Bs</th>
-                              <th>Min Bs</th>
+                              <th>Add May</th>
                               <th>Desc. Bs</th>
                               <th>Final Bs</th>
                               <th></th>
@@ -994,7 +994,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio Min Bs</label>
+                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Add May</label>
                         <input
                           className="field"
                           type="number"
@@ -1088,7 +1088,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                       </div>
                       <div className="grid-2">
                         <div>
-                          <label>Precio Min Bs</label>
+                          <label>Add May</label>
                           <input
                             className="field"
                             type="number"

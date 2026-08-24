@@ -104,7 +104,7 @@ export type ProductVariant = {
   variantCode: string;
   purchasePrice: string;
   utility: string;
-  /** Precio Min Bs (manual, opcional) y Descuento Bs (manual) propios de esta variante. */
+  /** "Add May" (manual, opcional, campo minPriceBs) y Descuento Bs (manual) propios de esta variante. */
   minPriceBs: string | null;
   discountBs: string;
   /** true = variante "default" auto-provista (catálogo simple); su discountBs queda congelado al
@@ -114,7 +114,7 @@ export type ProductVariant = {
   price: number;
   /** Calculado en vivo: price * tipo de cambio del sistema. */
   wholesalePriceBs: number;
-  /** Calculado en vivo: (minPriceBs si hay, si no wholesalePriceBs) - discountBs. */
+  /** Calculado en vivo: (wholesalePriceBs + minPriceBs) - discountBs. */
   finalPriceBs: number;
   /** Se fija al crear la variante; inmutable después. */
   unidad: UnidadVariante;
@@ -145,14 +145,14 @@ export type Product = {
   productCode: string;
   purchasePrice: string;
   utility: string;
-  /** Precio Min Bs (manual, opcional) y Descuento Bs (manual). Redundantes si hay variantes con precio propio. */
+  /** "Add May" (manual, opcional, campo minPriceBs) y Descuento Bs (manual). Redundantes si hay variantes con precio propio. */
   minPriceBs: string | null;
   discountBs: string;
   /** Calculado en vivo por el backend: purchasePrice + logisticsCost + shippingCost + securityCost (de category) + utility. */
   price: number;
   /** Calculado en vivo: price * tipo de cambio del sistema (Precio May Bs). */
   wholesalePriceBs: number;
-  /** Calculado en vivo: (minPriceBs si hay, si no wholesalePriceBs) - discountBs (Precio Final Bs). */
+  /** Calculado en vivo: (wholesalePriceBs + minPriceBs) - discountBs (Precio Final Bs). */
   finalPriceBs: number;
   imageUrl: string | null;
   brandId: string | null;
