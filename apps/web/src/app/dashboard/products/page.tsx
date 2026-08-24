@@ -333,7 +333,7 @@ export default function ProductsPage() {
       {page && page.items.length > 0 && (
         <>
           <div className="table-scroll">
-            <table className="table table-minimal">
+            <table className="table table-minimal products-table">
               <thead>
                 <tr>
                   <th>Imagen</th>
@@ -345,10 +345,10 @@ export default function ProductsPage() {
                   <th className="num">Compra $</th>
                   <th className="num">Utilidad $</th>
                   <th className="num">Precio $</th>
-                  <th className="num col-group-start">May Bs</th>
+                  <th className="num col-group-start may-bs-col">May Bs</th>
                   <th className="num">Add May</th>
                   <th className="num">Desc. Bs</th>
-                  <th className="num">Final Bs</th>
+                  <th className="num final-bs-col">Final Bs</th>
                   <th>Disponible</th>
                   <th></th>
                 </tr>
@@ -384,7 +384,7 @@ export default function ProductsPage() {
                         <span className="unit">$</span>{priceSource.price.toFixed(2)}
                         {variantCount > 1 && <span className="cell-muted" style={{ fontSize: 12, marginLeft: 4 }}>(de {variantCount})</span>}
                       </td>
-                      <td className="num col-group-start"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
+                      <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
                       <td className="num">
                         {priceSource.minPriceBs !== null ? (
                           <><span className="unit">Bs</span> {priceSource.minPriceBs}</>
@@ -393,7 +393,7 @@ export default function ProductsPage() {
                         )}
                       </td>
                       <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
-                      <td className="num cell-primary">
+                      <td className="num cell-primary final-bs-col">
                         <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
                       </td>
                       <td>

@@ -628,6 +628,27 @@ a {
   font-weight: 600;
 }
 
+.products-table td {
+  font-size: 12px;
+}
+
+.products-table td.cell-primary {
+  font-size: 13px;
+}
+
+.products-table .may-bs-col {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.products-table .final-bs-col {
+  background: #000000;
+  color: #ffffff;
+}
+
+.products-table td.final-bs-col .unit {
+  color: rgba(255, 255, 255, 0.65);
+}
+
 .table-minimal .unit {
   color: var(--muted);
   font-weight: 400;
