@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Brand, Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -183,7 +183,7 @@ export default function HomePage() {
               Perfumes y vapes seleccionados, con stock real y precios claros — sin vueltas.
             </p>
             <button type="button" className="landing-btn landing-btn-outline">
-              Explora nuestras ofertas
+              Explora Nuestras Marcas
             </button>
           </div>
         </div>
@@ -412,18 +412,6 @@ export default function HomePage() {
       <LandingFooter />
     </div>
   );
-}
-
-/** A dónde lleva el logo de una marca: la página de la categoría raíz, con esa marca ya filtrada y,
- * si la marca está atada a una única subcategoría de esta raíz, esa subcategoría también filtrada
- * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar). */
-function brandLinkHref(rootCategoryId: string, brand: Brand): string {
-  const ownSubcategories = new Set(
-    brand.categories.filter((bc) => bc.category.parentId === rootCategoryId).map((bc) => bc.categoryId),
-  );
-  const params = new URLSearchParams({ marca: brand.id });
-  if (ownSubcategories.size === 1) params.set("subcategoria", Array.from(ownSubcategories)[0]);
-  return `/categoria/${rootCategoryId}?${params.toString()}`;
 }
 
 /** Carrusel de logos de marca de una categoría raíz (sus subcategorías) — mismo mecanismo que el

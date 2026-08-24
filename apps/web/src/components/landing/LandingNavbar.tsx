@@ -112,6 +112,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
               ))}
             </div>
           </div>
+          <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
         </nav>
@@ -165,6 +166,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
               {cat.name}
             </Link>
           ))}
+          <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>

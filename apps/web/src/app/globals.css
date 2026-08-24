@@ -3424,6 +3424,107 @@ a {
   color: var(--lp-muted);
 }
 
+/* --- Página /marcas: explorar marcas por categoría raíz --- */
+
+/* Barra tipo "seudo navbar" debajo del hero chico, con un botón (.landing-pill) por categoría raíz. */
+.landing-marcas-nav {
+  background: var(--lp-surface);
+  border-bottom: 1px solid var(--lp-border);
+  padding: 16px 0;
+}
+
+.landing-marcas-nav-inner {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.landing-marcas-search-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.landing-marcas-search {
+  width: 100%;
+  max-width: 420px;
+  padding: 11px 16px;
+  border-radius: 24px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 14px;
+  text-align: center;
+}
+
+.landing-marcas-search:focus {
+  outline: none;
+  border-color: var(--lp-accent);
+}
+
+.landing-marcas-letter-group + .landing-marcas-letter-group {
+  margin-top: 40px;
+}
+
+.landing-marcas-letter-heading {
+  font-family: var(--lp-font-display);
+  font-size: 22px;
+  color: var(--lp-accent);
+  border-bottom: 1px solid var(--lp-border);
+  padding-bottom: 8px;
+  margin: 0 0 20px;
+}
+
+.landing-marcas-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 20px;
+}
+
+.landing-marca-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 14px;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.landing-marca-card:hover {
+  border-color: var(--lp-accent);
+  box-shadow: 0 10px 24px rgba(26, 26, 46, 0.08);
+  transform: translateY(-2px);
+}
+
+.landing-marca-logo {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+
+.landing-marca-logo-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--lp-font-display);
+  font-size: 26px;
+  color: var(--lp-muted);
+}
+
+.landing-marca-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--lp-text);
+  margin: 0;
+}
+
 /* --- Propuesta de valor --- */
 
 .landing-value {
@@ -3822,6 +3923,10 @@ a {
   .landing-brand-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+
+  .landing-marcas-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
@@ -3847,6 +3952,10 @@ a {
   }
 
   .landing-brand-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .landing-marcas-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -3931,6 +4040,10 @@ a {
   }
 
   .landing-brand-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-marcas-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 

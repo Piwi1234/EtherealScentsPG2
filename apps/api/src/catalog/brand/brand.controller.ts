@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
+import { Public } from "../../modules/auth/decorators/public.decorator";
 import { BrandService } from "./brand.service";
 import { BrandImportService } from "./brand-import.service";
 import { CreateBrandDto } from "./dto/create-brand.dto";
@@ -31,6 +32,7 @@ export class BrandController {
     private readonly brandImport: BrandImportService,
   ) {}
 
+  @Public()
   @Get()
   findAll(@Query("categoryId") categoryId?: string) {
     return this.brands.findAll({ categoryId });
@@ -57,6 +59,7 @@ export class BrandController {
     return this.brandImport.importFromFile(file.buffer);
   }
 
+  @Public()
   @Get(":id")
   findOne(@Param("id", ParseUUIDPipe) id: string) {
     return this.brands.findOne(id);

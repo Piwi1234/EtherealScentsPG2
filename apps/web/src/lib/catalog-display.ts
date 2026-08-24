@@ -1,8 +1,20 @@
 import { API_ORIGIN } from "./api";
-import type { Attribute, Product, ProductVariant } from "./types";
+import type { Attribute, Brand, Product, ProductVariant } from "./types";
 
 export function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
+}
+
+/** A dónde lleva el logo/nombre de una marca: la página de esa categoría raíz, con la marca ya
+ * filtrada y, si está atada a una única subcategoría de esa raíz, esa subcategoría también filtrada
+ * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar). */
+export function brandLinkHref(rootCategoryId: string, brand: Brand): string {
+  const ownSubcategories = new Set(
+    brand.categories.filter((bc) => bc.category.parentId === rootCategoryId).map((bc) => bc.categoryId),
+  );
+  const params = new URLSearchParams({ marca: brand.id });
+  if (ownSubcategories.size === 1) params.set("subcategoria", Array.from(ownSubcategories)[0]);
+  return `/categoria/${rootCategoryId}?${params.toString()}`;
 }
 
 /**
