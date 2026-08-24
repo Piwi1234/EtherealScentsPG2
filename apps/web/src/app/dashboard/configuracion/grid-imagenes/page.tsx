@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import {
   API_ORIGIN,
   addCategoryCarouselImage,
+  addCategoryHeroCarouselImage,
   addHeroCarouselImage,
   apiGet,
   apiUpload,
   getHeroCarouselImages,
   getLandingImages,
   moveCategoryCarouselImage,
+  moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
   removeCategoryCarouselImage,
+  removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
@@ -20,13 +23,19 @@ function imgSrc(url: string | null): string | null {
   return url ? `${API_ORIGIN}${url}` : null;
 }
 
-type CarouselSlot = { key: string; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
+// site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
+// destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[id], también uno
+// por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
+// compartido con todas las subcategorías de esa raíz, que no tienen uno propio.
+type SlotKind = "site-hero" | "feature" | "category-hero";
+type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del home: el carrusel del Hero, el carrusel de
- * "Producto destacado" de cada categoría raíz (varias imágenes cada uno, con orden propio), y las
- * imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Si un carrusel queda sin ninguna
- * imagen, esa sección muestra un degradado de relleno en su lugar.
+ * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, dos carruseles
+ * independientes por categoría raíz ("Producto destacado" del home y el hero de su propia página,
+ * este último compartido con sus subcategorías), y las imágenes únicas de "Propuesta de
+ * valor"/"Sobre nosotros". Si un carrusel queda sin ninguna imagen, esa sección muestra un
+ * degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -51,12 +60,13 @@ export default function GridImagenesPage() {
 
   useEffect(load, []);
 
-  async function handleAddCarouselImage(slotKey: string, categoryId: string | null, file: File) {
+  async function handleAddCarouselImage(slotKey: string, kind: SlotKind, categoryId: string | null, file: File) {
     setBusySlot(slotKey);
     setError("");
     try {
-      if (categoryId) await addCategoryCarouselImage(categoryId, file);
-      else await addHeroCarouselImage(file);
+      if (kind === "site-hero") await addHeroCarouselImage(file);
+      else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
+      else await addCategoryHeroCarouselImage(categoryId!, file);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -65,12 +75,13 @@ export default function GridImagenesPage() {
     }
   }
 
-  async function handleRemoveCarouselImage(slotKey: string, categoryId: string | null, imageId: string) {
+  async function handleRemoveCarouselImage(slotKey: string, kind: SlotKind, categoryId: string | null, imageId: string) {
     setBusySlot(slotKey);
     setError("");
     try {
-      if (categoryId) await removeCategoryCarouselImage(categoryId, imageId);
-      else await removeHeroCarouselImage(imageId);
+      if (kind === "site-hero") await removeHeroCarouselImage(imageId);
+      else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
+      else await removeCategoryHeroCarouselImage(categoryId!, imageId);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -79,12 +90,13 @@ export default function GridImagenesPage() {
     }
   }
 
-  async function handleMoveCarouselImage(slotKey: string, categoryId: string | null, imageId: string, direction: "up" | "down") {
+  async function handleMoveCarouselImage(slotKey: string, kind: SlotKind, categoryId: string | null, imageId: string, direction: "up" | "down") {
     setBusySlot(slotKey);
     setError("");
     try {
-      if (categoryId) await moveCategoryCarouselImage(categoryId, imageId, direction);
-      else await moveHeroCarouselImage(imageId, direction);
+      if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
+      else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
+      else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -111,6 +123,7 @@ export default function GridImagenesPage() {
   const carouselSlots: CarouselSlot[] = [
     {
       key: "hero",
+      kind: "site-hero",
       title: "Hero principal",
       categoryId: null,
       images: heroImages,
@@ -120,23 +133,38 @@ export default function GridImagenesPage() {
         "porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son " +
         "lo primero que se recorta en pantallas angostas.",
     },
-    ...rootCategories.map((cat) => ({
-      key: cat.id,
-      title: cat.name,
-      categoryId: cat.id,
-      images: cat.carouselImages,
-      hint:
-        "Recomendado: 1200×1200px o más, cuadrada (relación 1:1), por cada imagen del carrusel. Se recorta para " +
-        "llenar el cuadro (object-fit: cover) — centrá lo importante de la foto.",
-    })),
+    ...rootCategories.flatMap((cat) => [
+      {
+        key: `${cat.id}-feature`,
+        kind: "feature" as const,
+        title: `${cat.name} — Producto destacado`,
+        categoryId: cat.id,
+        images: cat.carouselImages,
+        hint:
+          "Se usa en el bloque \"Producto destacado\" del home. Recomendado: 1200×1200px o más, cuadrada (relación " +
+          "1:1) — se recorta para llenar el cuadro (object-fit: cover), centrá lo importante de la foto.",
+      },
+      {
+        key: `${cat.id}-hero`,
+        kind: "category-hero" as const,
+        title: `${cat.name} — Hero de categoría`,
+        categoryId: cat.id,
+        images: cat.heroCarouselImages,
+        hint:
+          "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías (recorte " +
+          "panorámico, mismo tratamiento que el Hero principal) — carrusel independiente del de \"Producto " +
+          "destacado\" de arriba, no uno por subcategoría. Recomendado: 2400×1350px o más (relación 16:9), horizontal.",
+      },
+    ]),
   ];
 
   return (
     <div className="card">
       <h1 style={{ marginTop: 0, fontSize: 20 }}>Grid Imágenes</h1>
       <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 700 }}>
-        Imágenes de las secciones visuales del home: el carrusel del Hero, el carrusel de "Producto destacado" (uno
-        por categoría raíz) y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna
+        Imágenes de las secciones visuales del sitio: el carrusel del Hero, y por cada categoría raíz dos carruseles
+        independientes — "Producto destacado" del home y el hero de su propia página (compartido con todas sus
+        subcategorías) — más las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna
         imagen cargada muestra un degradado de relleno en su lugar.
       </p>
       {error && <p className="error-text">{error}</p>}
@@ -152,9 +180,9 @@ export default function GridImagenesPage() {
                 hint={slot.hint}
                 images={slot.images}
                 busy={busySlot === slot.key}
-                onAdd={(file) => handleAddCarouselImage(slot.key, slot.categoryId, file)}
-                onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.categoryId, imageId)}
-                onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.categoryId, imageId, direction)}
+                onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
+                onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
+                onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
               />
             ))}
           </div>

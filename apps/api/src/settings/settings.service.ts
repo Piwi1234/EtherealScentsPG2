@@ -33,7 +33,7 @@ export class SettingsService {
   async getLandingImages() {
     const [setting, heroImages] = await Promise.all([
       this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
-      this.carouselImages.list(null),
+      this.carouselImages.list(null, "FEATURE"),
     ]);
     return {
       heroImages: heroImages.map((image) => image.imageUrl),
@@ -45,11 +45,11 @@ export class SettingsService {
   /** El carrusel del Hero (categoryId null en CarouselImage) — igual mecanismo que el de una
    * categoría raíz, ver CategoryService.addCarouselImage/removeCarouselImage/moveCarouselImage. */
   listHeroCarouselImages() {
-    return this.carouselImages.list(null);
+    return this.carouselImages.list(null, "FEATURE");
   }
 
   addHeroCarouselImage(file: Express.Multer.File) {
-    return this.carouselImages.add(null, file);
+    return this.carouselImages.add(null, "FEATURE", file);
   }
 
   removeHeroCarouselImage(imageId: string) {

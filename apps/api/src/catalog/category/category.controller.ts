@@ -55,9 +55,10 @@ export class CategoryController {
     return this.categories.remove(id);
   }
 
+  // "Producto destacado" del home (bloque cuadrado).
   @Get(":id/carousel-images")
   listCarouselImages(@Param("id", ParseUUIDPipe) id: string) {
-    return this.categories.listCarouselImages(id);
+    return this.categories.listCarouselImages(id, "FEATURE");
   }
 
   @Post(":id/carousel-images")
@@ -68,7 +69,7 @@ export class CategoryController {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
     }
-    return this.categories.addCarouselImage(id, file);
+    return this.categories.addCarouselImage(id, "FEATURE", file);
   }
 
   @Delete(":id/carousel-images/:imageId")
@@ -78,6 +79,36 @@ export class CategoryController {
 
   @Patch(":id/carousel-images/:imageId/move")
   moveCarouselImage(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @Body() dto: MoveCarouselImageDto,
+  ) {
+    return this.categories.moveCarouselImage(id, imageId, dto.direction);
+  }
+
+  // Hero de /categoria/[id] (panorámico) — carrusel independiente del de arriba, compartido con
+  // todas las subcategorías de esta raíz.
+  @Get(":id/hero-carousel-images")
+  listHeroCarouselImages(@Param("id", ParseUUIDPipe) id: string) {
+    return this.categories.listCarouselImages(id, "CATEGORY_HERO");
+  }
+
+  @Post(":id/hero-carousel-images")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  addHeroCarouselImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.categories.addCarouselImage(id, "CATEGORY_HERO", file);
+  }
+
+  @Delete(":id/hero-carousel-images/:imageId")
+  removeHeroCarouselImage(@Param("id", ParseUUIDPipe) id: string, @Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.categories.removeCarouselImage(id, imageId);
+  }
+
+  @Patch(":id/hero-carousel-images/:imageId/move")
+  moveHeroCarouselImage(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("imageId", ParseUUIDPipe) imageId: string,
     @Body() dto: MoveCarouselImageDto,

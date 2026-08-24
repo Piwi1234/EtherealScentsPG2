@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { Category } from "@app/database";
+import { Category, CarouselKind } from "@app/database";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -14,6 +14,18 @@ export interface CategoryTreeNode extends Category {
 const includeCarouselImages = {
   carouselImages: { orderBy: { orden: "asc" as const } },
 };
+
+/** El include de arriba trae los dos carruseles de la categoría mezclados (FEATURE y
+ * CATEGORY_HERO, ver `CarouselKind`) — acá se separan en dos campos antes de devolver la
+ * categoría: `carouselImages` (FEATURE, bloque "Producto destacado" del home) y
+ * `heroCarouselImages` (CATEGORY_HERO, hero de /categoria/[id]). */
+function splitCarouselImages<T extends { carouselImages: { kind: string }[] }>(category: T) {
+  return {
+    ...category,
+    carouselImages: category.carouselImages.filter((image) => image.kind === "FEATURE"),
+    heroCarouselImages: category.carouselImages.filter((image) => image.kind === "CATEGORY_HERO"),
+  };
+}
 
 @Injectable()
 export class CategoryService {
@@ -55,10 +67,12 @@ export class CategoryService {
   }
 
   async findAll(options: { tree?: boolean } = {}) {
-    const categories = await this.prisma.category.findMany({
-      orderBy: { name: "asc" },
-      include: includeCarouselImages,
-    });
+    const categories = (
+      await this.prisma.category.findMany({
+        orderBy: { name: "asc" },
+        include: includeCarouselImages,
+      })
+    ).map(splitCarouselImages);
 
     if (!options.tree) {
       return categories;
@@ -93,7 +107,7 @@ export class CategoryService {
     if (!category) {
       throw new NotFoundException("Categoría no encontrada.");
     }
-    return category;
+    return splitCarouselImages(category);
   }
 
   /** Cadena de ids desde la categoría hasta la raíz, incluyendo la propia categoría. */
@@ -185,7 +199,8 @@ export class CategoryService {
     }
   }
 
-  /** Solo categorías raíz tienen carrusel — es el de la sección "Producto destacado" del home. */
+  /** Solo categorías raíz tienen carrusel — el de la sección "Producto destacado" del home, y
+   * también el del hero de /categoria/[id] (subcategorías incluidas: comparten el de su padre). */
   private async assertRootCategory(id: string) {
     const category = await this.findOne(id);
     if (category.parentId) {
@@ -193,14 +208,14 @@ export class CategoryService {
     }
   }
 
-  async listCarouselImages(id: string) {
+  async listCarouselImages(id: string, kind: CarouselKind) {
     await this.findOne(id);
-    return this.carouselImages.list(id);
+    return this.carouselImages.list(id, kind);
   }
 
-  async addCarouselImage(id: string, file: Express.Multer.File) {
+  async addCarouselImage(id: string, kind: CarouselKind, file: Express.Multer.File) {
     await this.assertRootCategory(id);
-    return this.carouselImages.add(id, file);
+    return this.carouselImages.add(id, kind, file);
   }
 
   async removeCarouselImage(id: string, imageId: string) {

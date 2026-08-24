@@ -8,11 +8,14 @@ import { cardImageUrl, displayPrice, getAttributeFilterOptions, hasDiscount, isS
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
+import { ImageCarousel } from "../../../components/landing/ImageCarousel";
 import { formatAtributosVisiblesValores } from "../../../components/proformas/AtributosVisibles";
 
 type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 type BrandCount = { id: string; name: string; count: number };
 type PriceRange = [number, number];
+
+const CATEGORY_BANNER_AUTOPLAY_MS = 10000;
 
 const FILTER_VISIBLE_DEFAULT = 10;
 // 4 tarjetas por fila x 5 filas visibles — a partir de ahí se pagina.
@@ -84,6 +87,9 @@ export default function CategoriaPage() {
   // como `basePage` (para que los contadores/rango de precio/marcas cubran todas las hermanas, no
   // solo la actual).
   const effectiveRootId = category ? category.parentId ?? category.id : null;
+  // El carrusel del hero es uno solo por categoría raíz (no por subcategoría) — cuando `category`
+  // es una subcategoría, se usa el de su padre.
+  const rootCategoryForBanner = effectiveRootId ? categories.find((c) => c.id === effectiveRootId) : null;
 
   useEffect(() => {
     if (!effectiveRootId) return;
@@ -283,6 +289,16 @@ export default function CategoriaPage() {
       <LandingNavbar variant="light" />
 
       <section className="landing-category-banner">
+        {rootCategoryForBanner && rootCategoryForBanner.heroCarouselImages.length > 0 && (
+          <div className="landing-category-banner-bg">
+            <ImageCarousel
+              images={rootCategoryForBanner.heroCarouselImages.map((image) => image.imageUrl)}
+              alt=""
+              imgClassName="landing-category-banner-bg-image"
+              autoplayMs={CATEGORY_BANNER_AUTOPLAY_MS}
+            />
+          </div>
+        )}
         <div className="landing-container">
           <h1>{category?.name ?? "Cargando..."}</h1>
           <p className="landing-category-lead">

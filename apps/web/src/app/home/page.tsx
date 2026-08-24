@@ -7,6 +7,7 @@ import { brandLinkHref, cardImageUrl, displayPrice, hasDiscount, isSoldOut, prod
 import type { Brand, Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
+import { ImageCarousel } from "../../components/landing/ImageCarousel";
 import { formatAtributosVisiblesValores } from "../../components/proformas/AtributosVisibles";
 
 function scrollToId(id: string) {
@@ -24,77 +25,6 @@ function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
   return chunks;
-}
-
-/** Carrusel de una sola imagen a la vez (fade al cambiar) + flechas + autoplay — para el fondo del
- * Hero y el cuadro de "Producto destacado". El wrapper (`position: relative`) lo pone quien lo usa. */
-function ImageCarousel({
-  images,
-  alt,
-  imgClassName,
-  autoplayMs,
-}: {
-  images: string[];
-  alt: string;
-  imgClassName: string;
-  autoplayMs: number;
-}) {
-  const [slide, setSlide] = useState(0);
-  const [autoKey, setAutoKey] = useState(0);
-
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const timer = setInterval(() => {
-      setSlide((s) => (s + 1) % images.length);
-    }, autoplayMs);
-    return () => clearInterval(timer);
-  }, [images.length, autoKey, autoplayMs]);
-
-  function goTo(index: number) {
-    const total = images.length;
-    if (total === 0) return;
-    setSlide(((index % total) + total) % total);
-    setAutoKey((k) => k + 1);
-  }
-
-  if (images.length === 0) return null;
-
-  return (
-    <>
-      <img key={slide} className={imgClassName} src={productImageSrc(images[slide])!} alt={alt} />
-      {images.length > 1 && (
-        <>
-          <button
-            type="button"
-            className="landing-image-carousel-arrow landing-image-carousel-arrow--prev"
-            aria-label="Imagen anterior"
-            onClick={() => goTo(slide - 1)}
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            className="landing-image-carousel-arrow landing-image-carousel-arrow--next"
-            aria-label="Siguiente imagen"
-            onClick={() => goTo(slide + 1)}
-          >
-            ›
-          </button>
-          <div className="landing-image-carousel-dots">
-            {images.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`landing-image-carousel-dot${i === slide ? " landing-image-carousel-dot--active" : ""}`}
-                aria-label={`Ir a la imagen ${i + 1}`}
-                onClick={() => goTo(i)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
 }
 
 export default function HomePage() {
@@ -182,9 +112,9 @@ export default function HomePage() {
             <p className="landing-hero-subtitle">
               Perfumes y vapes seleccionados, con stock real y precios claros — sin vueltas.
             </p>
-            <button type="button" className="landing-btn landing-btn-outline">
+            <Link href="/marcas" className="landing-btn landing-btn-outline">
               Explora Nuestras Marcas
-            </button>
+            </Link>
           </div>
         </div>
       </section>

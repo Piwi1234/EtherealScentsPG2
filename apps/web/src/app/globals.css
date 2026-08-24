@@ -2077,13 +2077,13 @@ a {
 }
 
 .landing-btn-outline {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: var(--lp-text);
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
 }
 
 .landing-btn-outline:hover {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.85);
   transform: translateY(-1px);
 }
 
@@ -2550,11 +2550,38 @@ a {
    siga leyendo bien al cargar la página. */
 
 .landing-category-banner {
+  position: relative;
+  overflow: hidden;
   padding: 130px 24px 56px;
   background:
     radial-gradient(circle at 12% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
     linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
   color: #f5f4f0;
+}
+
+/* Carrusel de imágenes propio de la categoría (o subcategoría) de fondo del banner — el gradiente
+ * de arriba queda como relleno mientras esa categoría no tiene ninguna imagen cargada. */
+.landing-category-banner-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.landing-category-banner-bg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: landing-image-fade 1.2s ease;
+}
+
+.landing-category-banner .landing-container {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-category-banner h1,
+.landing-category-lead {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 .landing-breadcrumb-bar {

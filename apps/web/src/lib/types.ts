@@ -17,9 +17,13 @@ export type Category = {
   securityCost: string | null;
   // Solo aplica a categorías raíz (sin padre) — nota interna libre.
   comentario: string | null;
-  // Solo aplica a categorías raíz — el carrusel de la sección "Producto destacado" del home.
+  // Solo aplica a categorías raíz — el carrusel del bloque "Producto destacado" del home.
   // Ordenado por `orden` (ya viene ordenado del backend).
   carouselImages: CarouselImage[];
+  // Solo aplica a categorías raíz — el carrusel del hero de /categoria/[id], independiente del de
+  // arriba (tamaño panorámico en vez de cuadrado). Se muestra tanto en la página de esa raíz como
+  // en la de todas sus subcategorías (que no tienen uno propio, comparten el de su padre).
+  heroCarouselImages: CarouselImage[];
   createdAt: string;
   updatedAt: string;
 };

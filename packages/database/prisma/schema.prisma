@@ -191,15 +191,26 @@ model Category {
 /// un Hero) o del bloque "Producto destacado" de una categoría raíz puntual (categoryId). `orden`
 /// define el orden de reproducción; se reordena intercambiando `orden` con el vecino (ver
 /// CarouselImageService.move), nunca reescribiendo toda la lista.
-model CarouselImage {
-  id         String    @id @default(uuid()) @db.Uuid
-  categoryId String?   @map("category_id") @db.Uuid
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  imageUrl   String    @map("image_url")
-  orden      Int       @default(0)
-  createdAt  DateTime  @default(now()) @map("created_at")
+/** FEATURE: carrusel del bloque "Producto destacado" del home (categoría raíz), tamaño cuadrado.
+ * CATEGORY_HERO: carrusel del hero de /categoria/[id] (categoría raíz), tamaño panorámico — se
+ * muestra tanto en la página de esa raíz como en la de todas sus subcategorías, pero es un set de
+ * imágenes propio, independiente del de FEATURE. Irrelevante para el Hero principal (categoryId
+ * null), que no tiene otro carrusel con el que distinguirse. */
+enum CarouselKind {
+  FEATURE
+  CATEGORY_HERO
+}
 
-  @@index([categoryId, orden])
+model CarouselImage {
+  id         String       @id @default(uuid()) @db.Uuid
+  categoryId String?      @map("category_id") @db.Uuid
+  category   Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  kind       CarouselKind @default(FEATURE)
+  imageUrl   String       @map("image_url")
+  orden      Int          @default(0)
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@index([categoryId, kind, orden])
   @@map("carousel_images")
 }
 

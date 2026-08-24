@@ -265,6 +265,23 @@ export function moveCategoryCarouselImage(categoryId: string, imageId: string, d
   return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/move`, { direction });
 }
 
+// Carrusel del hero de /categoria/[id] — independiente del de "Producto destacado" de arriba.
+export function getCategoryHeroCarouselImages(categoryId: string) {
+  return apiGet<CarouselImage[]>(`/categories/${categoryId}/hero-carousel-images`);
+}
+
+export function addCategoryHeroCarouselImage(categoryId: string, file: File) {
+  return apiUpload<CarouselImage>(`/categories/${categoryId}/hero-carousel-images`, file);
+}
+
+export function removeCategoryHeroCarouselImage(categoryId: string, imageId: string) {
+  return apiDelete<void>(`/categories/${categoryId}/hero-carousel-images/${imageId}`);
+}
+
+export function moveCategoryHeroCarouselImage(categoryId: string, imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/categories/${categoryId}/hero-carousel-images/${imageId}/move`, { direction });
+}
+
 export function createEmpresa(data: EmpresaInput) {
   return apiPost<Empresa>("/empresas", data);
 }
