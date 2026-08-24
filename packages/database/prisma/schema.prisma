@@ -291,6 +291,10 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Sin esto, cualquier filtro por categoría (raíz, subcategoría) o marca hace un sequential scan de
+  // toda la tabla — se nota cada vez más a medida que crece el catálogo.
+  @@index([categoryId])
+  @@index([brandId])
   @@map("products")
 }
 

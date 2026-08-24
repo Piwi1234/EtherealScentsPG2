@@ -39,6 +39,8 @@ function defaultVariantId(product: Product): string | undefined {
   return product.variants.reduce((best, v) => (v.price > best.price ? v : best), product.variants[0]).id;
 }
 
+const PAGE_SIZE = 15;
+
 export default function ProductsPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,6 +51,7 @@ export default function ProductsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState<Page<Product> | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
@@ -91,6 +94,8 @@ export default function ProductsPage() {
     if (effectiveCategoryFilter) params.set("categoryId", effectiveCategoryFilter);
     if (brandFilter) params.set("brandId", brandFilter);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    params.set("page", String(pageNumber));
+    params.set("pageSize", String(PAGE_SIZE));
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -116,7 +121,13 @@ export default function ProductsPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch]);
+  // Vuelve a la primera página cada vez que cambia un filtro (si no, se podría quedar en una
+  // página que ya no existe para el nuevo resultado).
+  useEffect(() => {
+    setPageNumber(1);
+  }, [effectiveCategoryFilter, brandFilter, debouncedSearch]);
+
+  useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch, pageNumber]);
 
   async function handleDelete(product: Product) {
     if (!confirm(`¿Eliminar el producto "${product.name}"?`)) return;
@@ -167,6 +178,8 @@ export default function ProductsPage() {
     }
     return Array.from(map.values());
   })();
+
+  const totalPages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
 
   // Variante actualmente elegida para ese producto (por defecto, la de mayor precio). Se usa tanto
   // para las columnas de atributos con precio propio como para Precio de compra/Utilidad/Precio $.
@@ -324,9 +337,8 @@ export default function ProductsPage() {
               <thead>
                 <tr>
                   <th>Imagen</th>
-                  <th>ID Producto</th>
                   <th>Marca</th>
-                  <th>Nombre</th>
+                  <th style={{ minWidth: 260 }}>Nombre</th>
                   {extraAttributeColumns.map((column) => (
                     <th key={column.id}>{column.name}</th>
                   ))}
@@ -361,7 +373,6 @@ export default function ProductsPage() {
                           <span className="cell-muted">—</span>
                         )}
                       </td>
-                      <td className="cell-code">{product.productCode}</td>
                       <td className="cell-muted">{product.brand?.name ?? "—"}</td>
                       <td className="cell-primary">{product.name}</td>
                       {extraAttributeColumns.map((column) => (
@@ -416,6 +427,29 @@ export default function ProductsPage() {
           <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 0 }}>
             {page.total} producto{page.total === 1 ? "" : "s"} en total.
           </p>
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                type="button"
+                className={`pagination-btn${pageNumber <= 1 ? " disabled" : ""}`}
+                disabled={pageNumber <= 1}
+                onClick={() => setPageNumber((p) => p - 1)}
+              >
+                ← Anterior
+              </button>
+              <span className="pagination-info">
+                Página {pageNumber} de {totalPages}
+              </span>
+              <button
+                type="button"
+                className={`pagination-btn${pageNumber >= totalPages ? " disabled" : ""}`}
+                disabled={pageNumber >= totalPages}
+                onClick={() => setPageNumber((p) => p + 1)}
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
