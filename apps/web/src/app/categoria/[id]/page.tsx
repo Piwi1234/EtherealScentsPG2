@@ -360,11 +360,23 @@ export default function CategoriaPage() {
                     const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                     return (
                       <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
-                        {image ? (
-                          <img className="landing-product-image" src={image} alt={product.name} />
-                        ) : (
-                          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
-                        )}
+                        <div className="landing-product-image-wrap">
+                          {image ? (
+                            <img className="landing-product-image" src={image} alt={product.name} />
+                          ) : (
+                            <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
+                          )}
+                          {hasDiscount(product) && (
+                            <span className="landing-product-offer-badge">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
+                                <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
+                                <path d="M2.5 3h2.4l2.2 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6" />
+                              </svg>
+                              Oferta
+                            </span>
+                          )}
+                        </div>
                         <div className="landing-product-body">
                           {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
                           <p className="landing-product-name">{product.name}</p>

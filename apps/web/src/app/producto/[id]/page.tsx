@@ -59,14 +59,23 @@ export default function ProductoPage() {
 
   const selectedVariant = product ? product.variants.find((v) => v.id === selectedVariantId) ?? product.variants[0] ?? null : null;
 
-  function selectOption(attributeId: string, optionValueId: string) {
-    if (!product || !selectedVariant) return;
+  /** Variante que resultaría de elegir esta opción (dejando el resto de las selecciones actuales
+   * como están) — mismo matching que `selectOption`, para poder marcar la opción como no disponible
+   * sin necesidad de seleccionarla primero. */
+  function findVariantForOption(attributeId: string, optionValueId: string) {
+    if (!product || !selectedVariant) return null;
     const currentSelections = new Map(selectedVariant.options.map((o) => [o.optionValue.attributeId, o.optionValueId]));
     currentSelections.set(attributeId, optionValueId);
-    const match = product.variants.find((v) => {
-      const vSelections = new Map(v.options.map((o) => [o.optionValue.attributeId, o.optionValueId]));
-      return Array.from(currentSelections.entries()).every(([aId, vId]) => vSelections.get(aId) === vId);
-    });
+    return (
+      product.variants.find((v) => {
+        const vSelections = new Map(v.options.map((o) => [o.optionValue.attributeId, o.optionValueId]));
+        return Array.from(currentSelections.entries()).every(([aId, vId]) => vSelections.get(aId) === vId);
+      }) ?? null
+    );
+  }
+
+  function selectOption(attributeId: string, optionValueId: string) {
+    const match = findVariantForOption(attributeId, optionValueId);
     if (match) setSelectedVariantId(match.id);
   }
 
@@ -158,11 +167,13 @@ export default function ProductoPage() {
                     <div className="landing-product-detail-variant-options">
                       {group.options.map((option) => {
                         const isActive = selectedVariant?.options.some((o) => o.optionValueId === option.optionValueId) ?? false;
+                        const optionVariant = findVariantForOption(group.attributeId, option.optionValueId);
+                        const isUnavailable = optionVariant ? !optionVariant.disponible : false;
                         return (
                           <button
                             type="button"
                             key={option.optionValueId}
-                            className={`landing-product-detail-variant-btn${isActive ? " landing-product-detail-variant-btn--active" : ""}`}
+                            className={`landing-product-detail-variant-btn${isActive ? " landing-product-detail-variant-btn--active" : ""}${isUnavailable ? " landing-product-detail-variant-btn--unavailable" : ""}`}
                             onClick={() => selectOption(group.attributeId, option.optionValueId)}
                           >
                             {option.label}
@@ -173,7 +184,7 @@ export default function ProductoPage() {
                   </div>
                 ))}
 
-                <p className="landing-product-detail-price-bs">Bs {priceBs.toFixed(2)}</p>
+                {disponible && <p className="landing-product-detail-price-bs">Bs {priceBs.toFixed(2)}</p>}
 
                 <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>
                   {disponible ? "Disponible" : "No disponible"}

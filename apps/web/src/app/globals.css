@@ -2998,6 +2998,17 @@ a {
   font-size: 11px;
 }
 
+.landing-product-grid--carousel .landing-product-offer-badge {
+  top: 8px;
+  padding: 3px 8px 3px 12px;
+  font-size: 9.5px;
+}
+
+.landing-product-grid--carousel .landing-product-offer-badge svg {
+  width: 11px;
+  height: 11px;
+}
+
 .landing-product-grid--carousel .landing-product-soldout-stamp {
   font-size: 11px;
   padding: 2px 10px;
@@ -3063,11 +3074,46 @@ a {
   box-shadow: 0 16px 32px rgba(26, 26, 46, 0.08);
 }
 
+.landing-product-image-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .landing-product-image,
 .landing-product-image-placeholder {
   width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Badge "Oferta": sobrepuesto arriba a la izquierda de la imagen, para productos (o alguna de sus
+   variantes) con descuento — ver `hasDiscount`. Forma de cinta/flecha vía clip-path, apuntando hacia
+   afuera (izquierda). */
+.landing-product-offer-badge {
+  position: absolute;
+  top: 14px;
+  left: -6px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 16px;
+  background: #d81f26;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1.5px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
+  clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%);
+}
+
+.landing-product-offer-badge svg {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -3472,6 +3518,35 @@ a {
   background: var(--lp-text);
   border-color: var(--lp-text);
   color: #ffffff;
+}
+
+/* No disponible: se puede seguir viendo/eligiendo (no está deshabilitada) — fondo gris (no negro) +
+   una línea diagonal roja encima, para marcarla sin ocultarla. Va después de --active a propósito,
+   para que gane el gris incluso si la opción no disponible queda seleccionada. */
+.landing-product-detail-variant-btn--unavailable {
+  position: relative;
+  overflow: hidden;
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+  color: #8a8a8a;
+}
+
+.landing-product-detail-variant-btn--unavailable.landing-product-detail-variant-btn--active {
+  border-color: var(--lp-text);
+}
+
+.landing-product-detail-variant-btn--unavailable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    #d32f2f calc(50% - 1px),
+    #d32f2f calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+  pointer-events: none;
 }
 
 .landing-product-detail-price-bs {

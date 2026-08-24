@@ -9,11 +9,18 @@ export function productImageSrc(imageUrl: string | null): string | null {
  * Si el producto tiene variantes con precio propio, se muestra "Desde" el precio más bajo entre
  * ellas — devuelve también esa variante (`variant`), para poder usar su imagen propia si tiene
  * (ver `cardImageUrl`); si no hay variantes, `variant` es null.
+ *
+ * Si alguna variante está disponible, se elige la más barata SOLO entre las disponibles (así la
+ * tarjeta no muestra el precio de algo que no se puede comprar) — recién si TODAS están marcadas no
+ * disponibles (ver `isSoldOut`, que muestra el sello "Sold Out" en su lugar) se cae a la más barata
+ * en general, nada más para tener una variante representativa (imagen) que mostrar.
  */
 export function displayPrice(product: Product): { bs: number; usd: number; fromPrice: boolean; variant: ProductVariant | null } {
   if (product.variants.length > 0) {
-    const cheapest = product.variants.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), product.variants[0]);
-    return { bs: cheapest.finalPriceBs, usd: cheapest.price, fromPrice: product.variants.length > 1, variant: cheapest };
+    const available = product.variants.filter((v) => v.disponible);
+    const pool = available.length > 0 ? available : product.variants;
+    const cheapest = pool.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), pool[0]);
+    return { bs: cheapest.finalPriceBs, usd: cheapest.price, fromPrice: pool.length > 1, variant: cheapest };
   }
   return { bs: product.finalPriceBs, usd: product.price, fromPrice: false, variant: null };
 }
