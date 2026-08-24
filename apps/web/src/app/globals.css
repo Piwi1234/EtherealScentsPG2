@@ -2013,7 +2013,7 @@ a {
 }
 
 .landing-container {
-  max-width: 1160px;
+  max-width: 1550px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -2649,9 +2649,21 @@ a {
 .landing-filters-sidebar {
   position: sticky;
   top: 100px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 22px;
+  padding-right: 10px;
+}
+
+.landing-filters-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.landing-filters-sidebar::-webkit-scrollbar-thumb {
+  background: var(--lp-border);
+  border-radius: 999px;
 }
 
 .landing-filters-sidebar-header {
