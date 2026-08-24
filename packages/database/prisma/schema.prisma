@@ -191,14 +191,18 @@ model Category {
 /// un Hero) o del bloque "Producto destacado" de una categoría raíz puntual (categoryId). `orden`
 /// define el orden de reproducción; se reordena intercambiando `orden` con el vecino (ver
 /// CarouselImageService.move), nunca reescribiendo toda la lista.
-/** FEATURE: carrusel del bloque "Producto destacado" del home (categoría raíz), tamaño cuadrado.
+/** FEATURE: con categoryId de una categoría raíz, el bloque "Producto destacado" del home (tamaño
+ * cuadrado); con categoryId null, el Hero principal del home (tamaño panorámico) — es el valor por
+ * default histórico, así que sigue significando "el carrusel principal de ese slot".
  * CATEGORY_HERO: carrusel del hero de /categoria/[id] (categoría raíz), tamaño panorámico — se
  * muestra tanto en la página de esa raíz como en la de todas sus subcategorías, pero es un set de
- * imágenes propio, independiente del de FEATURE. Irrelevante para el Hero principal (categoryId
- * null), que no tiene otro carrusel con el que distinguirse. */
+ * imágenes propio, independiente del de FEATURE.
+ * MARCAS_HERO: carrusel del hero de /marcas (categoryId null, singleton, tamaño panorámico) —
+ * independiente del Hero principal del home. */
 enum CarouselKind {
   FEATURE
   CATEGORY_HERO
+  MARCAS_HERO
 }
 
 model CarouselImage {

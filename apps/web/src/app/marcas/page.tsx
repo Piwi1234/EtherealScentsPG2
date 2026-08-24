@@ -2,15 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands } from "../../lib/api";
+import { apiGet, getBrands, getLandingImages } from "../../lib/api";
 import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
 import type { Brand, Category } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
+import { ImageCarousel } from "../../components/landing/ImageCarousel";
+
+const MARCAS_BANNER_AUTOPLAY_MS = 10000;
 
 export default function MarcasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [marcasHeroImages, setMarcasHeroImages] = useState<string[]>([]);
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -22,6 +26,9 @@ export default function MarcasPage() {
     getBrands()
       .then(setBrands)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getLandingImages()
+      .then((images) => setMarcasHeroImages(images.marcasHeroImages))
+      .catch(() => {});
   }, []);
 
   const rootCategories = useMemo(
@@ -62,6 +69,16 @@ export default function MarcasPage() {
       <LandingNavbar variant="light" />
 
       <section className="landing-category-banner">
+        {marcasHeroImages.length > 0 && (
+          <div className="landing-category-banner-bg">
+            <ImageCarousel
+              images={marcasHeroImages}
+              alt=""
+              imgClassName="landing-category-banner-bg-image"
+              autoplayMs={MARCAS_BANNER_AUTOPLAY_MS}
+            />
+          </div>
+        )}
         <div className="landing-container">
           <h1>Marcas</h1>
           <p className="landing-category-lead">Explorá las marcas que trabajamos, organizadas por categoría.</p>

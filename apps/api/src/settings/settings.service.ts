@@ -28,15 +28,17 @@ export class SettingsService {
     return Number(setting.exchangeRate);
   }
 
-  /** Público (sin auth) — el carrusel del hero y las imágenes de "Propuesta de valor"/"Sobre
-   * nosotros" del home. */
+  /** Público (sin auth) — los carruseles del hero del home y del hero de /marcas, y las imágenes de
+   * "Propuesta de valor"/"Sobre nosotros" del home. */
   async getLandingImages() {
-    const [setting, heroImages] = await Promise.all([
+    const [setting, heroImages, marcasHeroImages] = await Promise.all([
       this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
       this.carouselImages.list(null, "FEATURE"),
+      this.carouselImages.list(null, "MARCAS_HERO"),
     ]);
     return {
       heroImages: heroImages.map((image) => image.imageUrl),
+      marcasHeroImages: marcasHeroImages.map((image) => image.imageUrl),
       valueImageUrl: setting?.valueImageUrl ?? null,
       aboutImageUrl: setting?.aboutImageUrl ?? null,
     };
@@ -57,6 +59,24 @@ export class SettingsService {
   }
 
   moveHeroCarouselImage(imageId: string, direction: "up" | "down") {
+    return this.carouselImages.move(imageId, direction);
+  }
+
+  /** El carrusel del hero de /marcas (categoryId null, kind MARCAS_HERO) — independiente del Hero
+   * principal del home, mismo mecanismo. */
+  listMarcasHeroCarouselImages() {
+    return this.carouselImages.list(null, "MARCAS_HERO");
+  }
+
+  addMarcasHeroCarouselImage(file: Express.Multer.File) {
+    return this.carouselImages.add(null, "MARCAS_HERO", file);
+  }
+
+  removeMarcasHeroCarouselImage(imageId: string) {
+    return this.carouselImages.remove(imageId);
+  }
+
+  moveMarcasHeroCarouselImage(imageId: string, direction: "up" | "down") {
     return this.carouselImages.move(imageId, direction);
   }
 

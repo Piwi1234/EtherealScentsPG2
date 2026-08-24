@@ -6,16 +6,20 @@ import {
   addCategoryCarouselImage,
   addCategoryHeroCarouselImage,
   addHeroCarouselImage,
+  addMarcasHeroCarouselImage,
   apiGet,
   apiUpload,
   getHeroCarouselImages,
   getLandingImages,
+  getMarcasHeroCarouselImages,
   moveCategoryCarouselImage,
   moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
+  moveMarcasHeroCarouselImage,
   removeCategoryCarouselImage,
   removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
+  removeMarcasHeroCarouselImage,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
 
@@ -26,20 +30,22 @@ function imgSrc(url: string | null): string | null {
 // site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
 // destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[id], también uno
 // por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
-// compartido con todas las subcategorías de esa raíz, que no tienen uno propio.
-type SlotKind = "site-hero" | "feature" | "category-hero";
+// compartido con todas las subcategorías de esa raíz, que no tienen uno propio. marcas-hero: hero de
+// /marcas (categoryId null, singleton, independiente del Hero principal del home).
+type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, dos carruseles
- * independientes por categoría raíz ("Producto destacado" del home y el hero de su propia página,
- * este último compartido con sus subcategorías), y las imágenes únicas de "Propuesta de
- * valor"/"Sobre nosotros". Si un carrusel queda sin ninguna imagen, esa sección muestra un
- * degradado de relleno en su lugar.
+ * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, el del hero de
+ * /marcas, dos carruseles independientes por categoría raíz ("Producto destacado" del home y el
+ * hero de su propia página, este último compartido con sus subcategorías), y las imágenes únicas de
+ * "Propuesta de valor"/"Sobre nosotros". Si un carrusel queda sin ninguna imagen, esa sección
+ * muestra un degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
+  const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
     null,
   );
@@ -53,6 +59,9 @@ export default function GridImagenesPage() {
     getHeroCarouselImages()
       .then(setHeroImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getMarcasHeroCarouselImages()
+      .then(setMarcasHeroImages)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getLandingImages()
       .then(setLandingImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -65,6 +74,7 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await addHeroCarouselImage(file);
+      else if (kind === "marcas-hero") await addMarcasHeroCarouselImage(file);
       else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
       else await addCategoryHeroCarouselImage(categoryId!, file);
       load();
@@ -80,6 +90,7 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await removeHeroCarouselImage(imageId);
+      else if (kind === "marcas-hero") await removeMarcasHeroCarouselImage(imageId);
       else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
       else await removeCategoryHeroCarouselImage(categoryId!, imageId);
       load();
@@ -95,6 +106,7 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
+      else if (kind === "marcas-hero") await moveMarcasHeroCarouselImage(imageId, direction);
       else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
       else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
       load();
@@ -133,6 +145,16 @@ export default function GridImagenesPage() {
         "porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son " +
         "lo primero que se recorta en pantallas angostas.",
     },
+    {
+      key: "marcas-hero",
+      kind: "marcas-hero",
+      title: "Hero de Marcas",
+      categoryId: null,
+      images: marcasHeroImages,
+      hint:
+        "Fondo del hero de la página /marcas — carrusel independiente del Hero principal de arriba. Recomendado: " +
+        "2400×1350px o más (relación 16:9), horizontal, por cada imagen del carrusel.",
+    },
     ...rootCategories.flatMap((cat) => [
       {
         key: `${cat.id}-feature`,
@@ -162,10 +184,10 @@ export default function GridImagenesPage() {
     <div className="card">
       <h1 style={{ marginTop: 0, fontSize: 20 }}>Grid Imágenes</h1>
       <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 700 }}>
-        Imágenes de las secciones visuales del sitio: el carrusel del Hero, y por cada categoría raíz dos carruseles
-        independientes — "Producto destacado" del home y el hero de su propia página (compartido con todas sus
-        subcategorías) — más las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna
-        imagen cargada muestra un degradado de relleno en su lugar.
+        Imágenes de las secciones visuales del sitio: el carrusel del Hero, el del hero de /marcas, y por cada
+        categoría raíz dos carruseles independientes — "Producto destacado" del home y el hero de su propia página
+        (compartido con todas sus subcategorías) — más las imágenes únicas de "Propuesta de valor"/"Sobre nosotros".
+        Un carrusel sin ninguna imagen cargada muestra un degradado de relleno en su lugar.
       </p>
       {error && <p className="error-text">{error}</p>}
       {!categories && !error && <p>Cargando...</p>}

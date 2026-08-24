@@ -68,6 +68,30 @@ export class SettingsController {
     return this.settings.moveHeroCarouselImage(imageId, dto.direction);
   }
 
+  @Get("landing-images/marcas-hero-carousel")
+  listMarcasHeroCarouselImages() {
+    return this.settings.listMarcasHeroCarouselImages();
+  }
+
+  @Post("landing-images/marcas-hero-carousel")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  addMarcasHeroCarouselImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.addMarcasHeroCarouselImage(file);
+  }
+
+  @Delete("landing-images/marcas-hero-carousel/:imageId")
+  removeMarcasHeroCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.settings.removeMarcasHeroCarouselImage(imageId);
+  }
+
+  @Patch("landing-images/marcas-hero-carousel/:imageId/move")
+  moveMarcasHeroCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: MoveCarouselImageDto) {
+    return this.settings.moveMarcasHeroCarouselImage(imageId, dto.direction);
+  }
+
   @Post("landing-images/value")
   @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("value")))
   uploadValueImage(@UploadedFile() file?: Express.Multer.File) {

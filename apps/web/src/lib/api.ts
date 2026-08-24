@@ -223,15 +223,18 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
-/** Público (sin auth) — carrusel del hero (ordenado) e imágenes de "Propuesta de valor"/"Sobre
- * nosotros" del home (ver Grid Imágenes en Configuración). */
+/** Público (sin auth) — carrusel del hero del home y del hero de /marcas (ordenados) e imágenes de
+ * "Propuesta de valor"/"Sobre nosotros" del home (ver Grid Imágenes en Configuración). */
 export function getLandingImages() {
-  return apiGet<{ heroImages: string[]; valueImageUrl: string | null; aboutImageUrl: string | null }>(
-    "/settings/landing-images",
-  );
+  return apiGet<{
+    heroImages: string[];
+    marcasHeroImages: string[];
+    valueImageUrl: string | null;
+    aboutImageUrl: string | null;
+  }>("/settings/landing-images");
 }
 
-// --- Carrusel de imágenes (Hero y "Producto destacado" por categoría raíz) ---
+// --- Carrusel de imágenes (Hero, "Producto destacado"/hero por categoría raíz, hero de /marcas) ---
 
 export function getHeroCarouselImages() {
   return apiGet<CarouselImage[]>("/settings/landing-images/hero-carousel");
@@ -247,6 +250,22 @@ export function removeHeroCarouselImage(imageId: string) {
 
 export function moveHeroCarouselImage(imageId: string, direction: "up" | "down") {
   return apiPatch<void>(`/settings/landing-images/hero-carousel/${imageId}/move`, { direction });
+}
+
+export function getMarcasHeroCarouselImages() {
+  return apiGet<CarouselImage[]>("/settings/landing-images/marcas-hero-carousel");
+}
+
+export function addMarcasHeroCarouselImage(file: File) {
+  return apiUpload<CarouselImage>("/settings/landing-images/marcas-hero-carousel", file);
+}
+
+export function removeMarcasHeroCarouselImage(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/marcas-hero-carousel/${imageId}`);
+}
+
+export function moveMarcasHeroCarouselImage(imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/settings/landing-images/marcas-hero-carousel/${imageId}/move`, { direction });
 }
 
 export function getCategoryCarouselImages(categoryId: string) {
