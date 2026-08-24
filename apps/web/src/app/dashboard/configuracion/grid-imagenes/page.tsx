@@ -153,7 +153,8 @@ export default function GridImagenesPage() {
       images: marcasHeroImages,
       hint:
         "Fondo del hero de la página /marcas — carrusel independiente del Hero principal de arriba. Recomendado: " +
-        "2400×1350px o más (relación 16:9), horizontal, por cada imagen del carrusel.",
+        "2400×1500px o más, horizontal (este hero es 10% más alto que el Hero principal), por cada imagen del " +
+        "carrusel.",
     },
     ...rootCategories.flatMap((cat) => [
       {
@@ -174,8 +175,8 @@ export default function GridImagenesPage() {
         images: cat.heroCarouselImages,
         hint:
           "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías (recorte " +
-          "panorámico, mismo tratamiento que el Hero principal) — carrusel independiente del de \"Producto " +
-          "destacado\" de arriba, no uno por subcategoría. Recomendado: 2400×1350px o más (relación 16:9), horizontal.",
+          "panorámico, 10% más alto que el Hero principal) — carrusel independiente del de \"Producto destacado\" " +
+          "de arriba, no uno por subcategoría. Recomendado: 2400×1500px o más, horizontal.",
       },
     ]),
   ];

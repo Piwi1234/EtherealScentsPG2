@@ -2539,7 +2539,8 @@ a {
 .landing-category-banner {
   position: relative;
   overflow: hidden;
-  padding: 130px 24px 56px;
+  /* +10% de alto respecto al padding original (130/56 → 143/62). */
+  padding: 143px 24px 62px;
   background:
     radial-gradient(circle at 12% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
     linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
@@ -2547,9 +2548,10 @@ a {
 }
 
 /* El navbar de esta página ya no flota encima (ver LandingNavbar overlay={false}) — no hace falta
- * el padding-top extra que compensaba quedar tapado, así que se vuelve simétrico con el de abajo. */
+ * el padding-top extra que compensaba quedar tapado, así que se vuelve simétrico con el de abajo.
+ * (+10% de alto respecto al original: 56 → 62). */
 .landing-category-banner--no-overlay {
-  padding-top: 56px;
+  padding-top: 62px;
 }
 
 /* Carrusel de imágenes propio de la categoría (o subcategoría) de fondo del banner — el gradiente
@@ -3460,6 +3462,26 @@ a {
   justify-content: center;
 }
 
+/* Segunda fila de filtro, debajo de la de categorías raíz — solo aparece cuando la raíz
+ * seleccionada tiene subcategorías. Fondo levemente distinto para que se lea como un sub-nivel. */
+.landing-marcas-subnav {
+  background: var(--lp-bg);
+  border-bottom: 1px solid var(--lp-border);
+  padding: 12px 0;
+}
+
+.landing-marcas-subnav-inner {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.landing-pill-sm {
+  padding: 6px 16px;
+  font-size: 12px;
+}
+
 .landing-marcas-search-wrap {
   display: flex;
   justify-content: center;
@@ -4044,11 +4066,11 @@ a {
   }
 
   .landing-category-banner {
-    padding: 100px 20px 40px;
+    padding: 110px 20px 44px;
   }
 
   .landing-category-banner--no-overlay {
-    padding-top: 40px;
+    padding-top: 44px;
   }
 
   .landing-category-banner h1 {

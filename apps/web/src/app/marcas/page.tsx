@@ -16,6 +16,7 @@ export default function MarcasPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [marcasHeroImages, setMarcasHeroImages] = useState<string[]>([]);
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
@@ -41,16 +42,33 @@ export default function MarcasPage() {
     if (!rootCategoryFilter && rootCategories.length > 0) setRootCategoryFilter(rootCategories[0].id);
   }, [rootCategories, rootCategoryFilter]);
 
+  // Cambiar de categoría raíz limpia el filtro de subcategoría — es específico de la raíz anterior.
+  useEffect(() => {
+    setSubCategoryFilter("");
+  }, [rootCategoryFilter]);
+
   const selectedCategory = rootCategories.find((c) => c.id === rootCategoryFilter) ?? null;
+
+  const subcategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.parentId === rootCategoryFilter)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [categories, rootCategoryFilter],
+  );
 
   const filteredBrands = useMemo(() => {
     if (!rootCategoryFilter) return [];
     const query = search.trim().toLowerCase();
     return brands
-      .filter((b) => b.categories.some((bc) => bc.category.parentId === rootCategoryFilter))
+      .filter((b) =>
+        subCategoryFilter
+          ? b.categories.some((bc) => bc.categoryId === subCategoryFilter)
+          : b.categories.some((bc) => bc.category.parentId === rootCategoryFilter),
+      )
       .filter((b) => !query || b.name.toLowerCase().includes(query))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [brands, rootCategoryFilter, search]);
+  }, [brands, rootCategoryFilter, subCategoryFilter, search]);
 
   // Agrupa por inicial (A, B, C...) para que la grilla se recorra alfabéticamente en bloques.
   const brandGroups = useMemo(() => {
@@ -100,6 +118,30 @@ export default function MarcasPage() {
         </div>
       </div>
 
+      {subcategories.length > 0 && (
+        <div className="landing-marcas-subnav">
+          <div className="landing-container landing-marcas-subnav-inner">
+            <button
+              type="button"
+              className={`landing-pill landing-pill-sm${subCategoryFilter === "" ? " landing-pill-active" : ""}`}
+              onClick={() => setSubCategoryFilter("")}
+            >
+              Todas
+            </button>
+            {subcategories.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                className={`landing-pill landing-pill-sm${subCategoryFilter === sub.id ? " landing-pill-active" : ""}`}
+                onClick={() => setSubCategoryFilter(sub.id)}
+              >
+                {sub.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <section className="landing-section">
         <div className="landing-container">
           {error && <p className="error-text">{error}</p>}
@@ -117,9 +159,12 @@ export default function MarcasPage() {
 
           {selectedCategory && filteredBrands.length === 0 && (
             <p className="landing-empty-note">
-              {search
-                ? `No hay marcas que coincidan con "${search}" en ${selectedCategory.name}.`
-                : `Todavía no hay marcas cargadas en ${selectedCategory.name}.`}
+              {(() => {
+                const scopeName = subcategories.find((s) => s.id === subCategoryFilter)?.name ?? selectedCategory.name;
+                return search
+                  ? `No hay marcas que coincidan con "${search}" en ${scopeName}.`
+                  : `Todavía no hay marcas cargadas en ${scopeName}.`;
+              })()}
             </p>
           )}
 
@@ -128,7 +173,15 @@ export default function MarcasPage() {
               <h2 className="landing-marcas-letter-heading">{letter}</h2>
               <div className="landing-marcas-grid">
                 {groupBrands.map((brand) => (
-                  <Link href={brandLinkHref(rootCategoryFilter, brand)} className="landing-marca-card" key={brand.id}>
+                  <Link
+                    href={
+                      subCategoryFilter
+                        ? `/categoria/${rootCategoryFilter}?marca=${brand.id}&subcategoria=${subCategoryFilter}`
+                        : brandLinkHref(rootCategoryFilter, brand)
+                    }
+                    className="landing-marca-card"
+                    key={brand.id}
+                  >
                     {brand.logoUrl ? (
                       <img className="landing-marca-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
                     ) : (
