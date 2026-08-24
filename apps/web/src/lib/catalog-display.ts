@@ -34,6 +34,13 @@ export function hasDiscount(product: Product): boolean {
   return product.variants.some((v) => !v.isDefault && Number(v.discountBs) > 0);
 }
 
+/** true si TODAS las variantes del producto están marcadas no disponibles — en ese caso la tarjeta
+ * muestra el sello "Sold Out" en vez del precio. Un producto sin variantes (no debería pasar en la
+ * práctica, ver `ensureDefaultVariant`) no se considera agotado. */
+export function isSoldOut(product: Product): boolean {
+  return product.variants.length > 0 && product.variants.every((v) => !v.disponible);
+}
+
 export type AttributeDetail = { key: string; nombre: string; valor: string; orden: number };
 
 /**

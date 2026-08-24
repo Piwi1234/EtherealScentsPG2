@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
+import { cardImageUrl, displayPrice, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -179,9 +179,13 @@ export default function HomePage() {
                         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
                         <p className="landing-product-name">{product.name}</p>
                         {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                        <span className="landing-product-price">
-                          {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                        </span>
+                        {isSoldOut(product) ? (
+                          <span className="landing-product-soldout-stamp">Sold Out</span>
+                        ) : (
+                          <span className="landing-product-price">
+                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                     </Link>
                   );

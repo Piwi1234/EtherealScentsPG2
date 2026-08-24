@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { cardImageUrl, displayPrice, getAttributeFilterOptions, hasDiscount, productImageSrc } from "../../../lib/catalog-display";
+import { cardImageUrl, displayPrice, getAttributeFilterOptions, hasDiscount, isSoldOut, productImageSrc } from "../../../lib/catalog-display";
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
@@ -369,9 +369,13 @@ export default function CategoriaPage() {
                           {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
                           <p className="landing-product-name">{product.name}</p>
                           {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                          <span className="landing-product-price">
-                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                          </span>
+                          {isSoldOut(product) ? (
+                            <span className="landing-product-soldout-stamp">Sold Out</span>
+                          ) : (
+                            <span className="landing-product-price">
+                              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                            </span>
+                          )}
                         </div>
                       </Link>
                     );
