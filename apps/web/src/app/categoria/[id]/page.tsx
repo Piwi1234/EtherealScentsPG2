@@ -8,13 +8,15 @@ import { cardImageUrl, displayPrice, getAttributeFilterOptions, hasDiscount, pro
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
-import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
+import { formatAtributosVisiblesValores } from "../../../components/proformas/AtributosVisibles";
 
 type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 type BrandCount = { id: string; name: string; count: number };
 type PriceRange = [number, number];
 
 const FILTER_VISIBLE_DEFAULT = 10;
+// 4 tarjetas por fila x 5 filas visibles — a partir de ahí se pagina.
+const CARDS_PER_PAGE = 20;
 
 export default function CategoriaPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +39,7 @@ export default function CategoriaPage() {
   const [priceApplied, setPriceApplied] = useState<PriceRange | null>(null);
   const [brandFilters, setBrandFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
+  const [pageNumber, setPageNumber] = useState(1);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
@@ -215,6 +218,16 @@ export default function CategoriaPage() {
     return items;
   }, [productsPage, brandFilters, priceApplied, sortBy]);
 
+  // Vuelve a la primera página cada vez que cambia el resultado filtrado/ordenado (si no, se podría
+  // quedar en una página que ya no existe para el nuevo resultado).
+  useEffect(() => {
+    setPageNumber(1);
+  }, [displayedProducts]);
+
+  const totalPages = Math.max(1, Math.ceil(displayedProducts.length / CARDS_PER_PAGE));
+  const currentPage = Math.min(pageNumber, totalPages);
+  const pagedProducts = displayedProducts.slice((currentPage - 1) * CARDS_PER_PAGE, currentPage * CARDS_PER_PAGE);
+
   if (notFound) {
     return (
       <div className="landing-page">
@@ -339,30 +352,62 @@ export default function CategoriaPage() {
             )}
 
             {displayedProducts.length > 0 && (
-              <div className="landing-product-grid">
-                {displayedProducts.map((product) => {
-                  const { bs, fromPrice, variant } = displayPrice(product);
-                  const image = productImageSrc(cardImageUrl(product, variant));
-                  const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
-                  return (
-                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
-                      {image ? (
-                        <img className="landing-product-image" src={image} alt={product.name} />
-                      ) : (
-                        <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
-                      )}
-                      <div className="landing-product-body">
-                        {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
-                        <p className="landing-product-name">{product.name}</p>
-                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                        <span className="landing-product-price">
-                          {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+              <>
+                <div className="landing-product-grid" id="product-grid">
+                  {pagedProducts.map((product) => {
+                    const { bs, fromPrice, variant } = displayPrice(product);
+                    const image = productImageSrc(cardImageUrl(product, variant));
+                    const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
+                    return (
+                      <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                        {image ? (
+                          <img className="landing-product-image" src={image} alt={product.name} />
+                        ) : (
+                          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
+                        )}
+                        <div className="landing-product-body">
+                          {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
+                          <p className="landing-product-name">{product.name}</p>
+                          {atributos && <p className="landing-product-attrs">{atributos}</p>}
+                          <span className="landing-product-price">
+                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="landing-pagination">
+                    <button
+                      type="button"
+                      className="landing-btn landing-btn-outline-dark"
+                      disabled={currentPage <= 1}
+                      onClick={() => {
+                        setPageNumber(currentPage - 1);
+                        document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    >
+                      ← Anterior
+                    </button>
+                    <span className="landing-pagination-info">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="landing-btn landing-btn-outline-dark"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => {
+                        setPageNumber(currentPage + 1);
+                        document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    >
+                      Siguiente →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -2394,7 +2394,8 @@ a {
    por anchor (scrollIntoView) para que no quede tapado bajo el navbar. */
 #catalogo,
 #nosotros,
-#contacto {
+#contacto,
+#product-grid {
   scroll-margin-top: 88px;
 }
 
@@ -2936,8 +2937,29 @@ a {
 
 .landing-product-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 24px;
+}
+
+/* --- Paginación de la grilla de productos por categoría --- */
+
+.landing-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.landing-pagination-info {
+  font-size: 13px;
+  color: var(--lp-muted);
+}
+
+.landing-pagination .landing-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* --- Carrusel de "Descuento y Ofertas" (home): 5 tarjetas por página --- */
@@ -3009,7 +3031,9 @@ a {
 }
 
 .landing-product-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
   border-radius: 16px;
@@ -3027,6 +3051,7 @@ a {
   width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
 .landing-product-image-placeholder {
@@ -3040,6 +3065,9 @@ a {
 }
 
 .landing-product-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 18px 20px 22px;
 }
 
@@ -3067,6 +3095,8 @@ a {
 .landing-product-price {
   font-size: 17px;
   font-weight: 700;
+  margin-top: auto;
+  padding-top: 8px;
 }
 
 .landing-empty-note {
@@ -3480,6 +3510,12 @@ a {
 
 @media (max-width: 1200px) {
   .landing-product-grid--carousel {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .landing-product-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }

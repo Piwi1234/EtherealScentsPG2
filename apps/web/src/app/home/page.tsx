@@ -7,7 +7,7 @@ import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-d
 import type { Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
-import { formatAtributosVisibles } from "../../components/proformas/AtributosVisibles";
+import { formatAtributosVisiblesValores } from "../../components/proformas/AtributosVisibles";
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -167,7 +167,7 @@ export default function HomePage() {
                 {offersChunks[offersSlide].map((product) => {
                   const { bs, fromPrice, variant } = displayPrice(product);
                   const image = productImageSrc(cardImageUrl(product, variant));
-                  const atributos = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
+                  const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                   return (
                     <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
                       {image ? (

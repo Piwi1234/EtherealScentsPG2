@@ -69,6 +69,17 @@ export function formatAtributosVisibles(
     .join(", ");
 }
 
+/** "Val1, Val2" — sin el nombre del atributo, para las tarjetas de producto del catálogo público
+ * (ahí el nombre no aporta, solo ocupa lugar). */
+export function formatAtributosVisiblesValores(
+  attributeValues: ProductAttributeValue[],
+  variantOptionValues: ProductVariantOptionValue[] = [],
+): string {
+  return visiblesOrdenados(attributeValues, variantOptionValues)
+    .map((a) => a.valor)
+    .join(", ");
+}
+
 /** Solo los atributos marcados mostrarEnProforma=true, ordenados por `orden`. */
 export function AtributosVisibles({
   attributeValues,
