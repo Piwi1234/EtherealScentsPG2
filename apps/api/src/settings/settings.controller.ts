@@ -1,10 +1,25 @@
-import { BadRequestException, Body, Controller, Get, Post, Put, UploadedFile, UseInterceptors } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../modules/auth/decorators/public.decorator";
 import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
 import { landingImageMulterOptions } from "./landing-image.multer";
+import { MoveCarouselImageDto } from "../catalog/carousel-image/dto/move-carousel-image.dto";
+import { carouselImageMulterOptions } from "../catalog/carousel-image/carousel-image.multer";
 
 @ApiTags("settings")
 @Controller("settings")
@@ -29,13 +44,28 @@ export class SettingsController {
     return this.settings.getLandingImages();
   }
 
-  @Post("landing-images/hero")
-  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("hero")))
-  uploadHeroImage(@UploadedFile() file?: Express.Multer.File) {
+  @Get("landing-images/hero-carousel")
+  listHeroCarouselImages() {
+    return this.settings.listHeroCarouselImages();
+  }
+
+  @Post("landing-images/hero-carousel")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  addHeroCarouselImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
     }
-    return this.settings.setHeroImage(file);
+    return this.settings.addHeroCarouselImage(file);
+  }
+
+  @Delete("landing-images/hero-carousel/:imageId")
+  removeHeroCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.settings.removeHeroCarouselImage(imageId);
+  }
+
+  @Patch("landing-images/hero-carousel/:imageId/move")
+  moveHeroCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: MoveCarouselImageDto) {
+    return this.settings.moveHeroCarouselImage(imageId, dto.direction);
   }
 
   @Post("landing-images/value")

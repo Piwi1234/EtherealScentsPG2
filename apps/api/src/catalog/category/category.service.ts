@@ -1,21 +1,26 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Category } from "@app/database";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { CarouselImageService } from "../carousel-image/carousel-image.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
-import { CATEGORY_IMAGES_DIR } from "./category-image.multer";
 
 export interface CategoryTreeNode extends Category {
   children: CategoryTreeNode[];
 }
 
+const includeCarouselImages = {
+  carouselImages: { orderBy: { orden: "asc" as const } },
+};
+
 @Injectable()
 export class CategoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly carouselImages: CarouselImageService,
+  ) {}
 
   private hasCostFields(dto: { logisticsCost?: number; shippingCost?: number; securityCost?: number }) {
     return dto.logisticsCost !== undefined || dto.shippingCost !== undefined || dto.securityCost !== undefined;
@@ -52,6 +57,7 @@ export class CategoryService {
   async findAll(options: { tree?: boolean } = {}) {
     const categories = await this.prisma.category.findMany({
       orderBy: { name: "asc" },
+      include: includeCarouselImages,
     });
 
     if (!options.tree) {
@@ -82,7 +88,7 @@ export class CategoryService {
   async findOne(id: string) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: { parent: true, children: true },
+      include: { parent: true, children: true, ...includeCarouselImages },
     });
     if (!category) {
       throw new NotFoundException("Categoría no encontrada.");
@@ -179,31 +185,32 @@ export class CategoryService {
     }
   }
 
-  /** Solo aplica a categorías raíz — es la imagen de la sección "Producto destacado" del home. */
-  async setImage(id: string, file: Express.Multer.File) {
-    const existing = await this.findOne(id);
-    if (existing.parentId) {
-      throw new BadRequestException("La imagen destacada solo se puede definir en categorías raíz.");
+  /** Solo categorías raíz tienen carrusel — es el de la sección "Producto destacado" del home. */
+  private async assertRootCategory(id: string) {
+    const category = await this.findOne(id);
+    if (category.parentId) {
+      throw new BadRequestException("El carrusel de imágenes solo se puede definir en categorías raíz.");
     }
+  }
 
-    try {
-      const updated = await this.prisma.category.update({
-        where: { id },
-        data: { heroImageUrl: `/uploads/categories/${file.filename}` },
-      });
+  async listCarouselImages(id: string) {
+    await this.findOne(id);
+    return this.carouselImages.list(id);
+  }
 
-      // Best-effort: borra la imagen anterior para no acumular huérfanos en disco.
-      if (existing.heroImageUrl) {
-        const previousFilename = existing.heroImageUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(CATEGORY_IMAGES_DIR, previousFilename)).catch(() => {});
-        }
-      }
+  async addCarouselImage(id: string, file: Express.Multer.File) {
+    await this.assertRootCategory(id);
+    return this.carouselImages.add(id, file);
+  }
 
-      return updated;
-    } catch (error) {
-      rethrowPrismaError(error, "Categoría");
-    }
+  async removeCarouselImage(id: string, imageId: string) {
+    await this.assertRootCategory(id);
+    return this.carouselImages.remove(imageId);
+  }
+
+  async moveCarouselImage(id: string, imageId: string, direction: "up" | "down") {
+    await this.assertRootCategory(id);
+    return this.carouselImages.move(imageId, direction);
   }
 
   async remove(id: string) {

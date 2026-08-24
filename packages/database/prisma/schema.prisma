@@ -151,9 +151,6 @@ model SystemSetting {
   // secciones muestran un placeholder con gradiente (ver Grid Imágenes en Configuración).
   valueImageUrl String? @map("value_image_url")
   aboutImageUrl String? @map("about_image_url")
-  // Imagen de fondo del hero — sin esto, el hero usa solo el degradado de siempre. Se muestra con
-  // object-fit:cover + un velo oscuro encima (para que el texto blanco del hero se siga leyendo).
-  heroImageUrl  String? @map("hero_image_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
@@ -175,19 +172,35 @@ model Category {
   // Nota interna libre — solo aplica a categorías raíz (sin padre), simétrico al criterio inverso de
   // los costos de arriba.
   comentario String?
-  // Imagen destacada de la categoría — solo aplica a categorías raíz, la usa la sección "Producto
-  // destacado" del home (ver Grid Imágenes en Configuración). Sin esto, esa sección muestra un
-  // placeholder con gradiente y el nombre de la categoría.
-  heroImageUrl String? @map("hero_image_url")
 
   brands     BrandCategory[]
   attributes Attribute[]
   products   Product[]
+  // Carrusel de imágenes destacadas — solo aplica a categorías raíz, lo usa la sección "Producto
+  // destacado" del home (ver Grid Imágenes en Configuración). Sin ninguna cargada, esa sección
+  // muestra un placeholder con gradiente y el nombre de la categoría.
+  carouselImages CarouselImage[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("categories")
+}
+
+/// Una imagen dentro de un carrusel del home: del Hero (categoryId null, singleton — no hay más de
+/// un Hero) o del bloque "Producto destacado" de una categoría raíz puntual (categoryId). `orden`
+/// define el orden de reproducción; se reordena intercambiando `orden` con el vecino (ver
+/// CarouselImageService.move), nunca reescribiendo toda la lista.
+model CarouselImage {
+  id         String    @id @default(uuid()) @db.Uuid
+  categoryId String?   @map("category_id") @db.Uuid
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  imageUrl   String    @map("image_url")
+  orden      Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([categoryId, orden])
+  @@map("carousel_images")
 }
 
 model Brand {

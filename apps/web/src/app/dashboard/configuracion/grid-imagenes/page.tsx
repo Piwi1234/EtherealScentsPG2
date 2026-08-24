@@ -1,35 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, apiGet, apiUpload, getLandingImages } from "../../../../lib/api";
-import type { Category } from "../../../../lib/types";
+import {
+  API_ORIGIN,
+  addCategoryCarouselImage,
+  addHeroCarouselImage,
+  apiGet,
+  apiUpload,
+  getHeroCarouselImages,
+  getLandingImages,
+  moveCategoryCarouselImage,
+  moveHeroCarouselImage,
+  removeCategoryCarouselImage,
+  removeHeroCarouselImage,
+} from "../../../../lib/api";
+import type { CarouselImage, Category } from "../../../../lib/types";
 
 function imgSrc(url: string | null): string | null {
   return url ? `${API_ORIGIN}${url}` : null;
 }
 
-type Slot =
-  | { kind: "category"; id: string; label: string; imageUrl: string | null; hint?: string }
-  | { kind: "hero" | "value" | "about"; label: string; imageUrl: string | null; hint?: string };
+type CarouselSlot = { key: string; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del home (Producto destacado por categoría raíz,
- * Propuesta de valor, Sobre nosotros) — sin esto, esas secciones muestran un placeholder con
- * degradado (ver .landing-feature-visual / .landing-value-visual / .landing-about-visual).
+ * Imágenes usadas en las secciones visuales del home: el carrusel del Hero, el carrusel de
+ * "Producto destacado" de cada categoría raíz (varias imágenes cada uno, con orden propio), y las
+ * imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Si un carrusel queda sin ninguna
+ * imagen, esa sección muestra un degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
-  const [landingImages, setLandingImages] = useState<{
-    heroImageUrl: string | null;
-    valueImageUrl: string | null;
-    aboutImageUrl: string | null;
-  } | null>(null);
+  const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
+  const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
+    null,
+  );
   const [error, setError] = useState("");
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [busySlot, setBusySlot] = useState<string | null>(null);
 
   function load() {
     apiGet<Category[]>("/categories")
       .then(setCategories)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getHeroCarouselImages()
+      .then(setHeroImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getLandingImages()
       .then(setLandingImages)
@@ -38,8 +51,50 @@ export default function GridImagenesPage() {
 
   useEffect(load, []);
 
-  async function handleUpload(slotId: string, path: string, file: File) {
-    setUploadingId(slotId);
+  async function handleAddCarouselImage(slotKey: string, categoryId: string | null, file: File) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (categoryId) await addCategoryCarouselImage(categoryId, file);
+      else await addHeroCarouselImage(file);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleRemoveCarouselImage(slotKey: string, categoryId: string | null, imageId: string) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (categoryId) await removeCategoryCarouselImage(categoryId, imageId);
+      else await removeHeroCarouselImage(imageId);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleMoveCarouselImage(slotKey: string, categoryId: string | null, imageId: string, direction: "up" | "down") {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (categoryId) await moveCategoryCarouselImage(categoryId, imageId, direction);
+      else await moveHeroCarouselImage(imageId, direction);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleUploadSingle(slotId: string, path: string, file: File) {
+    setBusySlot(slotId);
     setError("");
     try {
       await apiUpload(path, file);
@@ -47,47 +102,73 @@ export default function GridImagenesPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setUploadingId(null);
+      setBusySlot(null);
     }
   }
 
   const rootCategories = (categories ?? []).filter((c) => c.parentId === null);
 
-  const slots: Slot[] = [
+  const carouselSlots: CarouselSlot[] = [
     {
-      kind: "hero" as const,
-      label: "Hero principal",
-      imageUrl: landingImages?.heroImageUrl ?? null,
-      hint: "Recomendado: 2400×1350px o más (relación 16:9), horizontal. Se recorta para cubrir todo el ancho de pantalla (object-fit: cover) — no hay un tamaño exacto que \"entre completa\" porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son lo primero que se recorta en pantallas angostas.",
+      key: "hero",
+      title: "Hero principal",
+      categoryId: null,
+      images: heroImages,
+      hint:
+        "Recomendado: 2400×1350px o más (relación 16:9), horizontal, por cada imagen del carrusel. Se recorta para " +
+        "cubrir todo el ancho de pantalla (object-fit: cover) — no hay un tamaño exacto que \"entre completa\" " +
+        "porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son " +
+        "lo primero que se recorta en pantallas angostas.",
     },
-    ...rootCategories.map((cat) => ({ kind: "category" as const, id: cat.id, label: cat.name, imageUrl: cat.heroImageUrl })),
-    { kind: "value" as const, label: "Propuesta de valor", imageUrl: landingImages?.valueImageUrl ?? null },
-    { kind: "about" as const, label: "Sobre nosotros", imageUrl: landingImages?.aboutImageUrl ?? null },
+    ...rootCategories.map((cat) => ({
+      key: cat.id,
+      title: cat.name,
+      categoryId: cat.id,
+      images: cat.carouselImages,
+      hint:
+        "Recomendado: 1200×1200px o más, cuadrada (relación 1:1), por cada imagen del carrusel. Se recorta para " +
+        "llenar el cuadro (object-fit: cover) — centrá lo importante de la foto.",
+    })),
   ];
 
   return (
     <div className="card">
       <h1 style={{ marginTop: 0, fontSize: 20 }}>Grid Imágenes</h1>
-      <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 640 }}>
-        Imágenes de las secciones visuales del home: "Producto destacado" (una por categoría raíz), "Propuesta de
-        valor" y "Sobre nosotros". Si una queda sin cargar, esa sección muestra un degradado de relleno en su lugar.
+      <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 700 }}>
+        Imágenes de las secciones visuales del home: el carrusel del Hero, el carrusel de "Producto destacado" (uno
+        por categoría raíz) y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna
+        imagen cargada muestra un degradado de relleno en su lugar.
       </p>
       {error && <p className="error-text">{error}</p>}
       {!categories && !error && <p>Cargando...</p>}
 
       {categories && (
-        <div className="grid-3" style={{ gap: 20 }}>
-          {slots.map((slot) => {
-            const slotId = slot.kind === "category" ? slot.id : slot.kind;
-            const uploadPath = slot.kind === "category" ? `/categories/${slot.id}/image` : `/settings/landing-images/${slot.kind}`;
-            return (
-              <div key={slotId} style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 12 }}>
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 }}>
+            {carouselSlots.map((slot) => (
+              <CarouselSlotEditor
+                key={slot.key}
+                title={slot.title}
+                hint={slot.hint}
+                images={slot.images}
+                busy={busySlot === slot.key}
+                onAdd={(file) => handleAddCarouselImage(slot.key, slot.categoryId, file)}
+                onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.categoryId, imageId)}
+                onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.categoryId, imageId, direction)}
+              />
+            ))}
+          </div>
+
+          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Imágenes únicas</h2>
+          <div className="grid-3" style={{ gap: 20 }}>
+            {(
+              [
+                { id: "value", label: "Propuesta de valor", imageUrl: landingImages?.valueImageUrl ?? null },
+                { id: "about", label: "Sobre nosotros", imageUrl: landingImages?.aboutImageUrl ?? null },
+              ] as const
+            ).map((slot) => (
+              <div key={slot.id} style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 12 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>{slot.label}</label>
-                {slot.hint && (
-                  <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 8px", lineHeight: 1.4 }}>
-                    {slot.hint}
-                  </p>
-                )}
                 <div className="image-uploader">
                   {imgSrc(slot.imageUrl) ? (
                     <img src={imgSrc(slot.imageUrl)!} alt={slot.label} />
@@ -98,24 +179,116 @@ export default function GridImagenesPage() {
                     className="field"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
-                    disabled={uploadingId === slotId}
+                    disabled={busySlot === slot.id}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleUpload(slotId, uploadPath, file);
+                      if (file) handleUploadSingle(slot.id, `/settings/landing-images/${slot.id}`, file);
                       e.target.value = "";
                     }}
                     style={{ background: "transparent", border: 0, padding: 0 }}
                   />
                 </div>
-                {uploadingId === slotId && (
+                {busySlot === slot.id && (
                   <p className="cell-muted" style={{ fontSize: 12, marginTop: 6 }}>
                     Subiendo...
                   </p>
                 )}
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CarouselSlotEditor({
+  title,
+  hint,
+  images,
+  busy,
+  onAdd,
+  onRemove,
+  onMove,
+}: {
+  title: string;
+  hint: string;
+  images: CarouselImage[];
+  busy: boolean;
+  onAdd: (file: File) => void;
+  onRemove: (imageId: string) => void;
+  onMove: (imageId: string, direction: "up" | "down") => void;
+}) {
+  return (
+    <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
+      <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 4 }}>{title}</label>
+      <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.4, maxWidth: 720 }}>
+        {hint}
+      </p>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
+        {images.length === 0 && (
+          <p className="cell-muted" style={{ fontSize: 12.5, margin: 0 }}>
+            Sin imágenes todavía.
+          </p>
+        )}
+        {images.map((image, index) => (
+          <div key={image.id} style={{ width: 140 }}>
+            <div className="image-uploader" style={{ marginBottom: 6 }}>
+              <img src={`${API_ORIGIN}${image.imageUrl}`} alt={`${title} ${index + 1}`} />
+            </div>
+            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+              <button
+                type="button"
+                className="action-btn"
+                disabled={busy || index === 0}
+                onClick={() => onMove(image.id, "up")}
+                aria-label="Mover antes"
+                title="Mover antes"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="action-btn"
+                disabled={busy || index === images.length - 1}
+                onClick={() => onMove(image.id, "down")}
+                aria-label="Mover después"
+                title="Mover después"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="action-btn danger"
+                disabled={busy}
+                onClick={() => onRemove(image.id)}
+                aria-label="Eliminar imagen"
+                title="Eliminar imagen"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <input
+        className="field"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        disabled={busy}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onAdd(file);
+          e.target.value = "";
+        }}
+        style={{ maxWidth: 320 }}
+      />
+      {busy && (
+        <p className="cell-muted" style={{ fontSize: 12, marginTop: 6 }}>
+          Guardando...
+        </p>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import type {
   BrandImportReport,
   Cartera,
   CarteraInput,
+  CarouselImage,
   Category,
   Ciudad,
   Cliente,
@@ -222,12 +223,46 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
-/** Público (sin auth) — imágenes del hero, "Propuesta de valor" y "Sobre nosotros" del home (ver
- * Grid Imágenes en Configuración). */
+/** Público (sin auth) — carrusel del hero (ordenado) e imágenes de "Propuesta de valor"/"Sobre
+ * nosotros" del home (ver Grid Imágenes en Configuración). */
 export function getLandingImages() {
-  return apiGet<{ heroImageUrl: string | null; valueImageUrl: string | null; aboutImageUrl: string | null }>(
+  return apiGet<{ heroImages: string[]; valueImageUrl: string | null; aboutImageUrl: string | null }>(
     "/settings/landing-images",
   );
+}
+
+// --- Carrusel de imágenes (Hero y "Producto destacado" por categoría raíz) ---
+
+export function getHeroCarouselImages() {
+  return apiGet<CarouselImage[]>("/settings/landing-images/hero-carousel");
+}
+
+export function addHeroCarouselImage(file: File) {
+  return apiUpload<CarouselImage>("/settings/landing-images/hero-carousel", file);
+}
+
+export function removeHeroCarouselImage(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/hero-carousel/${imageId}`);
+}
+
+export function moveHeroCarouselImage(imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/settings/landing-images/hero-carousel/${imageId}/move`, { direction });
+}
+
+export function getCategoryCarouselImages(categoryId: string) {
+  return apiGet<CarouselImage[]>(`/categories/${categoryId}/carousel-images`);
+}
+
+export function addCategoryCarouselImage(categoryId: string, file: File) {
+  return apiUpload<CarouselImage>(`/categories/${categoryId}/carousel-images`, file);
+}
+
+export function removeCategoryCarouselImage(categoryId: string, imageId: string) {
+  return apiDelete<void>(`/categories/${categoryId}/carousel-images/${imageId}`);
+}
+
+export function moveCategoryCarouselImage(categoryId: string, imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/move`, { direction });
 }
 
 export function createEmpresa(data: EmpresaInput) {

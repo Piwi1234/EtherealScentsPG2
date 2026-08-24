@@ -1,18 +1,21 @@
 import { extname, join } from "node:path";
+import { randomInt } from "node:crypto";
 import { diskStorage } from "multer";
 import type { Request } from "express";
 
-export const CATEGORY_IMAGES_DIR = join(process.cwd(), "uploads", "categories");
+export const CAROUSEL_IMAGES_DIR = join(process.cwd(), "uploads", "carousel");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 
-export const categoryImageMulterOptions = {
+// A diferencia de logo/imagen-única (donde el nombre incluye el id de la entidad, ya conocido de
+// antemano), acá se van acumulando varias imágenes por carrusel — el nombre solo necesita ser
+// único, no identificar nada.
+export const carouselImageMulterOptions = {
   storage: diskStorage({
-    destination: CATEGORY_IMAGES_DIR,
+    destination: CAROUSEL_IMAGES_DIR,
     filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-      const categoryId = req.params.id;
       const ext = extname(file.originalname).toLowerCase();
-      cb(null, `${categoryId}-${Date.now()}${ext}`);
+      cb(null, `carousel-${Date.now()}-${randomInt(1e9)}${ext}`);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024 },

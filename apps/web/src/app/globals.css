@@ -2419,8 +2419,10 @@ a {
 
 /* El .landing-container comparte el max-width/centrado del resto del sitio — acá lo pegamos al
    borde izquierdo (en vez de centrarlo) para que el texto del hero arranque bien a la izquierda,
-   sin depender del ancho de la ventana. */
+   sin depender del ancho de la ventana. z-index para quedar por encima del carrusel de fondo. */
 .landing-hero .landing-container {
+  position: relative;
+  z-index: 1;
   margin-left: 0;
   padding-left: 48px;
 }
@@ -2431,6 +2433,95 @@ a {
   /* Sin velo oscuro sobre la imagen de fondo (se sacó a pedido) — la sombra ayuda a que el texto
      blanco se siga leyendo sobre cualquier foto. */
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* --- Carrusel de imágenes reutilizable: fondo del Hero y "Producto destacado" por categoría --- */
+
+@keyframes landing-image-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.landing-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.landing-hero-bg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: landing-image-fade 1.2s ease;
+}
+
+.landing-image-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.landing-image-carousel-arrow:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.landing-image-carousel-arrow--prev {
+  left: 16px;
+}
+
+.landing-image-carousel-arrow--next {
+  right: 16px;
+}
+
+.landing-image-carousel-dots {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.landing-image-carousel-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.landing-image-carousel-dot:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.landing-image-carousel-dot--active {
+  width: 22px;
+  background: var(--lp-accent);
 }
 
 .landing-hero-eyebrow {
@@ -3201,6 +3292,7 @@ a {
 }
 
 .landing-feature-visual {
+  position: relative;
   aspect-ratio: 1 / 1;
   border-radius: 20px;
   display: flex;
@@ -3214,12 +3306,13 @@ a {
   overflow: hidden;
 }
 
-/* Cuando la categoría tiene imagen propia cargada (Grid Imágenes), reemplaza el degradado +
-   nombre de arriba — llena el mismo cuadro 1:1. */
+/* Cuando la categoría tiene imágenes cargadas (Grid Imágenes), reemplazan el degradado + nombre de
+   arriba — llenan el mismo cuadro 1:1, una por vez si hay más de una (carrusel). */
 .landing-feature-visual-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: landing-image-fade 1.2s ease;
 }
 
 .landing-feature-text .landing-section-title {

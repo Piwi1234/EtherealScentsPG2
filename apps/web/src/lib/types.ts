@@ -1,3 +1,11 @@
+export type CarouselImage = {
+  id: string;
+  categoryId: string | null;
+  imageUrl: string;
+  orden: number;
+  createdAt: string;
+};
+
 export type Category = {
   id: string;
   name: string;
@@ -9,8 +17,9 @@ export type Category = {
   securityCost: string | null;
   // Solo aplica a categorías raíz (sin padre) — nota interna libre.
   comentario: string | null;
-  // Solo aplica a categorías raíz — la usa la sección "Producto destacado" del home.
-  heroImageUrl: string | null;
+  // Solo aplica a categorías raíz — el carrusel de la sección "Producto destacado" del home.
+  // Ordenado por `orden` (ya viene ordenado del backend).
+  carouselImages: CarouselImage[];
   createdAt: string;
   updatedAt: string;
 };

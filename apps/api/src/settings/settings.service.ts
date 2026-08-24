@@ -2,13 +2,17 @@ import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../common/prisma.service";
+import { CarouselImageService } from "../catalog/carousel-image/carousel-image.service";
 import { LANDING_IMAGES_DIR } from "./landing-image.multer";
 
 const SETTINGS_ID = "default";
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly carouselImages: CarouselImageService,
+  ) {}
 
   async getExchangeRate(): Promise<number> {
     const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
@@ -24,17 +28,39 @@ export class SettingsService {
     return Number(setting.exchangeRate);
   }
 
-  /** Público (sin auth) — las imágenes del hero, "Propuesta de valor" y "Sobre nosotros" del home. */
+  /** Público (sin auth) — el carrusel del hero y las imágenes de "Propuesta de valor"/"Sobre
+   * nosotros" del home. */
   async getLandingImages() {
-    const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    const [setting, heroImages] = await Promise.all([
+      this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
+      this.carouselImages.list(null),
+    ]);
     return {
-      heroImageUrl: setting?.heroImageUrl ?? null,
+      heroImages: heroImages.map((image) => image.imageUrl),
       valueImageUrl: setting?.valueImageUrl ?? null,
       aboutImageUrl: setting?.aboutImageUrl ?? null,
     };
   }
 
-  private async setLandingImage(field: "heroImageUrl" | "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
+  /** El carrusel del Hero (categoryId null en CarouselImage) — igual mecanismo que el de una
+   * categoría raíz, ver CategoryService.addCarouselImage/removeCarouselImage/moveCarouselImage. */
+  listHeroCarouselImages() {
+    return this.carouselImages.list(null);
+  }
+
+  addHeroCarouselImage(file: Express.Multer.File) {
+    return this.carouselImages.add(null, file);
+  }
+
+  removeHeroCarouselImage(imageId: string) {
+    return this.carouselImages.remove(imageId);
+  }
+
+  moveHeroCarouselImage(imageId: string, direction: "up" | "down") {
+    return this.carouselImages.move(imageId, direction);
+  }
+
+  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
     const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
     const url = `/uploads/landing/${file.filename}`;
 
@@ -54,10 +80,6 @@ export class SettingsService {
     }
 
     return updated;
-  }
-
-  setHeroImage(file: Express.Multer.File) {
-    return this.setLandingImage("heroImageUrl", file);
   }
 
   setValueImage(file: Express.Multer.File) {

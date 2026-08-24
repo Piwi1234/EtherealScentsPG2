@@ -17,11 +17,84 @@ const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_AUTOPLAY_MS = 7000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
+const HERO_AUTOPLAY_MS = 10000;
+const FEATURE_AUTOPLAY_MS = 10000;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
   return chunks;
+}
+
+/** Carrusel de una sola imagen a la vez (fade al cambiar) + flechas + autoplay — para el fondo del
+ * Hero y el cuadro de "Producto destacado". El wrapper (`position: relative`) lo pone quien lo usa. */
+function ImageCarousel({
+  images,
+  alt,
+  imgClassName,
+  autoplayMs,
+}: {
+  images: string[];
+  alt: string;
+  imgClassName: string;
+  autoplayMs: number;
+}) {
+  const [slide, setSlide] = useState(0);
+  const [autoKey, setAutoKey] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlide((s) => (s + 1) % images.length);
+    }, autoplayMs);
+    return () => clearInterval(timer);
+  }, [images.length, autoKey, autoplayMs]);
+
+  function goTo(index: number) {
+    const total = images.length;
+    if (total === 0) return;
+    setSlide(((index % total) + total) % total);
+    setAutoKey((k) => k + 1);
+  }
+
+  if (images.length === 0) return null;
+
+  return (
+    <>
+      <img key={slide} className={imgClassName} src={productImageSrc(images[slide])!} alt={alt} />
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            className="landing-image-carousel-arrow landing-image-carousel-arrow--prev"
+            aria-label="Imagen anterior"
+            onClick={() => goTo(slide - 1)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="landing-image-carousel-arrow landing-image-carousel-arrow--next"
+            aria-label="Siguiente imagen"
+            onClick={() => goTo(slide + 1)}
+          >
+            ›
+          </button>
+          <div className="landing-image-carousel-dots">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`landing-image-carousel-dot${i === slide ? " landing-image-carousel-dot--active" : ""}`}
+                aria-label={`Ir a la imagen ${i + 1}`}
+                onClick={() => goTo(i)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
 }
 
 export default function HomePage() {
@@ -34,7 +107,7 @@ export default function HomePage() {
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [landingImages, setLandingImages] = useState<{
-    heroImageUrl: string | null;
+    heroImages: string[];
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   } | null>(null);
@@ -91,18 +164,17 @@ export default function HomePage() {
       <LandingNavbar />
 
       {/* ============================== 2. Hero ============================== */}
-      <section
-        className="landing-hero"
-        style={
-          landingImages?.heroImageUrl
-            ? {
-                backgroundImage: `url(${productImageSrc(landingImages.heroImageUrl)})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : undefined
-        }
-      >
+      <section className="landing-hero">
+        {landingImages && landingImages.heroImages.length > 0 && (
+          <div className="landing-hero-bg">
+            <ImageCarousel
+              images={landingImages.heroImages}
+              alt=""
+              imgClassName="landing-hero-bg-image"
+              autoplayMs={HERO_AUTOPLAY_MS}
+            />
+          </div>
+        )}
         <div className="landing-container">
           <div className="landing-hero-content">
             <p className="landing-hero-eyebrow">{brandName.toUpperCase()}</p>
@@ -238,9 +310,14 @@ export default function HomePage() {
                       Explorar {cat.name}
                     </Link>
                   </div>
-                  {cat.heroImageUrl ? (
+                  {cat.carouselImages.length > 0 ? (
                     <div className="landing-feature-visual">
-                      <img className="landing-feature-visual-image" src={productImageSrc(cat.heroImageUrl)!} alt={cat.name} />
+                      <ImageCarousel
+                        images={cat.carouselImages.map((image) => image.imageUrl)}
+                        alt={cat.name}
+                        imgClassName="landing-feature-visual-image"
+                        autoplayMs={FEATURE_AUTOPLAY_MS}
+                      />
                     </div>
                   ) : (
                     <div
