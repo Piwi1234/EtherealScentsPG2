@@ -32,13 +32,6 @@ export type BrandImportReport = {
   errors: { row: number; message: string }[];
 };
 
-export type ProductImportReport = {
-  createdSimple: number;
-  createdWithVariants: number;
-  createdVariants: number;
-  errors: { sheet: string; row: number; message: string }[];
-};
-
 export type AttributeType = "TEXT" | "NUMBER" | "BOOLEAN" | "SELECT";
 
 /**
