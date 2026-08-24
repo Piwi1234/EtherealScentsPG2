@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiGet, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
+import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
 import { cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
-import type { Category, Page, Product } from "../../lib/types";
+import type { Brand, Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { formatAtributosVisiblesValores } from "../../components/proformas/AtributosVisibles";
@@ -15,6 +15,8 @@ function scrollToId(id: string) {
 
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_AUTOPLAY_MS = 7000;
+const BRANDS_SLIDE_SIZE = 8;
+const BRANDS_AUTOPLAY_MS = 10000;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -26,6 +28,7 @@ export default function HomePage() {
   // --- Datos: empresa (nombre para textos propios), categorías reales y productos del catálogo público ---
   const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
@@ -42,6 +45,7 @@ export default function HomePage() {
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    getBrands().then(setBrands).catch(() => {});
     getLandingImages().then(setLandingImages).catch(() => {});
   }, []);
 
@@ -78,11 +82,6 @@ export default function HomePage() {
     if (total === 0) return;
     setOffersSlide(((index % total) + total) % total);
     setOffersAutoKey((k) => k + 1);
-  }
-
-  function explorarCategoria(categoryId: string) {
-    setCategoryFilter(categoryId);
-    scrollToId("catalogo");
   }
 
   const brandName = empresa?.nombre ?? "Ethereal Scents";
@@ -221,33 +220,47 @@ export default function HomePage() {
       {/* ========== 4. Producto/servicio destacado (alterna lado de imagen) ========== */}
       <section className="landing-section landing-section-alt">
         <div className="landing-container">
-          {rootCategories.map((cat, i) => (
-            <div className={`landing-feature${i % 2 === 1 ? " landing-feature-reverse" : ""}`} key={cat.id}>
-              <div className="landing-feature-text">
-                <p className="landing-eyebrow">Destacado</p>
-                <h2 className="landing-section-title">{cat.name}</h2>
-                <p>
-                  Descubrí nuestra selección de {cat.name.toLowerCase()} — curada para que encuentres justo lo
-                  que buscás, con disponibilidad real.
-                </p>
-                <button type="button" className="landing-btn landing-btn-outline-dark" onClick={() => explorarCategoria(cat.id)}>
-                  Explorar {cat.name}
-                </button>
+          {rootCategories.map((cat, i) => {
+            // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
+            // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
+            const categoryBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === cat.id));
+            return (
+              <div className="landing-feature-block" key={cat.id}>
+                <div className={`landing-feature${i % 2 === 1 ? " landing-feature-reverse" : ""}`}>
+                  <div className="landing-feature-text">
+                    <p className="landing-eyebrow">Destacado</p>
+                    <h2 className="landing-section-title">{cat.name}</h2>
+                    <p>
+                      Descubrí nuestra selección de {cat.name.toLowerCase()} — curada para que encuentres justo lo
+                      que buscás, con disponibilidad real.
+                    </p>
+                    <Link href={`/categoria/${cat.id}`} className="landing-btn landing-btn-outline-dark">
+                      Explorar {cat.name}
+                    </Link>
+                  </div>
+                  {cat.heroImageUrl ? (
+                    <div className="landing-feature-visual">
+                      <img className="landing-feature-visual-image" src={productImageSrc(cat.heroImageUrl)!} alt={cat.name} />
+                    </div>
+                  ) : (
+                    <div
+                      className="landing-feature-visual"
+                      style={{ background: i % 2 === 0 ? "linear-gradient(150deg, #9184d9, #4b3f8f)" : "linear-gradient(150deg, #201c33, #100e1c)" }}
+                    >
+                      {cat.name}
+                    </div>
+                  )}
+                </div>
+
+                {categoryBrands.length > 0 && (
+                  <div className="landing-brands-block">
+                    <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
+                    <BrandsCarousel brands={categoryBrands} rootCategoryId={cat.id} />
+                  </div>
+                )}
               </div>
-              {cat.heroImageUrl ? (
-                <div className="landing-feature-visual">
-                  <img className="landing-feature-visual-image" src={productImageSrc(cat.heroImageUrl)!} alt={cat.name} />
-                </div>
-              ) : (
-                <div
-                  className="landing-feature-visual"
-                  style={{ background: i % 2 === 0 ? "linear-gradient(150deg, #9184d9, #4b3f8f)" : "linear-gradient(150deg, #201c33, #100e1c)" }}
-                >
-                  {cat.name}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -320,6 +333,80 @@ export default function HomePage() {
       </section>
 
       <LandingFooter />
+    </div>
+  );
+}
+
+/** A dónde lleva el logo de una marca: la página de la categoría raíz, con esa marca ya filtrada y,
+ * si la marca está atada a una única subcategoría de esta raíz, esa subcategoría también filtrada
+ * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar). */
+function brandLinkHref(rootCategoryId: string, brand: Brand): string {
+  const ownSubcategories = new Set(
+    brand.categories.filter((bc) => bc.category.parentId === rootCategoryId).map((bc) => bc.categoryId),
+  );
+  const params = new URLSearchParams({ marca: brand.id });
+  if (ownSubcategories.size === 1) params.set("subcategoria", Array.from(ownSubcategories)[0]);
+  return `/categoria/${rootCategoryId}?${params.toString()}`;
+}
+
+/** Carrusel de logos de marca de una categoría raíz (sus subcategorías) — mismo mecanismo que el
+ * carrusel de "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
+function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCategoryId: string }) {
+  const [slide, setSlide] = useState(0);
+  const [autoKey, setAutoKey] = useState(0);
+
+  const chunks = useMemo(() => chunk(brands, BRANDS_SLIDE_SIZE), [brands]);
+
+  useEffect(() => {
+    if (chunks.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlide((s) => (s + 1) % chunks.length);
+    }, BRANDS_AUTOPLAY_MS);
+    return () => clearInterval(timer);
+  }, [chunks.length, autoKey]);
+
+  function goTo(index: number) {
+    const total = chunks.length;
+    if (total === 0) return;
+    setSlide(((index % total) + total) % total);
+    setAutoKey((k) => k + 1);
+  }
+
+  if (chunks.length === 0) return null;
+
+  return (
+    <div className="landing-carousel landing-brands-carousel">
+      <button
+        type="button"
+        className="landing-carousel-arrow landing-carousel-arrow--prev"
+        aria-label="Marcas anteriores"
+        onClick={() => goTo(slide - 1)}
+        disabled={chunks.length <= 1}
+      >
+        ‹
+      </button>
+
+      <div className="landing-brand-grid" key={slide}>
+        {chunks[slide].map((brand) => (
+          <Link href={brandLinkHref(rootCategoryId, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
+            {brand.logoUrl ? (
+              <img className="landing-brand-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
+            ) : (
+              <div className="landing-brand-logo-placeholder">{brand.name.slice(0, 1)}</div>
+            )}
+          </Link>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="landing-carousel-arrow landing-carousel-arrow--next"
+        aria-label="Siguientes marcas"
+        onClick={() => goTo(slide + 1)}
+        disabled={chunks.length <= 1}
+      >
+        ›
+      </button>
     </div>
   );
 }

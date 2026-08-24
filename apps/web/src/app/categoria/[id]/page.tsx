@@ -47,13 +47,17 @@ export default function CategoriaPage() {
 
   // Todas las categorías (para armar el breadcrumb y las subcategorías) — la categoría cambia con la ruta.
   useEffect(() => {
-    setSubCategoryFilter("");
-    // "?descuento=true" (link desde el desplegable de ¡¡OFERTAS!! del navbar) arranca el filtro de
-    // Ofertas ya marcado.
-    setDiscountOnly(new URLSearchParams(window.location.search).get("descuento") === "true");
+    // "?descuento=true" (desplegable de ¡¡OFERTAS!! del navbar), "?subcategoria=" + "?marca="
+    // (logo de marca del carrusel "Explora Nuestras Marcas" del home) arrancan sus filtros ya
+    // marcados.
+    const searchParams = new URLSearchParams(window.location.search);
+    const subcategoriaFromQuery = searchParams.get("subcategoria") ?? "";
+    const marcaFromQuery = searchParams.get("marca");
+    setSubCategoryFilter(subcategoriaFromQuery);
+    setDiscountOnly(searchParams.get("descuento") === "true");
     setPriceRange(null);
     setPriceApplied(null);
-    setBrandFilters([]);
+    setBrandFilters(marcaFromQuery ? [marcaFromQuery] : []);
     setSortBy("relevancia");
     setAttributeFilters({});
     setFiltersDrawerOpen(false);
@@ -64,10 +68,10 @@ export default function CategoriaPage() {
     apiGet<Category>(`/categories/${id}`)
       .then((cat) => {
         setCategory(cat);
-        // Si se entra directo a una subcategoría (ej. desde el desplegable del navbar), esa
-        // subcategoría arranca marcada en el filtro — el grid ya la mostraba igual, esto solo
-        // hace que el checkbox y sus hermanas aparezcan.
-        if (cat.parentId) setSubCategoryFilter(cat.id);
+        // Si se entra directo a una subcategoría (ej. desde el desplegable del navbar) y no vino
+        // ninguna subcategoría puntual por query, esa subcategoría arranca marcada en el filtro — el
+        // grid ya la mostraba igual, esto solo hace que el checkbox y sus hermanas aparezcan.
+        if (cat.parentId && !subcategoriaFromQuery) setSubCategoryFilter(cat.id);
       })
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);

@@ -3232,8 +3232,103 @@ a {
   margin: 0 0 28px;
 }
 
-.landing-feature + .landing-feature {
+.landing-feature-block + .landing-feature-block {
   margin-top: 84px;
+  position: relative;
+}
+
+/* Separador entre bloques de categoría: línea con degradado a los costados + un rombo del color de
+   acento en el centro, apoyado a la mitad del espacio en blanco entre un bloque y el siguiente. */
+.landing-feature-block + .landing-feature-block::before {
+  content: "";
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--lp-border) 20%, var(--lp-border) 80%, transparent);
+}
+
+.landing-feature-block + .landing-feature-block::after {
+  content: "";
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--lp-accent);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* --- "Explora nuestras marcas": carrusel de logos debajo de cada bloque de categoría destacada --- */
+
+.landing-brands-block {
+  margin-top: 64px;
+  text-align: center;
+}
+
+.landing-brands-eyebrow {
+  display: block;
+  text-align: center;
+  /* Base .landing-eyebrow es 12px — 50% más grande. Es la única etiqueta de este bloque (sin
+     título abajo), así que también lleva más aire antes del carrusel. */
+  font-size: 18px;
+  margin-bottom: 32px;
+}
+
+@keyframes landing-brands-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-brand-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 16px;
+  animation: landing-brands-fade 0.5s ease;
+}
+
+.landing-brand-card {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.landing-brand-card:hover {
+  border-color: var(--lp-accent);
+  box-shadow: 0 10px 24px rgba(26, 26, 46, 0.08);
+  transform: translateY(-2px);
+}
+
+.landing-brand-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: grayscale(1) opacity(0.7);
+  transition: filter 0.15s ease;
+}
+
+.landing-brand-card:hover .landing-brand-logo {
+  filter: grayscale(0) opacity(1);
+}
+
+.landing-brand-logo-placeholder {
+  font-family: var(--lp-font-display);
+  font-size: 20px;
+  color: var(--lp-muted);
 }
 
 /* --- Propuesta de valor --- */
@@ -3630,6 +3725,10 @@ a {
   .landing-product-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .landing-brand-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
@@ -3652,6 +3751,10 @@ a {
 
   .landing-product-grid--carousel {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-brand-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .landing-carousel {
@@ -3732,6 +3835,10 @@ a {
 
   .landing-product-grid--carousel {
     grid-template-columns: 1fr;
+  }
+
+  .landing-brand-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .landing-carousel {
