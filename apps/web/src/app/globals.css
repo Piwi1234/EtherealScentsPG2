@@ -2124,6 +2124,13 @@ a {
   transition: background-color 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, color 0.3s ease;
 }
 
+/* Ocupa su espacio en el flujo normal en vez de flotar sobre el contenido — el hero de la página
+ * arranca separado, justo debajo, sin necesitar padding-top extra para no quedar tapado. Sticky (no
+ * static) para que el navbar se siga viendo si se baja de página, en vez de desaparecer con el scroll. */
+.landing-navbar--static {
+  position: sticky;
+}
+
 .landing-navbar--scrolled {
   --nav-fg: var(--lp-text);
   --nav-fg-muted: var(--lp-muted);
@@ -2557,6 +2564,12 @@ a {
     radial-gradient(circle at 12% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
     linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
   color: #f5f4f0;
+}
+
+/* El navbar de esta página ya no flota encima (ver LandingNavbar overlay={false}) — no hace falta
+ * el padding-top extra que compensaba quedar tapado, así que se vuelve simétrico con el de abajo. */
+.landing-category-banner--no-overlay {
+  padding-top: 56px;
 }
 
 /* Carrusel de imágenes propio de la categoría (o subcategoría) de fondo del banner — el gradiente
@@ -4052,6 +4065,10 @@ a {
 
   .landing-category-banner {
     padding: 100px 20px 40px;
+  }
+
+  .landing-category-banner--no-overlay {
+    padding-top: 40px;
   }
 
   .landing-category-banner h1 {

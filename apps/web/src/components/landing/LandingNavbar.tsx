@@ -17,8 +17,19 @@ import type { Category } from "../../lib/types";
  * variant="dark": fondo negro fijo (no transparente, no cambia con el scroll) — para páginas sin
  * hero de fondo oscuro debajo, como el detalle de producto.
  * variant="light": fondo blanco fijo, sin la animación de fade — para las páginas de categoría.
+ *
+ * overlay=true (default): el navbar es `position: fixed`, sobrepuesto al contenido — el hero de esa
+ * página debe compensar con su propio padding-top para no quedar tapado. overlay=false: el navbar
+ * ocupa su propio espacio en el flujo normal (`position: sticky`) — el hero arranca separado, justo
+ * debajo, sin superponerse ni necesitar ese padding extra.
  */
-export function LandingNavbar({ variant = "default" }: { variant?: "default" | "dark" | "light" }) {
+export function LandingNavbar({
+  variant = "default",
+  overlay = true,
+}: {
+  variant?: "default" | "dark" | "light";
+  overlay?: boolean;
+}) {
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [scrolled, setScrolled] = useState(false);
@@ -62,6 +73,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
     variant === "default" && scrolled ? "landing-navbar--scrolled" : "",
     variant === "dark" ? "landing-navbar--dark" : "",
     variant === "light" ? "landing-navbar--light" : "",
+    !overlay ? "landing-navbar--static" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -74,7 +86,7 @@ export function LandingNavbar({ variant = "default" }: { variant?: "default" | "
         </Link>
         <nav className="landing-navbar-links">
           <div className="landing-navbar-item">
-            <a href="#catalogo" onClick={(e) => { e.preventDefault(); goToSection("catalogo"); }}>
+            <a href="#catalogo" onClick={(e) => e.preventDefault()}>
               Categorías
             </a>
             <div className="landing-navbar-dropdown">
