@@ -1274,9 +1274,9 @@ a {
   --color-text: #e9e9ed;
   --color-accent: #9184d9;
   --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
-  --font-heading: "Inter", system-ui, sans-serif;
+  --font-heading: var(--font-inter), system-ui, sans-serif;
   --font-heading-weight: 500;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
   --space-1: 2.8px;
   --space-2: 5.6px;
   --space-3: 8.4px;
@@ -1989,8 +1989,8 @@ a {
   --lp-accent: #9184d9;
   --lp-accent-dark: #6f62c4;
   --lp-border: #e8e0d0;
-  --lp-font-display: "Playfair Display", Georgia, serif;
-  --lp-font-body: "Inter", system-ui, sans-serif;
+  --lp-font-display: var(--font-libre-baskerville), Georgia, serif;
+  --lp-font-body: var(--font-dm-sans), system-ui, sans-serif;
 
   background: var(--lp-bg);
   color: var(--lp-text);
@@ -2002,7 +2002,9 @@ a {
 .landing-page h2,
 .landing-page h3 {
   font-family: var(--lp-font-display);
-  font-weight: 600;
+  /* Libre Baskerville solo trae 400/700 (no 600) — 400 es el peso que usa la referencia (mooala.com)
+     para sus títulos. */
+  font-weight: 400;
   line-height: 1.15;
   margin: 0;
 }
@@ -2203,7 +2205,7 @@ a {
   align-items: center;
   gap: 10px;
   font-family: var(--lp-font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 19px;
   letter-spacing: 0.02em;
   flex: 1;
@@ -3340,7 +3342,7 @@ a {
 .landing-footer-brand {
   font-family: var(--lp-font-display);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   color: #ffffff;
   margin-bottom: 12px;
 }
