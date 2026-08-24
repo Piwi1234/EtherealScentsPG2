@@ -222,6 +222,9 @@ export default function ProductsPage() {
     if (column.type === "SELECT") {
       const matches = product.attributeValues.filter((pv) => pv.attributeId === column.id && pv.optionId);
       if (matches.length === 0) return "—";
+      // Con un solo valor posible (ej. Concentración, que no admite elegir más de una opción) no
+      // hace falta un desplegable — el select solo tiene sentido cuando hay algo entre qué elegir.
+      if (matches.length === 1) return matches[0].option!.value;
       const cellKey = `${product.id}:${column.id}`;
       const selectedOptionId = selectedMultiValueByCell[cellKey] ?? matches[0].optionId!;
       return (
