@@ -1982,13 +1982,16 @@ a {
    ========================================================================== */
 
 .landing-page {
-  --lp-bg: #faf9f7;
+  /* Paleta "black steel" — aplicada a la base de la página pública (categorías, productos, marcas).
+     El navbar, el hero y el footer quedan afuera a propósito (ver los comentarios "hardcodeado" en
+     esas secciones, donde se despegó el color de estas variables para que no les afecte el cambio). */
+  --lp-bg: #efefef; /* paper */
   --lp-surface: #ffffff;
-  --lp-text: #1a1a2e;
-  --lp-muted: #6b6b76;
-  --lp-accent: #9184d9;
-  --lp-accent-dark: #6f62c4;
-  --lp-border: #e8e0d0;
+  --lp-text: #080706; /* black steel */
+  --lp-muted: #594d46; /* silver */
+  --lp-accent: #d1b280; /* gold leaf */
+  --lp-accent-dark: #594d46; /* silver */
+  --lp-border: #594d46; /* silver */
   /* Misma familia (Manrope) para las dos — Clarkson (la referencia, ver layout.tsx) también usa una
      sola tipografía para todo, diferenciando título/texto solo por el peso. */
   --lp-font-display: var(--font-manrope), Helvetica, sans-serif;
@@ -2199,7 +2202,9 @@ a {
 
 .landing-navbar-links > a:hover,
 .landing-navbar-item > a:hover {
-  color: var(--lp-accent-dark);
+  /* Hardcodeado (no var(--lp-accent-dark)) a propósito: el navbar no debe cambiar si se retoca la
+     paleta base de la página — ver .landing-page. */
+  color: #6f62c4;
 }
 
 /* Subrayado animado al pasar el mouse — misma idea que el navbar de squarespace.com. currentColor
@@ -2414,7 +2419,8 @@ a {
   font-family: var(--lp-font-display);
   font-size: 15px;
   color: #ffffff;
-  background: linear-gradient(150deg, var(--lp-accent), #4b3f8f);
+  /* Hardcodeado a propósito: el navbar no debe cambiar si se retoca la paleta base — ver .landing-page. */
+  background: linear-gradient(150deg, #9184d9, #4b3f8f);
 }
 
 .landing-navbar-search-result-info {
@@ -2490,13 +2496,15 @@ a {
   transform: translateY(-7px) rotate(-45deg);
 }
 
+/* background usa var(--lp-surface) porque esa sigue siendo blanca (no cambia con la paleta base);
+   border/color hardcodeados a propósito, mismo motivo que el resto del navbar. */
 .landing-navbar-mobile {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 4px 24px 24px;
   background: var(--lp-surface);
-  border-top: 1px solid var(--lp-border);
+  border-top: 1px solid #e8e0d0;
   box-shadow: 0 16px 32px rgba(26, 26, 46, 0.12);
 }
 
@@ -2505,7 +2513,7 @@ a {
   padding: 10px 4px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--lp-text);
+  color: #1a1a2e;
 }
 
 .landing-navbar-mobile-heading {
@@ -2516,7 +2524,7 @@ a {
   padding-left: 16px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--lp-text);
+  color: #1a1a2e;
 }
 
 .landing-navbar-mobile-cta {
@@ -3903,8 +3911,9 @@ a {
 }
 
 .landing-footer-social a:hover {
-  border-color: var(--lp-accent);
-  color: var(--lp-accent);
+  /* Hardcodeado a propósito: el footer no debe cambiar si se retoca la paleta base — ver .landing-page. */
+  border-color: #9184d9;
+  color: #9184d9;
 }
 
 .landing-footer-bottom {
