@@ -1,15 +1,16 @@
-import { DM_Sans, Inter, Libre_Baskerville } from "next/font/google";
+import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 
 // Inter: tipografía del Dashboard interno (.nocturne-theme) — declarada por nombre en globals.css
 // pero nunca cargada de verdad hasta ahora (sin esto, el navegador caía al fallback system-ui).
 //
-// DM Sans (texto) + Libre Baskerville (títulos, h1/h2/h3): tipografía del sitio público
-// (.landing-page) — mismo par que usa mooala.com/collections/almondmilk (Shopify, cargadas ahí vía
-// fonts.shopifycdn.com), acá auto-hospedadas con next/font/google en vez de depender de Shopify.
+// Manrope: tipografía del sitio público (.landing-page), texto y títulos por igual — misma familia
+// para todo, como Clarkson (la tipografía propia de squarespace.com, no reutilizable por licencia:
+// autoalojada en su CDN y exclusiva de Squarespace). Manrope es la alternativa libre (Google Fonts)
+// con la estética más parecida: sans geométrica minimalista, con un peso liviano (300) para títulos
+// grandes tipo display, igual que el .text--display de Clarkson.
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-inter" });
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-dm-sans" });
-const libreBaskerville = Libre_Baskerville({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-libre-baskerville" });
+const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-manrope" });
 
 export const metadata = {
   title: "Nuevo Proyecto",
@@ -18,7 +19,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${dmSans.variable} ${libreBaskerville.variable}`}>
+    <html lang="es" className={`${inter.variable} ${manrope.variable}`}>
       <body>{children}</body>
     </html>
   );

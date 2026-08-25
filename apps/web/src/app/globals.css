@@ -1989,8 +1989,10 @@ a {
   --lp-accent: #9184d9;
   --lp-accent-dark: #6f62c4;
   --lp-border: #e8e0d0;
-  --lp-font-display: var(--font-libre-baskerville), Georgia, serif;
-  --lp-font-body: var(--font-dm-sans), system-ui, sans-serif;
+  /* Misma familia (Manrope) para las dos — Clarkson (la referencia, ver layout.tsx) también usa una
+     sola tipografía para todo, diferenciando título/texto solo por el peso. */
+  --lp-font-display: var(--font-manrope), Helvetica, sans-serif;
+  --lp-font-body: var(--font-manrope), Helvetica, sans-serif;
 
   background: var(--lp-bg);
   color: var(--lp-text);
@@ -2002,9 +2004,9 @@ a {
 .landing-page h2,
 .landing-page h3 {
   font-family: var(--lp-font-display);
-  /* Libre Baskerville solo trae 400/700 (no 600) — 400 es el peso que usa la referencia (mooala.com)
-     para sus títulos. */
-  font-weight: 400;
+  /* Peso liviano para los títulos grandes — mismo criterio que el .text--display de Clarkson (la
+     referencia, ver layout.tsx), que usa 300 para sus headlines en vez del 400 del texto normal. */
+  font-weight: 300;
   line-height: 1.15;
   margin: 0;
 }
@@ -2235,11 +2237,18 @@ a {
   align-items: center;
 }
 
-/* Siempre en modo oscuro, sea cual sea la variante/estado del navbar (el navbar en sí puede ser
-   transparente al cargar el home, pero el desplegable siempre usa el mismo look oscuro). */
+/* Paleta y comportamiento calcados del mega-menú de squarespace.com: panel negro puro
+   (--primitive-black), sin borde (solo una sombra en capas bien difusa para el volumen), texto
+   blanco para lo activo/importante y gris (--color-gray-500 #898989) para lo secundario, que
+   aclara a blanco al pasar el mouse — nada de color de acento, todo en escala de grises. Siempre en
+   este modo sea cual sea la variante/estado del navbar (que puede ser transparente al cargar el
+   home). */
 .landing-navbar-dropdown {
   position: absolute;
-  top: 100%;
+  /* No pegado al botón: arranca desde el borde inferior de todo el navbar (28px ≈ la mitad libre
+     del alto del navbar por debajo del texto del link, más el padding-bottom de .landing-navbar-inner),
+     no del propio link que lo dispara. */
+  top: calc(100% + 28px);
   left: 50%;
   transform: translate(-50%, 10px);
   display: grid;
@@ -2248,14 +2257,12 @@ a {
   align-items: start;
   gap: 20px;
   padding: 14px;
-  background: #1a1a1d;
-  border: 1px solid rgba(245, 244, 240, 0.14);
-  border-radius: 12px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+  background: #000000;
+  border-radius: 8px;
+  box-shadow: 0 40px 32px rgba(0, 0, 0, 0.06), 0 20px 20px rgba(0, 0, 0, 0.1), 0 8px 12px rgba(0, 0, 0, 0.14);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0.25s;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.3s;
 }
 
 .landing-navbar-item:hover .landing-navbar-dropdown,
@@ -2263,9 +2270,10 @@ a {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, 0);
+  transition: opacity 0.3s 0.15s ease, transform 0.3s 0.15s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.3s;
 }
 
-/* Una columna por categoría padre: encabezado en rojo arriba + subcategorías debajo. */
+/* Una columna por categoría padre: encabezado arriba + subcategorías debajo. */
 .landing-navbar-dropdown-group {
   display: flex;
   flex-direction: column;
@@ -2274,30 +2282,31 @@ a {
 
 .landing-navbar-dropdown-group + .landing-navbar-dropdown-group {
   padding-left: 18px;
-  border-left: 1px solid rgba(245, 244, 240, 0.14);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .landing-navbar-dropdown a {
   padding: 7px 10px;
   border-radius: 8px;
-  color: rgba(245, 244, 240, 0.85);
+  color: #898989;
   font-weight: 500;
   text-transform: none;
   letter-spacing: normal;
+  transition: color 0.3s cubic-bezier(0.645, 0.045, 0.355, 1), background 0.15s ease;
 }
 
 .landing-navbar-dropdown a:hover {
-  background: rgba(245, 244, 240, 0.08);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 
 .landing-navbar-dropdown a.landing-navbar-dropdown-heading {
-  color: #e08585;
+  color: #ffffff;
   font-weight: 700;
 }
 
 .landing-navbar-dropdown a.landing-navbar-dropdown-heading:hover {
-  color: #f2a5a5;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .landing-navbar-actions {
