@@ -127,54 +127,13 @@ export function LandingNavbar({
 
   return (
     <header className={navbarClass}>
+      {/* Fila principal: logo a la izquierda, buscador al centro, utilidades a la derecha — mismo
+          orden que pontocom.com. Las categorías van en su propia fila debajo (ver
+          .landing-navbar-categories), como su mega-menú separado. */}
       <div className="landing-container landing-navbar-inner">
         <Link href="/home" className="landing-navbar-brand" onClick={() => setMobileMenuOpen(false)}>
           {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
         </Link>
-        <nav className="landing-navbar-links">
-          <div className="landing-navbar-item">
-            <a href="#catalogo" onClick={(e) => e.preventDefault()}>
-              Categorías
-            </a>
-            <div className="landing-navbar-dropdown">
-              {categoryTree.map((cat) => (
-                <div className="landing-navbar-dropdown-group" key={cat.id}>
-                  <Link
-                    className="landing-navbar-dropdown-heading"
-                    href={`/categoria/${cat.id}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {cat.name}
-                  </Link>
-                  {cat.children.map((sub) => (
-                    <Link key={sub.id} href={`/categoria/${sub.id}`} onClick={() => setMobileMenuOpen(false)}>
-                      {sub.name}
-                    </Link>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="landing-navbar-item">
-            <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
-            <div className="landing-navbar-dropdown">
-              {rootCategories.map((cat) => (
-                <div className="landing-navbar-dropdown-group" key={cat.id}>
-                  <Link
-                    className="landing-navbar-dropdown-heading"
-                    href={`/categoria/${cat.id}?descuento=true`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {cat.name}
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-          <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
-          <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
-          <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
-        </nav>
 
         <div className="landing-navbar-search">
           <svg className="landing-navbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -202,7 +161,7 @@ export function LandingNavbar({
               )}
               {!searchLoading &&
                 searchResults.map((product) => {
-                  const { bs, fromPrice, variant } = displayPrice(product);
+                  const { variant } = displayPrice(product);
                   const image = productImageSrc(cardImageUrl(product, variant));
                   return (
                     <Link
@@ -219,12 +178,7 @@ export function LandingNavbar({
                       ) : (
                         <div className="landing-navbar-search-result-image-placeholder">{product.name.slice(0, 1)}</div>
                       )}
-                      <span className="landing-navbar-search-result-info">
-                        <span className="landing-navbar-search-result-name">{product.name}</span>
-                        <span className="landing-navbar-search-result-price">
-                          {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                        </span>
-                      </span>
+                      <span className="landing-navbar-search-result-name">{product.name}</span>
                     </Link>
                   );
                 })}
@@ -238,6 +192,8 @@ export function LandingNavbar({
         </div>
 
         <div className="landing-navbar-actions">
+          <a className="landing-navbar-actions-link" href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
+          <a className="landing-navbar-actions-link" href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
           <button
             type="button"
@@ -250,6 +206,54 @@ export function LandingNavbar({
             <span />
             <span />
           </button>
+        </div>
+      </div>
+
+      {/* Segunda fila: categorías/ofertas/marcas, como el "menu-top" separado de pontocom.com. */}
+      <div className="landing-navbar-categories">
+        <div className="landing-container">
+          <nav className="landing-navbar-links">
+            <div className="landing-navbar-item">
+              <a href="#catalogo" onClick={(e) => e.preventDefault()}>
+                Categorías
+              </a>
+              <div className="landing-navbar-dropdown">
+                {categoryTree.map((cat) => (
+                  <div className="landing-navbar-dropdown-group" key={cat.id}>
+                    <Link
+                      className="landing-navbar-dropdown-heading"
+                      href={`/categoria/${cat.id}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {cat.name}
+                    </Link>
+                    {cat.children.map((sub) => (
+                      <Link key={sub.id} href={`/categoria/${sub.id}`} onClick={() => setMobileMenuOpen(false)}>
+                        {sub.name}
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="landing-navbar-item">
+              <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+              <div className="landing-navbar-dropdown">
+                {rootCategories.map((cat) => (
+                  <div className="landing-navbar-dropdown-group" key={cat.id}>
+                    <Link
+                      className="landing-navbar-dropdown-heading"
+                      href={`/categoria/${cat.id}?descuento=true`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {cat.name}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
+          </nav>
         </div>
       </div>
 
