@@ -224,13 +224,13 @@ export function getCasaMatrizLogo() {
 }
 
 /** Público (sin auth) — carrusel del hero del home, del hero de /marcas y del banner de ofertas del
- * home (ordenados) e imágenes de "Propuesta de valor"/"Sobre nosotros" del home (ver Grid Imágenes
- * en Configuración). */
+ * home (ordenados, con su `url` de redirección si tiene) e imágenes de "Propuesta de valor"/"Sobre
+ * nosotros" del home (ver Grid Imágenes en Configuración). */
 export function getLandingImages() {
   return apiGet<{
-    heroImages: string[];
-    marcasHeroImages: string[];
-    offersBannerImages: string[];
+    heroImages: CarouselImage[];
+    marcasHeroImages: CarouselImage[];
+    offersBannerImages: CarouselImage[];
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   }>("/settings/landing-images");
@@ -254,6 +254,10 @@ export function moveHeroCarouselImage(imageId: string, direction: "up" | "down")
   return apiPatch<void>(`/settings/landing-images/hero-carousel/${imageId}/move`, { direction });
 }
 
+export function updateHeroCarouselImageUrl(imageId: string, url: string | null) {
+  return apiPatch<void>(`/settings/landing-images/hero-carousel/${imageId}/url`, { url });
+}
+
 export function getMarcasHeroCarouselImages() {
   return apiGet<CarouselImage[]>("/settings/landing-images/marcas-hero-carousel");
 }
@@ -268,6 +272,10 @@ export function removeMarcasHeroCarouselImage(imageId: string) {
 
 export function moveMarcasHeroCarouselImage(imageId: string, direction: "up" | "down") {
   return apiPatch<void>(`/settings/landing-images/marcas-hero-carousel/${imageId}/move`, { direction });
+}
+
+export function updateMarcasHeroCarouselImageUrl(imageId: string, url: string | null) {
+  return apiPatch<void>(`/settings/landing-images/marcas-hero-carousel/${imageId}/url`, { url });
 }
 
 export function getOffersBannerCarouselImages() {
@@ -286,6 +294,10 @@ export function moveOffersBannerCarouselImage(imageId: string, direction: "up" |
   return apiPatch<void>(`/settings/landing-images/offers-banner-carousel/${imageId}/move`, { direction });
 }
 
+export function updateOffersBannerCarouselImageUrl(imageId: string, url: string | null) {
+  return apiPatch<void>(`/settings/landing-images/offers-banner-carousel/${imageId}/url`, { url });
+}
+
 export function getCategoryCarouselImages(categoryId: string) {
   return apiGet<CarouselImage[]>(`/categories/${categoryId}/carousel-images`);
 }
@@ -300,6 +312,10 @@ export function removeCategoryCarouselImage(categoryId: string, imageId: string)
 
 export function moveCategoryCarouselImage(categoryId: string, imageId: string, direction: "up" | "down") {
   return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/move`, { direction });
+}
+
+export function updateCategoryCarouselImageUrl(categoryId: string, imageId: string, url: string | null) {
+  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/url`, { url });
 }
 
 // Carrusel del hero de /categoria/[id] — independiente del de "Producto destacado" de arriba.
@@ -317,6 +333,10 @@ export function removeCategoryHeroCarouselImage(categoryId: string, imageId: str
 
 export function moveCategoryHeroCarouselImage(categoryId: string, imageId: string, direction: "up" | "down") {
   return apiPatch<void>(`/categories/${categoryId}/hero-carousel-images/${imageId}/move`, { direction });
+}
+
+export function updateCategoryHeroCarouselImageUrl(categoryId: string, imageId: string, url: string | null) {
+  return apiPatch<void>(`/categories/${categoryId}/hero-carousel-images/${imageId}/url`, { url });
 }
 
 export function createEmpresa(data: EmpresaInput) {

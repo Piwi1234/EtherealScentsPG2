@@ -220,6 +220,9 @@ model CarouselImage {
   category   Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   kind       CarouselKind @default(FEATURE)
   imageUrl   String       @map("image_url")
+  // Link opcional: si tiene valor, la imagen se muestra clickeable en el sitio público y redirige
+  // ahí; si está vacío, la imagen queda decorativa (sin click), como era antes de este campo.
+  url        String?
   orden      Int          @default(0)
   createdAt  DateTime     @default(now()) @map("created_at")
 

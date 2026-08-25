@@ -233,6 +233,11 @@ export class CategoryService {
     return this.carouselImages.remove(imageId);
   }
 
+  async setCarouselImageUrl(id: string, imageId: string, url: string | null) {
+    await this.assertRootCategory(id);
+    return this.carouselImages.setUrl(imageId, url);
+  }
+
   async moveCarouselImage(id: string, imageId: string, direction: "up" | "down") {
     await this.assertRootCategory(id);
     return this.carouselImages.move(imageId, direction);

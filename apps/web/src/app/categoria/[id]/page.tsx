@@ -292,7 +292,7 @@ export default function CategoriaPage() {
         {rootCategoryForBanner && rootCategoryForBanner.heroCarouselImages.length > 0 && (
           <div className="landing-category-banner-bg">
             <ImageCarousel
-              images={rootCategoryForBanner.heroCarouselImages.map((image) => image.imageUrl)}
+              images={rootCategoryForBanner.heroCarouselImages}
               alt=""
               imgClassName="landing-category-banner-bg-image"
               autoplayMs={CATEGORY_BANNER_AUTOPLAY_MS}

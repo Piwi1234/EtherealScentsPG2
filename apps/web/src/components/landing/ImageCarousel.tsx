@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { productImageSrc } from "../../lib/catalog-display";
+import type { CarouselImage } from "../../lib/types";
 
 /** Carrusel de una sola imagen a la vez (fade al cambiar) + flechas + autoplay — usado para el
  * fondo del Hero, el cuadro de "Producto destacado" por categoría raíz y el banner de la página de
- * categoría/subcategoría. El wrapper (`position: relative`) lo pone quien lo usa. */
+ * categoría/subcategoría. El wrapper (`position: relative`) lo pone quien lo usa.
+ *
+ * Cada imagen puede traer un `url` (cargado en Grid Imágenes) al que redirige si se hace click —
+ * si no tiene, queda decorativa como antes (sin click). */
 export function ImageCarousel({
   images,
   alt,
   imgClassName,
   autoplayMs,
 }: {
-  images: string[];
+  images: CarouselImage[];
   alt: string;
   imgClassName: string;
   autoplayMs: number;
@@ -42,9 +46,24 @@ export function ImageCarousel({
 
   if (images.length === 0) return null;
 
+  const current = images[slide];
+  const img = <img key={slide} className={imgClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />;
+
   return (
     <>
-      <img key={slide} className={imgClassName} src={productImageSrc(images[slide])!} alt={alt} />
+      {current.url ? (
+        <a
+          key={slide}
+          className="landing-image-carousel-link"
+          href={current.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img className={imgClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />
+        </a>
+      ) : (
+        img
+      )}
       {images.length > 1 && (
         <>
           <button

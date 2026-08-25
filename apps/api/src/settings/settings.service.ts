@@ -29,7 +29,8 @@ export class SettingsService {
   }
 
   /** Público (sin auth) — los carruseles del hero del home, del hero de /marcas y del banner de
-   * ofertas del home, y las imágenes de "Propuesta de valor"/"Sobre nosotros" del home. */
+   * ofertas del home (con su `url` de redirección si tiene), y las imágenes de "Propuesta de
+   * valor"/"Sobre nosotros" del home. */
   async getLandingImages() {
     const [setting, heroImages, marcasHeroImages, offersBannerImages] = await Promise.all([
       this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
@@ -38,9 +39,9 @@ export class SettingsService {
       this.carouselImages.list(null, "OFFERS_BANNER"),
     ]);
     return {
-      heroImages: heroImages.map((image) => image.imageUrl),
-      marcasHeroImages: marcasHeroImages.map((image) => image.imageUrl),
-      offersBannerImages: offersBannerImages.map((image) => image.imageUrl),
+      heroImages,
+      marcasHeroImages,
+      offersBannerImages,
       valueImageUrl: setting?.valueImageUrl ?? null,
       aboutImageUrl: setting?.aboutImageUrl ?? null,
     };
@@ -64,6 +65,10 @@ export class SettingsService {
     return this.carouselImages.move(imageId, direction);
   }
 
+  setHeroCarouselImageUrl(imageId: string, url: string | null) {
+    return this.carouselImages.setUrl(imageId, url);
+  }
+
   /** El carrusel del hero de /marcas (categoryId null, kind MARCAS_HERO) — independiente del Hero
    * principal del home, mismo mecanismo. */
   listMarcasHeroCarouselImages() {
@@ -82,6 +87,10 @@ export class SettingsService {
     return this.carouselImages.move(imageId, direction);
   }
 
+  setMarcasHeroCarouselImageUrl(imageId: string, url: string | null) {
+    return this.carouselImages.setUrl(imageId, url);
+  }
+
   /** El carrusel del banner de ofertas del home (categoryId null, kind OFFERS_BANNER) — ocupa el
    * 5to lugar de la fila de "Descuento y Ofertas", mismo tamaño que una tarjeta de producto. */
   listOffersBannerCarouselImages() {
@@ -98,6 +107,10 @@ export class SettingsService {
 
   moveOffersBannerCarouselImage(imageId: string, direction: "up" | "down") {
     return this.carouselImages.move(imageId, direction);
+  }
+
+  setOffersBannerCarouselImageUrl(imageId: string, url: string | null) {
+    return this.carouselImages.setUrl(imageId, url);
   }
 
   private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {

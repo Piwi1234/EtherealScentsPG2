@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getLandingImages } from "../../lib/api";
 import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
-import type { Brand, Category } from "../../lib/types";
+import type { Brand, CarouselImage, Category } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -14,7 +14,7 @@ const MARCAS_BANNER_AUTOPLAY_MS = 10000;
 export default function MarcasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [marcasHeroImages, setMarcasHeroImages] = useState<string[]>([]);
+  const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [search, setSearch] = useState("");

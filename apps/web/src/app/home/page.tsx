@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
 import { brandLinkHref, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
-import type { Brand, Category, Page, Product } from "../../lib/types";
+import type { Brand, CarouselImage, Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -38,8 +38,8 @@ export default function HomePage() {
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [landingImages, setLandingImages] = useState<{
-    heroImages: string[];
-    offersBannerImages: string[];
+    heroImages: CarouselImage[];
+    offersBannerImages: CarouselImage[];
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   } | null>(null);
@@ -264,7 +264,7 @@ export default function HomePage() {
                 {cat.carouselImages.length > 0 ? (
                   <div className="landing-feature-visual">
                     <ImageCarousel
-                      images={cat.carouselImages.map((image) => image.imageUrl)}
+                      images={cat.carouselImages}
                       alt={cat.name}
                       imgClassName="landing-feature-visual-image"
                       autoplayMs={FEATURE_AUTOPLAY_MS}

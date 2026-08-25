@@ -19,6 +19,7 @@ import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
 import { landingImageMulterOptions } from "./landing-image.multer";
 import { MoveCarouselImageDto } from "../catalog/carousel-image/dto/move-carousel-image.dto";
+import { UpdateCarouselImageUrlDto } from "../catalog/carousel-image/dto/update-carousel-image-url.dto";
 import { carouselImageMulterOptions } from "../catalog/carousel-image/carousel-image.multer";
 
 @ApiTags("settings")
@@ -68,6 +69,11 @@ export class SettingsController {
     return this.settings.moveHeroCarouselImage(imageId, dto.direction);
   }
 
+  @Patch("landing-images/hero-carousel/:imageId/url")
+  setHeroCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
+    return this.settings.setHeroCarouselImageUrl(imageId, dto.url ?? null);
+  }
+
   @Get("landing-images/marcas-hero-carousel")
   listMarcasHeroCarouselImages() {
     return this.settings.listMarcasHeroCarouselImages();
@@ -92,6 +98,11 @@ export class SettingsController {
     return this.settings.moveMarcasHeroCarouselImage(imageId, dto.direction);
   }
 
+  @Patch("landing-images/marcas-hero-carousel/:imageId/url")
+  setMarcasHeroCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
+    return this.settings.setMarcasHeroCarouselImageUrl(imageId, dto.url ?? null);
+  }
+
   @Get("landing-images/offers-banner-carousel")
   listOffersBannerCarouselImages() {
     return this.settings.listOffersBannerCarouselImages();
@@ -114,6 +125,11 @@ export class SettingsController {
   @Patch("landing-images/offers-banner-carousel/:imageId/move")
   moveOffersBannerCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: MoveCarouselImageDto) {
     return this.settings.moveOffersBannerCarouselImage(imageId, dto.direction);
+  }
+
+  @Patch("landing-images/offers-banner-carousel/:imageId/url")
+  setOffersBannerCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
+    return this.settings.setOffersBannerCarouselImageUrl(imageId, dto.url ?? null);
   }
 
   @Post("landing-images/value")

@@ -2597,6 +2597,15 @@ a {
   animation: landing-image-fade 1.2s ease;
 }
 
+/* Envuelve la imagen cuando tiene `url` de redirección cargada (ver Grid Imágenes) — llena el mismo
+   espacio que ocupaba el <img> solo, sin cambiar el tamaño/recorte de ninguna de las imágenes que
+   usan ImageCarousel (Hero, banner de categoría/marcas, "Producto destacado", banner de ofertas). */
+.landing-image-carousel-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .landing-image-carousel-arrow {
   position: absolute;
   top: 50%;

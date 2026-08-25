@@ -2,6 +2,9 @@ export type CarouselImage = {
   id: string;
   categoryId: string | null;
   imageUrl: string;
+  // Link opcional al que redirige la imagen en el sitio público al hacer click — null la deja
+  // decorativa (sin click).
+  url: string | null;
   orden: number;
   createdAt: string;
 };

@@ -42,6 +42,16 @@ export class CarouselImageService {
     }
   }
 
+  /** Link opcional al que redirige la imagen en el sitio público al hacer click — `null`/vacío la
+   * deja decorativa (sin click), como estaba antes de este campo. */
+  async setUrl(id: string, url: string | null) {
+    const existing = await this.prisma.carouselImage.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException("Imagen no encontrada.");
+    }
+    return this.prisma.carouselImage.update({ where: { id }, data: { url } });
+  }
+
   /** Intercambia el `orden` con la imagen vecina en esa dirección — no-op si ya está en la punta. */
   async move(id: string, direction: "up" | "down") {
     const current = await this.prisma.carouselImage.findUnique({ where: { id } });

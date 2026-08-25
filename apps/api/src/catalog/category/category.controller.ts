@@ -20,6 +20,7 @@ import { CategoryService } from "./category.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { MoveCarouselImageDto } from "../carousel-image/dto/move-carousel-image.dto";
+import { UpdateCarouselImageUrlDto } from "../carousel-image/dto/update-carousel-image-url.dto";
 import { carouselImageMulterOptions } from "../carousel-image/carousel-image.multer";
 
 @ApiTags("categories")
@@ -86,6 +87,15 @@ export class CategoryController {
     return this.categories.moveCarouselImage(id, imageId, dto.direction);
   }
 
+  @Patch(":id/carousel-images/:imageId/url")
+  setCarouselImageUrl(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @Body() dto: UpdateCarouselImageUrlDto,
+  ) {
+    return this.categories.setCarouselImageUrl(id, imageId, dto.url ?? null);
+  }
+
   // Hero de /categoria/[id] (panorámico) — carrusel independiente del de arriba, compartido con
   // todas las subcategorías de esta raíz.
   @Get(":id/hero-carousel-images")
@@ -114,5 +124,14 @@ export class CategoryController {
     @Body() dto: MoveCarouselImageDto,
   ) {
     return this.categories.moveCarouselImage(id, imageId, dto.direction);
+  }
+
+  @Patch(":id/hero-carousel-images/:imageId/url")
+  setHeroCarouselImageUrl(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @Body() dto: UpdateCarouselImageUrlDto,
+  ) {
+    return this.categories.setCarouselImageUrl(id, imageId, dto.url ?? null);
   }
 }

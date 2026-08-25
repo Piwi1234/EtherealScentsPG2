@@ -24,6 +24,11 @@ import {
   removeHeroCarouselImage,
   removeMarcasHeroCarouselImage,
   removeOffersBannerCarouselImage,
+  updateCategoryCarouselImageUrl,
+  updateCategoryHeroCarouselImageUrl,
+  updateHeroCarouselImageUrl,
+  updateMarcasHeroCarouselImageUrl,
+  updateOffersBannerCarouselImageUrl,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
 
@@ -130,6 +135,29 @@ export default function GridImagenesPage() {
     }
   }
 
+  async function handleSetCarouselImageUrl(
+    slotKey: string,
+    kind: SlotKind,
+    categoryId: string | null,
+    imageId: string,
+    url: string | null,
+  ) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (kind === "site-hero") await updateHeroCarouselImageUrl(imageId, url);
+      else if (kind === "marcas-hero") await updateMarcasHeroCarouselImageUrl(imageId, url);
+      else if (kind === "offers-banner") await updateOffersBannerCarouselImageUrl(imageId, url);
+      else if (kind === "feature") await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
+      else await updateCategoryHeroCarouselImageUrl(categoryId!, imageId, url);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
   async function handleUploadSingle(slotId: string, path: string, file: File) {
     setBusySlot(slotId);
     setError("");
@@ -213,7 +241,8 @@ export default function GridImagenesPage() {
         el del hero de /marcas, y por cada categoría raíz dos carruseles independientes — "Producto destacado" del
         home y el hero de su propia página (compartido con todas sus subcategorías) — más las imágenes únicas de
         "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna imagen cargada muestra un degradado de
-        relleno en su lugar.
+        relleno en su lugar. Cada imagen de un carrusel puede tener un link opcional: si lo carga, esa imagen queda
+        clickeable en el sitio público y redirige ahí; si lo deja vacío, queda decorativa (sin click), como antes.
       </p>
       {error && <p className="error-text">{error}</p>}
       {!categories && !error && <p>Cargando...</p>}
@@ -231,6 +260,7 @@ export default function GridImagenesPage() {
                 onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
                 onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
                 onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
+                onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
               />
             ))}
           </div>
@@ -286,6 +316,7 @@ function CarouselSlotEditor({
   onAdd,
   onRemove,
   onMove,
+  onSetUrl,
 }: {
   title: string;
   hint: string;
@@ -294,6 +325,7 @@ function CarouselSlotEditor({
   onAdd: (file: File) => void;
   onRemove: (imageId: string) => void;
   onMove: (imageId: string, direction: "up" | "down") => void;
+  onSetUrl: (imageId: string, url: string | null) => void;
 }) {
   return (
     <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
@@ -345,6 +377,11 @@ function CarouselSlotEditor({
                 ×
               </button>
             </div>
+            <CarouselImageUrlInput
+              image={image}
+              busy={busy}
+              onSave={(url) => onSetUrl(image.id, url)}
+            />
           </div>
         ))}
       </div>
@@ -367,5 +404,48 @@ function CarouselSlotEditor({
         </p>
       )}
     </div>
+  );
+}
+
+/** Link opcional al que redirige la imagen en el sitio público al hacer click — se guarda al salir
+ * del campo (blur) o con Enter, solo si cambió. Vacío = sin click, como era antes de este campo. */
+function CarouselImageUrlInput({
+  image,
+  busy,
+  onSave,
+}: {
+  image: CarouselImage;
+  busy: boolean;
+  onSave: (url: string | null) => void;
+}) {
+  const [value, setValue] = useState(image.url ?? "");
+
+  useEffect(() => {
+    setValue(image.url ?? "");
+  }, [image.url]);
+
+  function commit() {
+    const trimmed = value.trim();
+    if (trimmed === (image.url ?? "")) return;
+    onSave(trimmed || null);
+  }
+
+  return (
+    <input
+      className="field"
+      type="url"
+      placeholder="URL de redirección (opcional)"
+      value={value}
+      disabled={busy}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      style={{ fontSize: 11, padding: "5px 8px", marginTop: 2 }}
+    />
   );
 }
