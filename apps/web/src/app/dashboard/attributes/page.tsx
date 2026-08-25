@@ -249,7 +249,11 @@ export default function AttributesPage() {
         });
       } else {
         const isPlainSelect = type === "SELECT" && variantMode === "NONE";
-        const cleanOptions = options.map((o) => ({ value: o.value.trim(), color: o.color })).filter((o) => o.value);
+        // El color de las opciones solo tiene sentido cuando se puede elegir más de una a la vez
+        // (ej. Acordes) — un atributo de una sola opción (ej. Género) no lo usa para nada.
+        const cleanOptions = options
+          .map((o) => ({ value: o.value.trim(), color: allowMultiple ? o.color : undefined }))
+          .filter((o) => o.value);
         await apiPost(`/categories/${createForCategoryId}/attributes`, {
           name,
           type,
@@ -279,7 +283,11 @@ export default function AttributesPage() {
     if (!optionsFor || !newOptionValue.trim()) return;
     setOptionError("");
     try {
-      await apiPost(`/attributes/${optionsFor.id}/options`, { value: newOptionValue.trim(), color: newOptionColor });
+      await apiPost(`/attributes/${optionsFor.id}/options`, {
+        value: newOptionValue.trim(),
+        // El color solo aplica a atributos donde se puede elegir más de una opción (ej. Acordes).
+        color: optionsFor.allowMultiple ? newOptionColor : undefined,
+      });
       setNewOptionValue("");
       setNewOptionColor(DEFAULT_OPTION_COLOR);
       loadAllSections();
@@ -481,15 +489,17 @@ export default function AttributesPage() {
                 <label>Opciones</label>
                 {options.map((opt, i) => (
                   <div key={i} className="option-row" style={{ marginBottom: 8 }}>
-                    <input
-                      type="color"
-                      className="color-swatch-input"
-                      value={opt.color}
-                      onChange={(e) =>
-                        setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, color: e.target.value } : o)))
-                      }
-                      title="Color del botón"
-                    />
+                    {allowMultiple && (
+                      <input
+                        type="color"
+                        className="color-swatch-input"
+                        value={opt.color}
+                        onChange={(e) =>
+                          setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, color: e.target.value } : o)))
+                        }
+                        title="Color del botón"
+                      />
+                    )}
                     <input
                       className="field"
                       value={opt.value}
@@ -623,26 +633,30 @@ export default function AttributesPage() {
           <div className="form-grid">
             {optionsFor.options.map((option) => (
               <div key={option.id} className="option-row">
-                <input
-                  type="color"
-                  className="color-swatch-input"
-                  value={option.color ?? DEFAULT_OPTION_COLOR}
-                  onChange={(e) => handleOptionColorChange(option, e.target.value)}
-                  title="Color del botón"
-                />
+                {optionsFor.allowMultiple && (
+                  <input
+                    type="color"
+                    className="color-swatch-input"
+                    value={option.color ?? DEFAULT_OPTION_COLOR}
+                    onChange={(e) => handleOptionColorChange(option, e.target.value)}
+                    title="Color del botón"
+                  />
+                )}
                 <span style={{ flex: 1 }}>{option.value}</span>
                 <button type="button" className="link-button" onClick={() => handleEditOption(option)}>Editar</button>
                 <button type="button" className="link-button danger" onClick={() => handleDeleteOption(option)}>Eliminar</button>
               </div>
             ))}
             <div className="option-row">
-              <input
-                type="color"
-                className="color-swatch-input"
-                value={newOptionColor}
-                onChange={(e) => setNewOptionColor(e.target.value)}
-                title="Color del botón"
-              />
+              {optionsFor.allowMultiple && (
+                <input
+                  type="color"
+                  className="color-swatch-input"
+                  value={newOptionColor}
+                  onChange={(e) => setNewOptionColor(e.target.value)}
+                  title="Color del botón"
+                />
+              )}
               <input
                 className="field"
                 value={newOptionValue}

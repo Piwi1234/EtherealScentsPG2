@@ -112,7 +112,14 @@ export type AttributeFilterOption = { value: string; label: string; color: strin
  */
 export function getAttributeFilterOptions(attribute: Attribute, products: Product[]): AttributeFilterOption[] {
   if (attribute.type === "SELECT" && attribute.variantMode === "NONE") {
-    return attribute.options.map((option) => ({ value: option.id, label: option.value, color: option.color }));
+    // El color solo tiene sentido cuando se puede elegir más de una opción (ej. Acordes) — en un
+    // atributo de una sola opción (ej. Género) no se muestra el swatch aunque haya quedado un color
+    // guardado de antes (ver Gestión → Configuración → Atributos).
+    return attribute.options.map((option) => ({
+      value: option.id,
+      label: option.value,
+      color: attribute.allowMultiple ? option.color : null,
+    }));
   }
 
   if (attribute.variantMode === "MULTI_VALUE") {
