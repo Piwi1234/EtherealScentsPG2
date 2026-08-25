@@ -2824,6 +2824,73 @@ a {
   cursor: pointer;
 }
 
+/* Filtro de Precio, al lado de "Ordenar por" en la barra de herramientas — desplegable en vez de
+   slider siempre visible, para no ensanchar la barra (mismo look de pastilla que .landing-select). */
+.landing-price-dropdown {
+  position: relative;
+}
+
+.landing-price-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.landing-price-dropdown-trigger:hover {
+  border-color: var(--lp-text);
+}
+
+.landing-price-dropdown-trigger--active {
+  border-color: var(--lp-accent);
+  background: rgba(209, 178, 128, 0.12);
+}
+
+.landing-price-dropdown-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--lp-accent);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.landing-price-dropdown-arrow {
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.landing-price-dropdown-arrow--open {
+  transform: rotate(180deg);
+}
+
+.landing-price-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 5;
+  width: 260px;
+  padding: 16px;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.14);
+}
+
 .landing-toolbar-filters .landing-filter-pills {
   margin-bottom: 0;
 }
@@ -2914,7 +2981,7 @@ a {
 
 .landing-category-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 320px 1fr;
   align-items: start;
   gap: 40px;
 }
@@ -2923,24 +2990,14 @@ a {
   min-width: 0;
 }
 
+/* El scroll va en .landing-filter-groups-box (más abajo), no acá — así el header "Filtros"/"Limpiar"
+   queda siempre visible, fijo, mientras el cuadro de filtros se desplaza por su cuenta debajo. */
 .landing-filters-sidebar {
   position: sticky;
   top: 100px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding-right: 10px;
-}
-
-.landing-filters-sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.landing-filters-sidebar::-webkit-scrollbar-thumb {
-  background: var(--lp-border);
-  border-radius: 999px;
+  gap: 16px;
 }
 
 .landing-filters-sidebar-header {
@@ -2959,39 +3016,83 @@ a {
   cursor: pointer;
 }
 
-.landing-filter-group {
-  padding-top: 0;
-  border-top: none;
+/* Estética calcada de agatres.co/es/categoria-producto/perfumes/: TODOS los filtros van juntos
+ * dentro de un único cuadro encuadrado (borde + fondo, se nota como una parte distinta de la
+ * página) — no uno por grupo. Adentro, cada grupo (Subcategoría, Marca, Atributos...) se separa del
+ * siguiente con una línea, y su título tiene su propia franja de fondo que contrasta contra el
+ * cuerpo del filtro. */
+.landing-filter-groups-box {
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-/* El divisor va ENTRE grupos, no antes del primero — no depende de cuál sea primero en el DOM
-   (el header con "Limpiar" también es un div hermano). */
+/* Scroll propio del cuadro de filtros en el sidebar de desktop — independiente del resto de la
+   página. Solo acá (no en el mismo cuadro dentro del drawer mobile, que ya scrollea entero por su
+   cuenta) para no terminar con un scroll adentro de otro scroll. top(100px) + alto del header +
+   gap + un margen abajo, para que no se corte contra el borde de la ventana. */
+.landing-filters-sidebar .landing-filter-groups-box {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.landing-filters-sidebar .landing-filter-groups-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.landing-filters-sidebar .landing-filter-groups-box::-webkit-scrollbar-thumb {
+  background: var(--lp-border);
+  border-radius: 999px;
+}
+
+.landing-filter-group {
+  padding: 0 16px 16px;
+}
+
 .landing-filter-group + .landing-filter-group {
-  padding-top: 14px;
-  margin-top: 14px;
   border-top: 1px solid var(--lp-border);
 }
 
 .landing-filter-group-title {
-  font-size: 13px;
+  /* Margen negativo a los costados: la franja de título sangra hasta el borde del cuadro exterior
+     aunque el resto del contenido tenga el padding lateral de arriba. */
+  margin: 0 -16px 14px;
+  padding: 13px 16px;
+  background: rgba(89, 77, 70, 0.07);
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--lp-text);
-  margin-bottom: 10px;
 }
 
-/* Checkbox uniforme para todos los filtros (subcategoría, precio, marca, atributos). */
+/* Checkbox uniforme para todos los filtros (subcategoría, precio, marca, atributos). El hover
+ * resalta toda la fila (no solo el color del texto) — margin negativo a los costados para que el
+ * fondo llegue hasta el borde de la caja del filtro sin desalinear el texto. */
 .landing-filter-checkbox {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 0;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border-radius: 7px;
   font-size: 13.5px;
   color: var(--lp-muted);
   cursor: pointer;
   user-select: none;
+  transition: background 0.2s ease, color 0.15s ease;
 }
 
 .landing-filter-checkbox:hover {
+  background: rgba(89, 77, 70, 0.06);
+  color: var(--lp-text);
+}
+
+/* Filtro ya activo: label en negrita, mismo criterio que el ".wd-active" de la referencia. */
+.landing-filter-checkbox:has(input:checked) .landing-filter-checkbox-label {
+  font-weight: 600;
   color: var(--lp-text);
 }
 
@@ -3035,9 +3136,26 @@ a {
   flex: 1;
 }
 
+/* Badge en pastilla, mismo criterio que el ".count" de la referencia — se resalta con el color de
+ * acento cuando ese filtro ya está tildado. */
 .landing-filter-count {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--lp-border);
+  border-radius: 999px;
+  font-size: 11px;
   color: var(--lp-muted);
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.landing-filter-checkbox:has(input:checked) .landing-filter-count {
+  background: var(--lp-accent);
+  border-color: var(--lp-accent);
+  color: #ffffff;
 }
 
 .landing-filter-swatch {
@@ -3282,16 +3400,27 @@ a {
   animation: landing-offers-slide 0.4s ease;
 }
 
+/* Alto fijo (no solo padding) — así el precio, que siempre va al fondo (margin-top:auto), termina
+ * en el mismo lugar en todas las tarjetas sin importar si el nombre/atributos son más cortos o más
+ * largos que en otro producto. Es lo que mantiene fija la altura de toda la fila (y por lo tanto la
+ * del banner de al lado, ver .landing-offers-banner) entre una página del carrusel y la siguiente. */
 .landing-product-grid--carousel .landing-product-body {
+  height: 128px;
   padding: 14px 16px 18px;
 }
 
 .landing-product-grid--carousel .landing-product-name {
   font-size: 13.5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .landing-product-grid--carousel .landing-product-attrs {
   font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .landing-product-grid--carousel .landing-product-offer-badge {
@@ -3314,10 +3443,14 @@ a {
   font-size: 15px;
 }
 
-/* 5to lugar de la fila de "Descuento y Ofertas": carrusel de imágenes promocional, mismo tamaño
- * (mismo grid cell) que una tarjeta de producto de al lado — ver .landing-product-card. */
+/* 5to lugar de la fila de "Descuento y Ofertas": carrusel de imágenes promocional, mismo tamaño que
+ * una tarjeta de producto (height:100% ya alcanza porque ahora la fila tiene alto fijo, ver
+ * .landing-product-grid--carousel .landing-product-body de arriba). grid-column:5 lo clava en esa
+ * columna siempre, aunque la página tenga menos de 4 productos y ocupe menos columnas — así no
+ * "salta" al lugar del último producto. */
 .landing-offers-banner {
   position: relative;
+  grid-column: 5;
   height: 100%;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
@@ -4182,6 +4315,10 @@ a {
   .landing-product-grid--carousel {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .landing-offers-banner {
+    grid-column: 3;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -4218,6 +4355,10 @@ a {
 
   .landing-product-grid--carousel {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-offers-banner {
+    grid-column: 2;
   }
 
   .landing-brand-grid {
@@ -4336,6 +4477,10 @@ a {
 
   .landing-product-grid--carousel {
     grid-template-columns: 1fr;
+  }
+
+  .landing-offers-banner {
+    grid-column: 1;
   }
 
   .landing-brand-grid {

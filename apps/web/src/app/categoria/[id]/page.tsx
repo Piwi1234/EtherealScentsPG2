@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
@@ -44,6 +44,8 @@ export default function CategoriaPage() {
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
   const [pageNumber, setPageNumber] = useState(1);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
+  const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, string[]>>({});
@@ -167,7 +169,21 @@ export default function CategoriaPage() {
 
   function applyPriceFilter() {
     if (priceRange) setPriceApplied(priceRange);
+    setPriceDropdownOpen(false);
   }
+
+  // Cierra el desplegable de precio al hacer click afuera — un listener en el documento en vez de
+  // onBlur porque arrastrar el slider no debe cerrarlo a mitad de camino.
+  useEffect(() => {
+    if (!priceDropdownOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (priceDropdownRef.current && !priceDropdownRef.current.contains(e.target as Node)) {
+        setPriceDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [priceDropdownOpen]);
 
   function clearAllFilters() {
     setSubCategoryFilter("");
@@ -254,11 +270,7 @@ export default function CategoriaPage() {
   }
 
   const hasSidebarContent =
-    subcategories.length > 0 ||
-    discountCount > 0 ||
-    priceBoundsMax > 0 ||
-    brandsWithCounts.length > 0 ||
-    filterableAttributes.length > 0;
+    subcategories.length > 0 || discountCount > 0 || brandsWithCounts.length > 0 || filterableAttributes.length > 0;
 
   const filterGroupsProps = {
     resetKey: id,
@@ -273,12 +285,6 @@ export default function CategoriaPage() {
     attributeFilters,
     onToggleAttributeValue: toggleAttributeValue,
     baseItems: basePage?.items ?? [],
-    priceBoundsMax,
-    priceRange,
-    onPriceMinChange: handlePriceMinChange,
-    onPriceMaxChange: handlePriceMaxChange,
-    onApplyPrice: applyPriceFilter,
-    priceApplied,
     brandsWithCounts,
     brandFilters,
     onToggleBrand: toggleBrand,
@@ -349,6 +355,67 @@ export default function CategoriaPage() {
               <p className="landing-toolbar-count">
                 {productsPage ? `${displayedProducts.length} producto${displayedProducts.length === 1 ? "" : "s"}` : ""}
               </p>
+
+              {priceBoundsMax > 0 && priceRange && (
+                <div className="landing-price-dropdown" ref={priceDropdownRef}>
+                  <button
+                    type="button"
+                    className={`landing-price-dropdown-trigger${priceApplied ? " landing-price-dropdown-trigger--active" : ""}`}
+                    onClick={() => setPriceDropdownOpen((open) => !open)}
+                  >
+                    Precio {priceApplied && <span className="landing-price-dropdown-badge">1</span>}
+                    <span className={`landing-price-dropdown-arrow${priceDropdownOpen ? " landing-price-dropdown-arrow--open" : ""}`}>▾</span>
+                  </button>
+
+                  {priceDropdownOpen && (
+                    <div className="landing-price-dropdown-panel">
+                      <div className="landing-price-slider">
+                        <div className="landing-price-slider-track">
+                          <div
+                            className="landing-price-slider-fill"
+                            style={{
+                              left: `${(priceRange[0] / priceBoundsMax) * 100}%`,
+                              right: `${100 - (priceRange[1] / priceBoundsMax) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          className="landing-price-slider-input"
+                          min={0}
+                          max={priceBoundsMax}
+                          value={priceRange[0]}
+                          onChange={(e) => handlePriceMinChange(Number(e.target.value))}
+                          aria-label="Precio mínimo"
+                        />
+                        <input
+                          type="range"
+                          className="landing-price-slider-input"
+                          min={0}
+                          max={priceBoundsMax}
+                          value={priceRange[1]}
+                          onChange={(e) => handlePriceMaxChange(Number(e.target.value))}
+                          aria-label="Precio máximo"
+                        />
+                      </div>
+                      <div className="landing-price-slider-footer">
+                        <span className="landing-price-slider-value">
+                          Bs {priceRange[0]} — Bs {priceRange[1]}
+                        </span>
+                        <button
+                          type="button"
+                          className="landing-btn landing-btn-outline-dark landing-price-slider-btn"
+                          onClick={applyPriceFilter}
+                          disabled={priceApplied !== null && priceApplied[0] === priceRange[0] && priceApplied[1] === priceRange[1]}
+                        >
+                          Filtrar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <label className="landing-sort-control">
                 <span className="landing-sort-label">Ordenar por:</span>
                 <select
@@ -501,21 +568,16 @@ type FilterGroupsProps = {
   attributeFilters: Record<string, string[]>;
   onToggleAttributeValue: (attributeId: string, value: string) => void;
   baseItems: Product[];
-  priceBoundsMax: number;
-  priceRange: PriceRange | null;
-  onPriceMinChange: (value: number) => void;
-  onPriceMaxChange: (value: number) => void;
-  onApplyPrice: () => void;
-  priceApplied: PriceRange | null;
   brandsWithCounts: BrandCount[];
   brandFilters: string[];
   onToggleBrand: (id: string) => void;
 };
 
-/** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden:
- * Ofertas, Subcategoría, Atributos, Precio, Marca. Subcategoría/Atributos/Marca están ordenados
- * alfabéticamente y, si superan los 10 valores, se comportan como el filtro de Marca (buscador +
- * "Mostrar más/menos") — ver `FilterOptionList`. */
+/** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden: Ofertas,
+ * Subcategoría, Marca, Atributos — el de Precio se movió al lado de "Ordenar por" en la barra de
+ * herramientas (ver landing-price-dropdown en el render principal), ya no vive acá. Subcategoría/
+ * Marca/Atributos están ordenados alfabéticamente y, si superan los 10 valores, se comportan como
+ * el filtro de Marca (buscador + "Mostrar más/menos") — ver `FilterOptionList`. */
 function FilterGroups({
   resetKey,
   discountOnly,
@@ -529,25 +591,19 @@ function FilterGroups({
   attributeFilters,
   onToggleAttributeValue,
   baseItems,
-  priceBoundsMax,
-  priceRange,
-  onPriceMinChange,
-  onPriceMaxChange,
-  onApplyPrice,
-  priceApplied,
   brandsWithCounts,
   brandFilters,
   onToggleBrand,
 }: FilterGroupsProps) {
   return (
-    <>
+    <div className="landing-filter-groups-box">
       {(discountCount > 0 || discountOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
           <label className="landing-filter-checkbox">
             <input type="checkbox" checked={discountOnly} onChange={onToggleDiscountOnly} />
             <span className="landing-filter-checkbox-label">Productos con Descuento</span>
-            <span className="landing-filter-count">({discountCount})</span>
+            <span className="landing-filter-count">{discountCount}</span>
           </label>
         </div>
       )}
@@ -566,6 +622,16 @@ function FilterGroups({
         />
       )}
 
+      {brandsWithCounts.length > 0 && (
+        <FilterOptionList
+          key={`${resetKey}-marca`}
+          title="Marca"
+          options={brandsWithCounts.map((brand) => ({ value: brand.id, label: brand.name, count: brand.count }))}
+          selected={brandFilters}
+          onToggle={onToggleBrand}
+        />
+      )}
+
       {filterableAttributes.map((attribute) => {
         const options = getAttributeFilterOptions(attribute, baseItems);
         if (options.length === 0) return null;
@@ -580,65 +646,7 @@ function FilterGroups({
           />
         );
       })}
-
-      {priceBoundsMax > 0 && priceRange && (
-        <div className="landing-filter-group">
-          <p className="landing-filter-group-title">Precio</p>
-          <div className="landing-price-slider">
-            <div className="landing-price-slider-track">
-              <div
-                className="landing-price-slider-fill"
-                style={{
-                  left: `${(priceRange[0] / priceBoundsMax) * 100}%`,
-                  right: `${100 - (priceRange[1] / priceBoundsMax) * 100}%`,
-                }}
-              />
-            </div>
-            <input
-              type="range"
-              className="landing-price-slider-input"
-              min={0}
-              max={priceBoundsMax}
-              value={priceRange[0]}
-              onChange={(e) => onPriceMinChange(Number(e.target.value))}
-              aria-label="Precio mínimo"
-            />
-            <input
-              type="range"
-              className="landing-price-slider-input"
-              min={0}
-              max={priceBoundsMax}
-              value={priceRange[1]}
-              onChange={(e) => onPriceMaxChange(Number(e.target.value))}
-              aria-label="Precio máximo"
-            />
-          </div>
-          <div className="landing-price-slider-footer">
-            <span className="landing-price-slider-value">
-              Bs {priceRange[0]} — Bs {priceRange[1]}
-            </span>
-            <button
-              type="button"
-              className="landing-btn landing-btn-outline-dark landing-price-slider-btn"
-              onClick={onApplyPrice}
-              disabled={priceApplied !== null && priceApplied[0] === priceRange[0] && priceApplied[1] === priceRange[1]}
-            >
-              Filtrar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {brandsWithCounts.length > 0 && (
-        <FilterOptionList
-          key={`${resetKey}-marca`}
-          title="Marca"
-          options={brandsWithCounts.map((brand) => ({ value: brand.id, label: brand.name, count: brand.count }))}
-          selected={brandFilters}
-          onToggle={onToggleBrand}
-        />
-      )}
-    </>
+    </div>
   );
 }
 
@@ -681,7 +689,7 @@ function FilterOptionList({
           <input type="checkbox" checked={selected.includes(option.value)} onChange={() => onToggle(option.value)} />
           {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
           <span className="landing-filter-checkbox-label">{option.label}</span>
-          {option.count !== undefined && <span className="landing-filter-count">({option.count})</span>}
+          {option.count !== undefined && <span className="landing-filter-count">{option.count}</span>}
         </label>
       ))}
       {visible.length === 0 && (
