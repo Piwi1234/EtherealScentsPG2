@@ -3254,6 +3254,25 @@ a {
   gap: 16px;
 }
 
+/* Transición al cambiar de página en el carrusel de "Descuento y Ofertas": las tarjetas entran
+   deslizando de izquierda a derecha (mismo tipo de scroll que el carrusel de marcas). El banner de
+   imágenes del 5to lugar (.landing-offers-banner) no está incluido a propósito, para no reiniciar
+   su propio autoplay cada vez que cambia la página de productos. */
+@keyframes landing-offers-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.landing-product-grid--carousel .landing-product-card {
+  animation: landing-offers-slide 0.4s ease;
+}
+
 .landing-product-grid--carousel .landing-product-body {
   padding: 14px 16px 18px;
 }
