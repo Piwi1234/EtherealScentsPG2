@@ -3538,33 +3538,35 @@ a {
   margin: 0 0 28px;
 }
 
-.landing-feature-block + .landing-feature-block {
-  margin-top: 84px;
-  position: relative;
+/* Cada bloque es ahora su propia sección de ancho completo (ya no comparte un .landing-container
+   con los demás) con fondo alternado — negro (Black Steel) / papel — así que el cambio de color
+   entre bloques ya funciona como separador visual y no hace falta la línea decorativa que había
+   antes. */
+.landing-feature-block {
+  padding: 84px 0;
 }
 
-/* Separador entre bloques de categoría: línea con degradado a los costados + un rombo del color de
-   acento en el centro, apoyado a la mitad del espacio en blanco entre un bloque y el siguiente. */
-.landing-feature-block + .landing-feature-block::before {
-  content: "";
-  position: absolute;
-  top: -42px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 160px;
-  height: 1px;
-  background: linear-gradient(to right, transparent, var(--lp-border) 20%, var(--lp-border) 80%, transparent);
+.landing-feature-block--dark {
+  background: #080706;
+  /* Tema oscuro: texto papel, acento gold leaf (afecta .landing-eyebrow y los títulos, que heredan
+     color), borde translúcido claro — todo vía las mismas variables --lp-* que ya consumen los
+     componentes de abajo, sin tocarlos uno por uno. */
+  --lp-text: #efefef;
+  --lp-muted: rgba(239, 239, 239, 0.65);
+  --lp-accent-dark: #d1b280;
+  --lp-border: rgba(239, 239, 239, 0.18);
+  color: var(--lp-text);
 }
 
-.landing-feature-block + .landing-feature-block::after {
-  content: "";
-  position: absolute;
-  top: -42px;
-  left: 50%;
-  width: 7px;
-  height: 7px;
-  background: var(--lp-accent);
-  transform: translate(-50%, -50%) rotate(45deg);
+.landing-feature-block--light {
+  background: #efefef;
+}
+
+/* .landing-btn-outline-dark en el bloque oscuro: al hacer hover se rellena con var(--lp-text)
+   (papel, clara) — el texto blanco de la regla compartida quedaría invisible ahí, así que se
+   oscurece puntualmente. */
+.landing-feature-block--dark .landing-btn-outline-dark:hover {
+  color: #080706;
 }
 
 /* --- "Explora nuestras marcas": carrusel de logos debajo de cada bloque de categoría destacada --- */

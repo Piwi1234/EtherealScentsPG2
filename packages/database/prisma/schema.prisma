@@ -173,6 +173,11 @@ model Category {
   // los costos de arriba.
   comentario String?
 
+  // Orden manual de presentación — solo aplica a categorías raíz: define en qué orden aparecen sus
+  // bloques en la página de Home (menor primero). Las subcategorías quedan siempre en 0 y se ordenan
+  // por nombre (ver CategoryService.findAll).
+  orden Int @default(0)
+
   brands     BrandCategory[]
   attributes Attribute[]
   products   Product[]

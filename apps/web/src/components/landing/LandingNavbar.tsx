@@ -213,29 +213,24 @@ export function LandingNavbar({
       <div className="landing-navbar-categories">
         <div className="landing-container">
           <nav className="landing-navbar-links">
-            <div className="landing-navbar-item">
-              <a href="#catalogo" onClick={(e) => e.preventDefault()}>
-                Categorías
-              </a>
-              <div className="landing-navbar-dropdown">
-                {categoryTree.map((cat) => (
-                  <div className="landing-navbar-dropdown-group" key={cat.id}>
-                    <Link
-                      className="landing-navbar-dropdown-heading"
-                      href={`/categoria/${cat.id}`}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {cat.name}
-                    </Link>
-                    {cat.children.map((sub) => (
-                      <Link key={sub.id} href={`/categoria/${sub.id}`} onClick={() => setMobileMenuOpen(false)}>
-                        {sub.name}
-                      </Link>
-                    ))}
+            {categoryTree.map((cat) => (
+              <div className="landing-navbar-item" key={cat.id}>
+                <Link href={`/categoria/${cat.id}`} onClick={() => setMobileMenuOpen(false)}>
+                  {cat.name}
+                </Link>
+                {cat.children.length > 0 && (
+                  <div className="landing-navbar-dropdown">
+                    <div className="landing-navbar-dropdown-group">
+                      {cat.children.map((sub) => (
+                        <Link key={sub.id} href={`/categoria/${sub.id}`} onClick={() => setMobileMenuOpen(false)}>
+                          {sub.name}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
+            ))}
             <div className="landing-navbar-item">
               <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
               <div className="landing-navbar-dropdown">

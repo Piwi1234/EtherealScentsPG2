@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
 
 export class CreateCategoryDto {
   @ApiProperty({ example: "Celulares" })
@@ -40,4 +40,12 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   comentario?: string;
+
+  @ApiPropertyOptional({
+    description: "Solo válido en categorías raíz (sin padre): orden en que aparece su bloque en el Home (menor primero).",
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  orden?: number;
 }

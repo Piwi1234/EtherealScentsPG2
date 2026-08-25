@@ -82,6 +82,7 @@ export default function CategoriesPage() {
   const [shippingCost, setShippingCost] = useState("");
   const [securityCost, setSecurityCost] = useState("");
   const [comentario, setComentario] = useState("");
+  const [orden, setOrden] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -101,6 +102,7 @@ export default function CategoriesPage() {
     setShippingCost("");
     setSecurityCost("");
     setComentario("");
+    setOrden("");
     setFormError("");
     setModalOpen(true);
   }
@@ -113,6 +115,7 @@ export default function CategoriesPage() {
     setShippingCost(node.shippingCost ?? "");
     setSecurityCost(node.securityCost ?? "");
     setComentario(node.comentario ?? "");
+    setOrden(node.parentId ? "" : String(node.orden));
     setFormError("");
     setModalOpen(true);
   }
@@ -137,7 +140,7 @@ export default function CategoriesPage() {
     setSubmitting(true);
     try {
       // Los costos solo aplican a subcategorías (con padre elegido en el formulario); el comentario
-      // es al revés, solo aplica a categorías raíz (sin padre).
+      // y el orden son al revés, solo aplican a categorías raíz (sin padre).
       const costs = parentId
         ? {
             logisticsCost: parseCost(logisticsCost),
@@ -146,7 +149,8 @@ export default function CategoriesPage() {
           }
         : {};
       const comentarioField = parentId ? {} : { comentario: comentario.trim() || null };
-      const payload = { name, parentId: parentId || undefined, ...costs, ...comentarioField };
+      const ordenField = parentId ? {} : { orden: orden.trim() === "" ? 0 : Number(orden) };
+      const payload = { name, parentId: parentId || undefined, ...costs, ...comentarioField, ...ordenField };
       if (editing) {
         await apiPatch(`/categories/${editing.id}`, { ...payload, parentId: parentId || null });
       } else {
@@ -169,6 +173,7 @@ export default function CategoriesPage() {
       setSecurityCost("");
     } else {
       setComentario("");
+      setOrden("");
     }
   }
 
@@ -223,6 +228,24 @@ export default function CategoriesPage() {
                   ))}
               </select>
             </div>
+            {!parentId && (
+              <div>
+                <label>Orden en el Home (opcional)</label>
+                <input
+                  className="field"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={orden}
+                  onChange={(e) => setOrden(e.target.value)}
+                />
+                <p className="cell-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  Define en qué orden aparece el bloque de esta categoría en la página de Home — menor número
+                  primero. Categorías con el mismo número se ordenan por nombre.
+                </p>
+              </div>
+            )}
             {!parentId && (
               <div>
                 <label>Comentario (opcional)</label>

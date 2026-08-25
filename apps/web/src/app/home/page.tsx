@@ -231,57 +231,61 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ========== 4. Producto/servicio destacado (alterna lado de imagen) ========== */}
-      <section className="landing-section landing-section-alt">
-        <div className="landing-container">
-          {rootCategories.map((cat, i) => {
-            // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
-            // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
-            const categoryBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === cat.id));
-            return (
-              <div className="landing-feature-block" key={cat.id}>
-                <div className={`landing-feature${i % 2 === 1 ? " landing-feature-reverse" : ""}`}>
-                  <div className="landing-feature-text">
-                    <p className="landing-eyebrow">Destacado</p>
-                    <h2 className="landing-section-title">{cat.name}</h2>
-                    <p>
-                      Descubrí nuestra selección de {cat.name.toLowerCase()} — curada para que encuentres justo lo
-                      que buscás, con disponibilidad real.
-                    </p>
-                    <Link href={`/categoria/${cat.id}`} className="landing-btn landing-btn-outline-dark">
-                      Explorar {cat.name}
-                    </Link>
-                  </div>
-                  {cat.carouselImages.length > 0 ? (
-                    <div className="landing-feature-visual">
-                      <ImageCarousel
-                        images={cat.carouselImages.map((image) => image.imageUrl)}
-                        alt={cat.name}
-                        imgClassName="landing-feature-visual-image"
-                        autoplayMs={FEATURE_AUTOPLAY_MS}
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className="landing-feature-visual"
-                      style={{ background: i % 2 === 0 ? "linear-gradient(150deg, #9184d9, #4b3f8f)" : "linear-gradient(150deg, #201c33, #100e1c)" }}
-                    >
-                      {cat.name}
-                    </div>
-                  )}
+      {/* ========== 4. Producto/servicio destacado (alterna lado de imagen y fondo) ========== */}
+      {rootCategories.map((cat, i) => {
+        // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
+        // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
+        const categoryBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === cat.id));
+        // Fondo negro (Black Steel) para el primer bloque, papel para el siguiente, y así alterna —
+        // .landing-feature-block--dark/--light ajustan el color de letras/tema para cada caso.
+        const isDark = i % 2 === 0;
+        return (
+          <section
+            className={`landing-feature-block ${isDark ? "landing-feature-block--dark" : "landing-feature-block--light"}`}
+            key={cat.id}
+          >
+            <div className="landing-container">
+              <div className={`landing-feature${i % 2 === 1 ? " landing-feature-reverse" : ""}`}>
+                <div className="landing-feature-text">
+                  <p className="landing-eyebrow">Destacado</p>
+                  <h2 className="landing-section-title">{cat.name}</h2>
+                  <p>
+                    Descubrí nuestra selección de {cat.name.toLowerCase()} — curada para que encuentres justo lo
+                    que buscás, con disponibilidad real.
+                  </p>
+                  <Link href={`/categoria/${cat.id}`} className="landing-btn landing-btn-outline-dark">
+                    Explorar {cat.name}
+                  </Link>
                 </div>
-
-                {categoryBrands.length > 0 && (
-                  <div className="landing-brands-block">
-                    <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
-                    <BrandsCarousel brands={categoryBrands} rootCategoryId={cat.id} />
+                {cat.carouselImages.length > 0 ? (
+                  <div className="landing-feature-visual">
+                    <ImageCarousel
+                      images={cat.carouselImages.map((image) => image.imageUrl)}
+                      alt={cat.name}
+                      imgClassName="landing-feature-visual-image"
+                      autoplayMs={FEATURE_AUTOPLAY_MS}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="landing-feature-visual"
+                    style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
+                  >
+                    {cat.name}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </section>
+
+              {categoryBrands.length > 0 && (
+                <div className="landing-brands-block">
+                  <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
+                  <BrandsCarousel brands={categoryBrands} rootCategoryId={cat.id} />
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })}
 
       {/* ================= 5. Propuesta de valor / diferenciador ================= */}
       <section className="landing-section">

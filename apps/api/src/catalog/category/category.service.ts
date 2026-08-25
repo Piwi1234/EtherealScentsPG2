@@ -48,6 +48,9 @@ export class CategoryService {
     if (dto.comentario !== undefined && dto.parentId) {
       throw new BadRequestException("El comentario solo se puede definir en categorías raíz.");
     }
+    if (dto.orden !== undefined && dto.parentId) {
+      throw new BadRequestException("El orden solo se puede definir en categorías raíz.");
+    }
 
     try {
       return await this.prisma.category.create({
@@ -59,6 +62,7 @@ export class CategoryService {
           shippingCost: dto.shippingCost,
           securityCost: dto.securityCost,
           comentario: dto.parentId ? undefined : dto.comentario,
+          orden: dto.parentId ? undefined : dto.orden,
         },
       });
     } catch (error) {
@@ -69,7 +73,9 @@ export class CategoryService {
   async findAll(options: { tree?: boolean } = {}) {
     const categories = (
       await this.prisma.category.findMany({
-        orderBy: { name: "asc" },
+        // Las raíces respetan su `orden` manual (ver Editar categoría raíz); a igual orden (ej. las
+        // subcategorías, que siempre quedan en 0) se ordena por nombre, como antes.
+        orderBy: [{ orden: "asc" }, { name: "asc" }],
         include: includeCarouselImages,
       })
     ).map(splitCarouselImages);
@@ -176,9 +182,12 @@ export class CategoryService {
     if (dto.comentario !== undefined && effectiveParentId) {
       throw new BadRequestException("El comentario solo se puede definir en categorías raíz.");
     }
+    if (dto.orden !== undefined && effectiveParentId) {
+      throw new BadRequestException("El orden solo se puede definir en categorías raíz.");
+    }
     // Si deja de tener padre, no queda como categoría raíz con costos huérfanos.
     const clearingParent = dto.parentId === null;
-    // Si pasa a tener padre (se vuelve subcategoría), no queda como subcategoría con un comentario huérfano.
+    // Si pasa a tener padre (se vuelve subcategoría), no queda como subcategoría con un comentario/orden huérfano.
     const becomingSubcategory = Boolean(dto.parentId);
 
     try {
@@ -192,6 +201,7 @@ export class CategoryService {
           shippingCost: clearingParent ? null : dto.shippingCost,
           securityCost: clearingParent ? null : dto.securityCost,
           comentario: becomingSubcategory ? null : dto.comentario,
+          orden: becomingSubcategory ? 0 : dto.orden,
         },
       });
     } catch (error) {

@@ -17,6 +17,9 @@ export type Category = {
   securityCost: string | null;
   // Solo aplica a categorías raíz (sin padre) — nota interna libre.
   comentario: string | null;
+  // Solo aplica a categorías raíz — orden manual de su bloque en el Home (menor primero). Las
+  // subcategorías siempre quedan en 0.
+  orden: number;
   // Solo aplica a categorías raíz — el carrusel del bloque "Producto destacado" del home.
   // Ordenado por `orden` (ya viene ordenado del backend).
   carouselImages: CarouselImage[];
