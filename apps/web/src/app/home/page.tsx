@@ -14,8 +14,9 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-const OFFERS_SLIDE_SIZE = 5;
+const OFFERS_SLIDE_SIZE = 4;
 const OFFERS_AUTOPLAY_MS = 7000;
+const OFFERS_BANNER_AUTOPLAY_MS = 10000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
@@ -38,6 +39,7 @@ export default function HomePage() {
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [landingImages, setLandingImages] = useState<{
     heroImages: string[];
+    offersBannerImages: string[];
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   } | null>(null);
@@ -53,7 +55,7 @@ export default function HomePage() {
   }, []);
 
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
-  // modificación), de 5 en 5.
+  // modificación), de 4 en 4 — el 5to lugar de la fila lo ocupa el banner de ofertas (ver abajo).
   useEffect(() => {
     const params = new URLSearchParams();
     if (categoryFilter) params.set("categoryId", categoryFilter);
@@ -203,6 +205,16 @@ export default function HomePage() {
                     </Link>
                   );
                 })}
+                {landingImages && landingImages.offersBannerImages.length > 0 && (
+                  <div className="landing-offers-banner">
+                    <ImageCarousel
+                      images={landingImages.offersBannerImages}
+                      alt=""
+                      imgClassName="landing-offers-banner-image"
+                      autoplayMs={OFFERS_BANNER_AUTOPLAY_MS}
+                    />
+                  </div>
+                )}
               </div>
 
               <button

@@ -223,12 +223,14 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
-/** Público (sin auth) — carrusel del hero del home y del hero de /marcas (ordenados) e imágenes de
- * "Propuesta de valor"/"Sobre nosotros" del home (ver Grid Imágenes en Configuración). */
+/** Público (sin auth) — carrusel del hero del home, del hero de /marcas y del banner de ofertas del
+ * home (ordenados) e imágenes de "Propuesta de valor"/"Sobre nosotros" del home (ver Grid Imágenes
+ * en Configuración). */
 export function getLandingImages() {
   return apiGet<{
     heroImages: string[];
     marcasHeroImages: string[];
+    offersBannerImages: string[];
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   }>("/settings/landing-images");
@@ -266,6 +268,22 @@ export function removeMarcasHeroCarouselImage(imageId: string) {
 
 export function moveMarcasHeroCarouselImage(imageId: string, direction: "up" | "down") {
   return apiPatch<void>(`/settings/landing-images/marcas-hero-carousel/${imageId}/move`, { direction });
+}
+
+export function getOffersBannerCarouselImages() {
+  return apiGet<CarouselImage[]>("/settings/landing-images/offers-banner-carousel");
+}
+
+export function addOffersBannerCarouselImage(file: File) {
+  return apiUpload<CarouselImage>("/settings/landing-images/offers-banner-carousel", file);
+}
+
+export function removeOffersBannerCarouselImage(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/offers-banner-carousel/${imageId}`);
+}
+
+export function moveOffersBannerCarouselImage(imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/settings/landing-images/offers-banner-carousel/${imageId}/move`, { direction });
 }
 
 export function getCategoryCarouselImages(categoryId: string) {

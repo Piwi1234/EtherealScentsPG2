@@ -28,17 +28,19 @@ export class SettingsService {
     return Number(setting.exchangeRate);
   }
 
-  /** Público (sin auth) — los carruseles del hero del home y del hero de /marcas, y las imágenes de
-   * "Propuesta de valor"/"Sobre nosotros" del home. */
+  /** Público (sin auth) — los carruseles del hero del home, del hero de /marcas y del banner de
+   * ofertas del home, y las imágenes de "Propuesta de valor"/"Sobre nosotros" del home. */
   async getLandingImages() {
-    const [setting, heroImages, marcasHeroImages] = await Promise.all([
+    const [setting, heroImages, marcasHeroImages, offersBannerImages] = await Promise.all([
       this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
       this.carouselImages.list(null, "FEATURE"),
       this.carouselImages.list(null, "MARCAS_HERO"),
+      this.carouselImages.list(null, "OFFERS_BANNER"),
     ]);
     return {
       heroImages: heroImages.map((image) => image.imageUrl),
       marcasHeroImages: marcasHeroImages.map((image) => image.imageUrl),
+      offersBannerImages: offersBannerImages.map((image) => image.imageUrl),
       valueImageUrl: setting?.valueImageUrl ?? null,
       aboutImageUrl: setting?.aboutImageUrl ?? null,
     };
@@ -77,6 +79,24 @@ export class SettingsService {
   }
 
   moveMarcasHeroCarouselImage(imageId: string, direction: "up" | "down") {
+    return this.carouselImages.move(imageId, direction);
+  }
+
+  /** El carrusel del banner de ofertas del home (categoryId null, kind OFFERS_BANNER) — ocupa el
+   * 5to lugar de la fila de "Descuento y Ofertas", mismo tamaño que una tarjeta de producto. */
+  listOffersBannerCarouselImages() {
+    return this.carouselImages.list(null, "OFFERS_BANNER");
+  }
+
+  addOffersBannerCarouselImage(file: Express.Multer.File) {
+    return this.carouselImages.add(null, "OFFERS_BANNER", file);
+  }
+
+  removeOffersBannerCarouselImage(imageId: string) {
+    return this.carouselImages.remove(imageId);
+  }
+
+  moveOffersBannerCarouselImage(imageId: string, direction: "up" | "down") {
     return this.carouselImages.move(imageId, direction);
   }
 

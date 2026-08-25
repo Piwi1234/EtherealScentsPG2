@@ -7,19 +7,23 @@ import {
   addCategoryHeroCarouselImage,
   addHeroCarouselImage,
   addMarcasHeroCarouselImage,
+  addOffersBannerCarouselImage,
   apiGet,
   apiUpload,
   getHeroCarouselImages,
   getLandingImages,
   getMarcasHeroCarouselImages,
+  getOffersBannerCarouselImages,
   moveCategoryCarouselImage,
   moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
   moveMarcasHeroCarouselImage,
+  moveOffersBannerCarouselImage,
   removeCategoryCarouselImage,
   removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
   removeMarcasHeroCarouselImage,
+  removeOffersBannerCarouselImage,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
 
@@ -31,21 +35,24 @@ function imgSrc(url: string | null): string | null {
 // destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[id], también uno
 // por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
 // compartido con todas las subcategorías de esa raíz, que no tienen uno propio. marcas-hero: hero de
-// /marcas (categoryId null, singleton, independiente del Hero principal del home).
-type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero";
+// /marcas (categoryId null, singleton, independiente del Hero principal del home). offers-banner:
+// banner de imágenes del home (categoryId null, singleton) que ocupa el 5to lugar de la fila de
+// "Descuento y Ofertas", mismo tamaño que una tarjeta de producto.
+type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "offers-banner";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, el del hero de
- * /marcas, dos carruseles independientes por categoría raíz ("Producto destacado" del home y el
- * hero de su propia página, este último compartido con sus subcategorías), y las imágenes únicas de
- * "Propuesta de valor"/"Sobre nosotros". Si un carrusel queda sin ninguna imagen, esa sección
- * muestra un degradado de relleno en su lugar.
+ * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, el del banner de
+ * "Descuento y Ofertas", el del hero de /marcas, dos carruseles independientes por categoría raíz
+ * ("Producto destacado" del home y el hero de su propia página, este último compartido con sus
+ * subcategorías), y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Si un carrusel
+ * queda sin ninguna imagen, esa sección muestra un degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
   const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
+  const [offersBannerImages, setOffersBannerImages] = useState<CarouselImage[]>([]);
   const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
     null,
   );
@@ -62,6 +69,9 @@ export default function GridImagenesPage() {
     getMarcasHeroCarouselImages()
       .then(setMarcasHeroImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getOffersBannerCarouselImages()
+      .then(setOffersBannerImages)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getLandingImages()
       .then(setLandingImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -75,6 +85,7 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await addHeroCarouselImage(file);
       else if (kind === "marcas-hero") await addMarcasHeroCarouselImage(file);
+      else if (kind === "offers-banner") await addOffersBannerCarouselImage(file);
       else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
       else await addCategoryHeroCarouselImage(categoryId!, file);
       load();
@@ -91,6 +102,7 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await removeHeroCarouselImage(imageId);
       else if (kind === "marcas-hero") await removeMarcasHeroCarouselImage(imageId);
+      else if (kind === "offers-banner") await removeOffersBannerCarouselImage(imageId);
       else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
       else await removeCategoryHeroCarouselImage(categoryId!, imageId);
       load();
@@ -107,6 +119,7 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
       else if (kind === "marcas-hero") await moveMarcasHeroCarouselImage(imageId, direction);
+      else if (kind === "offers-banner") await moveOffersBannerCarouselImage(imageId, direction);
       else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
       else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
       load();
@@ -144,6 +157,17 @@ export default function GridImagenesPage() {
         "cubrir todo el ancho de pantalla (object-fit: cover) — no hay un tamaño exacto que \"entre completa\" " +
         "porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son " +
         "lo primero que se recorta en pantallas angostas.",
+    },
+    {
+      key: "offers-banner",
+      kind: "offers-banner",
+      title: "Banner de Ofertas",
+      categoryId: null,
+      images: offersBannerImages,
+      hint:
+        "Ocupa el 5to lugar de la fila de \"Descuento y Ofertas\" del home, junto a las 4 tarjetas de producto — " +
+        "mismo tamaño que ellas. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del " +
+        "carrusel.",
     },
     {
       key: "marcas-hero",
@@ -185,10 +209,11 @@ export default function GridImagenesPage() {
     <div className="card">
       <h1 style={{ marginTop: 0, fontSize: 20 }}>Grid Imágenes</h1>
       <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 700 }}>
-        Imágenes de las secciones visuales del sitio: el carrusel del Hero, el del hero de /marcas, y por cada
-        categoría raíz dos carruseles independientes — "Producto destacado" del home y el hero de su propia página
-        (compartido con todas sus subcategorías) — más las imágenes únicas de "Propuesta de valor"/"Sobre nosotros".
-        Un carrusel sin ninguna imagen cargada muestra un degradado de relleno en su lugar.
+        Imágenes de las secciones visuales del sitio: el carrusel del Hero, el del banner de "Descuento y Ofertas",
+        el del hero de /marcas, y por cada categoría raíz dos carruseles independientes — "Producto destacado" del
+        home y el hero de su propia página (compartido con todas sus subcategorías) — más las imágenes únicas de
+        "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna imagen cargada muestra un degradado de
+        relleno en su lugar.
       </p>
       {error && <p className="error-text">{error}</p>}
       {!categories && !error && <p>Cargando...</p>}

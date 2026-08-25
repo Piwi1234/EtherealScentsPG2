@@ -198,11 +198,15 @@ model Category {
  * muestra tanto en la página de esa raíz como en la de todas sus subcategorías, pero es un set de
  * imágenes propio, independiente del de FEATURE.
  * MARCAS_HERO: carrusel del hero de /marcas (categoryId null, singleton, tamaño panorámico) —
- * independiente del Hero principal del home. */
+ * independiente del Hero principal del home.
+ * OFFERS_BANNER: carrusel promocional del home (categoryId null, singleton) que ocupa el 5to lugar
+ * de la fila de "Descuento y Ofertas" — mismo tamaño que una tarjeta de producto (aspect-ratio 4/5),
+ * independiente de los demás. */
 enum CarouselKind {
   FEATURE
   CATEGORY_HERO
   MARCAS_HERO
+  OFFERS_BANNER
 }
 
 model CarouselImage {
