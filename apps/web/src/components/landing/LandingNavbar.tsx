@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
-import { productImageSrc } from "../../lib/catalog-display";
-import type { Category } from "../../lib/types";
+import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
+import type { Category, Page, Product } from "../../lib/types";
+
+const SEARCH_RESULTS_LIMIT = 7;
+const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * Navbar de todo el sitio público. "Nosotros" y "Contacto" intentan hacer scroll a una sección con
@@ -34,6 +37,11 @@ export function LandingNavbar({
   const [categories, setCategories] = useState<Category[]>([]);
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const router = useRouter();
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
@@ -47,6 +55,8 @@ export function LandingNavbar({
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
   }, []);
 
+  // Dispara el cambio de color a --dark al pasar ~80px de scroll (ver navbarClass) — solo aplica en
+  // variant="default", la única con un estado inicial distinto del oscuro.
   useEffect(() => {
     if (variant !== "default") return;
     function handleScroll() {
@@ -65,6 +75,44 @@ export function LandingNavbar({
     } else {
       router.push(`/home#${id}`);
     }
+  }
+
+  // Busca mientras se tipea (debounce 300ms) — pide 1 de más que el límite visible para saber si
+  // hace falta el botón "Ver más..." sin depender de `total` (que puede no venir del todo afinado).
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      setSearchTotal(0);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ search: query, pageSize: String(SEARCH_RESULTS_LIMIT + 1) });
+      apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
+        .then((page) => {
+          setSearchResults(page.items.slice(0, SEARCH_RESULTS_LIMIT));
+          setSearchTotal(page.total);
+        })
+        .catch(() => {})
+        .finally(() => setSearchLoading(false));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  function closeSearch() {
+    // Delay para que un click sobre un resultado/"Ver más" llegue a disparar antes de que el
+    // blur del input cierre el desplegable.
+    setTimeout(() => setSearchOpen(false), 150);
+  }
+
+  function goToSearchResults() {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSearchOpen(false);
+    setMobileMenuOpen(false);
+    router.push(`/buscar?q=${encodeURIComponent(query)}`);
   }
 
   const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
@@ -127,6 +175,68 @@ export function LandingNavbar({
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
         </nav>
+
+        <div className="landing-navbar-search">
+          <svg className="landing-navbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="search"
+            className="landing-navbar-search-input"
+            placeholder="Buscar productos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchOpen(true)}
+            onBlur={closeSearch}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") goToSearchResults();
+            }}
+          />
+
+          {searchOpen && searchQuery.trim() && (
+            <div className="landing-navbar-search-dropdown">
+              {searchLoading && <p className="landing-navbar-search-empty">Buscando...</p>}
+              {!searchLoading && searchResults.length === 0 && (
+                <p className="landing-navbar-search-empty">Sin resultados para &quot;{searchQuery.trim()}&quot;.</p>
+              )}
+              {!searchLoading &&
+                searchResults.map((product) => {
+                  const { bs, fromPrice, variant } = displayPrice(product);
+                  const image = productImageSrc(cardImageUrl(product, variant));
+                  return (
+                    <Link
+                      href={`/producto/${product.id}`}
+                      className="landing-navbar-search-result"
+                      key={product.id}
+                      onClick={() => {
+                        setSearchOpen(false);
+                        setSearchQuery("");
+                      }}
+                    >
+                      {image ? (
+                        <img className="landing-navbar-search-result-image" src={image} alt={product.name} />
+                      ) : (
+                        <div className="landing-navbar-search-result-image-placeholder">{product.name.slice(0, 1)}</div>
+                      )}
+                      <span className="landing-navbar-search-result-info">
+                        <span className="landing-navbar-search-result-name">{product.name}</span>
+                        <span className="landing-navbar-search-result-price">
+                          {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                        </span>
+                      </span>
+                    </Link>
+                  );
+                })}
+              {!searchLoading && searchTotal > SEARCH_RESULTS_LIMIT && (
+                <button type="button" className="landing-navbar-search-more" onClick={goToSearchResults}>
+                  Ver más...
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="landing-navbar-actions">
           <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
           <button

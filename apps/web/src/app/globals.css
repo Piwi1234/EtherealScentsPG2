@@ -2140,32 +2140,6 @@ a {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
-.landing-navbar--dark .landing-navbar-dropdown {
-  background: #1a1a1d;
-  border-color: rgba(245, 244, 240, 0.14);
-}
-
-.landing-navbar--dark .landing-navbar-dropdown-group + .landing-navbar-dropdown-group {
-  border-left-color: rgba(245, 244, 240, 0.14);
-}
-
-.landing-navbar--dark .landing-navbar-dropdown a {
-  color: rgba(245, 244, 240, 0.85);
-}
-
-.landing-navbar--dark .landing-navbar-dropdown a:hover {
-  background: rgba(245, 244, 240, 0.08);
-  color: #ffffff;
-}
-
-.landing-navbar--dark .landing-navbar-dropdown a.landing-navbar-dropdown-heading {
-  color: #e08585;
-}
-
-.landing-navbar--dark .landing-navbar-dropdown a.landing-navbar-dropdown-heading:hover {
-  color: #f2a5a5;
-}
-
 .landing-navbar--dark .landing-navbar-mobile {
   background: #111114;
   border-top-color: rgba(245, 244, 240, 0.14);
@@ -2215,6 +2189,7 @@ a {
 
 .landing-navbar-links > a,
 .landing-navbar-item > a {
+  position: relative;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 13px;
@@ -2223,6 +2198,27 @@ a {
 .landing-navbar-links > a:hover,
 .landing-navbar-item > a:hover {
   color: var(--lp-accent-dark);
+}
+
+/* Subrayado animado al pasar el mouse — misma idea que el navbar de squarespace.com. currentColor
+   para que salga rojo en ¡¡OFERTAS!! y del color que corresponda en el resto. */
+.landing-navbar-links > a::after,
+.landing-navbar-item > a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-navbar-links > a:hover::after,
+.landing-navbar-item > a:hover::after {
+  transform: scaleX(1);
 }
 
 .landing-navbar-item > a.landing-navbar-ofertas {
@@ -2239,24 +2235,27 @@ a {
   align-items: center;
 }
 
+/* Siempre en modo oscuro, sea cual sea la variante/estado del navbar (el navbar en sí puede ser
+   transparente al cargar el home, pero el desplegable siempre usa el mismo look oscuro). */
 .landing-navbar-dropdown {
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translate(-50%, 8px);
+  transform: translate(-50%, 10px);
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(150px, auto);
   align-items: start;
   gap: 20px;
   padding: 14px;
-  background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
+  background: #1a1a1d;
+  border: 1px solid rgba(245, 244, 240, 0.14);
   border-radius: 12px;
-  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.14);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.25s;
 }
 
 .landing-navbar-item:hover .landing-navbar-dropdown,
@@ -2266,7 +2265,7 @@ a {
   transform: translate(-50%, 0);
 }
 
-/* Una columna por categoría padre: encabezado en rojo arriba + subcategorías en negro debajo. */
+/* Una columna por categoría padre: encabezado en rojo arriba + subcategorías debajo. */
 .landing-navbar-dropdown-group {
   display: flex;
   flex-direction: column;
@@ -2275,31 +2274,30 @@ a {
 
 .landing-navbar-dropdown-group + .landing-navbar-dropdown-group {
   padding-left: 18px;
-  border-left: 1px solid var(--lp-border);
+  border-left: 1px solid rgba(245, 244, 240, 0.14);
 }
 
 .landing-navbar-dropdown a {
   padding: 7px 10px;
   border-radius: 8px;
-  color: var(--lp-text);
+  color: rgba(245, 244, 240, 0.85);
   font-weight: 500;
   text-transform: none;
   letter-spacing: normal;
 }
 
 .landing-navbar-dropdown a:hover {
-  background: var(--lp-bg);
-  color: var(--lp-accent-dark);
+  background: rgba(245, 244, 240, 0.08);
+  color: #ffffff;
 }
 
 .landing-navbar-dropdown a.landing-navbar-dropdown-heading {
-  color: #c0392b;
+  color: #e08585;
   font-weight: 700;
 }
 
 .landing-navbar-dropdown a.landing-navbar-dropdown-heading:hover {
-  background: var(--lp-bg);
-  color: #a52f22;
+  color: #f2a5a5;
 }
 
 .landing-navbar-actions {
@@ -2308,6 +2306,144 @@ a {
   gap: 14px;
   flex: 1;
   justify-content: flex-end;
+}
+
+/* --- Buscador de productos, dentro de la misma fila del navbar (entre los links y "Gestión") --- */
+
+.landing-navbar-search {
+  position: relative;
+  flex: 0 0 auto;
+  width: 200px;
+}
+
+.landing-navbar-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--nav-fg-muted);
+  pointer-events: none;
+}
+
+.landing-navbar-search-input {
+  width: 100%;
+  padding: 7px 14px 7px 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--nav-fg);
+  font-size: 13px;
+}
+
+.landing-navbar-search-input::placeholder {
+  color: var(--nav-fg-muted);
+}
+
+.landing-navbar-search-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Mismo look oscuro que el desplegable de categorías (.landing-navbar-dropdown), siempre. */
+.landing-navbar-search-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1d;
+  border: 1px solid rgba(245, 244, 240, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.landing-navbar-search-empty {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: rgba(245, 244, 240, 0.6);
+  text-align: center;
+}
+
+.landing-navbar-search-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  color: rgba(245, 244, 240, 0.85);
+  transition: background 0.12s ease;
+}
+
+.landing-navbar-search-result:hover {
+  background: rgba(245, 244, 240, 0.08);
+  color: #ffffff;
+}
+
+.landing-navbar-search-result + .landing-navbar-search-result {
+  border-top: 1px solid rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar-search-result-image,
+.landing-navbar-search-result-image-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.landing-navbar-search-result-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--lp-font-display);
+  font-size: 15px;
+  color: #ffffff;
+  background: linear-gradient(150deg, var(--lp-accent), #4b3f8f);
+}
+
+.landing-navbar-search-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.landing-navbar-search-result-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-navbar-search-result-price {
+  font-size: 12px;
+  color: rgba(245, 244, 240, 0.6);
+}
+
+.landing-navbar-search-more {
+  padding: 11px 14px;
+  border: none;
+  border-top: 1px solid rgba(245, 244, 240, 0.14);
+  background: transparent;
+  color: #e08585;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.landing-navbar-search-more:hover {
+  background: rgba(245, 244, 240, 0.08);
+  color: #f2a5a5;
 }
 
 /* Hamburguesa — solo visible en mobile, ver breakpoint 768px más abajo */
@@ -4086,6 +4222,10 @@ a {
 
   .landing-navbar-toggle {
     display: flex;
+  }
+
+  .landing-navbar-search {
+    width: 140px;
   }
 }
 
