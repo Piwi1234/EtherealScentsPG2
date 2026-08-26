@@ -3629,6 +3629,25 @@ a {
   padding-top: 8px;
 }
 
+/* Cuando el producto/variante mostrada tiene descuento: precio anterior tachado + precio nuevo en
+   rojo, uno al lado del otro. */
+.landing-product-price--discounted {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.landing-product-price-old {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--lp-muted);
+  text-decoration: line-through;
+}
+
+.landing-product-price-new {
+  color: #e0262c;
+}
+
 /* Sello "Sold Out": reemplaza el precio cuando todas las variantes del producto están marcadas no
    disponibles (ver `isSoldOut`) — mismo lugar en la tarjeta (abajo del todo, gracias a margin-top:
    auto en .landing-product-body con display:flex), estilo de sello de goma. */

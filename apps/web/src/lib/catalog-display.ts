@@ -27,14 +27,22 @@ export function brandLinkHref(rootCategoryId: string, brand: Brand): string {
  * disponibles (ver `isSoldOut`, que muestra el sello "Sold Out" en su lugar) se cae a la más barata
  * en general, nada más para tener una variante representativa (imagen) que mostrar.
  */
-export function displayPrice(product: Product): { bs: number; usd: number; fromPrice: boolean; variant: ProductVariant | null } {
+export function displayPrice(
+  product: Product,
+): { bs: number; usd: number; fromPrice: boolean; variant: ProductVariant | null; discountBs: number } {
   if (product.variants.length > 0) {
     const available = product.variants.filter((v) => v.disponible);
     const pool = available.length > 0 ? available : product.variants;
     const cheapest = pool.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), pool[0]);
-    return { bs: cheapest.finalPriceBs, usd: cheapest.price, fromPrice: pool.length > 1, variant: cheapest };
+    return {
+      bs: cheapest.finalPriceBs,
+      usd: cheapest.price,
+      fromPrice: pool.length > 1,
+      variant: cheapest,
+      discountBs: Number(cheapest.discountBs),
+    };
   }
-  return { bs: product.finalPriceBs, usd: product.price, fromPrice: false, variant: null };
+  return { bs: product.finalPriceBs, usd: product.price, fromPrice: false, variant: null, discountBs: Number(product.discountBs) };
 }
 
 /** Imagen de tarjeta: la propia de la variante (más barata) si está cargada, si no la del producto. */

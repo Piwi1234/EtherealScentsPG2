@@ -168,7 +168,7 @@ export default function HomePage() {
 
               <div className="landing-product-grid landing-product-grid--carousel">
                 {offersChunks[offersSlide].map((product) => {
-                  const { bs, fromPrice, variant } = displayPrice(product);
+                  const { bs, fromPrice, variant, discountBs } = displayPrice(product);
                   const image = productImageSrc(cardImageUrl(product, variant));
                   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                   return (
@@ -200,6 +200,13 @@ export default function HomePage() {
                         {atributos && <p className="landing-product-attrs">{atributos}</p>}
                         {isSoldOut(product) ? (
                           <span className="landing-product-soldout-stamp">Sold Out</span>
+                        ) : discountBs > 0 ? (
+                          <span className="landing-product-price landing-product-price--discounted">
+                            <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
+                            <span className="landing-product-price-new">
+                              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                            </span>
+                          </span>
                         ) : (
                           <span className="landing-product-price">
                             {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
