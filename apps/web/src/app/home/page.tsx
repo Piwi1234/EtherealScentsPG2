@@ -39,6 +39,7 @@ export default function HomePage() {
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
+  const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
     offersBannerImages: CarouselImage[];
@@ -96,14 +97,16 @@ export default function HomePage() {
   useEffect(() => {
     if (offersChunks.length <= 1) return;
     const timer = setInterval(() => {
+      setOffersDirection(1);
       setOffersSlide((s) => (s + 1) % offersChunks.length);
     }, OFFERS_AUTOPLAY_MS);
     return () => clearInterval(timer);
   }, [offersChunks.length, offersAutoKey]);
 
-  function goToOffersSlide(index: number) {
+  function goToOffersSlide(index: number, dir: 1 | -1) {
     const total = offersChunks.length;
     if (total === 0) return;
+    setOffersDirection(dir);
     setOffersSlide(((index % total) + total) % total);
     setOffersAutoKey((k) => k + 1);
   }
@@ -179,13 +182,18 @@ export default function HomePage() {
                 type="button"
                 className="landing-carousel-arrow landing-carousel-arrow--prev"
                 aria-label="Ofertas anteriores"
-                onClick={() => goToOffersSlide(offersSlide - 1)}
+                onClick={() => goToOffersSlide(offersSlide - 1, -1)}
                 disabled={offersChunks.length <= 1}
               >
                 ‹
               </button>
 
-              <div className="landing-product-grid landing-product-grid--carousel">
+              <div
+                className={`landing-product-grid landing-product-grid--carousel${
+                  offersDirection === 1 ? " landing-product-grid--carousel-next" : " landing-product-grid--carousel-prev"
+                }`}
+              >
+
                 {offersChunks[offersSlide].map((product) => {
                   const { bs, fromPrice, variant, discountBs } = displayPrice(product);
                   const image = productImageSrc(cardImageUrl(product, variant));
@@ -251,7 +259,7 @@ export default function HomePage() {
                 type="button"
                 className="landing-carousel-arrow landing-carousel-arrow--next"
                 aria-label="Siguientes ofertas"
-                onClick={() => goToOffersSlide(offersSlide + 1)}
+                onClick={() => goToOffersSlide(offersSlide + 1, 1)}
                 disabled={offersChunks.length <= 1}
               >
                 ›
@@ -473,20 +481,23 @@ export default function HomePage() {
 function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCategoryId: string }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   const chunks = useMemo(() => chunk(brands, BRANDS_SLIDE_SIZE), [brands]);
 
   useEffect(() => {
     if (chunks.length <= 1) return;
     const timer = setInterval(() => {
+      setDirection(1);
       setSlide((s) => (s + 1) % chunks.length);
     }, BRANDS_AUTOPLAY_MS);
     return () => clearInterval(timer);
   }, [chunks.length, autoKey]);
 
-  function goTo(index: number) {
+  function goTo(index: number, dir: 1 | -1) {
     const total = chunks.length;
     if (total === 0) return;
+    setDirection(dir);
     setSlide(((index % total) + total) % total);
     setAutoKey((k) => k + 1);
   }
@@ -499,13 +510,13 @@ function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCateg
         type="button"
         className="landing-carousel-arrow landing-carousel-arrow--prev"
         aria-label="Marcas anteriores"
-        onClick={() => goTo(slide - 1)}
+        onClick={() => goTo(slide - 1, -1)}
         disabled={chunks.length <= 1}
       >
         ‹
       </button>
 
-      <div className="landing-brand-grid" key={slide}>
+      <div className={`landing-brand-grid${direction === 1 ? " landing-brand-grid--next" : " landing-brand-grid--prev"}`} key={slide}>
         {chunks[slide].map((brand) => (
           <Link href={brandLinkHref(rootCategoryId, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
             {brand.logoUrl ? (
@@ -521,7 +532,7 @@ function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCateg
         type="button"
         className="landing-carousel-arrow landing-carousel-arrow--next"
         aria-label="Siguientes marcas"
-        onClick={() => goTo(slide + 1)}
+        onClick={() => goTo(slide + 1, 1)}
         disabled={chunks.length <= 1}
       >
         ›

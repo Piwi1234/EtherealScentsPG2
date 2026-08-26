@@ -23,6 +23,9 @@ export function ImageCarousel({
 }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
+  // Sentido de la transición: 1 = la imagen entra desde la derecha (avanza, como "next" o el
+  // autoplay), -1 = entra desde la izquierda ("prev"). Ver landing-image-carousel-slide-next/-prev.
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   useEffect(() => {
     setSlide(0);
@@ -32,22 +35,26 @@ export function ImageCarousel({
   useEffect(() => {
     if (images.length <= 1) return;
     const timer = setInterval(() => {
+      setDirection(1);
       setSlide((s) => (s + 1) % images.length);
     }, autoplayMs);
     return () => clearInterval(timer);
   }, [images.length, autoKey, autoplayMs]);
 
-  function goTo(index: number) {
+  function goTo(index: number, dir?: 1 | -1) {
     const total = images.length;
     if (total === 0) return;
-    setSlide(((index % total) + total) % total);
+    const nextSlide = ((index % total) + total) % total;
+    setDirection(dir ?? (nextSlide >= slide ? 1 : -1));
+    setSlide(nextSlide);
     setAutoKey((k) => k + 1);
   }
 
   if (images.length === 0) return null;
 
   const current = images[slide];
-  const img = <img key={slide} className={imgClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />;
+  const slideClassName = `${imgClassName} ${direction === 1 ? "landing-image-carousel-slide-next" : "landing-image-carousel-slide-prev"}`;
+  const img = <img key={slide} className={slideClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />;
 
   return (
     <>
@@ -59,7 +66,7 @@ export function ImageCarousel({
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img className={imgClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />
+          <img className={slideClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />
         </a>
       ) : (
         img
@@ -70,7 +77,7 @@ export function ImageCarousel({
             type="button"
             className="landing-image-carousel-arrow landing-image-carousel-arrow--prev"
             aria-label="Imagen anterior"
-            onClick={() => goTo(slide - 1)}
+            onClick={() => goTo(slide - 1, -1)}
           >
             ‹
           </button>
@@ -78,7 +85,7 @@ export function ImageCarousel({
             type="button"
             className="landing-image-carousel-arrow landing-image-carousel-arrow--next"
             aria-label="Siguiente imagen"
-            onClick={() => goTo(slide + 1)}
+            onClick={() => goTo(slide + 1, 1)}
           >
             ›
           </button>
