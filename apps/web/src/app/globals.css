@@ -4289,6 +4289,31 @@ a {
   top: 100px;
 }
 
+.landing-product-detail-image-wrap {
+  position: relative;
+}
+
+/* La etiqueta "Oferta" acá va del lado derecho (no izquierdo como en las tarjetas) y 35% más grande
+   — mismo diseño de banderín, pero espejado (la muesca apunta hacia la derecha) y con todas las
+   medidas escaladas ×1.35. */
+.landing-product-detail-image-wrap .landing-product-offer-badge {
+  top: 19px;
+  left: auto;
+  right: -8px;
+  gap: 7px;
+  padding: 7px 22px 7px 14px;
+  font-size: 15px;
+  border-width: 2px;
+  border-radius: 4px 0 0 4px;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+}
+
+.landing-product-detail-image-wrap .landing-product-offer-badge svg {
+  width: 19px;
+  height: 19px;
+}
+
 .landing-product-detail-image {
   width: 100%;
   aspect-ratio: 1 / 1;
