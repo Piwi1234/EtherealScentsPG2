@@ -414,6 +414,10 @@ export default function HomePage() {
             key={cat.id}
           >
             <div className="landing-container">
+              <h2 className="landing-section-title landing-feature-block-title">
+                <span className="landing-feature-block-title-inner">{cat.name}</span>
+              </h2>
+
               {cat.carouselImages.length > 0 ? (
                 <div className="landing-feature-visual">
                   <ImageCarousel
@@ -421,15 +425,18 @@ export default function HomePage() {
                     alt={cat.name}
                     imgClassName="landing-feature-visual-image"
                     autoplayMs={FEATURE_AUTOPLAY_MS}
-                    fallbackHref={`/categoria/${cat.id}`}
                     visibleCount={3}
                     renderOverlay={(image) => (
                       <div className="landing-feature-overlay">
-                        {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
-                        <h2 className="landing-feature-overlay-title">{image.titulo2 || cat.name}</h2>
-                        <span className="landing-btn landing-btn-primary landing-feature-overlay-btn">
-                          Explorar {cat.name}
-                        </span>
+                        <div className="landing-feature-overlay-text">
+                          {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
+                          {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
+                        </div>
+                        {image.url && (
+                          <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
+                            Ver Todo
+                          </a>
+                        )}
                       </div>
                     )}
                   />
@@ -439,14 +446,7 @@ export default function HomePage() {
                   href={`/categoria/${cat.id}`}
                   className="landing-feature-visual landing-feature-visual--fallback"
                   style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
-                >
-                  <div className="landing-feature-overlay">
-                    <h2 className="landing-feature-overlay-title">{cat.name}</h2>
-                    <span className="landing-btn landing-btn-primary landing-feature-overlay-btn">
-                      Explorar {cat.name}
-                    </span>
-                  </div>
-                </Link>
+                />
               )}
 
               {categoryBrands.length > 0 && (

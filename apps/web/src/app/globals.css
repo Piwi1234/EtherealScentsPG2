@@ -2756,6 +2756,31 @@ a {
   background: var(--lp-accent);
 }
 
+/* Variante "afuera": en vez de superpuestos sobre la imagen (blanco, para leerse sobre cualquier
+   foto), van en el flujo normal debajo de la grilla, centrados — y usan los colores de texto del
+   bloque (--lp-muted/--lp-accent-dark) para verse bien tanto en fondo negro como en papel. */
+.landing-image-carousel-dots--outside {
+  position: static;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.landing-image-carousel-dots--outside .landing-image-carousel-dot {
+  background: var(--lp-muted);
+}
+
+.landing-image-carousel-dots--outside .landing-image-carousel-dot:hover {
+  background: var(--lp-accent-dark);
+}
+
+.landing-image-carousel-dots--outside .landing-image-carousel-dot--active {
+  background: var(--lp-accent-dark);
+}
+
 
 /* --- Banner de página de categoría (/categoria/[id]) ---
    Mismo tratamiento oscuro que el hero para que el navbar transparente se
@@ -3858,22 +3883,36 @@ a {
   font-size: 14px;
 }
 
-/* --- Producto destacado: banner ancho con título superpuesto (idea "promo-banner" de agatres.co) —
-   título 1/título 2 se cargan por imagen en Grid Imágenes, título 2 cae a el nombre de la categoría
-   si no se cargó ninguno. Toda la tarjeta es un solo link (a la categoría, o al `url` propio de esa
-   imagen si tiene) — no hay más columna de texto aparte. */
+/* --- Producto destacado: carrusel de 3 imágenes lado a lado con título superpuesto (idea
+   "promo-banner" de agatres.co) — título 1/título 2 se cargan por imagen en Grid Imágenes, cada uno
+   se oculta si está vacío. El nombre de la categoría va aparte, como título del bloque (ver
+   .landing-feature-block-title). Siempre reserva las 3 columnas (ver ImageCarousel/visibleCount) —
+   con menos de 3 imágenes cargadas, las columnas sobrantes quedan vacías en vez de agrandar las que
+   sí hay, para no cambiar su recorte según cuántas haya. */
+.landing-feature-block-title {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 96px;
+}
+
+/* inline-block: se achica al ancho del texto, así el borde de abajo mide lo mismo que el título —
+   lo centra el text-align:center del h2 de arriba (mismo truco de siempre para esto, más
+   confiable entre navegadores que width:fit-content + margin:auto). */
+.landing-feature-block-title-inner {
+  display: inline-block;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--lp-border);
+}
+
+/* 85% del ancho del contenedor (centrado) — 15% menos que antes, ver ImageCarousel/visibleCount
+   para cómo se reparte ese ancho entre las 3 columnas. */
 .landing-feature-visual {
   position: relative;
   display: block;
   overflow: hidden;
-}
-
-/* Con 1 sola imagen (menos de 3 cargadas) ImageCarousel cae a su modo de siempre, sin grilla — ahí
-   sí conviene un banner ancho como el resto de las secciones del home. */
-.landing-feature-visual:has(> img),
-.landing-feature-visual:has(> .landing-image-carousel-link) {
-  aspect-ratio: 21 / 9;
-  border-radius: 20px;
+  width: 85%;
+  margin: 0 auto;
 }
 
 .landing-feature-visual-image {
@@ -3883,17 +3922,7 @@ a {
   transition: transform 0.4s ease;
 }
 
-.landing-feature-visual:hover .landing-feature-visual-image {
-  transform: scale(1.04);
-}
-
-/* En modo de 3 imágenes lado a lado (ver .landing-image-carousel-grid-item más abajo), el hover de
-   arriba haría zoom en las 3 juntas con solo pasar el mouse por la tarjeta grande — acá se resetea y
-   se vuelve a aplicar, pero solo en la imagen puntual que se está tocando. */
-.landing-feature-visual .landing-image-carousel-grid-item .landing-feature-visual-image {
-  transform: scale(1);
-}
-
+/* Cada tarjeta hace zoom por separado al pasar el mouse — no las 3 juntas. */
 .landing-feature-visual .landing-image-carousel-grid-item:hover .landing-feature-visual-image {
   transform: scale(1.04);
 }
@@ -3927,6 +3956,12 @@ a {
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
+/* Alto fijo (no solo el contenido) — así el botón de abajo (Ver Todo) siempre cae en el mismo lugar
+   entre las 3 tarjetas, tengan o no título 1/título 2 cargado. */
+.landing-feature-overlay-text {
+  min-height: 88px;
+}
+
 .landing-feature-overlay-subtitle {
   font-size: 12px;
   font-weight: 600;
@@ -3940,11 +3975,13 @@ a {
   font-family: var(--lp-font-display);
   font-size: 34px;
   font-weight: 700;
-  margin: 0 0 20px;
+  margin: 0;
 }
 
 .landing-feature-overlay-btn {
   text-shadow: none;
+  padding: 8px 20px;
+  font-size: 12px;
 }
 
 /* Cada bloque es ahora su propia sección de ancho completo (ya no comparte un .landing-container
