@@ -3485,6 +3485,114 @@ a {
   bottom: 10px;
 }
 
+/* --- "Colección de la semana": banner alto a la izquierda (mismo carrusel que el resto, ver
+   ImageCarousel) + grilla 4x3 de los últimos 12 productos de la marca elegida en Marcas --- */
+
+.landing-weekly-collection-layout {
+  display: grid;
+  grid-template-columns: 504px 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.landing-weekly-collection-layout--no-banner {
+  grid-template-columns: 1fr;
+}
+
+.landing-weekly-collection-banner {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+}
+
+.landing-weekly-collection-banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: landing-image-fade 1.2s ease;
+}
+
+.landing-weekly-collection-banner .landing-image-carousel-arrow {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
+.landing-weekly-collection-banner .landing-image-carousel-arrow--prev {
+  left: 8px;
+}
+
+.landing-weekly-collection-banner .landing-image-carousel-arrow--next {
+  right: 8px;
+}
+
+.landing-weekly-collection-banner .landing-image-carousel-dots {
+  bottom: 10px;
+}
+
+.landing-product-grid--weekly {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* Tarjetas más compactas que el resto del catálogo — el banner de al lado se estira para igualar
+   el alto de esta grilla (align-items: stretch en .landing-weekly-collection-layout), así que achicar
+   la tarjeta es lo que reduce el alto de todo el bloque (~35% menos que si usara el tamaño de
+   tarjeta por defecto) sin perder la proporción con el ancho ampliado del banner. */
+.landing-product-grid--weekly .landing-product-image,
+.landing-product-grid--weekly .landing-product-image-placeholder {
+  aspect-ratio: 10 / 9;
+}
+
+.landing-product-grid--weekly .landing-product-body {
+  height: 76px;
+  padding: 8px 12px 8px;
+}
+
+.landing-product-grid--weekly .landing-product-brand {
+  font-size: 9px;
+}
+
+.landing-product-grid--weekly .landing-product-name {
+  font-size: 11.5px;
+  margin: 2px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.landing-product-grid--weekly .landing-product-attrs {
+  font-size: 9px;
+  margin: 0 0 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.landing-product-grid--weekly .landing-product-price {
+  font-size: 12px;
+  padding-top: 4px;
+}
+
+.landing-product-grid--weekly .landing-product-offer-badge {
+  top: 8px;
+  padding: 3px 8px 3px 12px;
+  font-size: 9.5px;
+}
+
+.landing-product-grid--weekly .landing-product-offer-badge svg {
+  width: 11px;
+  height: 11px;
+}
+
+.landing-product-grid--weekly .landing-product-soldout-stamp {
+  font-size: 11px;
+  padding: 2px 10px;
+}
+
 .landing-carousel-arrow {
   position: absolute;
   top: 50%;
@@ -4267,6 +4375,23 @@ a {
   margin: 4px 0 12px;
 }
 
+.landing-product-detail-price-bs--discounted {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.landing-product-detail-price-old {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--lp-muted);
+  text-decoration: line-through;
+}
+
+.landing-product-detail-price-new {
+  color: #e0262c;
+}
+
 .landing-product-detail-availability {
   display: inline-block;
   font-size: 12.5px;
@@ -4352,6 +4477,11 @@ a {
   .landing-marcas-grid {
     grid-template-columns: repeat(5, 1fr);
   }
+
+  .landing-product-grid--weekly {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 900px) {
@@ -4378,6 +4508,19 @@ a {
 
   .landing-offers-banner {
     grid-column: 2;
+  }
+
+  .landing-weekly-collection-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-weekly-collection-banner {
+    height: 220px;
+  }
+
+  .landing-product-grid--weekly {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(6, 1fr);
   }
 
   .landing-brand-grid {
@@ -4500,6 +4643,11 @@ a {
 
   .landing-offers-banner {
     grid-column: 1;
+  }
+
+  .landing-product-grid--weekly {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(12, 1fr);
   }
 
   .landing-brand-grid {

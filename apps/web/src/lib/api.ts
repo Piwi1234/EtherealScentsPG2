@@ -223,14 +223,17 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
-/** Público (sin auth) — carrusel del hero del home, del hero de /marcas y del banner de ofertas del
- * home (ordenados, con su `url` de redirección si tiene) e imágenes de "Propuesta de valor"/"Sobre
- * nosotros" del home (ver Grid Imágenes en Configuración). */
+/** Público (sin auth) — carrusel del hero del home, del hero de /marcas, del banner de ofertas del
+ * home y del banner de "Colección de la semana" (ordenados, con su `url` de redirección si tiene),
+ * la marca elegida para ese bloque, e imágenes de "Propuesta de valor"/"Sobre nosotros" del home
+ * (ver Grid Imágenes en Configuración). */
 export function getLandingImages() {
   return apiGet<{
     heroImages: CarouselImage[];
     marcasHeroImages: CarouselImage[];
     offersBannerImages: CarouselImage[];
+    weeklyCollectionBannerImages: CarouselImage[];
+    weeklyCollectionBrand: { id: string; name: string; slug: string; logoUrl: string | null } | null;
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   }>("/settings/landing-images");
@@ -296,6 +299,36 @@ export function moveOffersBannerCarouselImage(imageId: string, direction: "up" |
 
 export function updateOffersBannerCarouselImageUrl(imageId: string, url: string | null) {
   return apiPatch<void>(`/settings/landing-images/offers-banner-carousel/${imageId}/url`, { url });
+}
+
+export function getWeeklyCollectionBannerCarouselImages() {
+  return apiGet<CarouselImage[]>("/settings/landing-images/weekly-collection-carousel");
+}
+
+export function addWeeklyCollectionBannerCarouselImage(file: File) {
+  return apiUpload<CarouselImage>("/settings/landing-images/weekly-collection-carousel", file);
+}
+
+export function removeWeeklyCollectionBannerCarouselImage(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/weekly-collection-carousel/${imageId}`);
+}
+
+export function moveWeeklyCollectionBannerCarouselImage(imageId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/settings/landing-images/weekly-collection-carousel/${imageId}/move`, { direction });
+}
+
+export function updateWeeklyCollectionBannerCarouselImageUrl(imageId: string, url: string | null) {
+  return apiPatch<void>(`/settings/landing-images/weekly-collection-carousel/${imageId}/url`, { url });
+}
+
+/** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del panel
+ * de gestión (una sola marca a la vez). */
+export function getWeeklyCollectionBrand() {
+  return apiGet<{ brandId: string | null }>("/settings/weekly-collection-brand");
+}
+
+export function setWeeklyCollectionBrand(brandId: string | null) {
+  return apiPut<{ brandId: string | null }>("/settings/weekly-collection-brand", { brandId });
 }
 
 export function getCategoryCarouselImages(categoryId: string) {

@@ -17,6 +17,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../modules/auth/decorators/public.decorator";
 import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
+import { UpdateWeeklyCollectionBrandDto } from "./dto/update-weekly-collection-brand.dto";
 import { landingImageMulterOptions } from "./landing-image.multer";
 import { MoveCarouselImageDto } from "../catalog/carousel-image/dto/move-carousel-image.dto";
 import { UpdateCarouselImageUrlDto } from "../catalog/carousel-image/dto/update-carousel-image-url.dto";
@@ -130,6 +131,45 @@ export class SettingsController {
   @Patch("landing-images/offers-banner-carousel/:imageId/url")
   setOffersBannerCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
     return this.settings.setOffersBannerCarouselImageUrl(imageId, dto.url ?? null);
+  }
+
+  @Get("landing-images/weekly-collection-carousel")
+  listWeeklyCollectionBannerCarouselImages() {
+    return this.settings.listWeeklyCollectionBannerCarouselImages();
+  }
+
+  @Post("landing-images/weekly-collection-carousel")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  addWeeklyCollectionBannerCarouselImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.addWeeklyCollectionBannerCarouselImage(file);
+  }
+
+  @Delete("landing-images/weekly-collection-carousel/:imageId")
+  removeWeeklyCollectionBannerCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.settings.removeWeeklyCollectionBannerCarouselImage(imageId);
+  }
+
+  @Patch("landing-images/weekly-collection-carousel/:imageId/move")
+  moveWeeklyCollectionBannerCarouselImage(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: MoveCarouselImageDto) {
+    return this.settings.moveWeeklyCollectionBannerCarouselImage(imageId, dto.direction);
+  }
+
+  @Patch("landing-images/weekly-collection-carousel/:imageId/url")
+  setWeeklyCollectionBannerCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
+    return this.settings.setWeeklyCollectionBannerCarouselImageUrl(imageId, dto.url ?? null);
+  }
+
+  @Get("weekly-collection-brand")
+  async getWeeklyCollectionBrand() {
+    return { brandId: await this.settings.getWeeklyCollectionBrandId() };
+  }
+
+  @Put("weekly-collection-brand")
+  setWeeklyCollectionBrand(@Body() dto: UpdateWeeklyCollectionBrandDto) {
+    return this.settings.setWeeklyCollectionBrand(dto.brandId ?? null);
   }
 
   @Post("landing-images/value")

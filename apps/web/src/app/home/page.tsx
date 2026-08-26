@@ -21,6 +21,8 @@ const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
 const FEATURE_AUTOPLAY_MS = 10000;
+const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
+const WEEKLY_COLLECTION_SIZE = 12;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -40,9 +42,12 @@ export default function HomePage() {
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
     offersBannerImages: CarouselImage[];
+    weeklyCollectionBannerImages: CarouselImage[];
+    weeklyCollectionBrand: { id: string; name: string; slug: string; logoUrl: string | null } | null;
     valueImageUrl: string | null;
     aboutImageUrl: string | null;
   } | null>(null);
+  const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
@@ -71,6 +76,20 @@ export default function HomePage() {
   }, [categoryFilter]);
 
   const offersChunks = useMemo(() => chunk(productsPage?.items ?? [], OFFERS_SLIDE_SIZE), [productsPage]);
+
+  // "Colección de la semana": los últimos 12 productos creados de la marca elegida en Marcas del
+  // panel de gestión — bloque oculto si no hay ninguna marca elegida.
+  const weeklyCollectionBrandId = landingImages?.weeklyCollectionBrand?.id ?? null;
+  useEffect(() => {
+    if (!weeklyCollectionBrandId) {
+      setWeeklyCollectionProducts([]);
+      return;
+    }
+    const params = new URLSearchParams({ brandId: weeklyCollectionBrandId, pageSize: String(WEEKLY_COLLECTION_SIZE) });
+    apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
+      .then((page) => setWeeklyCollectionProducts(page.items))
+      .catch(() => {});
+  }, [weeklyCollectionBrandId]);
 
   // Avanza sola cada 7s; se reinicia cuando el usuario navega a mano (offersAutoKey) para no
   // "pelear" con un click reciente.
@@ -241,6 +260,84 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {/* ================= 3b. Colección de la semana ================= */}
+      {landingImages?.weeklyCollectionBrand && weeklyCollectionProducts.length > 0 && (
+        <section className="landing-section landing-section-alt">
+          <div className="landing-container">
+            <p className="landing-eyebrow">Colección de la semana</p>
+            <h2 className="landing-section-title">{landingImages.weeklyCollectionBrand.name}</h2>
+            <p className="landing-section-lead">
+              Lo último de {landingImages.weeklyCollectionBrand.name}, recién llegado a nuestro catálogo.
+            </p>
+
+            <div
+              className={`landing-weekly-collection-layout${
+                landingImages.weeklyCollectionBannerImages.length === 0 ? " landing-weekly-collection-layout--no-banner" : ""
+              }`}
+            >
+              {landingImages.weeklyCollectionBannerImages.length > 0 && (
+                <div className="landing-weekly-collection-banner">
+                  <ImageCarousel
+                    images={landingImages.weeklyCollectionBannerImages}
+                    alt=""
+                    imgClassName="landing-weekly-collection-banner-image"
+                    autoplayMs={WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS}
+                  />
+                </div>
+              )}
+
+              <div className="landing-product-grid landing-product-grid--weekly">
+                {weeklyCollectionProducts.map((product) => {
+                  const { bs, fromPrice, variant, discountBs } = displayPrice(product);
+                  const image = productImageSrc(cardImageUrl(product, variant));
+                  const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
+                  return (
+                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                      <div className="landing-product-image-wrap">
+                        {image ? (
+                          <img className="landing-product-image" src={image} alt={product.name} />
+                        ) : (
+                          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
+                        )}
+                        {hasDiscount(product) && (
+                          <span className="landing-product-offer-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
+                              <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
+                              <path d="M2.5 3h2.4l2.2 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6" />
+                            </svg>
+                            Oferta
+                          </span>
+                        )}
+                      </div>
+                      <div className="landing-product-body">
+                        {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
+                        <p className="landing-product-name">{product.name}</p>
+                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
+                        {isSoldOut(product) ? (
+                          <span className="landing-product-soldout-stamp">Sold Out</span>
+                        ) : discountBs > 0 ? (
+                          <span className="landing-product-price landing-product-price--discounted">
+                            <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
+                            <span className="landing-product-price-new">
+                              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="landing-product-price">
+                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ========== 4. Producto/servicio destacado (alterna lado de imagen y fondo) ========== */}
       {rootCategories.map((cat, i) => {

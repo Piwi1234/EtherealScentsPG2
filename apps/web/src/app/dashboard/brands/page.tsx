@@ -10,7 +10,9 @@ import {
   apiUpload,
   ApiError,
   downloadBrandsImportTemplate,
+  getWeeklyCollectionBrand,
   importBrandsFromFile,
+  setWeeklyCollectionBrand,
 } from "../../../lib/api";
 import type { Brand, BrandImportReport, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
@@ -46,6 +48,10 @@ export default function BrandsPage() {
   const [importReport, setImportReport] = useState<BrandImportReport | null>(null);
   const [importReportError, setImportReportError] = useState("");
 
+  const [weeklyCollectionBrandId, setWeeklyCollectionBrandId] = useState<string | null>(null);
+  const [weeklyCollectionSaving, setWeeklyCollectionSaving] = useState(false);
+  const [weeklyCollectionError, setWeeklyCollectionError] = useState("");
+
   function handleLogoSelect(file: File | null, currentLogoUrl: string | null) {
     if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
     setLogoFile(file);
@@ -61,7 +67,23 @@ export default function BrandsPage() {
   useEffect(() => {
     loadBrands();
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    getWeeklyCollectionBrand()
+      .then((r) => setWeeklyCollectionBrandId(r.brandId))
+      .catch(() => {});
   }, []);
+
+  async function handleWeeklyCollectionChange(brandId: string | null) {
+    setWeeklyCollectionSaving(true);
+    setWeeklyCollectionError("");
+    try {
+      const result = await setWeeklyCollectionBrand(brandId);
+      setWeeklyCollectionBrandId(result.brandId);
+    } catch (e) {
+      setWeeklyCollectionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWeeklyCollectionSaving(false);
+    }
+  }
 
   function openCreate() {
     setEditing(null);
@@ -197,6 +219,27 @@ export default function BrandsPage() {
           </button>
         </div>
       </div>
+      {brands && brands.length > 0 && (
+        <div className="filters-bar" style={{ marginBottom: 16 }}>
+          <div className="filter-field" style={{ minWidth: 280 }}>
+            <label className="filter-label">Colección de la semana (home)</label>
+            <select
+              className="field"
+              value={weeklyCollectionBrandId ?? ""}
+              disabled={weeklyCollectionSaving}
+              onChange={(e) => handleWeeklyCollectionChange(e.target.value || null)}
+            >
+              <option value="">— Ninguna (bloque oculto) —</option>
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+      {weeklyCollectionError && <p className="error-text">{weeklyCollectionError}</p>}
       {importReportError && <p className="error-text">{importReportError}</p>}
       {error && <p className="error-text">{error}</p>}
       {!brands && !error && <p>Cargando...</p>}

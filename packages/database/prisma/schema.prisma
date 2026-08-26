@@ -151,6 +151,10 @@ model SystemSetting {
   // secciones muestran un placeholder con gradiente (ver Grid Imágenes en Configuración).
   valueImageUrl String? @map("value_image_url")
   aboutImageUrl String? @map("about_image_url")
+  // Marca elegida para el bloque "Colección de la semana" del home (se elige desde Marcas del panel
+  // de gestión) — null = el bloque no se muestra. Una sola marca a la vez (no hay lista).
+  weeklyCollectionBrandId String? @map("weekly_collection_brand_id") @db.Uuid
+  weeklyCollectionBrand   Brand?  @relation(fields: [weeklyCollectionBrandId], references: [id], onDelete: SetNull)
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
@@ -206,12 +210,15 @@ model Category {
  * independiente del Hero principal del home.
  * OFFERS_BANNER: carrusel promocional del home (categoryId null, singleton) que ocupa el 5to lugar
  * de la fila de "Descuento y Ofertas" — mismo tamaño que una tarjeta de producto (aspect-ratio 4/5),
- * independiente de los demás. */
+ * independiente de los demás.
+ * WEEKLY_COLLECTION_BANNER: carrusel promocional del home (categoryId null, singleton) del bloque
+ * "Colección de la semana" — mismo tamaño que una tarjeta de producto, independiente de los demás. */
 enum CarouselKind {
   FEATURE
   CATEGORY_HERO
   MARCAS_HERO
   OFFERS_BANNER
+  WEEKLY_COLLECTION_BANNER
 }
 
 model CarouselImage {
@@ -238,6 +245,9 @@ model Brand {
 
   categories BrandCategory[]
   products   Product[]
+  // Nunca más de una fila apunta acá en la práctica (SystemSetting es singleton) — ver
+  // weeklyCollectionBrandId.
+  weeklyCollectionSettings SystemSetting[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

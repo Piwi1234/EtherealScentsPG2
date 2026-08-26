@@ -98,6 +98,7 @@ export default function ProductoPage() {
   const parentCategory = product?.category.parentId ? categories.find((c) => c.id === product.category.parentId) ?? null : null;
   const image = productImageSrc(selectedVariant?.imageUrl ?? product?.imageUrl ?? null);
   const priceBs = selectedVariant ? selectedVariant.finalPriceBs : product?.finalPriceBs ?? 0;
+  const discountBs = Number(selectedVariant ? selectedVariant.discountBs : product?.discountBs ?? 0);
   const disponible = selectedVariant ? selectedVariant.disponible : true;
   const codigo = product && product.variants.length > 1 && selectedVariant ? selectedVariant.variantCode : product?.productCode ?? "";
   const detalles = product ? getAllAttributeDetails(product) : [];
@@ -184,7 +185,16 @@ export default function ProductoPage() {
                   </div>
                 ))}
 
-                {disponible && <p className="landing-product-detail-price-bs">Bs {priceBs.toFixed(2)}</p>}
+                {disponible && (
+                  discountBs > 0 ? (
+                    <p className="landing-product-detail-price-bs landing-product-detail-price-bs--discounted">
+                      <span className="landing-product-detail-price-old">Bs {(priceBs + discountBs).toFixed(2)}</span>
+                      <span className="landing-product-detail-price-new">Bs {priceBs.toFixed(2)}</span>
+                    </p>
+                  ) : (
+                    <p className="landing-product-detail-price-bs">Bs {priceBs.toFixed(2)}</p>
+                  )
+                )}
 
                 <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>
                   {disponible ? "Disponible" : "No disponible"}

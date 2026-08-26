@@ -8,27 +8,32 @@ import {
   addHeroCarouselImage,
   addMarcasHeroCarouselImage,
   addOffersBannerCarouselImage,
+  addWeeklyCollectionBannerCarouselImage,
   apiGet,
   apiUpload,
   getHeroCarouselImages,
   getLandingImages,
   getMarcasHeroCarouselImages,
   getOffersBannerCarouselImages,
+  getWeeklyCollectionBannerCarouselImages,
   moveCategoryCarouselImage,
   moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
   moveMarcasHeroCarouselImage,
   moveOffersBannerCarouselImage,
+  moveWeeklyCollectionBannerCarouselImage,
   removeCategoryCarouselImage,
   removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
   removeMarcasHeroCarouselImage,
   removeOffersBannerCarouselImage,
+  removeWeeklyCollectionBannerCarouselImage,
   updateCategoryCarouselImageUrl,
   updateCategoryHeroCarouselImageUrl,
   updateHeroCarouselImageUrl,
   updateMarcasHeroCarouselImageUrl,
   updateOffersBannerCarouselImageUrl,
+  updateWeeklyCollectionBannerCarouselImageUrl,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
 
@@ -43,7 +48,7 @@ function imgSrc(url: string | null): string | null {
 // /marcas (categoryId null, singleton, independiente del Hero principal del home). offers-banner:
 // banner de imágenes del home (categoryId null, singleton) que ocupa el 5to lugar de la fila de
 // "Descuento y Ofertas", mismo tamaño que una tarjeta de producto.
-type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "offers-banner";
+type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "offers-banner" | "weekly-collection-banner";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
@@ -58,6 +63,7 @@ export default function GridImagenesPage() {
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
   const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [offersBannerImages, setOffersBannerImages] = useState<CarouselImage[]>([]);
+  const [weeklyCollectionBannerImages, setWeeklyCollectionBannerImages] = useState<CarouselImage[]>([]);
   const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
     null,
   );
@@ -77,6 +83,9 @@ export default function GridImagenesPage() {
     getOffersBannerCarouselImages()
       .then(setOffersBannerImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getWeeklyCollectionBannerCarouselImages()
+      .then(setWeeklyCollectionBannerImages)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getLandingImages()
       .then(setLandingImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -91,6 +100,7 @@ export default function GridImagenesPage() {
       if (kind === "site-hero") await addHeroCarouselImage(file);
       else if (kind === "marcas-hero") await addMarcasHeroCarouselImage(file);
       else if (kind === "offers-banner") await addOffersBannerCarouselImage(file);
+      else if (kind === "weekly-collection-banner") await addWeeklyCollectionBannerCarouselImage(file);
       else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
       else await addCategoryHeroCarouselImage(categoryId!, file);
       load();
@@ -108,6 +118,7 @@ export default function GridImagenesPage() {
       if (kind === "site-hero") await removeHeroCarouselImage(imageId);
       else if (kind === "marcas-hero") await removeMarcasHeroCarouselImage(imageId);
       else if (kind === "offers-banner") await removeOffersBannerCarouselImage(imageId);
+      else if (kind === "weekly-collection-banner") await removeWeeklyCollectionBannerCarouselImage(imageId);
       else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
       else await removeCategoryHeroCarouselImage(categoryId!, imageId);
       load();
@@ -125,6 +136,7 @@ export default function GridImagenesPage() {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
       else if (kind === "marcas-hero") await moveMarcasHeroCarouselImage(imageId, direction);
       else if (kind === "offers-banner") await moveOffersBannerCarouselImage(imageId, direction);
+      else if (kind === "weekly-collection-banner") await moveWeeklyCollectionBannerCarouselImage(imageId, direction);
       else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
       else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
       load();
@@ -148,6 +160,7 @@ export default function GridImagenesPage() {
       if (kind === "site-hero") await updateHeroCarouselImageUrl(imageId, url);
       else if (kind === "marcas-hero") await updateMarcasHeroCarouselImageUrl(imageId, url);
       else if (kind === "offers-banner") await updateOffersBannerCarouselImageUrl(imageId, url);
+      else if (kind === "weekly-collection-banner") await updateWeeklyCollectionBannerCarouselImageUrl(imageId, url);
       else if (kind === "feature") await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
       else await updateCategoryHeroCarouselImageUrl(categoryId!, imageId, url);
       load();
@@ -196,6 +209,17 @@ export default function GridImagenesPage() {
         "Ocupa el 5to lugar de la fila de \"Descuento y Ofertas\" del home, junto a las 4 tarjetas de producto — " +
         "mismo tamaño que ellas. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del " +
         "carrusel.",
+    },
+    {
+      key: "weekly-collection-banner",
+      kind: "weekly-collection-banner",
+      title: "Banner de Colección de la semana",
+      categoryId: null,
+      images: weeklyCollectionBannerImages,
+      hint:
+        "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 12 " +
+        "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que una tarjeta de " +
+        "producto. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del carrusel.",
     },
     {
       key: "marcas-hero",

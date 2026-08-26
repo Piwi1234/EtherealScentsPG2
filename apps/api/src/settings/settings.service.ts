@@ -1,6 +1,6 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../common/prisma.service";
 import { CarouselImageService } from "../catalog/carousel-image/carousel-image.service";
 import { LANDING_IMAGES_DIR } from "./landing-image.multer";
@@ -28,23 +28,50 @@ export class SettingsService {
     return Number(setting.exchangeRate);
   }
 
-  /** Público (sin auth) — los carruseles del hero del home, del hero de /marcas y del banner de
-   * ofertas del home (con su `url` de redirección si tiene), y las imágenes de "Propuesta de
-   * valor"/"Sobre nosotros" del home. */
+  /** Público (sin auth) — los carruseles del hero del home, del hero de /marcas, del banner de
+   * ofertas del home y del banner de "Colección de la semana" (con su `url` de redirección si
+   * tiene), la marca elegida para ese bloque, y las imágenes de "Propuesta de valor"/"Sobre
+   * nosotros" del home. */
   async getLandingImages() {
-    const [setting, heroImages, marcasHeroImages, offersBannerImages] = await Promise.all([
-      this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } }),
+    const [setting, heroImages, marcasHeroImages, offersBannerImages, weeklyCollectionBannerImages] = await Promise.all([
+      this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID }, include: { weeklyCollectionBrand: true } }),
       this.carouselImages.list(null, "FEATURE"),
       this.carouselImages.list(null, "MARCAS_HERO"),
       this.carouselImages.list(null, "OFFERS_BANNER"),
+      this.carouselImages.list(null, "WEEKLY_COLLECTION_BANNER"),
     ]);
     return {
       heroImages,
       marcasHeroImages,
       offersBannerImages,
+      weeklyCollectionBannerImages,
+      weeklyCollectionBrand: setting?.weeklyCollectionBrand ?? null,
       valueImageUrl: setting?.valueImageUrl ?? null,
       aboutImageUrl: setting?.aboutImageUrl ?? null,
     };
+  }
+
+  /** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del
+   * panel de gestión, aunque el valor vive en SystemSetting (singleton) como el resto de la config
+   * global. Null = el bloque no se muestra. */
+  async getWeeklyCollectionBrandId(): Promise<string | null> {
+    const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    return setting?.weeklyCollectionBrandId ?? null;
+  }
+
+  async setWeeklyCollectionBrand(brandId: string | null) {
+    if (brandId) {
+      const brand = await this.prisma.brand.findUnique({ where: { id: brandId } });
+      if (!brand) {
+        throw new NotFoundException("Marca no encontrada.");
+      }
+    }
+    const setting = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: { weeklyCollectionBrandId: brandId },
+      create: { id: SETTINGS_ID, weeklyCollectionBrandId: brandId },
+    });
+    return { brandId: setting.weeklyCollectionBrandId };
   }
 
   /** El carrusel del Hero (categoryId null en CarouselImage) — igual mecanismo que el de una
@@ -110,6 +137,28 @@ export class SettingsService {
   }
 
   setOffersBannerCarouselImageUrl(imageId: string, url: string | null) {
+    return this.carouselImages.setUrl(imageId, url);
+  }
+
+  /** El carrusel del banner de "Colección de la semana" del home (categoryId null, kind
+   * WEEKLY_COLLECTION_BANNER) — mismo tamaño que una tarjeta de producto, independiente de los demás. */
+  listWeeklyCollectionBannerCarouselImages() {
+    return this.carouselImages.list(null, "WEEKLY_COLLECTION_BANNER");
+  }
+
+  addWeeklyCollectionBannerCarouselImage(file: Express.Multer.File) {
+    return this.carouselImages.add(null, "WEEKLY_COLLECTION_BANNER", file);
+  }
+
+  removeWeeklyCollectionBannerCarouselImage(imageId: string) {
+    return this.carouselImages.remove(imageId);
+  }
+
+  moveWeeklyCollectionBannerCarouselImage(imageId: string, direction: "up" | "down") {
+    return this.carouselImages.move(imageId, direction);
+  }
+
+  setWeeklyCollectionBannerCarouselImageUrl(imageId: string, url: string | null) {
     return this.carouselImages.setUrl(imageId, url);
   }
 
