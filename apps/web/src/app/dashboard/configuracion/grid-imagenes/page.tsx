@@ -52,11 +52,12 @@ type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "off
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del sitio: el carrusel del Hero, el del banner de
- * "Descuento y Ofertas", el del hero de /marcas, dos carruseles independientes por categoría raíz
- * ("Producto destacado" del home y el hero de su propia página, este último compartido con sus
- * subcategorías), y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros". Si un carrusel
- * queda sin ninguna imagen, esa sección muestra un degradado de relleno en su lugar.
+ * Imágenes usadas en las secciones visuales del sitio, organizadas en dos bloques: "Home" (Hero
+ * principal, banners de "Descuento y Ofertas"/"Colección de la semana", "Producto destacado" por
+ * categoría raíz, y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros") y "Hero de
+ * categorías y marcas" (hero de /marcas y hero de /categoria/[id] por categoría raíz, compartido con
+ * sus subcategorías). Si un carrusel queda sin ninguna imagen, esa sección muestra un degradado de
+ * relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -186,7 +187,8 @@ export default function GridImagenesPage() {
 
   const rootCategories = (categories ?? []).filter((c) => c.parentId === null);
 
-  const carouselSlots: CarouselSlot[] = [
+  // Bloque "Home": todo lo que se ve en la página de inicio.
+  const homeSlots: CarouselSlot[] = [
     {
       key: "hero",
       kind: "site-hero",
@@ -221,6 +223,21 @@ export default function GridImagenesPage() {
         "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que una tarjeta de " +
         "producto. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del carrusel.",
     },
+    ...rootCategories.map((cat) => ({
+      key: `${cat.id}-feature`,
+      kind: "feature" as const,
+      title: `${cat.name} — Producto destacado`,
+      categoryId: cat.id,
+      images: cat.carouselImages,
+      hint:
+        "Se usa en el bloque \"Producto destacado\" del home. Recomendado: 1200×1200px o más, cuadrada (relación " +
+        "1:1) — se recorta para llenar el cuadro (object-fit: cover), centrá lo importante de la foto.",
+    })),
+  ];
+
+  // Bloque "Hero de categorías y marcas": los heros panorámicos de /categoria/[id] y /marcas —
+  // independientes de los carruseles del home de arriba.
+  const heroSlots: CarouselSlot[] = [
     {
       key: "marcas-hero",
       kind: "marcas-hero",
@@ -228,53 +245,34 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: marcasHeroImages,
       hint:
-        "Fondo del hero de la página /marcas — carrusel independiente del Hero principal de arriba. Recomendado: " +
+        "Fondo del hero de la página /marcas — carrusel independiente del Hero principal del home. Recomendado: " +
         "2400×1500px o más, horizontal (este hero es 10% más alto que el Hero principal), por cada imagen del " +
         "carrusel.",
     },
-    ...rootCategories.flatMap((cat) => [
-      {
-        key: `${cat.id}-feature`,
-        kind: "feature" as const,
-        title: `${cat.name} — Producto destacado`,
-        categoryId: cat.id,
-        images: cat.carouselImages,
-        hint:
-          "Se usa en el bloque \"Producto destacado\" del home. Recomendado: 1200×1200px o más, cuadrada (relación " +
-          "1:1) — se recorta para llenar el cuadro (object-fit: cover), centrá lo importante de la foto.",
-      },
-      {
-        key: `${cat.id}-hero`,
-        kind: "category-hero" as const,
-        title: `${cat.name} — Hero de categoría`,
-        categoryId: cat.id,
-        images: cat.heroCarouselImages,
-        hint:
-          "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías (recorte " +
-          "panorámico, 10% más alto que el Hero principal) — carrusel independiente del de \"Producto destacado\" " +
-          "de arriba, no uno por subcategoría. Recomendado: 2400×1500px o más, horizontal.",
-      },
-    ]),
+    ...rootCategories.map((cat) => ({
+      key: `${cat.id}-hero`,
+      kind: "category-hero" as const,
+      title: `${cat.name} — Hero de categoría`,
+      categoryId: cat.id,
+      images: cat.heroCarouselImages,
+      hint:
+        "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías (recorte " +
+        "panorámico, 10% más alto que el Hero principal) — carrusel independiente del de \"Producto destacado\" " +
+        "del home. Recomendado: 2400×1500px o más, horizontal.",
+    })),
   ];
 
   return (
     <div className="card">
-      <h1 style={{ marginTop: 0, fontSize: 20 }}>Grid Imágenes</h1>
-      <p className="cell-muted" style={{ marginTop: -8, marginBottom: 20, maxWidth: 700 }}>
-        Imágenes de las secciones visuales del sitio: el carrusel del Hero, el del banner de "Descuento y Ofertas",
-        el del hero de /marcas, y por cada categoría raíz dos carruseles independientes — "Producto destacado" del
-        home y el hero de su propia página (compartido con todas sus subcategorías) — más las imágenes únicas de
-        "Propuesta de valor"/"Sobre nosotros". Un carrusel sin ninguna imagen cargada muestra un degradado de
-        relleno en su lugar. Cada imagen de un carrusel puede tener un link opcional: si lo carga, esa imagen queda
-        clickeable en el sitio público y redirige ahí; si lo deja vacío, queda decorativa (sin click), como antes.
-      </p>
+      <h1 style={{ marginTop: 0, fontSize: 20, marginBottom: 20 }}>Grid Imágenes</h1>
       {error && <p className="error-text">{error}</p>}
       {!categories && !error && <p>Cargando...</p>}
 
       {categories && (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 28 }}>
-            {carouselSlots.map((slot) => (
+          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Home</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
+            {homeSlots.map((slot) => (
               <CarouselSlotEditor
                 key={slot.key}
                 title={slot.title}
@@ -289,8 +287,7 @@ export default function GridImagenesPage() {
             ))}
           </div>
 
-          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Imágenes únicas</h2>
-          <div className="grid-3" style={{ gap: 20 }}>
+          <div className="grid-3" style={{ gap: 20, marginBottom: 28 }}>
             {(
               [
                 { id: "value", label: "Propuesta de valor", imageUrl: landingImages?.valueImageUrl ?? null },
@@ -325,6 +322,25 @@ export default function GridImagenesPage() {
                 )}
               </div>
             ))}
+          </div>
+
+          <div style={{ background: "#080706", borderRadius: 12, padding: 20 }}>
+            <h2 style={{ fontSize: 16, marginBottom: 12, marginTop: 0, color: "#efefef" }}>Hero de categorías y marcas</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {heroSlots.map((slot) => (
+                <CarouselSlotEditor
+                  key={slot.key}
+                  title={slot.title}
+                  hint={slot.hint}
+                  images={slot.images}
+                  busy={busySlot === slot.key}
+                  onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
+                  onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
+                  onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
+                  onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}
