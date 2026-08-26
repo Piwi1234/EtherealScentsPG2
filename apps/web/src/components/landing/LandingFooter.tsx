@@ -29,7 +29,7 @@ export function LandingFooter() {
           <div className="landing-footer-col">
             <p className="landing-footer-col-title">Catálogo</p>
             {rootCategories.map((cat) => (
-              <Link key={cat.id} href={`/categoria/${cat.id}`}>
+              <Link key={cat.id} href={`/categoria/${cat.slug}`}>
                 {cat.name}
               </Link>
             ))}

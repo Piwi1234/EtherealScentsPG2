@@ -165,7 +165,7 @@ export function LandingNavbar({
                   const image = productImageSrc(cardImageUrl(product, variant));
                   return (
                     <Link
-                      href={`/producto/${product.id}`}
+                      href={`/producto/${product.slug}`}
                       className="landing-navbar-search-result"
                       key={product.id}
                       onClick={() => {
@@ -215,14 +215,14 @@ export function LandingNavbar({
           <nav className="landing-navbar-links">
             {categoryTree.map((cat) => (
               <div className="landing-navbar-item" key={cat.id}>
-                <Link href={`/categoria/${cat.id}`} onClick={() => setMobileMenuOpen(false)}>
+                <Link href={`/categoria/${cat.slug}`} onClick={() => setMobileMenuOpen(false)}>
                   {cat.name}
                 </Link>
                 {cat.children.length > 0 && (
                   <div className="landing-navbar-dropdown">
                     <div className="landing-navbar-dropdown-group">
                       {cat.children.map((sub) => (
-                        <Link key={sub.id} href={`/categoria/${sub.id}`} onClick={() => setMobileMenuOpen(false)}>
+                        <Link key={sub.id} href={`/categoria/${sub.slug}`} onClick={() => setMobileMenuOpen(false)}>
                           {sub.name}
                         </Link>
                       ))}
@@ -238,7 +238,7 @@ export function LandingNavbar({
                   <div className="landing-navbar-dropdown-group" key={cat.id}>
                     <Link
                       className="landing-navbar-dropdown-heading"
-                      href={`/categoria/${cat.id}?descuento=true`}
+                      href={`/categoria/${cat.slug}?descuento=true`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       {cat.name}
@@ -258,7 +258,7 @@ export function LandingNavbar({
             <div className="landing-navbar-mobile-group" key={cat.id}>
               <Link
                 className="landing-navbar-mobile-heading"
-                href={`/categoria/${cat.id}`}
+                href={`/categoria/${cat.slug}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {cat.name}
@@ -267,7 +267,7 @@ export function LandingNavbar({
                 <Link
                   key={sub.id}
                   className="landing-navbar-mobile-sub"
-                  href={`/categoria/${sub.id}`}
+                  href={`/categoria/${sub.slug}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {sub.name}
@@ -280,7 +280,7 @@ export function LandingNavbar({
             <Link
               key={`oferta-${cat.id}`}
               className="landing-navbar-mobile-sub"
-              href={`/categoria/${cat.id}?descuento=true`}
+              href={`/categoria/${cat.slug}?descuento=true`}
               onClick={() => setMobileMenuOpen(false)}
             >
               {cat.name}

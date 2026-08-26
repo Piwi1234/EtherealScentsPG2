@@ -43,7 +43,7 @@ function imgSrc(url: string | null): string | null {
 }
 
 // site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
-// destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[id], también uno
+// destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[slug], también uno
 // por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
 // compartido con todas las subcategorías de esa raíz, que no tienen uno propio. marcas-hero: hero de
 // /marcas (categoryId null, singleton, independiente del Hero principal del home). offers-banner:
@@ -56,7 +56,7 @@ type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; 
  * Imágenes usadas en las secciones visuales del sitio, organizadas en dos bloques: "Home" (Hero
  * principal, banners de "Descuento y Ofertas"/"Colección de la semana", "Producto destacado" por
  * categoría raíz, y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros") y "Hero de
- * categorías y marcas" (hero de /marcas y hero de /categoria/[id] por categoría raíz, compartido con
+ * categorías y marcas" (hero de /marcas y hero de /categoria/[slug] por categoría raíz, compartido con
  * sus subcategorías). Si un carrusel queda sin ninguna imagen, esa sección muestra un degradado de
  * relleno en su lugar.
  */
@@ -259,7 +259,7 @@ export default function GridImagenesPage() {
     })),
   ];
 
-  // Bloque "Hero de categorías y marcas": los heros panorámicos de /categoria/[id] y /marcas —
+  // Bloque "Hero de categorías y marcas": los heros panorámicos de /categoria/[slug] y /marcas —
   // independientes de los carruseles del home de arriba.
   const heroSlots: CarouselSlot[] = [
     {

@@ -103,6 +103,16 @@ export class CatalogBrowseService {
     return withPrice(product, exchangeRate);
   }
 
+  /** Para la página pública /producto/[slug] — URL corta y legible en vez del uuid. */
+  async getProductBySlug(slug: string) {
+    const product = await this.prisma.product.findUnique({ where: { slug }, include: includeDetails });
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado.");
+    }
+    const exchangeRate = await this.settings.getExchangeRate();
+    return withPrice(product, exchangeRate);
+  }
+
   /**
    * Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones.
    * Los atributos con precio propio (variantMode PRICED_VARIANT) nunca se ofrecen como filtro acá,

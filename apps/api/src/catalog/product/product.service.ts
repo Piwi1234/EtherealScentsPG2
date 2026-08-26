@@ -2,7 +2,7 @@ import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
-import { getPagination } from "@app/shared";
+import { getPagination, slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CategoryService } from "../category/category.service";
@@ -205,12 +205,16 @@ export class ProductService {
 
     const attributeValuesData = await this.buildAttributeValuesData(dto.categoryId, dto.attributeValues);
     const productCode = await this.generateProductCode();
+    // El código va de sufijo para garantizar que sea único sin reintentos — nunca se regenera
+    // después aunque cambie el nombre, para que la URL pública (/producto/[slug]) no se rompa.
+    const slug = `${slugify(dto.name)}-${productCode.toLowerCase()}`;
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.product.create({
           data: {
             name: dto.name,
+            slug,
             productCode,
             purchasePrice: dto.purchasePrice ?? 0,
             utility: dto.utility ?? 0,

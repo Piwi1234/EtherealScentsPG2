@@ -7,14 +7,16 @@ export function productImageSrc(imageUrl: string | null): string | null {
 
 /** A dónde lleva el logo/nombre de una marca: la página de esa categoría raíz, con la marca ya
  * filtrada y, si está atada a una única subcategoría de esa raíz, esa subcategoría también filtrada
- * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar). */
-export function brandLinkHref(rootCategoryId: string, brand: Brand): string {
+ * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar).
+ * El path usa el slug (URL corta); el filtro de subcategoría sigue siendo por id, como lo espera el
+ * resto de /categoria/[slug]. */
+export function brandLinkHref(rootCategory: { id: string; slug: string }, brand: Brand): string {
   const ownSubcategories = new Set(
-    brand.categories.filter((bc) => bc.category.parentId === rootCategoryId).map((bc) => bc.categoryId),
+    brand.categories.filter((bc) => bc.category.parentId === rootCategory.id).map((bc) => bc.categoryId),
   );
   const params = new URLSearchParams({ marca: brand.id });
   if (ownSubcategories.size === 1) params.set("subcategoria", Array.from(ownSubcategories)[0]);
-  return `/categoria/${rootCategoryId}?${params.toString()}`;
+  return `/categoria/${rootCategory.slug}?${params.toString()}`;
 }
 
 /**

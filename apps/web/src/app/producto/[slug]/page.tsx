@@ -12,7 +12,7 @@ import { LandingFooter } from "../../../components/landing/LandingFooter";
 type VariantGroup = { attributeId: string; attributeName: string; options: { optionValueId: string; label: string }[] };
 
 export default function ProductoPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -26,13 +26,13 @@ export default function ProductoPage() {
     setNotFound(false);
     setError("");
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
-    apiGet<Product>(`/catalog/products/${id}`)
+    apiGet<Product>(`/catalog/products/slug/${slug}`)
       .then(setProduct)
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);
         else setError(e instanceof Error ? e.message : String(e));
       });
-  }, [id]);
+  }, [slug]);
 
   // Por defecto se elige la variante más barata — misma convención que usan las tarjetas del catálogo.
   useEffect(() => {
@@ -114,13 +114,13 @@ export default function ProductoPage() {
             <span>/</span>
             {parentCategory && (
               <>
-                <Link href={`/categoria/${parentCategory.id}`}>{parentCategory.name}</Link>
+                <Link href={`/categoria/${parentCategory.slug}`}>{parentCategory.name}</Link>
                 <span>/</span>
               </>
             )}
             {product && (
               <>
-                <Link href={`/categoria/${product.categoryId}`}>{product.category.name}</Link>
+                <Link href={`/categoria/${product.category.slug}`}>{product.category.name}</Link>
                 <span>/</span>
               </>
             )}
@@ -220,7 +220,7 @@ export default function ProductoPage() {
                 <div className="landing-product-detail-divider" />
 
                 <p className="landing-product-detail-block-title">
-                  Categoría: <Link href={`/categoria/${product.categoryId}`}>{product.category.name}</Link>
+                  Categoría: <Link href={`/categoria/${product.category.slug}`}>{product.category.name}</Link>
                 </p>
 
                 {detalles.length > 0 && (

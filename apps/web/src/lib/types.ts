@@ -165,6 +165,9 @@ export type PresentacionVentaInput = { cantidadMl?: number; precioVentaBs?: numb
 export type Product = {
   id: string;
   name: string;
+  // Se genera solo al crear el producto (nunca cambia después, aunque cambie el nombre) — URL
+  // pública corta (/producto/[slug]) en vez del uuid.
+  slug: string;
   productCode: string;
   purchasePrice: string;
   utility: string;

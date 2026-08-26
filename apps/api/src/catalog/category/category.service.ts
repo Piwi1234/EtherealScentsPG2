@@ -116,6 +116,18 @@ export class CategoryService {
     return splitCarouselImages(category);
   }
 
+  /** Para la página pública /categoria/[slug] — URL corta y legible en vez del uuid. */
+  async findBySlug(slug: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      include: { parent: true, children: true, ...includeCarouselImages },
+    });
+    if (!category) {
+      throw new NotFoundException("Categoría no encontrada.");
+    }
+    return splitCarouselImages(category);
+  }
+
   /** Cadena de ids desde la categoría hasta la raíz, incluyendo la propia categoría. */
   async getAncestorChain(categoryId: string): Promise<string[]> {
     const chain: string[] = [];

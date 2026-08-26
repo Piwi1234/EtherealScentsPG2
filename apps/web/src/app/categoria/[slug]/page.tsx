@@ -22,7 +22,7 @@ const FILTER_VISIBLE_DEFAULT = 10;
 const CARDS_PER_PAGE = 20;
 
 export default function CategoriaPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -68,9 +68,11 @@ export default function CategoriaPage() {
     setFiltersDrawerOpen(false);
     setNotFound(false);
     setCategory(null);
+    // Se resetea acá (y no solo al resolver la categoría nueva) para no mostrar de arranque los
+    // filtros de la categoría anterior mientras se resuelve el slug de la URL.
+    setFilterableAttributes([]);
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
-    apiGet<Attribute[]>(`/catalog/categories/${id}/filters`).then(setFilterableAttributes).catch(() => {});
-    apiGet<Category>(`/categories/${id}`)
+    apiGet<Category>(`/categories/slug/${slug}`)
       .then((cat) => {
         setCategory(cat);
         // Si se entra directo a una subcategoría (ej. desde el desplegable del navbar) y no vino
@@ -82,7 +84,14 @@ export default function CategoriaPage() {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);
         else setError(e instanceof Error ? e.message : String(e));
       });
-  }, [id]);
+  }, [slug]);
+
+  // Separado del efecto de arriba porque necesita el id real de la categoría (recién se conoce
+  // después de resolver el slug de la URL), no el slug en sí.
+  useEffect(() => {
+    if (!category) return;
+    apiGet<Attribute[]>(`/catalog/categories/${category.id}/filters`).then(setFilterableAttributes).catch(() => {});
+  }, [category?.id]);
 
   // Categoría raíz "efectiva": si `category` ya es una subcategoría, sus hermanas están bajo su
   // propio padre, no bajo ella misma. De acá salen tanto la lista de subcategorías del sidebar
@@ -273,7 +282,7 @@ export default function CategoriaPage() {
     subcategories.length > 0 || discountCount > 0 || brandsWithCounts.length > 0 || filterableAttributes.length > 0;
 
   const filterGroupsProps = {
-    resetKey: id,
+    resetKey: slug,
     discountOnly,
     onToggleDiscountOnly: toggleDiscountOnly,
     discountCount,
@@ -320,7 +329,7 @@ export default function CategoriaPage() {
             <span>/</span>
             {parentCategory && (
               <>
-                <Link href={`/categoria/${parentCategory.id}`}>{parentCategory.name}</Link>
+                <Link href={`/categoria/${parentCategory.slug}`}>{parentCategory.name}</Link>
                 <span>/</span>
               </>
             )}
@@ -446,7 +455,7 @@ export default function CategoriaPage() {
                     const image = productImageSrc(cardImageUrl(product, variant));
                     const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                     return (
-                      <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                      <Link href={`/producto/${product.slug}`} className="landing-product-card" key={product.id}>
                         <div className="landing-product-image-wrap">
                           {image ? (
                             <img className="landing-product-image" src={image} alt={product.name} />

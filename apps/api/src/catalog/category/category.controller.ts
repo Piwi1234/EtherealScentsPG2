@@ -42,6 +42,14 @@ export class CategoryController {
     return this.categories.findOne(id);
   }
 
+  // Antes de ":id" en la lectura del código por claridad, aunque no colisiona en el routing
+  // (":id" solo matchea un segmento, "slug/:slug" son dos) — usado por /categoria/[slug] público.
+  @Public()
+  @Get("slug/:slug")
+  findBySlug(@Param("slug") slug: string) {
+    return this.categories.findBySlug(slug);
+  }
+
   @Post()
   create(@Body() dto: CreateCategoryDto) {
     return this.categories.create(dto);

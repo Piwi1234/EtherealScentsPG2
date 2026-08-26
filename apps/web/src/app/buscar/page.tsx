@@ -67,7 +67,7 @@ export default function BuscarPage() {
                   const image = productImageSrc(cardImageUrl(product, variant));
                   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                   return (
-                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                    <Link href={`/producto/${product.slug}`} className="landing-product-card" key={product.id}>
                       <div className="landing-product-image-wrap">
                         {image ? (
                           <img className="landing-product-image" src={image} alt={product.name} />

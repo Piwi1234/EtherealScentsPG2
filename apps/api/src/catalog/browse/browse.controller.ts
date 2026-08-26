@@ -38,4 +38,10 @@ export class CatalogBrowseController {
   getProduct(@Param("id", ParseUUIDPipe) id: string) {
     return this.browse.getProduct(id);
   }
+
+  // No colisiona con ":id" (un solo segmento) — usado por /producto/[slug] público.
+  @Get("products/slug/:slug")
+  getProductBySlug(@Param("slug") slug: string) {
+    return this.browse.getProductBySlug(slug);
+  }
 }

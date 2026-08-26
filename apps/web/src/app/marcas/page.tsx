@@ -175,9 +175,11 @@ export default function MarcasPage() {
                 {groupBrands.map((brand) => (
                   <Link
                     href={
-                      subCategoryFilter
-                        ? `/categoria/${rootCategoryFilter}?marca=${brand.id}&subcategoria=${subCategoryFilter}`
-                        : brandLinkHref(rootCategoryFilter, brand)
+                      selectedCategory && subCategoryFilter
+                        ? `/categoria/${selectedCategory.slug}?marca=${brand.id}&subcategoria=${subCategoryFilter}`
+                        : selectedCategory
+                          ? brandLinkHref(selectedCategory, brand)
+                          : "#"
                     }
                     className="landing-marca-card"
                     key={brand.id}

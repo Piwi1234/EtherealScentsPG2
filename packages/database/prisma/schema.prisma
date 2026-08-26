@@ -321,6 +321,10 @@ model AttributeOption {
 model Product {
   id            String   @id @default(uuid()) @db.Uuid
   name          String
+  // Se genera solo al crear el producto (slugify(name) + productCode) — nunca se regenera después
+  // aunque cambie el nombre, para que la URL pública (/producto/[slug]) no se rompa. El sufijo del
+  // código garantiza que sea único sin tener que reintentar con sufijos numéricos.
+  slug          String   @unique @map("slug")
   productCode   String   @unique @map("product_code") @db.VarChar(7)
   purchasePrice Decimal  @map("purchase_price") @db.Decimal(12, 2)
   // Utilidad cargada manualmente; ni los 3 costos heredados ni el precio final se guardan acá:

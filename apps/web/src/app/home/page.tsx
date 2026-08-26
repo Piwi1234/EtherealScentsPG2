@@ -253,7 +253,7 @@ export default function HomePage() {
                   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                   return (
                     <Link
-                      href={`/producto/${product.id}`}
+                      href={`/producto/${product.slug}`}
                       className="landing-product-card"
                       key={`${offersSlide}-${product.id}`}
                     >
@@ -354,7 +354,7 @@ export default function HomePage() {
                   const image = productImageSrc(cardImageUrl(product, variant));
                   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
                   return (
-                    <Link href={`/producto/${product.id}`} className="landing-product-card" key={product.id}>
+                    <Link href={`/producto/${product.slug}`} className="landing-product-card" key={product.id}>
                       <div className="landing-product-image-wrap">
                         {image ? (
                           <img className="landing-product-image" src={image} alt={product.name} />
@@ -443,7 +443,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <Link
-                  href={`/categoria/${cat.id}`}
+                  href={`/categoria/${cat.slug}`}
                   className="landing-feature-visual landing-feature-visual--fallback"
                   style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
                 />
@@ -452,7 +452,7 @@ export default function HomePage() {
               {categoryBrands.length > 0 && (
                 <div className="landing-brands-block">
                   <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
-                  <BrandsCarousel brands={categoryBrands} rootCategoryId={cat.id} />
+                  <BrandsCarousel brands={categoryBrands} rootCategory={cat} />
                 </div>
               )}
             </div>
@@ -535,7 +535,7 @@ export default function HomePage() {
 
 /** Carrusel de logos de marca de una categoría raíz (sus subcategorías) — mismo mecanismo que el
  * carrusel de "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
-function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCategoryId: string }) {
+function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategory: { id: string; slug: string } }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -575,7 +575,7 @@ function BrandsCarousel({ brands, rootCategoryId }: { brands: Brand[]; rootCateg
 
       <div className={`landing-brand-grid${direction === 1 ? " landing-brand-grid--next" : " landing-brand-grid--prev"}`} key={slide}>
         {chunks[slide].map((brand) => (
-          <Link href={brandLinkHref(rootCategoryId, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
+          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
             {brand.logoUrl ? (
               <img className="landing-brand-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
             ) : (
