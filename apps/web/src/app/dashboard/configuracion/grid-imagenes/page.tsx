@@ -196,10 +196,9 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: heroImages,
       hint:
-        "Recomendado: 2400×1350px o más (relación 16:9), horizontal, por cada imagen del carrusel. Se recorta para " +
-        "cubrir todo el ancho de pantalla (object-fit: cover) — no hay un tamaño exacto que \"entre completa\" " +
-        "porque el hero cambia de alto según el navegador, así que centrá lo importante de la foto: los bordes son " +
-        "lo primero que se recorta en pantallas angostas.",
+        "Se muestran de a 3 banners lado a lado (como en agatres.co) — si hay más de 3 imágenes, rotan solas de a " +
+        "grupos de 3. Cada imagen puede llevar su propio link de redirección (no comparten uno solo). Recomendado: " +
+        "1200×1360px o más, vertical (relación 3:3.4), por cada imagen.",
     },
     {
       key: "offers-banner",
@@ -247,9 +246,8 @@ export default function GridImagenesPage() {
       images: marcasHeroImages,
       hint:
         "Fondo del hero de la página /marcas — carrusel independiente del Hero principal del home. Recomendado: " +
-        "2400×600px o más (relación ~4:1, muy panorámico). Este banner es bastante más bajo que el Hero " +
-        "principal (que sí ocupa el 78% de la altura de pantalla): acá el alto lo da el padding + el texto, unos " +
-        "300–450px según el dispositivo, así que una imagen muy ancha y baja cubre mejor que una alta.",
+        "2400×600px o más (relación ~4:1, muy panorámico). El alto de este banner lo da el padding + el texto, " +
+        "unos 300–450px según el dispositivo, así que una imagen muy ancha y baja cubre mejor que una alta.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-hero`,
@@ -260,8 +258,8 @@ export default function GridImagenesPage() {
       hint:
         "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías — carrusel " +
         "independiente del de \"Producto destacado\" del home. Recomendado: 2400×600px o más (relación ~4:1, muy " +
-        "panorámico) — este banner es bastante más bajo que el Hero principal (que sí ocupa el 78% de la altura " +
-        "de pantalla), así que conviene una imagen muy ancha y baja, no alta.",
+        "panorámico) — el alto de este banner lo da el padding + el texto, unos 300–450px según el dispositivo, " +
+        "así que conviene una imagen muy ancha y baja, no alta.",
     })),
   ];
 

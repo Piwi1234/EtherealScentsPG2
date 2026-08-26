@@ -20,6 +20,7 @@ const OFFERS_BANNER_AUTOPLAY_MS = 10000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
+const HERO_BANNERS_SLIDE_SIZE = 3;
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_SIZE = 12;
@@ -40,6 +41,9 @@ export default function HomePage() {
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [heroAutoKey, setHeroAutoKey] = useState(0);
+  const [heroDirection, setHeroDirection] = useState<1 | -1>(1);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
     offersBannerImages: CarouselImage[];
@@ -111,37 +115,86 @@ export default function HomePage() {
     setOffersAutoKey((k) => k + 1);
   }
 
+  // Hero: carrusel de 3 banners lado a lado (ver Grid Imágenes → Hero principal) que rota de a UNA
+  // imagen por vez (ventana deslizante), no de a grupos de 3 — mismo mecanismo de dirección/autoplay
+  // que el resto de los carruseles del home.
+  const heroImages = landingImages?.heroImages ?? [];
+  const heroWindowSize = Math.min(HERO_BANNERS_SLIDE_SIZE, heroImages.length);
+  const heroWindow = useMemo(
+    () => Array.from({ length: heroWindowSize }, (_, i) => heroImages[(heroSlide + i) % heroImages.length]),
+    [heroImages, heroSlide, heroWindowSize],
+  );
+
+  useEffect(() => {
+    if (heroImages.length <= heroWindowSize) return;
+    const timer = setInterval(() => {
+      setHeroDirection(1);
+      setHeroSlide((s) => (s + 1) % heroImages.length);
+    }, HERO_AUTOPLAY_MS);
+    return () => clearInterval(timer);
+  }, [heroImages.length, heroWindowSize, heroAutoKey]);
+
+  function goToHeroSlide(index: number, dir?: 1 | -1) {
+    const total = heroImages.length;
+    if (total === 0) return;
+    const nextSlide = ((index % total) + total) % total;
+    setHeroDirection(dir ?? (nextSlide >= heroSlide ? 1 : -1));
+    setHeroSlide(nextSlide);
+    setHeroAutoKey((k) => k + 1);
+  }
+
   const brandName = empresa?.nombre ?? "Ethereal Scents";
 
   return (
     <div className="landing-page">
-      <LandingNavbar />
+      <LandingNavbar variant="dark" overlay={false} />
 
-      {/* ============================== 2. Hero ============================== */}
-      <section className="landing-hero">
-        {landingImages && landingImages.heroImages.length > 0 && (
-          <div className="landing-hero-bg">
-            <ImageCarousel
-              images={landingImages.heroImages}
-              alt=""
-              imgClassName="landing-hero-bg-image"
-              autoplayMs={HERO_AUTOPLAY_MS}
-            />
+      {/* ============ 2. Hero: carrusel de 3 banners lado a lado ============ */}
+      {heroWindow.length > 0 && (
+        <section className="landing-hero-banners">
+          <div style={{ position: "relative" }}>
+            <div
+              className={`landing-hero-banner-grid${
+                heroDirection === 1 ? " landing-hero-banner-grid--next" : " landing-hero-banner-grid--prev"
+              }`}
+              style={heroWindowSize < 3 ? { gridTemplateColumns: `repeat(${heroWindowSize}, 1fr)` } : undefined}
+              key={heroSlide}
+            >
+              {heroWindow.map((image) => {
+                const content = (
+                  <img className="landing-hero-banner-image" src={productImageSrc(image.imageUrl)!} alt="" />
+                );
+                return image.url ? (
+                  <a
+                    key={image.id}
+                    className="landing-hero-banner-card"
+                    href={image.url}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div key={image.id} className="landing-hero-banner-card">
+                    {content}
+                  </div>
+                );
+              })}
+            </div>
+            {heroImages.length > heroWindowSize && (
+              <div className="landing-image-carousel-dots">
+                {heroImages.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`landing-image-carousel-dot${i === heroSlide ? " landing-image-carousel-dot--active" : ""}`}
+                    aria-label={`Ir al banner ${i + 1}`}
+                    onClick={() => goToHeroSlide(i)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-        <div className="landing-container">
-          <div className="landing-hero-content">
-            <p className="landing-hero-eyebrow">{brandName.toUpperCase()}</p>
-            <h1>Todo lo que necesitas en un solo lugar.</h1>
-            <p className="landing-hero-subtitle">
-              Perfumes y vapes seleccionados, con stock real y precios claros — sin vueltas.
-            </p>
-            <Link href="/marcas" className="landing-btn landing-btn-outline">
-              Explora Nuestras Marcas
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ================= 3. Descuento y Ofertas ================= */}
       <section id="catalogo" className="landing-section">

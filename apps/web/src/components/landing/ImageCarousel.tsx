@@ -63,8 +63,6 @@ export function ImageCarousel({
           key={slide}
           className="landing-image-carousel-link"
           href={current.url}
-          target="_blank"
-          rel="noopener noreferrer"
         >
           <img className={slideClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />
         </a>

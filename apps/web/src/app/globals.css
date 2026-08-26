@@ -2210,9 +2210,9 @@ a {
 .landing-navbar-links > a:hover,
 .landing-navbar-item > a:hover,
 .landing-navbar-actions-link:hover {
-  /* Hardcodeado (no var(--lp-accent-dark)) a propósito: el navbar no debe cambiar si se retoca la
-     paleta base de la página — ver .landing-page. */
-  color: #6f62c4;
+  /* Se mantiene en --nav-fg (blanco) a propósito — antes cambiaba a violeta, ahora el único cambio
+     al pasar el mouse es el subrayado animado de abajo. */
+  color: var(--nav-fg);
 }
 
 /* Subrayado animado al pasar el mouse — misma idea que el navbar de squarespace.com. currentColor
@@ -2541,88 +2541,106 @@ a {
 
 /* --- Hero --- */
 
-.landing-hero {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  min-height: 78vh;
-  padding: 100px 0;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(145, 132, 217, 0.35), transparent 45%),
-    radial-gradient(circle at 82% 78%, rgba(145, 132, 217, 0.25), transparent 50%),
-    linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
-  color: #f5f4f0;
+/* --- Hero: carrusel de 3 banners lado a lado (idea "triple banner" de agatres.co), cada uno con
+   su propio link opcional (ver Grid Imágenes) — reemplaza al hero anterior de imagen única +
+   título/CTA superpuesto. */
+.landing-hero-banners {
+  padding: 0;
+  /* La grilla arranca corrida un ancho de columna durante la transición (ver keyframes abajo) —
+     esto recorta ese excedente para que nunca se vea un borde en blanco mientras desliza. */
   overflow: hidden;
 }
 
-/* El .landing-container comparte el max-width/centrado del resto del sitio — acá lo pegamos al
-   borde izquierdo (en vez de centrarlo) para que el texto del hero arranque bien a la izquierda,
-   sin depender del ancho de la ventana. z-index para quedar por encima del carrusel de fondo. */
-.landing-hero .landing-container {
-  position: relative;
-  z-index: 1;
-  margin-left: 0;
-  padding-left: 48px;
+/* Slide "de verdad" (sin fade): la grilla entera arranca corrida exactamente un ancho de columna
+   (33.3334% de sí misma, ya que son 3 columnas iguales) y anima hasta su posición final — como la
+   ventana deslizante ya trae precalculadas las imágenes que "se quedan" en su nueva columna más la
+   única imagen realmente nueva que entra por el borde, el resultado es un track continuo real, igual
+   al de agatres.co, sin tener que mantener un track de DOM persistente. */
+@keyframes landing-hero-banners-slide-next {
+  from {
+    transform: translateX(33.3334%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
-.landing-hero-content {
-  position: relative;
-  max-width: 640px;
-  /* Sin velo oscuro sobre la imagen de fondo (se sacó a pedido) — la sombra ayuda a que el texto
-     blanco se siga leyendo sobre cualquier foto. */
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
+@keyframes landing-hero-banners-slide-prev {
+  from {
+    transform: translateX(-33.3334%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
-/* --- Carrusel de imágenes reutilizable: fondo del Hero y "Producto destacado" por categoría --- */
+.landing-hero-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.landing-hero-banner-grid--next {
+  animation: landing-hero-banners-slide-next 0.5s ease-out;
+}
+
+.landing-hero-banner-grid--prev {
+  animation: landing-hero-banners-slide-prev 0.5s ease-out;
+}
+
+.landing-hero-banner-card {
+  position: relative;
+  display: block;
+  /* 3:3.4 = 15% menos alto que el 3:4 original (4 * 0.85 = 3.4), mismo ancho. */
+  aspect-ratio: 3 / 3.4;
+  overflow: hidden;
+  background: #171426;
+}
+
+.landing-hero-banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.landing-hero-banner-card:hover .landing-hero-banner-image {
+  transform: scale(1.04);
+}
+
+/* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
 
 /* Transición direccional (como fairplay.com.bo): la imagen que entra se desliza desde la derecha al
    avanzar ("next", autoplay) o desde la izquierda al retroceder ("prev") — ImageCarousel decide cuál
    de las dos clases aplicar en cada cambio de slide (ver su prop `direction`). */
 @keyframes landing-image-slide-next {
   from {
-    opacity: 0;
-    transform: translateX(5%);
+    transform: translateX(100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 @keyframes landing-image-slide-prev {
   from {
-    opacity: 0;
-    transform: translateX(-5%);
+    transform: translateX(-100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 .landing-image-carousel-slide-next {
-  animation: landing-image-slide-next 0.6s ease;
+  animation: landing-image-slide-next 0.5s ease-out;
 }
 
 .landing-image-carousel-slide-prev {
-  animation: landing-image-slide-prev 0.6s ease;
-}
-
-.landing-hero-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.landing-hero-bg-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  animation: landing-image-slide-prev 0.5s ease-out;
 }
 
 /* Envuelve la imagen cuando tiene `url` de redirección cargada (ver Grid Imágenes) — llena el mismo
    espacio que ocupaba el <img> solo, sin cambiar el tamaño/recorte de ninguna de las imágenes que
-   usan ImageCarousel (Hero, banner de categoría/marcas, "Producto destacado", banner de ofertas). */
+   usan ImageCarousel (hero de categoría/marcas, "Producto destacado", banners de ofertas/colección). */
 .landing-image-carousel-link {
   display: block;
   width: 100%;
@@ -2694,26 +2712,6 @@ a {
   background: var(--lp-accent);
 }
 
-.landing-hero-eyebrow {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #c9c2ef;
-  margin-bottom: 18px;
-}
-
-.landing-hero h1 {
-  font-size: 48px;
-  color: #ffffff;
-  margin-bottom: 18px;
-}
-
-.landing-hero-subtitle {
-  font-size: 17px;
-  color: rgba(245, 244, 240, 0.82);
-  margin: 0 0 34px;
-}
 
 /* --- Banner de página de categoría (/categoria/[id]) ---
    Mismo tratamiento oscuro que el hero para que el navbar transparente se
@@ -3396,6 +3394,11 @@ a {
 .landing-carousel {
   position: relative;
   padding: 0 52px;
+  /* La grilla que rota adentro arranca corrida 100% de su propio ancho (ver los keyframes
+     landing-offers-slide y landing-brands-slide) — esto recorta ese excedente para que nunca se vea
+     por fuera de la sección mientras desliza. Las flechas quedan afuera del clip porque están
+     ancladas a los bordes de ESTE contenedor (left:0/right:0), no al de la grilla. */
+  overflow: hidden;
 }
 
 .landing-product-grid--carousel {
@@ -3410,32 +3413,28 @@ a {
    propósito, para no reiniciar su propio autoplay cada vez que cambia la página de productos. */
 @keyframes landing-offers-slide-next {
   from {
-    opacity: 0;
-    transform: translateX(30px);
+    transform: translateX(100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 @keyframes landing-offers-slide-prev {
   from {
-    opacity: 0;
-    transform: translateX(-30px);
+    transform: translateX(-100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 .landing-product-grid--carousel-next .landing-product-card {
-  animation: landing-offers-slide-next 0.4s ease;
+  animation: landing-offers-slide-next 0.5s ease-out;
 }
 
 .landing-product-grid--carousel-prev .landing-product-card {
-  animation: landing-offers-slide-prev 0.4s ease;
+  animation: landing-offers-slide-prev 0.5s ease-out;
 }
 
 /* Alto fijo (no solo padding) — así el precio, que siempre va al fondo (margin-top:auto), termina
@@ -3913,22 +3912,18 @@ a {
    decide cuál de las dos clases modificadoras poner según goTo. */
 @keyframes landing-brands-slide-next {
   from {
-    opacity: 0;
-    transform: translateX(24px);
+    transform: translateX(100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 @keyframes landing-brands-slide-prev {
   from {
-    opacity: 0;
-    transform: translateX(-24px);
+    transform: translateX(-100%);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
@@ -3940,11 +3935,11 @@ a {
 }
 
 .landing-brand-grid--next {
-  animation: landing-brands-slide-next 0.35s ease;
+  animation: landing-brands-slide-next 0.5s ease-out;
 }
 
 .landing-brand-grid--prev {
-  animation: landing-brands-slide-prev 0.35s ease;
+  animation: landing-brands-slide-prev 0.5s ease-out;
 }
 
 /* Diseño de tarjeta copiado de pontocom.com (.home-marcas figure/img): borde fino gris, sin fondo
@@ -4547,8 +4542,8 @@ a {
     position: static;
   }
 
-  .landing-hero h1 {
-    font-size: 34px;
+  .landing-hero-banner-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .landing-product-grid {
@@ -4665,13 +4660,8 @@ a {
     padding: 56px 0;
   }
 
-  .landing-hero {
-    min-height: 60vh;
-    padding: 72px 0;
-  }
-
-  .landing-hero h1 {
-    font-size: 28px;
+  .landing-hero-banner-grid {
+    grid-template-columns: 1fr;
   }
 
   .landing-category-banner {
