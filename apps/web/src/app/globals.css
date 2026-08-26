@@ -2638,6 +2638,50 @@ a {
   animation: landing-image-slide-prev 0.5s ease-out;
 }
 
+/* Modo `visibleCount` > 1 de ImageCarousel (varias imágenes lado a lado, ventana deslizante que
+   avanza de a una — ver el Hero para la misma idea aplicada a mano). El corrimiento inicial de la
+   grilla es de un ancho de columna exacto (--landing-carousel-shift, seteado inline según cuántas
+   columnas haya) para que el track se vea continuo, igual que landing-hero-banners-slide-*. */
+.landing-image-carousel-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--landing-carousel-columns, 3), 1fr);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes landing-image-carousel-grid-slide-next {
+  from {
+    transform: translateX(var(--landing-carousel-shift));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes landing-image-carousel-grid-slide-prev {
+  from {
+    transform: translateX(calc(-1 * var(--landing-carousel-shift)));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.landing-image-carousel-grid--next {
+  animation: landing-image-carousel-grid-slide-next 0.5s ease-out;
+}
+
+.landing-image-carousel-grid--prev {
+  animation: landing-image-carousel-grid-slide-prev 0.5s ease-out;
+}
+
+.landing-image-carousel-grid-item {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+
 /* Envuelve la imagen cuando tiene `url` de redirección cargada (ver Grid Imágenes) — llena el mismo
    espacio que ocupaba el <img> solo, sin cambiar el tamaño/recorte de ninguna de las imágenes que
    usan ImageCarousel (hero de categoría/marcas, "Producto destacado", banners de ofertas/colección). */
@@ -3814,50 +3858,93 @@ a {
   font-size: 14px;
 }
 
-/* --- Producto destacado (2 columnas, alterna lado de imagen) --- */
-
-.landing-feature {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  align-items: center;
-}
-
-.landing-feature-reverse .landing-feature-visual {
-  order: 2;
-}
-
+/* --- Producto destacado: banner ancho con título superpuesto (idea "promo-banner" de agatres.co) —
+   título 1/título 2 se cargan por imagen en Grid Imágenes, título 2 cae a el nombre de la categoría
+   si no se cargó ninguno. Toda la tarjeta es un solo link (a la categoría, o al `url` propio de esa
+   imagen si tiene) — no hay más columna de texto aparte. */
 .landing-feature-visual {
   position: relative;
-  aspect-ratio: 1 / 1;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--lp-font-display);
-  font-size: 30px;
-  color: #ffffff;
-  text-align: center;
-  padding: 24px;
+  display: block;
   overflow: hidden;
 }
 
-/* Cuando la categoría tiene imágenes cargadas (Grid Imágenes), reemplazan el degradado + nombre de
-   arriba — llenan el mismo cuadro 1:1, una por vez si hay más de una (carrusel). */
+/* Con 1 sola imagen (menos de 3 cargadas) ImageCarousel cae a su modo de siempre, sin grilla — ahí
+   sí conviene un banner ancho como el resto de las secciones del home. */
+.landing-feature-visual:has(> img),
+.landing-feature-visual:has(> .landing-image-carousel-link) {
+  aspect-ratio: 21 / 9;
+  border-radius: 20px;
+}
+
 .landing-feature-visual-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s ease;
 }
 
-.landing-feature-text .landing-section-title {
-  margin-bottom: 16px;
+.landing-feature-visual:hover .landing-feature-visual-image {
+  transform: scale(1.04);
 }
 
-.landing-feature-text p {
-  color: var(--lp-muted);
-  font-size: 15px;
-  margin: 0 0 28px;
+/* En modo de 3 imágenes lado a lado (ver .landing-image-carousel-grid-item más abajo), el hover de
+   arriba haría zoom en las 3 juntas con solo pasar el mouse por la tarjeta grande — acá se resetea y
+   se vuelve a aplicar, pero solo en la imagen puntual que se está tocando. */
+.landing-feature-visual .landing-image-carousel-grid-item .landing-feature-visual-image {
+  transform: scale(1);
+}
+
+.landing-feature-visual .landing-image-carousel-grid-item:hover .landing-feature-visual-image {
+  transform: scale(1.04);
+}
+
+.landing-feature-visual .landing-image-carousel-grid-item {
+  aspect-ratio: 4 / 5;
+  border-radius: 16px;
+  background: #171426;
+}
+
+.landing-feature-visual--fallback {
+  display: flex;
+  aspect-ratio: 21 / 9;
+  border-radius: 20px;
+}
+
+.landing-feature-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  padding: 40px 24px;
+  /* Igual que el resto de los overlays de texto sobre foto del sitio (Hero de categoría, etc.) —
+     como la imagen es libre (la carga el admin), no hay forma de garantizar contraste, así que el
+     texto queda blanco con sombra en vez de depender del color de la foto. */
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.landing-feature-overlay-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 8px;
+}
+
+.landing-feature-overlay-title {
+  font-family: var(--lp-font-display);
+  font-size: 34px;
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+
+.landing-feature-overlay-btn {
+  text-shadow: none;
 }
 
 /* Cada bloque es ahora su propia sección de ancho completo (ya no comparte un .landing-container
@@ -4571,6 +4658,10 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .landing-image-carousel-grid {
+    grid-template-columns: repeat(min(var(--landing-carousel-columns, 3), 2), 1fr);
+  }
+
   .landing-product-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -4614,15 +4705,10 @@ a {
     font-size: 17px;
   }
 
-  .landing-feature,
   .landing-value,
   .landing-about {
     grid-template-columns: 1fr;
     gap: 32px;
-  }
-
-  .landing-feature-reverse .landing-feature-visual {
-    order: 0;
   }
 
   .landing-category-layout {
@@ -4686,6 +4772,10 @@ a {
   }
 
   .landing-hero-banner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-image-carousel-grid {
     grid-template-columns: 1fr;
   }
 

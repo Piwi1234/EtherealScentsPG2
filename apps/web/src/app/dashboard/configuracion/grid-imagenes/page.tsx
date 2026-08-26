@@ -28,6 +28,7 @@ import {
   removeMarcasHeroCarouselImage,
   removeOffersBannerCarouselImage,
   removeWeeklyCollectionBannerCarouselImage,
+  updateCategoryCarouselImageTitulos,
   updateCategoryCarouselImageUrl,
   updateCategoryHeroCarouselImageUrl,
   updateHeroCarouselImageUrl,
@@ -172,6 +173,27 @@ export default function GridImagenesPage() {
     }
   }
 
+  // Solo tiene sentido en el carrusel "feature" (Producto destacado) — es el único slot que le pasa
+  // `onSetTitulos` a CarouselSlotEditor, así que no hace falta ramificar por `kind` acá.
+  async function handleSetCarouselImageTitulos(
+    slotKey: string,
+    categoryId: string,
+    imageId: string,
+    titulo1: string | null,
+    titulo2: string | null,
+  ) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      await updateCategoryCarouselImageTitulos(categoryId, imageId, titulo1, titulo2);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
   async function handleUploadSingle(slotId: string, path: string, file: File) {
     setBusySlot(slotId);
     setError("");
@@ -230,8 +252,10 @@ export default function GridImagenesPage() {
       categoryId: cat.id,
       images: cat.carouselImages,
       hint:
-        "Se usa en el bloque \"Producto destacado\" del home. Recomendado: 1200×1200px o más, cuadrada (relación " +
-        "1:1) — se recorta para llenar el cuadro (object-fit: cover), centrá lo importante de la foto.",
+        "Banner ancho del bloque \"Producto destacado\" del home, con título superpuesto (Título 1/Título 2, abajo " +
+        "de cada imagen) — si no cargás Título 2, se usa el nombre de la categoría. Toda la tarjeta es clickeable: " +
+        "va al link propio de la imagen si tiene, si no a la categoría. Recomendado: 2400×1200px o más (relación " +
+        "2:1) — se recorta para llenar el cuadro (object-fit: cover), dejá lugar arriba para el texto.",
     })),
   ];
 
@@ -284,6 +308,12 @@ export default function GridImagenesPage() {
                 onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
                 onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
                 onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
+                onSetTitulos={
+                  slot.kind === "feature"
+                    ? (imageId, titulo1, titulo2) =>
+                        handleSetCarouselImageTitulos(slot.key, slot.categoryId!, imageId, titulo1, titulo2)
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -358,6 +388,7 @@ function CarouselSlotEditor({
   onRemove,
   onMove,
   onSetUrl,
+  onSetTitulos,
 }: {
   title: string;
   hint: string;
@@ -367,6 +398,9 @@ function CarouselSlotEditor({
   onRemove: (imageId: string) => void;
   onMove: (imageId: string, direction: "up" | "down") => void;
   onSetUrl: (imageId: string, url: string | null) => void;
+  // Solo lo pasa el slot "feature" (Producto destacado) — el resto de los carruseles no tiene título
+  // superpuesto, así que el bloque de inputs de abajo queda oculto para ellos.
+  onSetTitulos?: (imageId: string, titulo1: string | null, titulo2: string | null) => void;
 }) {
   return (
     <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
@@ -382,7 +416,7 @@ function CarouselSlotEditor({
           </p>
         )}
         {images.map((image, index) => (
-          <div key={image.id} style={{ width: 140 }}>
+          <div key={image.id} style={{ width: onSetTitulos ? 160 : 140 }}>
             <div className="image-uploader" style={{ marginBottom: 6 }}>
               <img src={`${API_ORIGIN}${image.imageUrl}`} alt={`${title} ${index + 1}`} />
             </div>
@@ -423,6 +457,13 @@ function CarouselSlotEditor({
               busy={busy}
               onSave={(url) => onSetUrl(image.id, url)}
             />
+            {onSetTitulos && (
+              <CarouselImageTitulosInput
+                image={image}
+                busy={busy}
+                onSave={(titulo1, titulo2) => onSetTitulos(image.id, titulo1, titulo2)}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -488,5 +529,67 @@ function CarouselImageUrlInput({
       }}
       style={{ fontSize: 11, padding: "5px 8px", marginTop: 2 }}
     />
+  );
+}
+
+/** Texto superpuesto sobre la imagen en el bloque "Producto destacado" del home — titulo1 (chico,
+ * arriba) y titulo2 (grande, debajo). Mismo mecanismo que la URL: se guarda al salir del campo o con
+ * Enter, solo si cambió. Vacío = no se muestra esa línea. */
+function CarouselImageTitulosInput({
+  image,
+  busy,
+  onSave,
+}: {
+  image: CarouselImage;
+  busy: boolean;
+  onSave: (titulo1: string | null, titulo2: string | null) => void;
+}) {
+  const [titulo1, setTitulo1] = useState(image.titulo1 ?? "");
+  const [titulo2, setTitulo2] = useState(image.titulo2 ?? "");
+
+  useEffect(() => {
+    setTitulo1(image.titulo1 ?? "");
+    setTitulo2(image.titulo2 ?? "");
+  }, [image.titulo1, image.titulo2]);
+
+  function commit() {
+    const trimmed1 = titulo1.trim();
+    const trimmed2 = titulo2.trim();
+    if (trimmed1 === (image.titulo1 ?? "") && trimmed2 === (image.titulo2 ?? "")) return;
+    onSave(trimmed1 || null, trimmed2 || null);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  return (
+    <>
+      <input
+        className="field"
+        type="text"
+        placeholder="Título 1 (subtítulo chico, opcional)"
+        value={titulo1}
+        disabled={busy}
+        onChange={(e) => setTitulo1(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        style={{ fontSize: 11, padding: "5px 8px", marginTop: 4 }}
+      />
+      <input
+        className="field"
+        type="text"
+        placeholder="Título 2 (título grande, opcional)"
+        value={titulo2}
+        disabled={busy}
+        onChange={(e) => setTitulo2(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        style={{ fontSize: 11, padding: "5px 8px", marginTop: 4 }}
+      />
+    </>
   );
 }

@@ -21,6 +21,7 @@ import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { MoveCarouselImageDto } from "../carousel-image/dto/move-carousel-image.dto";
 import { UpdateCarouselImageUrlDto } from "../carousel-image/dto/update-carousel-image-url.dto";
+import { UpdateCarouselImageTitulosDto } from "../carousel-image/dto/update-carousel-image-titulos.dto";
 import { carouselImageMulterOptions } from "../carousel-image/carousel-image.multer";
 
 @ApiTags("categories")
@@ -94,6 +95,15 @@ export class CategoryController {
     @Body() dto: UpdateCarouselImageUrlDto,
   ) {
     return this.categories.setCarouselImageUrl(id, imageId, dto.url ?? null);
+  }
+
+  @Patch(":id/carousel-images/:imageId/titulos")
+  setCarouselImageTitulos(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @Body() dto: UpdateCarouselImageTitulosDto,
+  ) {
+    return this.categories.setCarouselImageTitulos(id, imageId, dto.titulo1 ?? null, dto.titulo2 ?? null);
   }
 
   // Hero de /categoria/[id] (panorámico) — carrusel independiente del de arriba, compartido con

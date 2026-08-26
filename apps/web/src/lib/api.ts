@@ -351,6 +351,16 @@ export function updateCategoryCarouselImageUrl(categoryId: string, imageId: stri
   return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/url`, { url });
 }
 
+/** Texto superpuesto del bloque "Producto destacado" del home (solo aplica a este carrusel). */
+export function updateCategoryCarouselImageTitulos(
+  categoryId: string,
+  imageId: string,
+  titulo1: string | null,
+  titulo2: string | null,
+) {
+  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/titulos`, { titulo1, titulo2 });
+}
+
 // Carrusel del hero de /categoria/[id] — independiente del de "Producto destacado" de arriba.
 export function getCategoryHeroCarouselImages(categoryId: string) {
   return apiGet<CarouselImage[]>(`/categories/${categoryId}/hero-carousel-images`);

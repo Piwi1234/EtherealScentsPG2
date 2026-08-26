@@ -230,6 +230,11 @@ model CarouselImage {
   // Link opcional: si tiene valor, la imagen se muestra clickeable en el sitio público y redirige
   // ahí; si está vacío, la imagen queda decorativa (sin click), como era antes de este campo.
   url        String?
+  // Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
+  // ("Producto destacado", kind FEATURE): titulo1 = subtítulo chico arriba, titulo2 = título grande
+  // debajo. El resto de los carruseles (Hero, banners, heros de categoría/marcas) los ignoran.
+  titulo1    String?      @map("titulo_1")
+  titulo2    String?      @map("titulo_2")
   orden      Int          @default(0)
   createdAt  DateTime     @default(now()) @map("created_at")
 

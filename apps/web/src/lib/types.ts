@@ -5,6 +5,10 @@ export type CarouselImage = {
   // Link opcional al que redirige la imagen en el sitio público al hacer click — null la deja
   // decorativa (sin click).
   url: string | null;
+  // Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
+  // ("Producto destacado"): titulo1 = subtítulo chico arriba, titulo2 = título grande debajo.
+  titulo1: string | null;
+  titulo2: string | null;
   orden: number;
   createdAt: string;
 };

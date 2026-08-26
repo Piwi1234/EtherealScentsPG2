@@ -400,7 +400,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ========== 4. Producto/servicio destacado (alterna lado de imagen y fondo) ========== */}
+      {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
       {rootCategories.map((cat, i) => {
         // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
         // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
@@ -414,36 +414,40 @@ export default function HomePage() {
             key={cat.id}
           >
             <div className="landing-container">
-              <div className={`landing-feature${i % 2 === 1 ? " landing-feature-reverse" : ""}`}>
-                <div className="landing-feature-text">
-                  <p className="landing-eyebrow">Destacado</p>
-                  <h2 className="landing-section-title">{cat.name}</h2>
-                  <p>
-                    Descubrí nuestra selección de {cat.name.toLowerCase()} — curada para que encuentres justo lo
-                    que buscás, con disponibilidad real.
-                  </p>
-                  <Link href={`/categoria/${cat.id}`} className="landing-btn landing-btn-outline-dark">
-                    Explorar {cat.name}
-                  </Link>
+              {cat.carouselImages.length > 0 ? (
+                <div className="landing-feature-visual">
+                  <ImageCarousel
+                    images={cat.carouselImages}
+                    alt={cat.name}
+                    imgClassName="landing-feature-visual-image"
+                    autoplayMs={FEATURE_AUTOPLAY_MS}
+                    fallbackHref={`/categoria/${cat.id}`}
+                    visibleCount={3}
+                    renderOverlay={(image) => (
+                      <div className="landing-feature-overlay">
+                        {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
+                        <h2 className="landing-feature-overlay-title">{image.titulo2 || cat.name}</h2>
+                        <span className="landing-btn landing-btn-primary landing-feature-overlay-btn">
+                          Explorar {cat.name}
+                        </span>
+                      </div>
+                    )}
+                  />
                 </div>
-                {cat.carouselImages.length > 0 ? (
-                  <div className="landing-feature-visual">
-                    <ImageCarousel
-                      images={cat.carouselImages}
-                      alt={cat.name}
-                      imgClassName="landing-feature-visual-image"
-                      autoplayMs={FEATURE_AUTOPLAY_MS}
-                    />
+              ) : (
+                <Link
+                  href={`/categoria/${cat.id}`}
+                  className="landing-feature-visual landing-feature-visual--fallback"
+                  style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
+                >
+                  <div className="landing-feature-overlay">
+                    <h2 className="landing-feature-overlay-title">{cat.name}</h2>
+                    <span className="landing-btn landing-btn-primary landing-feature-overlay-btn">
+                      Explorar {cat.name}
+                    </span>
                   </div>
-                ) : (
-                  <div
-                    className="landing-feature-visual"
-                    style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
-                  >
-                    {cat.name}
-                  </div>
-                )}
-              </div>
+                </Link>
+              )}
 
               {categoryBrands.length > 0 && (
                 <div className="landing-brands-block">

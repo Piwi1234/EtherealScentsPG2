@@ -52,6 +52,16 @@ export class CarouselImageService {
     return this.prisma.carouselImage.update({ where: { id }, data: { url } });
   }
 
+  /** Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
+   * ("Producto destacado", kind FEATURE). `null`/vacío no muestra esa línea. */
+  async setTitulos(id: string, titulo1: string | null, titulo2: string | null) {
+    const existing = await this.prisma.carouselImage.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException("Imagen no encontrada.");
+    }
+    return this.prisma.carouselImage.update({ where: { id }, data: { titulo1, titulo2 } });
+  }
+
   /** Intercambia el `orden` con la imagen vecina en esa dirección — no-op si ya está en la punta. */
   async move(id: string, direction: "up" | "down") {
     const current = await this.prisma.carouselImage.findUnique({ where: { id } });
