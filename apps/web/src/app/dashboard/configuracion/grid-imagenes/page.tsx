@@ -209,8 +209,8 @@ export default function GridImagenesPage() {
       images: offersBannerImages,
       hint:
         "Ocupa el 5to lugar de la fila de \"Descuento y Ofertas\" del home, junto a las 4 tarjetas de producto — " +
-        "mismo tamaño que ellas. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del " +
-        "carrusel.",
+        "mismo tamaño que ellas (~267×462px en pantallas grandes). Recomendado: 550×950px o más, vertical " +
+        "(relación ~7:12), por cada imagen del carrusel.",
     },
     {
       key: "weekly-collection-banner",
@@ -220,8 +220,9 @@ export default function GridImagenesPage() {
       images: weeklyCollectionBannerImages,
       hint:
         "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 12 " +
-        "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que una tarjeta de " +
-        "producto. Recomendado: 800×1000px o más, vertical (relación 4:5), por cada imagen del carrusel.",
+        "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que esa columna " +
+        "(~504×885px en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1750px o más, " +
+        "vertical (relación ~4:7), por cada imagen del carrusel.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-feature`,
@@ -246,8 +247,9 @@ export default function GridImagenesPage() {
       images: marcasHeroImages,
       hint:
         "Fondo del hero de la página /marcas — carrusel independiente del Hero principal del home. Recomendado: " +
-        "2400×2000px o más (relación ~6:5) — este hero quedó bastante más alto en proporción que el Hero " +
-        "principal (2400×1350, 16:9), por cada imagen del carrusel.",
+        "2400×600px o más (relación ~4:1, muy panorámico). Este banner es bastante más bajo que el Hero " +
+        "principal (que sí ocupa el 78% de la altura de pantalla): acá el alto lo da el padding + el texto, unos " +
+        "300–450px según el dispositivo, así que una imagen muy ancha y baja cubre mejor que una alta.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-hero`,
@@ -257,8 +259,9 @@ export default function GridImagenesPage() {
       images: cat.heroCarouselImages,
       hint:
         "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías — carrusel " +
-        "independiente del de \"Producto destacado\" del home. Recomendado: 2400×2000px o más (relación ~6:5), " +
-        "bastante más alto en proporción que el Hero principal (2400×1350, 16:9).",
+        "independiente del de \"Producto destacado\" del home. Recomendado: 2400×600px o más (relación ~4:1, muy " +
+        "panorámico) — este banner es bastante más bajo que el Hero principal (que sí ocupa el 78% de la altura " +
+        "de pantalla), así que conviene una imagen muy ancha y baja, no alta.",
     })),
   ];
 
