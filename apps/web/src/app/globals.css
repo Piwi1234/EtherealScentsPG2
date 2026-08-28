@@ -1419,6 +1419,171 @@ a {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
+/* ==========================================================================
+   Dashboard de gráficas (Gestión → Dashboard) — componentes de charts.tsx.
+   ========================================================================== */
+
+.dash-section-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.dash-grid--wide {
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+}
+
+.dash-widget-title {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.dash-widget-note {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+.dash-stat-tile {
+  padding: 4px 0;
+}
+
+.dash-stat-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.dash-stat-value {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-stat-sublabel {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+.dash-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.dash-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.dash-legend-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.dash-chart-wrap {
+  overflow-x: auto;
+}
+
+.dash-chart-hover {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.dash-empty {
+  margin: 12px 0;
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+.dash-ranked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-ranked-row {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-ranked-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-ranked-sublabel {
+  font-size: 10.5px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+.dash-ranked-track {
+  height: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  overflow: hidden;
+}
+
+.dash-ranked-fill {
+  height: 100%;
+  border-radius: 5px;
+}
+
+.dash-ranked-value {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+}
+
+.dash-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dash-filter-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
 /* — buttons (Nuevo producto) — */
 .nocturne-theme .btn-cta {
   background: transparent;

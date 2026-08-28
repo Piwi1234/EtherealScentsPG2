@@ -22,8 +22,11 @@ import {
   StockIcon,
 } from "../../components/nocturne-icons";
 
+// Separado de NAV_ITEMS: va primero en el sidebar (arriba de Clientes), el resto de NAV_ITEMS se
+// renderiza más abajo, después de los acordeones de Clientes/Proveedores (ver el JSX).
+const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, exact: true };
+
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, exact: true },
   { href: "/dashboard/categories", label: "Categorías", icon: CategoriesIcon },
   { href: "/dashboard/brands", label: "Marcas", icon: BrandsIcon },
   { href: "/dashboard/products", label: "Productos", icon: ProductsIcon },
@@ -175,6 +178,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="sidebar-brand">Panel</div>
         <div className="sidebar-section-title">Principal</div>
         <nav className="sidebar-nav">
+          <Link
+            href={DASHBOARD_ITEM.href}
+            className={`sidebar-link${pathname === DASHBOARD_ITEM.href ? " active" : ""}`}
+          >
+            <DASHBOARD_ITEM.icon className="sidebar-link-icon" />
+            <span>{DASHBOARD_ITEM.label}</span>
+          </Link>
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${clientesHasActiveChild ? " active" : ""}`}
@@ -228,7 +238,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           {NAV_ITEMS.map((item) => {
-            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const active = pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
               <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`}>

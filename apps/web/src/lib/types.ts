@@ -226,6 +226,25 @@ export type RedSocial = {
   updatedAt: string;
 };
 
+// --- Dashboard (Gestión → Dashboard) ---
+
+export type DashMesTotal = { mes: string; total: number };
+export type DashCategoriaTotal = { categoriaId?: string; categoria: string; total: number };
+export type DashClienteTotal = { cliente: string; total: number };
+export type DashMargenMes = { mes: string; ingresos: number; costos: number; margen: number };
+export type DashProveedorCategoriaTotal = { proveedor: string; categoria: string; total: number };
+export type DashStockValorizado = { disponibleBs: number; reservadoBs: number };
+export type DashSaldoCartera = { id: string; nombre: string; moneda: MonedaCartera; saldo: number };
+export type DashIngresoEgresoCartera = {
+  carteraId: string;
+  cartera: string;
+  moneda: MonedaCartera;
+  mes: string;
+  ingresos: number;
+  egresos: number;
+};
+export type DashCuentasPorCobrar = { totalBs: number; cantidad: number };
+
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export type ExchangeRateResponse = { exchangeRate: number };
