@@ -4897,6 +4897,113 @@ a {
   line-height: 1.5;
 }
 
+/* --- FAQ (/preventa-faq): fondo oscuro con la paleta base del sitio (rojo #d81f26 + navbar dark
+   #111114), scoped a esta sección puntual — mismo criterio que .landing-section--offers-dark. --- */
+.landing-section--faq-dark {
+  background: #111114;
+}
+
+.landing-section--faq-dark .landing-eyebrow {
+  color: #d81f26;
+}
+
+.landing-section--faq-dark .landing-section-title,
+.landing-section--faq-dark .landing-faq-question {
+  color: #f5f4f0;
+}
+
+.landing-section--faq-dark .landing-section-lead,
+.landing-section--faq-dark .landing-faq-answer,
+.landing-section--faq-dark .landing-faq-footer {
+  color: rgba(245, 244, 240, 0.6);
+}
+
+.landing-section--faq-dark .landing-faq-group-title {
+  color: #d81f26;
+}
+
+.landing-section--faq-dark .landing-faq-item {
+  border-color: rgba(245, 244, 240, 0.14);
+}
+
+.landing-section--faq-dark .landing-faq-question svg {
+  color: rgba(245, 244, 240, 0.5);
+}
+
+.landing-section--faq-dark .landing-faq-footer a {
+  color: #ffffff;
+}
+
+/* --- FAQ (/preventa-faq) --- */
+
+.landing-faq {
+  max-width: 760px;
+  margin-top: 36px;
+}
+
+.landing-faq-group {
+  margin-bottom: 28px;
+}
+
+.landing-faq-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lp-accent-dark);
+  margin: 0 0 6px;
+}
+
+.landing-faq-item {
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.landing-faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lp-text);
+  cursor: pointer;
+}
+
+.landing-faq-question svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--lp-muted);
+  transition: transform 0.2s ease;
+}
+
+.landing-faq-item--open .landing-faq-question svg {
+  transform: rotate(180deg);
+}
+
+.landing-faq-answer {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--lp-muted);
+}
+
+.landing-faq-footer {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--lp-muted);
+}
+
+.landing-faq-footer a {
+  color: var(--lp-accent-dark);
+  font-weight: 600;
+}
+
 .landing-product-detail-brand {
   font-size: 12px;
   font-weight: 700;
