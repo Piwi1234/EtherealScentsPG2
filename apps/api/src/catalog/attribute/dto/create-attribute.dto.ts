@@ -72,6 +72,20 @@ export class CreateAttributeDto {
   orden?: number;
 
   @ApiPropertyOptional({
+    default: false,
+    description: "Si se muestra en la línea de atributos de la tarjeta de producto pública — independiente de mostrarEnProforma.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  mostrarEnTarjeta?: boolean;
+
+  @ApiPropertyOptional({ default: 0, description: "Orden de aparición entre los atributos mostrados en la tarjeta de producto." })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ordenTarjeta?: number;
+
+  @ApiPropertyOptional({
     enum: AttributeVariantMode,
     default: AttributeVariantMode.NONE,
     description:

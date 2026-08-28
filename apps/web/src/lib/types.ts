@@ -89,6 +89,10 @@ export type Attribute = {
   /** Si se muestra al armar una línea de proforma (ordenado por `orden`). */
   mostrarEnProforma: boolean;
   orden: number;
+  /** Si se muestra en la línea de atributos de la tarjeta de producto pública (ordenado por
+   * `ordenTarjeta`) — independiente de mostrarEnProforma. */
+  mostrarEnTarjeta: boolean;
+  ordenTarjeta: number;
   variantMode: AttributeVariantMode;
   /** Solo aplica cuando type='SELECT' y variantMode='NONE': el producto puede elegir 1+ opciones
    * de la lista compartida de la categoría (ej. Acordes de un perfume). */

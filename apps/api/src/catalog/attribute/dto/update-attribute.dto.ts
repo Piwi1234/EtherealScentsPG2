@@ -18,6 +18,8 @@ export class UpdateAttributeDto extends PartialType(
     "showInProductList",
     "mostrarEnProforma",
     "orden",
+    "mostrarEnTarjeta",
+    "ordenTarjeta",
     "allowMultiple",
   ] as const),
 ) {}

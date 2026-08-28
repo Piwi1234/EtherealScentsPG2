@@ -305,6 +305,10 @@ model Attribute {
   // Si se muestra al armar una línea de proforma (VarianteSelector/AtributosVisibles), ordenado por `orden`.
   mostrarEnProforma Boolean              @default(false) @map("mostrar_en_proforma")
   orden             Int                  @default(0)
+  // Si se muestra en la línea de atributos de la tarjeta de producto pública (ProductCard),
+  // ordenado por `ordenTarjeta` — independiente de mostrarEnProforma (ese controla proforma/PDF/Stock).
+  mostrarEnTarjeta Boolean               @default(false) @map("mostrar_en_tarjeta")
+  ordenTarjeta     Int                   @default(0) @map("orden_tarjeta")
   // Solo aplica (y solo tiene sentido) cuando type = SELECT.
   variantMode       AttributeVariantMode @default(NONE) @map("variant_mode")
   // Solo aplica cuando type = SELECT y variantMode = NONE: el producto puede elegir 1+ opciones de

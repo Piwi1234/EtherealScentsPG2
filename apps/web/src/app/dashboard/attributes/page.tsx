@@ -113,6 +113,8 @@ export default function AttributesPage() {
   const [showInProductList, setShowInProductList] = useState(false);
   const [mostrarEnProforma, setMostrarEnProforma] = useState(false);
   const [orden, setOrden] = useState(0);
+  const [mostrarEnTarjeta, setMostrarEnTarjeta] = useState(false);
+  const [ordenTarjeta, setOrdenTarjeta] = useState(0);
   const [allowMultiple, setAllowMultiple] = useState(false);
   const [options, setOptions] = useState<{ value: string; color: string }[]>([{ value: "", color: DEFAULT_OPTION_COLOR }]);
   const [formError, setFormError] = useState("");
@@ -185,6 +187,8 @@ export default function AttributesPage() {
     setShowInProductList(false);
     setMostrarEnProforma(false);
     setOrden(0);
+    setMostrarEnTarjeta(false);
+    setOrdenTarjeta(0);
     setAllowMultiple(false);
     setOptions([{ value: "", color: DEFAULT_OPTION_COLOR }]);
     setFormError("");
@@ -201,6 +205,8 @@ export default function AttributesPage() {
     setShowInProductList(attr.showInProductList);
     setMostrarEnProforma(attr.mostrarEnProforma);
     setOrden(attr.orden);
+    setMostrarEnTarjeta(attr.mostrarEnTarjeta);
+    setOrdenTarjeta(attr.ordenTarjeta);
     setAllowMultiple(attr.allowMultiple);
     setFormError("");
     setModalOpen(true);
@@ -245,6 +251,8 @@ export default function AttributesPage() {
           showInProductList,
           mostrarEnProforma,
           orden,
+          mostrarEnTarjeta,
+          ordenTarjeta,
           allowMultiple: canToggleMultiple ? allowMultiple : undefined,
         });
       } else {
@@ -262,6 +270,8 @@ export default function AttributesPage() {
           showInProductList,
           mostrarEnProforma,
           orden,
+          mostrarEnTarjeta,
+          ordenTarjeta,
           variantMode: type === "SELECT" ? variantMode : undefined,
           allowMultiple: isPlainSelect ? allowMultiple : undefined,
           // Las opciones solo aplican a atributos normales (sin variante): las de variante cargan
@@ -474,6 +484,27 @@ export default function AttributesPage() {
                   min={0}
                   value={orden}
                   onChange={(e) => setOrden(parseInt(e.target.value, 10) || 0)}
+                  style={{ width: 100 }}
+                />
+              </div>
+            )}
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={mostrarEnTarjeta}
+                onChange={(e) => setMostrarEnTarjeta(e.target.checked)}
+              />
+              Mostrar en la tarjeta de producto (catálogo público)
+            </label>
+            {mostrarEnTarjeta && (
+              <div>
+                <label>Orden</label>
+                <input
+                  className="field"
+                  type="number"
+                  min={0}
+                  value={ordenTarjeta}
+                  onChange={(e) => setOrdenTarjeta(parseInt(e.target.value, 10) || 0)}
                   style={{ width: 100 }}
                 />
               </div>

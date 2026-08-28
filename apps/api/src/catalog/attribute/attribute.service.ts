@@ -72,6 +72,8 @@ export class AttributeService {
           showInProductList: dto.showInProductList ?? false,
           mostrarEnProforma: dto.mostrarEnProforma ?? false,
           orden: dto.orden ?? 0,
+          mostrarEnTarjeta: dto.mostrarEnTarjeta ?? false,
+          ordenTarjeta: dto.ordenTarjeta ?? 0,
           variantMode,
           allowMultiple: isPlainSelect ? (dto.allowMultiple ?? false) : false,
           options: isPlainSelect

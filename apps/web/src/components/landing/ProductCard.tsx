@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
 import { cardFlashUntil, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
-import { formatAtributosVisiblesValores, formatCartAtributos } from "../proformas/AtributosVisibles";
+import { formatAtributosTarjeta, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
 
 // Tarjeta de producto compartida por home (ofertas + colección de la semana), /categoria y /buscar —
@@ -24,7 +24,7 @@ export function ProductCard({
   const { addItem } = useCart();
   const { bs, fromPrice, variant, discountBs } = displayPrice(product);
   const image = productImageSrc(cardImageUrl(product, variant));
-  const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
+  const atributos = formatAtributosTarjeta(product.attributeValues, product.variantOptionValues);
   const soldOut = isSoldOut(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
   const flashUntil = cardFlashUntil(product);
