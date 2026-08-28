@@ -111,6 +111,7 @@ export default function ProductoPage() {
   const priceBs = selectedVariant ? selectedVariant.finalPriceBs : product?.finalPriceBs ?? 0;
   const discountBs = Number(selectedVariant ? selectedVariant.discountBs : product?.discountBs ?? 0);
   const disponible = selectedVariant ? selectedVariant.disponible : true;
+  const enStock = selectedVariant ? selectedVariant.hasStock : product?.hasStock ?? false;
   const codigo = product && product.variants.length > 1 && selectedVariant ? selectedVariant.variantCode : product?.productCode ?? "";
   const detalles = product ? getAllAttributeDetails(product) : [];
   const atributos = product
@@ -162,6 +163,9 @@ export default function ProductoPage() {
                   </svg>
                   Oferta
                 </span>
+              )}
+              {disponible && flashUntil && (
+                <FlashCountdown until={flashUntil} variant="boxes" className="landing-product-detail-flash" />
               )}
             </div>
             <p className="landing-product-detail-note">
@@ -223,12 +227,8 @@ export default function ProductoPage() {
                   )
                 )}
 
-                {disponible && flashUntil && (
-                  <FlashCountdown until={flashUntil} variant="boxes" className="landing-product-detail-flash" />
-                )}
-
                 <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>
-                  {disponible ? "Disponible" : "No disponible"}
+                  {disponible ? (enStock ? "En Stock" : "Disponible") : "No disponible"}
                 </p>
 
                 {disponible && (

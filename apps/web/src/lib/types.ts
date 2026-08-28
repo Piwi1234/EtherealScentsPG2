@@ -152,6 +152,9 @@ export type ProductVariant = {
   disponible: boolean;
   // Instante UTC hasta el que ESTA variante aparece en "Ofertas Flash". Null = sin temporizador.
   ofertaFlashHasta: string | null;
+  // Calculado en vivo por el backend: true si ESTA variante tiene stock disponible (física -
+  // reservada > 0). Nunca informa cantidades.
+  hasStock: boolean;
   options: ProductVariantOption[];
 };
 

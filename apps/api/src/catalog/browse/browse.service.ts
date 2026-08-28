@@ -30,15 +30,20 @@ function hasAvailableStock(variants: RawProduct["variants"]): boolean {
   return variants.some((v) => v.stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0));
 }
 
-/** Adjunta `hasStock` y saca el detalle crudo de stock de cada variante antes de responder — la
- * API pública nunca informa cantidades, solo si hay o no disponible (ver `hasAvailableStock`). */
+/** Adjunta `hasStock` (a nivel producto y por cada variante) y saca el detalle crudo de stock antes
+ * de responder — la API pública nunca informa cantidades, solo si hay o no disponible (ver
+ * `hasAvailableStock`). El de nivel producto sirve para las tarjetas (cualquier variante alcanza);
+ * el de cada variante, para la página de producto, donde importa la variante puntual elegida. */
 function finalizeProduct(product: RawProduct, exchangeRate: number) {
   const hasStock = hasAvailableStock(product.variants);
   const priced = withPrice(product, exchangeRate);
   return {
     ...priced,
     hasStock,
-    variants: priced.variants.map(({ stock: _stock, ...rest }) => rest),
+    variants: priced.variants.map(({ stock, ...rest }) => ({
+      ...rest,
+      hasStock: stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0),
+    })),
   };
 }
 

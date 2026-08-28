@@ -5209,15 +5209,20 @@ a {
 }
 
 /* Cuenta regresiva de Oferta Flash — mismos casilleros que las tarjetas (ver .landing-flash-boxes),
-   agrandados y con su propio margen porque acá no vive dentro de una tarjeta flex angosta. */
+   agrandados y sobrepuesta arriba a la izquierda de la imagen (simétrica a "Oferta", que va arriba a
+   la derecha — ver .landing-product-detail-image-wrap .landing-product-offer-badge). */
 .landing-product-detail-flash {
-  max-width: 260px;
-  margin: 0 0 14px;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 1;
+  width: 240px;
 }
 
 .landing-product-detail-flash .landing-flash-box {
   padding: 9px 0 7px;
   background: #1a1a1f;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.32);
 }
 
 .landing-product-detail-flash .landing-flash-box-value {
