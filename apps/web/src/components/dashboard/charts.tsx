@@ -62,22 +62,37 @@ export function Legend({ items }: { items: { label: string; color: string }[] })
   );
 }
 
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "2025-09" -> "sep 25" — bastante más corto que la fecha ISO, para que entre sin superponerse con
+ * el mes de al lado. Cualquier categoría que no tenga esa forma (nombres, no fechas) se deja igual. */
+function defaultFormatCategory(cat: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(cat);
+  if (!match) return cat;
+  const mes = MESES_CORTOS[Number(match[2]) - 1] ?? match[2];
+  return `${mes} ${match[1].slice(2)}`;
+}
+
 /** Barras verticales agrupadas — 1+ series sobre las mismas categorías (ej. meses). */
 export function BarChart({
   categories,
   series,
   height = 220,
   formatValue = formatCompact,
+  formatCategory = defaultFormatCategory,
 }: {
   categories: string[];
   series: { label: string; values: number[]; color?: string }[];
   height?: number;
   formatValue?: (v: number) => string;
+  formatCategory?: (cat: string) => string;
 }) {
   const [hover, setHover] = useState<{ cat: number; s: number } | null>(null);
-  const width = Math.max(360, categories.length * (series.length > 1 ? 46 : 30));
+  const width = Math.max(360, categories.length * (series.length > 1 ? 46 : 34));
   const padTop = 16;
-  const padBottom = 28;
+  // Más alto que una etiqueta horizontal normal — el texto va rotado -40° (ver más abajo), así que
+  // necesita lugar para "colgar" en diagonal sin cortarse contra el borde del SVG.
+  const padBottom = 40;
   const padLeft = 8;
   const plotH = height - padTop - padBottom;
   const max = Math.max(1, ...series.flatMap((s) => s.values));
@@ -125,8 +140,15 @@ export function BarChart({
                   </rect>
                 );
               })}
-              <text x={groupX + groupW / 2 - barGap} y={height - padBottom + 16} fontSize={10} fill={MUTED} textAnchor="middle">
-                {cat}
+              <text
+                x={groupX + groupW / 2 - barGap}
+                y={height - padBottom + 12}
+                fontSize={10}
+                fill={MUTED}
+                textAnchor="end"
+                transform={`rotate(-40 ${groupX + groupW / 2 - barGap} ${height - padBottom + 12})`}
+              >
+                {formatCategory(cat)}
               </text>
             </g>
           );
