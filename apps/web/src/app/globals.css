@@ -3499,6 +3499,17 @@ a {
   flex-shrink: 0;
 }
 
+.landing-filter-checkbox-label--stock {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #1f9d55;
+  color: #ffffff;
+  font-weight: 600;
+}
+
 /* Badge en pastilla, mismo criterio que el ".count" de la referencia — se resalta con el color de
  * acento cuando ese filtro ya está tildado. */
 .landing-filter-count {
@@ -4150,6 +4161,24 @@ a {
   font-size: 26px;
   color: #ffffff;
   background: linear-gradient(150deg, var(--lp-accent), #4b3f8f);
+}
+
+/* Leyenda "En Stock": abajo a la izquierda de la imagen — ver `Product.hasStock` (física - reservada
+   > 0 en alguna variante, incluidas las de precio propio). Siempre visible, no depende del hover. */
+.landing-product-instock-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 1;
+  padding: 5px 10px;
+  background: #1f9d55;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* Botón circular "agregar al carrito" — sobrepuesto en la esquina inferior derecha de la imagen de

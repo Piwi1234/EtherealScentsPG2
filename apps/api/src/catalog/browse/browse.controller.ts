@@ -26,6 +26,7 @@ export class CatalogBrowseController {
     @Query("attr") attr?: Record<string, string>,
     @Query("onlyDiscounted") onlyDiscounted?: string,
     @Query("onlyFlash") onlyFlash?: string,
+    @Query("onlyInStock") onlyInStock?: string,
     @Query("sortBy") sortBy?: string,
   ) {
     return this.browse.findProducts({
@@ -38,6 +39,7 @@ export class CatalogBrowseController {
       attr,
       onlyDiscounted,
       onlyFlash,
+      onlyInStock,
       sortBy,
     });
   }

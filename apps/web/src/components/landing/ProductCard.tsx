@@ -63,6 +63,7 @@ export function ProductCard({
             Oferta
           </span>
         )}
+        {product.hasStock && <span className="landing-product-instock-badge">En Stock</span>}
         {!soldOut && (
           <button type="button" className="landing-product-add-btn" aria-label="Agregar al carrito" onClick={handleAdd}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

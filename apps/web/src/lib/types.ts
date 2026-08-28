@@ -192,6 +192,9 @@ export type Product = {
   variants: ProductVariant[];
   // Instante UTC hasta el que el producto aparece en "Ofertas Flash" del home. Null = sin temporizador.
   ofertaFlashHasta: string | null;
+  // Calculado en vivo por el backend: true si alguna variante (incluidas las de precio propio) tiene
+  // stock disponible (física - reservada > 0). Nunca informa cantidades.
+  hasStock: boolean;
   createdAt: string;
 };
 

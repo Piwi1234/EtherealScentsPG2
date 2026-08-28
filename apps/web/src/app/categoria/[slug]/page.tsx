@@ -37,6 +37,7 @@ export default function CategoriaPage() {
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [discountOnly, setDiscountOnly] = useState(false);
   const [flashOnly, setFlashOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   // priceRange: posición actual del slider (se ve en vivo). priceApplied: lo que realmente filtra
   // — se actualiza recién al tocar "Filtrar", como en el mock de referencia.
   const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
@@ -123,10 +124,11 @@ export default function CategoriaPage() {
     }
     if (discountOnly) params.set("onlyDiscounted", "true");
     if (flashOnly) params.set("onlyFlash", "true");
+    if (inStockOnly) params.set("onlyInStock", "true");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setProductsPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category, subCategoryFilter, attributeFilters, discountOnly, flashOnly]);
+  }, [category, subCategoryFilter, attributeFilters, discountOnly, flashOnly, inStockOnly]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría. Se fija recién
   // cuando se conoce (basePage llega después de category) y solo se resetea si cambia de techo.
@@ -168,6 +170,10 @@ export default function CategoriaPage() {
     setFlashOnly((prev) => !prev);
   }
 
+  function toggleInStockOnly() {
+    setInStockOnly((prev) => !prev);
+  }
+
   function handlePriceMinChange(value: number) {
     setPriceRange((prev) => {
       const max = prev ? prev[1] : priceBoundsMax;
@@ -204,6 +210,7 @@ export default function CategoriaPage() {
     setSubCategoryFilter("");
     setDiscountOnly(false);
     setFlashOnly(false);
+    setInStockOnly(false);
     setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
     setPriceApplied(null);
     setBrandFilters([]);
@@ -216,6 +223,7 @@ export default function CategoriaPage() {
     subCategoryFilter !== "" ||
     discountOnly ||
     flashOnly ||
+    inStockOnly ||
     brandFilters.length > 0 ||
     priceApplied !== null;
   const activeFilterCount =
@@ -223,6 +231,7 @@ export default function CategoriaPage() {
     (subCategoryFilter ? 1 : 0) +
     (discountOnly ? 1 : 0) +
     (flashOnly ? 1 : 0) +
+    (inStockOnly ? 1 : 0) +
     brandFilters.length +
     (priceApplied ? 1 : 0);
 
@@ -237,6 +246,7 @@ export default function CategoriaPage() {
 
   const discountCount = useMemo(() => (basePage?.items ?? []).filter(hasDiscount).length, [basePage]);
   const flashCount = useMemo(() => (basePage?.items ?? []).filter(hasActiveFlash).length, [basePage]);
+  const inStockCount = useMemo(() => (basePage?.items ?? []).filter((p) => p.hasStock).length, [basePage]);
 
   const brandsWithCounts: BrandCount[] = useMemo(() => {
     const byId = new Map<string, BrandCount>();
@@ -296,11 +306,15 @@ export default function CategoriaPage() {
     subcategories.length > 0 ||
     discountCount > 0 ||
     flashCount > 0 ||
+    inStockCount > 0 ||
     brandsWithCounts.length > 0 ||
     filterableAttributes.length > 0;
 
   const filterGroupsProps = {
     resetKey: slug,
+    inStockOnly,
+    onToggleInStockOnly: toggleInStockOnly,
+    inStockCount,
     discountOnly,
     onToggleDiscountOnly: toggleDiscountOnly,
     discountCount,
@@ -552,6 +566,9 @@ type FilterGroupsProps = {
    * (Subcategoría/Atributos/Marca) para que su texto de búsqueda y "mostrar más" arranquen frescos
    * al navegar a otra categoría. */
   resetKey: string;
+  inStockOnly: boolean;
+  onToggleInStockOnly: () => void;
+  inStockCount: number;
   discountOnly: boolean;
   onToggleDiscountOnly: () => void;
   discountCount: number;
@@ -578,6 +595,9 @@ type FilterGroupsProps = {
  * el filtro de Marca (buscador + "Mostrar más/menos") — ver `FilterOptionList`. */
 function FilterGroups({
   resetKey,
+  inStockOnly,
+  onToggleInStockOnly,
+  inStockCount,
   discountOnly,
   onToggleDiscountOnly,
   discountCount,
@@ -598,9 +618,16 @@ function FilterGroups({
 }: FilterGroupsProps) {
   return (
     <div className="landing-filter-groups-box">
-      {(discountCount > 0 || discountOnly || flashCount > 0 || flashOnly) && (
+      {(inStockCount > 0 || inStockOnly || discountCount > 0 || discountOnly || flashCount > 0 || flashOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
+          {(inStockCount > 0 || inStockOnly) && (
+            <label className="landing-filter-checkbox">
+              <input type="checkbox" checked={inStockOnly} onChange={onToggleInStockOnly} />
+              <span className="landing-filter-checkbox-label landing-filter-checkbox-label--stock">En Stock</span>
+              <span className="landing-filter-count">{inStockCount}</span>
+            </label>
+          )}
           {(discountCount > 0 || discountOnly) && (
             <label className="landing-filter-checkbox">
               <input type="checkbox" checked={discountOnly} onChange={onToggleDiscountOnly} />

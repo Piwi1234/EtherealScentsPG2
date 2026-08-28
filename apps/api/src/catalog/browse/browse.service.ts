@@ -13,8 +13,34 @@ const includeDetails = {
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
   variantOptionValues: { include: { attribute: true } },
-  variants: { include: { options: { include: { optionValue: { include: { attribute: true } } } } } },
+  variants: {
+    include: {
+      options: { include: { optionValue: { include: { attribute: true } } } },
+      // Solo lo necesario para calcular `hasStock` (ver más abajo) — nunca se expone tal cual en
+      // la respuesta pública, así no se filtran cantidades exactas de stock.
+      stock: { select: { cantidadFisica: true, cantidadReservada: true } },
+    },
+  },
 } as const;
+
+type RawProduct = Prisma.ProductGetPayload<{ include: typeof includeDetails }>;
+
+/** true si alguna variante (incluidas las de precio propio) tiene stock disponible (física - reservada > 0). */
+function hasAvailableStock(variants: RawProduct["variants"]): boolean {
+  return variants.some((v) => v.stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0));
+}
+
+/** Adjunta `hasStock` y saca el detalle crudo de stock de cada variante antes de responder — la
+ * API pública nunca informa cantidades, solo si hay o no disponible (ver `hasAvailableStock`). */
+function finalizeProduct(product: RawProduct, exchangeRate: number) {
+  const hasStock = hasAvailableStock(product.variants);
+  const priced = withPrice(product, exchangeRate);
+  return {
+    ...priced,
+    hasStock,
+    variants: priced.variants.map(({ stock: _stock, ...rest }) => rest),
+  };
+}
 
 export interface FindCatalogProductsQuery {
   categoryId?: string;
@@ -35,6 +61,9 @@ export interface FindCatalogProductsQuery {
   /** "true": solo productos con un temporizador de "Ofertas Flash" todavía vigente
    * (ofertaFlashHasta en el futuro). */
   onlyFlash?: string;
+  /** "true": solo productos con stock disponible (física - reservada > 0) en alguna variante,
+   * incluidas las de precio propio. Nunca informa cantidades, solo disponibilidad. */
+  onlyInStock?: string;
   /** "actualizados": orden por última modificación (usado por el carrusel de ofertas del home).
    * Cualquier otro valor (u omitido) mantiene el orden por defecto, más reciente creado primero. */
   sortBy?: string;
@@ -105,13 +134,24 @@ export class CatalogBrowseService {
     const orderBy: Prisma.ProductOrderByWithRelationInput =
       query.sortBy === "actualizados" ? { updatedAt: "desc" } : { createdAt: "desc" };
 
-    const [items, total, exchangeRate] = await Promise.all([
+    const exchangeRate = await this.settings.getExchangeRate();
+
+    if (query.onlyInStock === "true") {
+      // "Física - reservada > 0" no se puede expresar en un where de Prisma (no compara columnas
+      // entre sí), así que se trae todo lo que matchea el resto de filtros y se filtra/pagina acá,
+      // en memoria — el catálogo de una categoría es chico, no hace falta más que esto.
+      const all = await this.prisma.product.findMany({ where, orderBy, include: includeDetails });
+      const inStock = all.filter((item) => hasAvailableStock(item.variants));
+      const pageItems = inStock.slice(skip, skip + take);
+      return { items: pageItems.map((item) => finalizeProduct(item, exchangeRate)), total: inStock.length, page, pageSize };
+    }
+
+    const [items, total] = await Promise.all([
       this.prisma.product.findMany({ where, skip, take, orderBy, include: includeDetails }),
       this.prisma.product.count({ where }),
-      this.settings.getExchangeRate(),
     ]);
 
-    return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
+    return { items: items.map((item) => finalizeProduct(item, exchangeRate)), total, page, pageSize };
   }
 
   /** Detalle público de un producto (página de producto del catálogo). */
@@ -122,7 +162,7 @@ export class CatalogBrowseService {
       throw new NotFoundException("Producto no encontrado.");
     }
     const exchangeRate = await this.settings.getExchangeRate();
-    return withPrice(product, exchangeRate);
+    return finalizeProduct(product, exchangeRate);
   }
 
   /** Para la página pública /producto/[slug] — URL corta y legible en vez del uuid. */
@@ -133,7 +173,7 @@ export class CatalogBrowseService {
       throw new NotFoundException("Producto no encontrado.");
     }
     const exchangeRate = await this.settings.getExchangeRate();
-    return withPrice(product, exchangeRate);
+    return finalizeProduct(product, exchangeRate);
   }
 
   /**
