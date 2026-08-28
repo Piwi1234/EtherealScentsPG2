@@ -3446,6 +3446,25 @@ a {
   color: #ffffff;
 }
 
+.landing-pill-flash {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-color: #d81f26;
+  color: #d81f26;
+}
+
+.landing-pill-flash:hover {
+  background: #d81f26;
+  color: #ffffff;
+}
+
+.landing-pill-flash svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
 .landing-product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

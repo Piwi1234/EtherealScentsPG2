@@ -223,6 +223,16 @@ export default function HomePage() {
                 {cat.name}
               </button>
             ))}
+            {/* Todavía sin lógica de filtro propia — falta definir cómo se usa (pendiente). */}
+            <button type="button" className="landing-pill landing-pill-flash">
+              Ofertas Flash
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2 3 14h6.5l-1.5 8L21 10h-6.5L13 2Z" />
+              </svg>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2 3 14h6.5l-1.5 8L21 10h-6.5L13 2Z" />
+              </svg>
+            </button>
           </div>
 
           {error && <p className="error-text">{error}</p>}
