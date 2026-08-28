@@ -3979,7 +3979,7 @@ a {
   border: 1px solid var(--lp-border);
   /* Alto fijo (no aspect-ratio) para que sea un valor inequívoco — ver .landing-product-grid--weekly
      acá abajo, que usa este mismo número para no desalinearse. */
-  height: 722px;
+  height: 664px;
 }
 
 .landing-weekly-collection-banner-image {
@@ -4012,7 +4012,7 @@ a {
   gap: 20px;
   /* Mismo alto fijo que .landing-weekly-collection-banner, para que las 2 filas de tarjetas calcen
      exacto con el banner de al lado sin depender de stretch (ver esa regla). */
-  height: 722px;
+  height: 664px;
 }
 
 /* Sin aspect-ratio a propósito: la imagen se estira (flex) para llenar el alto que le sobra a la

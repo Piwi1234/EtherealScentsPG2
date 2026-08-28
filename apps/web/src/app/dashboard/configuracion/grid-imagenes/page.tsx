@@ -242,8 +242,8 @@ export default function GridImagenesPage() {
       hint:
         "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 8 " +
         "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que esa columna " +
-        "(504×722px fijo en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1450px o " +
-        "más, vertical (relación ~7:10), por cada imagen del carrusel.",
+        "(504×664px fijo en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1320px o " +
+        "más, vertical (relación ~3:4), por cada imagen del carrusel.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-feature`,
