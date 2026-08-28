@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
+import { useCart } from "../../../lib/cart-context";
 import { displayPrice, getAllAttributeDetails, productImageSrc } from "../../../lib/catalog-display";
 import type { Category, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
@@ -14,9 +15,11 @@ type VariantGroup = { attributeId: string; attributeName: string; options: { opt
 export default function ProductoPage() {
   const { slug } = useParams<{ slug: string }>();
 
+  const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [qty, setQty] = useState(1);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,6 +41,11 @@ export default function ProductoPage() {
   useEffect(() => {
     if (product) setSelectedVariantId(displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null);
   }, [product]);
+
+  // Vuelve a 1 cada vez que se cambia de variante, para no arrastrar una cantidad pensada para otra.
+  useEffect(() => {
+    setQty(1);
+  }, [selectedVariantId]);
 
   // Un grupo de botones por cada atributo con precio propio (ej. "Tamaño": 50 ML / 100 ML). Si el
   // producto no tiene variantes con precio propio (solo la default, sin opciones), sale vacío.
@@ -211,6 +219,41 @@ export default function ProductoPage() {
                 <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>
                   {disponible ? "Disponible" : "No disponible"}
                 </p>
+
+                {disponible && (
+                  <div className="landing-product-detail-add-row">
+                    <div className="landing-product-detail-qty">
+                      <button type="button" aria-label="Restar" onClick={() => setQty((q) => Math.max(1, q - 1))}>
+                        −
+                      </button>
+                      <span>{qty}</span>
+                      <button type="button" aria-label="Sumar" onClick={() => setQty((q) => q + 1)}>
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="landing-product-detail-add-btn"
+                      onClick={() =>
+                        addItem(
+                          {
+                            key: `${product!.id}:${selectedVariant?.id ?? "base"}`,
+                            productId: product!.id,
+                            productSlug: product!.slug,
+                            variantId: selectedVariant?.id ?? null,
+                            name: product!.name,
+                            code: codigo,
+                            imageUrl: image,
+                            unitPriceBs: priceBs,
+                          },
+                          qty,
+                        )
+                      }
+                    >
+                      Agregar al carrito
+                    </button>
+                  </div>
+                )}
 
                 <div className="landing-product-detail-divider" />
 

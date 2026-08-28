@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { brandLinkHref, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
 import type { Brand, CarouselImage, Category, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
-import { formatAtributosVisiblesValores } from "../../components/proformas/AtributosVisibles";
+import { ProductCard } from "../../components/landing/ProductCard";
 
 function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -247,55 +247,9 @@ export default function HomePage() {
                 }`}
               >
 
-                {offersChunks[offersSlide].map((product) => {
-                  const { bs, fromPrice, variant, discountBs } = displayPrice(product);
-                  const image = productImageSrc(cardImageUrl(product, variant));
-                  const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
-                  return (
-                    <Link
-                      href={`/producto/${product.slug}`}
-                      className="landing-product-card"
-                      key={`${offersSlide}-${product.id}`}
-                    >
-                      <div className="landing-product-image-wrap">
-                        {image ? (
-                          <img className="landing-product-image" src={image} alt={product.name} />
-                        ) : (
-                          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
-                        )}
-                        {hasDiscount(product) && (
-                          <span className="landing-product-offer-badge">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
-                              <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
-                              <path d="M2.5 3h2.4l2.2 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6" />
-                            </svg>
-                            Oferta
-                          </span>
-                        )}
-                      </div>
-                      <div className="landing-product-body">
-                        {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
-                        <p className="landing-product-name">{product.name}</p>
-                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                        {isSoldOut(product) ? (
-                          <span className="landing-product-soldout-stamp">Sold Out</span>
-                        ) : discountBs > 0 ? (
-                          <span className="landing-product-price landing-product-price--discounted">
-                            <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
-                            <span className="landing-product-price-new">
-                              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="landing-product-price">
-                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
+                {offersChunks[offersSlide].map((product) => (
+                  <ProductCard product={product} key={`${offersSlide}-${product.id}`} />
+                ))}
                 {landingImages && landingImages.offersBannerImages.length > 0 && (
                   <div className="landing-offers-banner">
                     <ImageCarousel
@@ -349,51 +303,9 @@ export default function HomePage() {
               )}
 
               <div className="landing-product-grid landing-product-grid--weekly">
-                {weeklyCollectionProducts.map((product) => {
-                  const { bs, fromPrice, variant, discountBs } = displayPrice(product);
-                  const image = productImageSrc(cardImageUrl(product, variant));
-                  const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
-                  return (
-                    <Link href={`/producto/${product.slug}`} className="landing-product-card" key={product.id}>
-                      <div className="landing-product-image-wrap">
-                        {image ? (
-                          <img className="landing-product-image" src={image} alt={product.name} />
-                        ) : (
-                          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
-                        )}
-                        {hasDiscount(product) && (
-                          <span className="landing-product-offer-badge">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
-                              <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
-                              <path d="M2.5 3h2.4l2.2 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6" />
-                            </svg>
-                            Oferta
-                          </span>
-                        )}
-                      </div>
-                      <div className="landing-product-body">
-                        {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
-                        <p className="landing-product-name">{product.name}</p>
-                        {atributos && <p className="landing-product-attrs">{atributos}</p>}
-                        {isSoldOut(product) ? (
-                          <span className="landing-product-soldout-stamp">Sold Out</span>
-                        ) : discountBs > 0 ? (
-                          <span className="landing-product-price landing-product-price--discounted">
-                            <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
-                            <span className="landing-product-price-new">
-                              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="landing-product-price">
-                            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
+                {weeklyCollectionProducts.map((product) => (
+                  <ProductCard product={product} key={product.id} />
+                ))}
               </div>
             </div>
           </div>

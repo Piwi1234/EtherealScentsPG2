@@ -1,5 +1,6 @@
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
+import { CartRoot } from "../components/landing/CartRoot";
 
 // Inter: tipografía del Dashboard interno (.nocturne-theme) — declarada por nombre en globals.css
 // pero nunca cargada de verdad hasta ahora (sin esto, el navegador caía al fallback system-ui).
@@ -20,7 +21,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${inter.variable} ${manrope.variable}`}>
-      <body>{children}</body>
+      <body>
+        <CartRoot>{children}</CartRoot>
+      </body>
     </html>
   );
 }
