@@ -191,6 +191,18 @@ export type Product = {
   createdAt: string;
 };
 
+/** Contacto de WhatsApp ofrecido para solicitar cotización desde el carrito del sitio público
+ * (Gestión → Configuración → Carrito Whatsapp). */
+export type CarritoWhatsappContacto = {
+  id: string;
+  nombre: string;
+  whatsapp: string;
+  descripcion: string | null;
+  imagenUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export type ExchangeRateResponse = { exchangeRate: number };

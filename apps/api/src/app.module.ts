@@ -11,6 +11,7 @@ import { ProformasModule } from "./modules/proformas/proformas.module";
 import { ContabilidadModule } from "./modules/contabilidad/contabilidad.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { SettingsModule } from "./settings/settings.module";
+import { CarritoWhatsappModule } from "./modules/carrito-whatsapp/carrito-whatsapp.module";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SettingsModule } from "./settings/settings.module";
     ContabilidadModule,
     CatalogModule,
     SettingsModule,
+    CarritoWhatsappModule,
   ],
 })
 export class AppModule {}

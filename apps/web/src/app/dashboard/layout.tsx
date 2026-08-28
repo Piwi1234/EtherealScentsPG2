@@ -85,6 +85,11 @@ const CONFIGURACION_GROUPS = [
     adminOnly: false,
     items: [{ href: "/dashboard/configuracion/grid-imagenes", label: "Grid Imágenes" }],
   },
+  {
+    title: "Carrito Whatsapp",
+    adminOnly: false,
+    items: [{ href: "/dashboard/configuracion/carrito-whatsapp", label: "Carrito Whatsapp" }],
+  },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

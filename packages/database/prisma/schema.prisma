@@ -623,6 +623,21 @@ model Almacen {
   @@map("almacenes")
 }
 
+/// Contactos de WhatsApp que se ofrecen para solicitar cotización desde el carrito del sitio público
+/// (Gestión → Configuración → Carrito Whatsapp). Registro simple, sin activo/soft-delete: se crea y
+/// se borra completo, como una ficha de vendedor.
+model CarritoWhatsappContacto {
+  id          String   @id @default(uuid()) @db.Uuid
+  nombre      String
+  whatsapp    String
+  descripcion String?
+  imagenUrl   String?  @map("imagen_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("carrito_whatsapp_contactos")
+}
+
 /// Existencias por variante y almacén. cantidadReservada se incrementa al aprobar una venta (aparta
 /// stock sin descontarlo todavía) y se descuenta junto con cantidadFisica al completarla.
 /// CHECK agregado a mano en la migración: cantidad_fisica >= 0 AND cantidad_reservada >= 0 AND
