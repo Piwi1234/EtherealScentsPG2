@@ -2185,7 +2185,7 @@ a {
 }
 
 .landing-container {
-  max-width: 1550px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -3885,6 +3885,13 @@ a {
   background: repeating-linear-gradient(45deg, #232329, #232329 10px, #1c1c21 10px, #1c1c21 20px);
 }
 
+/* Mantiene el recorte 8:9 de siempre acá — el pedido de achicar el alto de la tarjeta fue puntual
+   para /categoria y /buscar (la grilla base, sin modificador), no para este carrusel del home. */
+.landing-product-grid--carousel .landing-product-image,
+.landing-product-grid--carousel .landing-product-image-placeholder {
+  aspect-ratio: 8 / 9;
+}
+
 .landing-product-grid--carousel .landing-product-brand {
   color: #d1b280;
 }
@@ -4135,7 +4142,7 @@ a {
 .landing-product-image,
 .landing-product-image-placeholder {
   width: 100%;
-  aspect-ratio: 8 / 9;
+  aspect-ratio: 5 / 4;
   object-fit: cover;
   flex-shrink: 0;
 }
