@@ -3850,13 +3850,20 @@ a {
   height: 11px;
 }
 
-.landing-product-grid--carousel .landing-product-soldout-stamp {
-  font-size: 11px;
-  padding: 2px 10px;
+.landing-product-grid--carousel .landing-product-instock-badge {
+  padding: 4px 9px;
+  font-size: 9.5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
+
 
 .landing-product-grid--carousel .landing-product-price {
   font-size: 15px;
+}
+
+.landing-product-grid--carousel .landing-product-price-soldout {
+  font-size: 9.5px;
+  padding: 4px 9px;
 }
 
 /* --- Tema oscuro de la tarjeta en sí (fondo, texto, placeholder a rayas) — ver comentario del
@@ -4038,6 +4045,11 @@ a {
   padding-top: 4px;
 }
 
+.landing-product-grid--weekly .landing-product-price-soldout {
+  font-size: 9.5px;
+  padding: 3px 8px;
+}
+
 .landing-product-grid--weekly .landing-product-offer-badge {
   top: 8px;
   padding: 3px 8px;
@@ -4049,9 +4061,10 @@ a {
   height: 11px;
 }
 
-.landing-product-grid--weekly .landing-product-soldout-stamp {
-  font-size: 11px;
-  padding: 2px 10px;
+.landing-product-grid--weekly .landing-product-instock-badge {
+  bottom: 8px;
+  padding: 3px 8px;
+  font-size: 9.5px;
 }
 
 .landing-carousel-arrow {
@@ -4286,8 +4299,33 @@ a {
   padding-top: 8px;
 }
 
+/* Reemplaza al precio cuando el producto está agotado (ver `isSoldOut`) — mismo diseño sólido
+   redondeado que el badge "Oferta" (`.landing-product-offer-badge`), pero en flujo normal (sin
+   position:absolute), al pie de la tarjeta como el precio, en vez de sobre la imagen. */
+.landing-product-price-soldout {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding: 5px 10px;
+  background: #2b2b2b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+}
+
+.landing-product-price-soldout svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .landing-flash-countdown + .landing-product-price,
-.landing-flash-countdown + .landing-product-soldout-stamp {
+.landing-flash-countdown + .landing-product-price-soldout {
   margin-top: 6px;
 }
 
@@ -4334,7 +4372,7 @@ a {
 }
 
 .landing-flash-boxes + .landing-product-price,
-.landing-flash-boxes + .landing-product-soldout-stamp {
+.landing-flash-boxes + .landing-product-price-soldout {
   margin-top: 6px;
 }
 
@@ -4355,24 +4393,6 @@ a {
 
 .landing-product-price-new {
   color: #e0262c;
-}
-
-/* Sello "Sold Out": reemplaza el precio cuando todas las variantes del producto están marcadas no
-   disponibles (ver `isSoldOut`) — mismo lugar en la tarjeta (abajo del todo, gracias a margin-top:
-   auto en .landing-product-body con display:flex), estilo de sello de goma. */
-.landing-product-soldout-stamp {
-  align-self: flex-start;
-  margin-top: auto;
-  margin-bottom: 2px;
-  padding: 3px 12px;
-  border: 3px solid #c81e1e;
-  border-radius: 3px;
-  color: #c81e1e;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  transform: rotate(-8deg);
 }
 
 .landing-empty-note {

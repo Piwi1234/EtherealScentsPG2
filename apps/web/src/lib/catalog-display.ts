@@ -26,8 +26,8 @@ export function brandLinkHref(rootCategory: { id: string; slug: string }, brand:
  *
  * Si alguna variante está disponible, se elige la más barata SOLO entre las disponibles (así la
  * tarjeta no muestra el precio de algo que no se puede comprar) — recién si TODAS están marcadas no
- * disponibles (ver `isSoldOut`, que muestra el sello "Sold Out" en su lugar) se cae a la más barata
- * en general, nada más para tener una variante representativa (imagen) que mostrar.
+ * disponibles (ver `isSoldOut`, que reemplaza el precio por el badge "Agotado") se cae a la más
+ * barata en general, nada más para tener una variante representativa (imagen) que mostrar.
  */
 export function displayPrice(
   product: Product,
@@ -82,9 +82,26 @@ export function flashUntilFor(product: Product, variant: ProductVariant | null):
   return variant && !variant.isDefault ? variant.ofertaFlashHasta : product.ofertaFlashHasta;
 }
 
+/**
+ * Instante (ISO) hasta el que corre la Oferta Flash a mostrar en la tarjeta de producto — a
+ * diferencia de `flashUntilFor` (que sigue a UNA variante puntual, para la página de producto), acá
+ * no importa cuál sea la variante que la tarjeta esté mostrando por precio: si el temporizador vigente
+ * está en otra variante más cara, igual se avisa. Entre todos los temporizadores vigentes ahora mismo
+ * (el del producto y el de cada variante con precio propio) se elige el que le quede MENOS tiempo.
+ * Mismo criterio que `hasActiveFlash` (que solo devuelve si hay o no), pero con el valor a mostrar.
+ */
+export function cardFlashUntil(product: Product): string | null {
+  const now = Date.now();
+  const vigentes = [product.ofertaFlashHasta, ...product.variants.map((v) => v.ofertaFlashHasta)].filter(
+    (iso): iso is string => iso !== null && new Date(iso).getTime() > now,
+  );
+  if (vigentes.length === 0) return null;
+  return vigentes.reduce((soonest, iso) => (new Date(iso).getTime() < new Date(soonest).getTime() ? iso : soonest));
+}
+
 /** true si TODAS las variantes del producto están marcadas no disponibles — en ese caso la tarjeta
- * muestra el sello "Sold Out" en vez del precio. Un producto sin variantes (no debería pasar en la
- * práctica, ver `ensureDefaultVariant`) no se considera agotado. */
+ * reemplaza el precio por el badge "Agotado" (y oculta el botón de agregar al carrito). Un producto
+ * sin variantes (no debería pasar en la práctica, ver `ensureDefaultVariant`) no se considera agotado. */
 export function isSoldOut(product: Product): boolean {
   return product.variants.length > 0 && product.variants.every((v) => !v.disponible);
 }

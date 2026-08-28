@@ -3,7 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
-import { cardImageUrl, displayPrice, flashUntilFor, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import { cardFlashUntil, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
 import { formatAtributosVisiblesValores, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
@@ -27,7 +27,7 @@ export function ProductCard({
   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
   const soldOut = isSoldOut(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
-  const flashUntil = flashUntilFor(product, variant);
+  const flashUntil = cardFlashUntil(product);
 
   function handleAdd(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -81,7 +81,13 @@ export function ProductCard({
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
         {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
         {soldOut ? (
-          <span className="landing-product-soldout-stamp">Sold Out</span>
+          <span className="landing-product-price-soldout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M6 6l12 12" />
+            </svg>
+            Agotado
+          </span>
         ) : discountBs > 0 ? (
           <span className="landing-product-price landing-product-price--discounted">
             <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
