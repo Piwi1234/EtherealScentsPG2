@@ -10,7 +10,7 @@ import type { Category, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { formatCartAtributos } from "../../../components/proformas/AtributosVisibles";
-import { CartBagIcon } from "../../../components/landing/CartWidget";
+import { CartIcon } from "../../../components/landing/CartWidget";
 import { FlashCountdown } from "../../../components/landing/FlashCountdown";
 
 type VariantGroup = { attributeId: string; attributeName: string; options: { optionValueId: string; label: string }[] };
@@ -262,7 +262,7 @@ export default function ProductoPage() {
                         )
                       }
                     >
-                      <CartBagIcon />
+                      <CartIcon />
                       Agregar al carrito
                     </button>
                   </div>

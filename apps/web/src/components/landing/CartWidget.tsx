@@ -10,23 +10,28 @@ function contactoImagenSrc(imagenUrl: string | null): string | null {
   return imagenUrl ? `${API_ORIGIN}${imagenUrl}` : null;
 }
 
-// Bolsa con "cerradura" — mismo glifo en el FAB y junto al título del drawer, para que se lean
-// como el mismo ícono de "carrito" en los dos lugares.
-export function CartBagIcon() {
+// Carrito de compras clásico (canasta + ruedas) — mismo glifo en el FAB, junto al título del
+// drawer, y en el botón "Agregar al carrito" de la página de producto, para que se lean como el
+// mismo ícono en todos lados. `currentColor` toma el color de texto de cada botón (blanco en los
+// tres casos, todos sobre fondo rojo).
+export function CartIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <path d="M9 9.5V7a3 3 0 0 1 6 0v2.5" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M6.5 9.5h11l1.1 10.4a2 2 0 0 1-2 2.2H7.4a2 2 0 0 1-2-2.2L6.5 9.5Z" fill="#ffffff" />
-      <circle cx="12" cy="14.2" r="1.5" fill="#d81f26" />
-      <path d="M11.1 15.4h1.8l0.5 2.6h-2.8l0.5-2.6Z" fill="#d81f26" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 2h2l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L22 6H6" />
+      <circle cx="9" cy="21" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="21" r="1.4" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
 function buildWhatsappMessage(items: CartItem[], totalBs: number): string {
-  const lines = items.map(
-    (item) => `• ${item.name} (${item.code}) x${item.qty} — Bs ${(item.unitPriceBs * item.qty).toFixed(2)}`,
-  );
+  const lines = items.map((item) => {
+    // item.atributos ya trae, en un solo string, tanto la variante con precio propio elegida (ej.
+    // "50 ML") como los atributos simples que se muestran en proforma (ej. sabor) — mismo criterio
+    // que la ficha del carrito y que la proforma.
+    const variante = item.atributos ? ` — ${item.atributos}` : "";
+    return `• ${item.name}${variante} (${item.code}) x${item.qty} — Bs ${(item.unitPriceBs * item.qty).toFixed(2)}`;
+  });
   return `Hola, quiero solicitar una cotización de:\n\n${lines.join("\n")}\n\nTotal: Bs ${totalBs.toFixed(2)}`;
 }
 
@@ -72,7 +77,7 @@ export function CartWidget() {
   return (
     <>
       <button type="button" className="landing-cart-fab" aria-label="Ver carrito" onClick={open}>
-        <CartBagIcon />
+        <CartIcon />
         {totalItems > 0 && <span className="landing-cart-fab-badge">{totalItems}</span>}
       </button>
 
@@ -87,7 +92,7 @@ export function CartWidget() {
             <div className="landing-cart-drawer-header">
               <h2>
                 <span className="landing-cart-drawer-title-icon">
-                  <CartBagIcon />
+                  <CartIcon />
                 </span>
                 Carrito
               </h2>
