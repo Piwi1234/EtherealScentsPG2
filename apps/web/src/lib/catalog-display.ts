@@ -63,6 +63,15 @@ export function hasDiscount(product: Product): boolean {
   return product.variants.some((v) => !v.isDefault && Number(v.discountBs) > 0);
 }
 
+/** true si el producto (o alguna de sus variantes con precio propio) tiene un temporizador de
+ * Oferta Flash vigente ahora mismo — mismo criterio que el filtro `onlyFlash` del backend
+ * (browse.service.ts), para poder contar/filtrar del lado del cliente sin ida y vuelta al server. */
+export function hasActiveFlash(product: Product): boolean {
+  const now = Date.now();
+  if (product.ofertaFlashHasta && new Date(product.ofertaFlashHasta).getTime() > now) return true;
+  return product.variants.some((v) => v.ofertaFlashHasta && new Date(v.ofertaFlashHasta).getTime() > now);
+}
+
 /** Instante (ISO) hasta el que corre la Oferta Flash a mostrar — de la variante puntual si tiene
  * precio propio (isDefault=false), del producto si no. A diferencia de otros lugares que usan
  * `variants.length > 1` como atajo, acá hace falta el campo real `isDefault`: un producto con

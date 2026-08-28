@@ -3481,6 +3481,24 @@ a {
   flex: 1;
 }
 
+.landing-filter-checkbox-label--flash {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #d81f26;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.landing-filter-checkbox-label--flash svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 /* Badge en pastilla, mismo criterio que el ".count" de la referencia — se resalta con el color de
  * acento cuando ese filtro ya está tildado. */
 .landing-filter-count {

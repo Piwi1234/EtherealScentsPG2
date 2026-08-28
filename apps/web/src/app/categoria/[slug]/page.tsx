@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { displayPrice, getAttributeFilterOptions, hasDiscount } from "../../../lib/catalog-display";
+import { displayPrice, getAttributeFilterOptions, hasActiveFlash, hasDiscount } from "../../../lib/catalog-display";
 import type { Attribute, Category, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
@@ -36,6 +36,7 @@ export default function CategoriaPage() {
 
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [discountOnly, setDiscountOnly] = useState(false);
+  const [flashOnly, setFlashOnly] = useState(false);
   // priceRange: posición actual del slider (se ve en vivo). priceApplied: lo que realmente filtra
   // — se actualiza recién al tocar "Filtrar", como en el mock de referencia.
   const [priceRange, setPriceRange] = useState<PriceRange | null>(null);
@@ -121,10 +122,11 @@ export default function CategoriaPage() {
       if (values.length > 0) params.set(`attr[${attributeId}]`, values.join(","));
     }
     if (discountOnly) params.set("onlyDiscounted", "true");
+    if (flashOnly) params.set("onlyFlash", "true");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setProductsPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category, subCategoryFilter, attributeFilters, discountOnly]);
+  }, [category, subCategoryFilter, attributeFilters, discountOnly, flashOnly]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría. Se fija recién
   // cuando se conoce (basePage llega después de category) y solo se resetea si cambia de techo.
@@ -162,6 +164,10 @@ export default function CategoriaPage() {
     setDiscountOnly((prev) => !prev);
   }
 
+  function toggleFlashOnly() {
+    setFlashOnly((prev) => !prev);
+  }
+
   function handlePriceMinChange(value: number) {
     setPriceRange((prev) => {
       const max = prev ? prev[1] : priceBoundsMax;
@@ -197,6 +203,7 @@ export default function CategoriaPage() {
   function clearAllFilters() {
     setSubCategoryFilter("");
     setDiscountOnly(false);
+    setFlashOnly(false);
     setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
     setPriceApplied(null);
     setBrandFilters([]);
@@ -205,11 +212,17 @@ export default function CategoriaPage() {
 
   const hasActiveAttributeFilters = Object.keys(attributeFilters).length > 0;
   const hasActiveFilters =
-    hasActiveAttributeFilters || subCategoryFilter !== "" || discountOnly || brandFilters.length > 0 || priceApplied !== null;
+    hasActiveAttributeFilters ||
+    subCategoryFilter !== "" ||
+    discountOnly ||
+    flashOnly ||
+    brandFilters.length > 0 ||
+    priceApplied !== null;
   const activeFilterCount =
     Object.keys(attributeFilters).length +
     (subCategoryFilter ? 1 : 0) +
     (discountOnly ? 1 : 0) +
+    (flashOnly ? 1 : 0) +
     brandFilters.length +
     (priceApplied ? 1 : 0);
 
@@ -223,6 +236,7 @@ export default function CategoriaPage() {
   }, [basePage]);
 
   const discountCount = useMemo(() => (basePage?.items ?? []).filter(hasDiscount).length, [basePage]);
+  const flashCount = useMemo(() => (basePage?.items ?? []).filter(hasActiveFlash).length, [basePage]);
 
   const brandsWithCounts: BrandCount[] = useMemo(() => {
     const byId = new Map<string, BrandCount>();
@@ -279,13 +293,20 @@ export default function CategoriaPage() {
   }
 
   const hasSidebarContent =
-    subcategories.length > 0 || discountCount > 0 || brandsWithCounts.length > 0 || filterableAttributes.length > 0;
+    subcategories.length > 0 ||
+    discountCount > 0 ||
+    flashCount > 0 ||
+    brandsWithCounts.length > 0 ||
+    filterableAttributes.length > 0;
 
   const filterGroupsProps = {
     resetKey: slug,
     discountOnly,
     onToggleDiscountOnly: toggleDiscountOnly,
     discountCount,
+    flashOnly,
+    onToggleFlashOnly: toggleFlashOnly,
+    flashCount,
     subcategories,
     subCategoryFilter,
     onSelectSubcategory: selectSubcategory,
@@ -534,6 +555,9 @@ type FilterGroupsProps = {
   discountOnly: boolean;
   onToggleDiscountOnly: () => void;
   discountCount: number;
+  flashOnly: boolean;
+  onToggleFlashOnly: () => void;
+  flashCount: number;
   subcategories: Category[];
   subCategoryFilter: string;
   onSelectSubcategory: (id: string) => void;
@@ -557,6 +581,9 @@ function FilterGroups({
   discountOnly,
   onToggleDiscountOnly,
   discountCount,
+  flashOnly,
+  onToggleFlashOnly,
+  flashCount,
   subcategories,
   subCategoryFilter,
   onSelectSubcategory,
@@ -571,14 +598,45 @@ function FilterGroups({
 }: FilterGroupsProps) {
   return (
     <div className="landing-filter-groups-box">
-      {(discountCount > 0 || discountOnly) && (
+      {(discountCount > 0 || discountOnly || flashCount > 0 || flashOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
-          <label className="landing-filter-checkbox">
-            <input type="checkbox" checked={discountOnly} onChange={onToggleDiscountOnly} />
-            <span className="landing-filter-checkbox-label">Productos con Descuento</span>
-            <span className="landing-filter-count">{discountCount}</span>
-          </label>
+          {(discountCount > 0 || discountOnly) && (
+            <label className="landing-filter-checkbox">
+              <input type="checkbox" checked={discountOnly} onChange={onToggleDiscountOnly} />
+              <span className="landing-filter-checkbox-label">Productos con Descuento</span>
+              <span className="landing-filter-count">{discountCount}</span>
+            </label>
+          )}
+          {(flashCount > 0 || flashOnly) && (
+            <label className="landing-filter-checkbox">
+              <input type="checkbox" checked={flashOnly} onChange={onToggleFlashOnly} />
+              <span className="landing-filter-checkbox-label landing-filter-checkbox-label--flash">
+                Por tiempo limitado
+                <svg viewBox="0 0 24 24">
+                  <path
+                    fill="#f97316"
+                    d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248Z"
+                  />
+                  <path
+                    fill="#fde047"
+                    d="M15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.545 3.75 3.75 0 0 1 3.255 3.717Z"
+                  />
+                </svg>
+                <svg viewBox="0 0 24 24">
+                  <path
+                    fill="#f97316"
+                    d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248Z"
+                  />
+                  <path
+                    fill="#fde047"
+                    d="M15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.545 3.75 3.75 0 0 1 3.255 3.717Z"
+                  />
+                </svg>
+              </span>
+              <span className="landing-filter-count">{flashCount}</span>
+            </label>
+          )}
         </div>
       )}
 
