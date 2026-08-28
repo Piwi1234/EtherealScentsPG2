@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
@@ -44,6 +44,7 @@ export function LandingNavbar({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   const categoryTree = rootCategories.map((cat) => ({
@@ -67,6 +68,15 @@ export function LandingNavbar({
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [variant]);
+
+  // Ya en /home: en vez de navegar (no hace nada, Next.js no re-renderiza la misma ruta), sube al
+  // hero con scroll suave — en cualquier otra página, el Link de abajo navega a /home normal.
+  function handleLogoClick() {
+    setMobileMenuOpen(false);
+    if (pathname === "/home") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
 
   function goToSection(id: string) {
     setMobileMenuOpen(false);
@@ -132,7 +142,7 @@ export function LandingNavbar({
           orden que pontocom.com. Las categorías van en su propia fila debajo (ver
           .landing-navbar-categories), como su mega-menú separado. */}
       <div className="landing-container landing-navbar-inner">
-        <Link href="/home" className="landing-navbar-brand" onClick={() => setMobileMenuOpen(false)}>
+        <Link href="/home" className="landing-navbar-brand" onClick={handleLogoClick}>
           {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
         </Link>
 
