@@ -3626,16 +3626,9 @@ a {
   text-overflow: ellipsis;
 }
 
-/* Etiqueta sólida (no la cinta con muesca de las demás tarjetas del sitio) — cuadradito redondeado
-   arriba a la izquierda, como en la referencia. Solo en este carrusel. */
 .landing-product-grid--carousel .landing-product-offer-badge {
-  top: 10px;
-  left: 10px;
   padding: 4px 9px;
   font-size: 9.5px;
-  border: none;
-  border-radius: 6px;
-  clip-path: none;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
@@ -3834,7 +3827,7 @@ a {
 
 .landing-product-grid--weekly .landing-product-offer-badge {
   top: 8px;
-  padding: 3px 8px 3px 12px;
+  padding: 3px 8px;
   font-size: 9.5px;
 }
 
@@ -3918,27 +3911,27 @@ a {
 }
 
 /* Badge "Oferta": sobrepuesto arriba a la izquierda de la imagen, para productos (o alguna de sus
-   variantes) con descuento — ver `hasDiscount`. Forma de cinta/flecha vía clip-path, apuntando hacia
-   afuera (izquierda). */
+   variantes) con descuento — ver `hasDiscount`. Insignia sólida redondeada (antes era una cinta con
+   muesca vía clip-path; se reemplazó en todas las tarjetas del sitio por el mismo diseño que se creó
+   para el carrusel de "Descuento y Ofertas" del home). */
 .landing-product-offer-badge {
   position: absolute;
-  top: 14px;
-  left: -6px;
+  top: 10px;
+  left: 10px;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px 5px 16px;
+  padding: 5px 10px;
   background: #d81f26;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border: 1.5px dashed rgba(255, 255, 255, 0.75);
-  border-radius: 0 3px 3px 0;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
-  clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%);
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .landing-product-offer-badge svg {
@@ -4673,19 +4666,16 @@ a {
 }
 
 /* La etiqueta "Oferta" acá va del lado derecho (no izquierdo como en las tarjetas) y 35% más grande
-   — mismo diseño de banderín, pero espejado (la muesca apunta hacia la derecha) y con todas las
-   medidas escaladas ×1.35. */
+   — mismo diseño sólido redondeado de las tarjetas, con todas las medidas escaladas ×1.35. */
 .landing-product-detail-image-wrap .landing-product-offer-badge {
-  top: 19px;
+  top: 14px;
   left: auto;
-  right: -8px;
+  right: 14px;
   gap: 7px;
-  padding: 7px 22px 7px 14px;
+  padding: 7px 14px;
   font-size: 15px;
-  border-width: 2px;
-  border-radius: 4px 0 0 4px;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+  border-radius: 8px;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.32);
 }
 
 .landing-product-detail-image-wrap .landing-product-offer-badge svg {
