@@ -15,6 +15,7 @@ import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-
 import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { generateUniqueEntityCode } from "../entity-code";
 import { withPrice } from "../product-price";
+import { expireFlashOffers } from "../expire-flash-offers";
 import { PRODUCT_IMAGES_DIR } from "./product-image.multer";
 
 const includeDetails = {
@@ -240,6 +241,8 @@ export class ProductService {
   }
 
   async findAll(query: { page?: string; pageSize?: string; categoryId?: string; brandId?: string; search?: string }) {
+    await expireFlashOffers(this.prisma);
+
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
@@ -271,6 +274,7 @@ export class ProductService {
   }
 
   async findOne(id: string) {
+    await expireFlashOffers(this.prisma);
     const product = await this.prisma.product.findUnique({ where: { id }, include: includeDetails });
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
@@ -531,6 +535,7 @@ export class ProductService {
             minPriceBs: dto.minPriceBs,
             discountBs: dto.discountBs,
             disponible: dto.disponible,
+            ofertaFlashHasta: dto.ofertaFlashHasta,
           },
         });
       });

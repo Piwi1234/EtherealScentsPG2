@@ -15,7 +15,16 @@ import {
   updatePresentacion,
 } from "../../../lib/api";
 import { consumeFlashMessage, setFlashMessage } from "../../../lib/flash";
-import type { Attribute, Brand, Category, ExchangeRateResponse, PresentacionVenta, Product, UnidadVariante } from "../../../lib/types";
+import type {
+  Attribute,
+  Brand,
+  Category,
+  ExchangeRateResponse,
+  PresentacionVenta,
+  Product,
+  ProductVariant,
+  UnidadVariante,
+} from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 function productImageSrc(imageUrl: string | null): string | null {
@@ -129,6 +138,15 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [nuevoPrecioBs, setNuevoPrecioBs] = useState("");
   const [presentacionError, setPresentacionError] = useState("");
   const [presentacionSubmitting, setPresentacionSubmitting] = useState(false);
+
+  // Oferta Flash por variante (categorías con precio propio) — se edita en un modal aparte, por
+  // variante, igual que Presentaciones arriba.
+  const [flashModalVariantId, setFlashModalVariantId] = useState<string | null>(null);
+  const [variantFlashMode, setVariantFlashMode] = useState<"none" | "exact" | "endOfDay">("none");
+  const [variantFlashDate, setVariantFlashDate] = useState("");
+  const [variantFlashTime, setVariantFlashTime] = useState("20:00");
+  const [variantFlashError, setVariantFlashError] = useState("");
+  const [variantFlashSubmitting, setVariantFlashSubmitting] = useState(false);
 
   const rootCategoryOptions = categories.filter((cat) => cat.parentId === null);
   const subCategoryOptions = categories.filter((cat) => cat.parentId === rootCategoryId);
@@ -266,11 +284,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       return;
     }
 
-    if (flashMode !== "none" && !flashDate) {
+    if (pricedVariantAttrs.length === 0 && flashMode !== "none" && !flashDate) {
       setFormError("Elegí una fecha para la Oferta Flash (o quitale el temporizador).");
       return;
     }
-    if (flashMode === "exact" && !flashTime) {
+    if (pricedVariantAttrs.length === 0 && flashMode === "exact" && !flashTime) {
       setFormError("Elegí una hora para la Oferta Flash.");
       return;
     }
@@ -295,8 +313,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       // variante: pedirlo acá también sería redundante. Ojo: hay que OMITIR purchasePrice (no mandar
       // 0), porque el backend lo valida como número positivo cuando el campo está presente.
       const usesPricedVariants = pricedVariantAttrs.length > 0;
-      const ofertaFlashHasta =
-        flashMode === "none"
+      // Igual que purchasePrice/discountBs: si la categoría tiene variantes con precio propio, la
+      // Oferta Flash se carga por variante (tabla de arriba) y este campo del producto no aplica.
+      const ofertaFlashHasta = usesPricedVariants
+        ? undefined
+        : flashMode === "none"
           ? null
           : flashMode === "endOfDay"
             ? gmt4ToUtcIso(flashDate, "23:59", 59)
@@ -445,6 +466,46 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         ...prev,
         [variantId]: e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e),
       }));
+    }
+  }
+
+  function openVariantFlashModal(variant: ProductVariant) {
+    const parts = variant.ofertaFlashHasta ? utcIsoToGmt4Parts(variant.ofertaFlashHasta) : null;
+    setFlashModalVariantId(variant.id);
+    setVariantFlashMode(!parts ? "none" : parts.time === "23:59" ? "endOfDay" : "exact");
+    setVariantFlashDate(parts?.date ?? "");
+    setVariantFlashTime(parts?.time ?? "20:00");
+    setVariantFlashError("");
+  }
+
+  async function handleSaveVariantFlash() {
+    if (!currentProduct || !flashModalVariantId) return;
+    if (variantFlashMode !== "none" && !variantFlashDate) {
+      setVariantFlashError("Elegí una fecha.");
+      return;
+    }
+    if (variantFlashMode === "exact" && !variantFlashTime) {
+      setVariantFlashError("Elegí una hora.");
+      return;
+    }
+    const ofertaFlashHasta =
+      variantFlashMode === "none"
+        ? null
+        : variantFlashMode === "endOfDay"
+          ? gmt4ToUtcIso(variantFlashDate, "23:59", 59)
+          : gmt4ToUtcIso(variantFlashDate, variantFlashTime);
+    setVariantFlashSubmitting(true);
+    setVariantFlashError("");
+    try {
+      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variants/${flashModalVariantId}`, {
+        ofertaFlashHasta,
+      });
+      setCurrentProduct(updated);
+      setFlashModalVariantId(null);
+    } catch (e) {
+      setVariantFlashError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setVariantFlashSubmitting(false);
     }
   }
 
@@ -843,6 +904,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                               <th>Add May</th>
                               <th>Desc. Bs</th>
                               <th>Final Bs</th>
+                              <th>Oferta Flash</th>
                               <th></th>
                             </tr>
                           </thead>
@@ -959,6 +1021,15 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                   <td>
                                     <button
                                       type="button"
+                                      className="link-button"
+                                      onClick={() => openVariantFlashModal(variant)}
+                                    >
+                                      {variant.ofertaFlashHasta ? "Activa ⚡" : "Sin temporizador"}
+                                    </button>
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
                                       className="link-button danger"
                                       onClick={() => handleDeleteVariant(variant.id)}
                                     >
@@ -968,7 +1039,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                 </tr>
                                 {variantRowError[variant.id] && (
                                   <tr>
-                                    <td colSpan={12} className="error-text" style={{ fontSize: 12 }}>
+                                    <td colSpan={13} className="error-text" style={{ fontSize: 12 }}>
                                       {variantRowError[variant.id]}
                                     </td>
                                   </tr>
@@ -1227,39 +1298,46 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
           </div>
         </div>
 
-        <div className="card" style={{ marginTop: 20 }}>
-          <h2 className="section-label">Oferta Flash</h2>
-          <p className="cell-muted" style={{ fontSize: 13, margin: "0 0 14px" }}>
-            Mientras el temporizador esté activo, el producto aparece en el filtro "Ofertas Flash" del home. La
-            hora se interpreta siempre en GMT-4 (la zona horaria de la tienda).
-          </p>
-          <div className="grid-2">
-            <div>
-              <label>Temporizador</label>
-              <select
-                className="field"
-                value={flashMode}
-                onChange={(e) => setFlashMode(e.target.value as "none" | "exact" | "endOfDay")}
-              >
-                <option value="none">Sin temporizador</option>
-                <option value="exact">Hasta una hora exacta</option>
-                <option value="endOfDay">Hasta el final del día (23:59:59)</option>
-              </select>
-            </div>
-            {flashMode !== "none" && (
+        {pricedVariantAttrs.length === 0 ? (
+          <div className="card" style={{ marginTop: 20 }}>
+            <h2 className="section-label">Oferta Flash</h2>
+            <p className="cell-muted" style={{ fontSize: 13, margin: "0 0 14px" }}>
+              Mientras el temporizador esté activo, el producto aparece en el filtro "Ofertas Flash" del home. La
+              hora se interpreta siempre en GMT-4 (la zona horaria de la tienda).
+            </p>
+            <div className="grid-2">
               <div>
-                <label>Fecha (GMT-4)</label>
-                <input className="field" type="date" value={flashDate} onChange={(e) => setFlashDate(e.target.value)} />
+                <label>Temporizador</label>
+                <select
+                  className="field"
+                  value={flashMode}
+                  onChange={(e) => setFlashMode(e.target.value as "none" | "exact" | "endOfDay")}
+                >
+                  <option value="none">Sin temporizador</option>
+                  <option value="exact">Hasta una hora exacta</option>
+                  <option value="endOfDay">Hasta el final del día (23:59:59)</option>
+                </select>
+              </div>
+              {flashMode !== "none" && (
+                <div>
+                  <label>Fecha (GMT-4)</label>
+                  <input className="field" type="date" value={flashDate} onChange={(e) => setFlashDate(e.target.value)} />
+                </div>
+              )}
+            </div>
+            {flashMode === "exact" && (
+              <div style={{ marginTop: 12, maxWidth: 220 }}>
+                <label>Hora (GMT-4)</label>
+                <input className="field" type="time" value={flashTime} onChange={(e) => setFlashTime(e.target.value)} />
               </div>
             )}
           </div>
-          {flashMode === "exact" && (
-            <div style={{ marginTop: 12, maxWidth: 220 }}>
-              <label>Hora (GMT-4)</label>
-              <input className="field" type="time" value={flashTime} onChange={(e) => setFlashTime(e.target.value)} />
-            </div>
-          )}
-        </div>
+        ) : (
+          <p className="cell-muted" style={{ fontSize: 13, marginTop: 20 }}>
+            Este producto tiene variantes con precio propio: la Oferta Flash se configura por variante, en la
+            columna "Oferta Flash" de la tabla de variantes (arriba).
+          </p>
+        )}
 
         {formError && <p className="error-text">{formError}</p>}
         <div className="form-actions">
@@ -1325,6 +1403,59 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {flashModalVariantId && (
+        <Modal title="Oferta Flash de la variante" onClose={() => setFlashModalVariantId(null)}>
+          <p className="cell-muted" style={{ fontSize: 13, margin: "0 0 14px" }}>
+            La hora se interpreta siempre en GMT-4 (la zona horaria de la tienda).
+          </p>
+          <div className="grid-2">
+            <div>
+              <label>Temporizador</label>
+              <select
+                className="field"
+                value={variantFlashMode}
+                onChange={(e) => setVariantFlashMode(e.target.value as "none" | "exact" | "endOfDay")}
+              >
+                <option value="none">Sin temporizador</option>
+                <option value="exact">Hasta una hora exacta</option>
+                <option value="endOfDay">Hasta el final del día (23:59:59)</option>
+              </select>
+            </div>
+            {variantFlashMode !== "none" && (
+              <div>
+                <label>Fecha (GMT-4)</label>
+                <input
+                  className="field"
+                  type="date"
+                  value={variantFlashDate}
+                  onChange={(e) => setVariantFlashDate(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          {variantFlashMode === "exact" && (
+            <div style={{ marginTop: 12, maxWidth: 220 }}>
+              <label>Hora (GMT-4)</label>
+              <input
+                className="field"
+                type="time"
+                value={variantFlashTime}
+                onChange={(e) => setVariantFlashTime(e.target.value)}
+              />
+            </div>
+          )}
+          {variantFlashError && <p className="error-text">{variantFlashError}</p>}
+          <div className="form-actions">
+            <button type="button" className="link-button" onClick={() => setFlashModalVariantId(null)}>
+              Cancelar
+            </button>
+            <button type="button" className="button" disabled={variantFlashSubmitting} onClick={handleSaveVariantFlash}>
+              {variantFlashSubmitting ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
         </Modal>
       )}
     </div>

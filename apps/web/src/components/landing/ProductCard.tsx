@@ -3,7 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
-import { cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import { cardImageUrl, displayPrice, flashUntilFor, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
 import { formatAtributosVisiblesValores, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
@@ -18,6 +18,7 @@ export function ProductCard({ product, className = "" }: { product: Product; cla
   const atributos = formatAtributosVisiblesValores(product.attributeValues, product.variantOptionValues);
   const soldOut = isSoldOut(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
+  const flashUntil = flashUntilFor(product, variant);
 
   function handleAdd(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -68,7 +69,7 @@ export function ProductCard({ product, className = "" }: { product: Product; cla
         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
         <p className="landing-product-name">{product.name}</p>
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
-        {product.ofertaFlashHasta && <FlashCountdown until={product.ofertaFlashHasta} />}
+        {flashUntil && <FlashCountdown until={flashUntil} />}
         {soldOut ? (
           <span className="landing-product-soldout-stamp">Sold Out</span>
         ) : discountBs > 0 ? (

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
 import { UnidadVariante } from "@app/database";
 
 export class CreateProductVariantDto {
@@ -51,6 +51,16 @@ export class CreateProductVariantDto {
   @IsOptional()
   @IsBoolean()
   disponible?: boolean;
+
+  @ApiPropertyOptional({
+    example: "2026-08-30T03:59:59.000Z",
+    description:
+      "Instante UTC hasta el que ESTA variante aparece en \"Ofertas Flash\" — null para quitarle el temporizador.",
+    nullable: true,
+  })
+  @IsOptional()
+  @IsISO8601()
+  ofertaFlashHasta?: string | null;
 }
 
 export class UpdateProductVariantDto extends PartialType(CreateProductVariantDto) {}

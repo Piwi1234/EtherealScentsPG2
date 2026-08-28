@@ -63,6 +63,14 @@ export function hasDiscount(product: Product): boolean {
   return product.variants.some((v) => !v.isDefault && Number(v.discountBs) > 0);
 }
 
+/** Instante (ISO) hasta el que corre la Oferta Flash a mostrar — de la variante puntual si el
+ * producto tiene variantes con precio propio (más de una, la "default" auto-provista no cuenta),
+ * del producto si no. Mismo criterio que `codigo` en la página de producto/ProductCard: el producto
+ * es la fuente de verdad para catálogo simple, la variante para catálogo con precio propio. */
+export function flashUntilFor(product: Product, variant: ProductVariant | null): string | null {
+  return variant && product.variants.length > 1 ? variant.ofertaFlashHasta : product.ofertaFlashHasta;
+}
+
 /** true si TODAS las variantes del producto están marcadas no disponibles — en ese caso la tarjeta
  * muestra el sello "Sold Out" en vez del precio. Un producto sin variantes (no debería pasar en la
  * práctica, ver `ensureDefaultVariant`) no se considera agotado. */

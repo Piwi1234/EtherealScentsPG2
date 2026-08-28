@@ -6,6 +6,7 @@ import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
 import { SettingsService } from "../../settings/settings.service";
 import { withPrice } from "../product-price";
+import { expireFlashOffers } from "../expire-flash-offers";
 
 const includeDetails = {
   brand: true,
@@ -46,6 +47,8 @@ export class CatalogBrowseService {
   ) {}
 
   async findProducts(query: FindCatalogProductsQuery) {
+    await expireFlashOffers(this.prisma);
+
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",
       pageSize: query.pageSize ?? "20",
@@ -84,7 +87,11 @@ export class CatalogBrowseService {
     }
 
     if (query.onlyFlash === "true") {
-      andConditions.push({ ofertaFlashHasta: { gt: new Date() } });
+      // El producto entra si el temporizador está en el producto (catálogo simple) o en alguna de
+      // sus variantes con precio propio (ver ofertaFlashHasta en Product y ProductVariant).
+      andConditions.push({
+        OR: [{ ofertaFlashHasta: { gt: new Date() } }, { variants: { some: { ofertaFlashHasta: { gt: new Date() } } } }],
+      });
     }
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
@@ -102,6 +109,7 @@ export class CatalogBrowseService {
 
   /** Detalle público de un producto (página de producto del catálogo). */
   async getProduct(id: string) {
+    await expireFlashOffers(this.prisma);
     const product = await this.prisma.product.findUnique({ where: { id }, include: includeDetails });
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
@@ -112,6 +120,7 @@ export class CatalogBrowseService {
 
   /** Para la página pública /producto/[slug] — URL corta y legible en vez del uuid. */
   async getProductBySlug(slug: string) {
+    await expireFlashOffers(this.prisma);
     const product = await this.prisma.product.findUnique({ where: { slug }, include: includeDetails });
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");

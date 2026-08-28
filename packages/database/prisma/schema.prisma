@@ -443,6 +443,12 @@ model ProductVariant {
   // filtrar el catálogo público más adelante). Aplica a cualquier variante, PZA o ML.
   disponible Boolean @default(true)
 
+  // Mismo criterio que Product.ofertaFlashHasta, pero para productos con variantes con precio
+  // propio: cada variante tiene su propio temporizador (ej. "50 ML" en oferta flash y "100 ML" no).
+  // Un sweep en cada lectura del catálogo (ver expireFlashOffers) pone discountBs en 0 y esto en
+  // null apenas se vence, para que el precio nunca quede con un descuento "fantasma".
+  ofertaFlashHasta DateTime? @map("oferta_flash_hasta")
+
   options        ProductVariantOption[]
   presentaciones PresentacionVenta[]
 

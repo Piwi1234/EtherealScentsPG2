@@ -146,6 +146,8 @@ export type ProductVariant = {
   imageUrl: string | null;
   /** Control de catálogo — todavía no lo consume ningún flujo automático. */
   disponible: boolean;
+  // Instante UTC hasta el que ESTA variante aparece en "Ofertas Flash". Null = sin temporizador.
+  ofertaFlashHasta: string | null;
   options: ProductVariantOption[];
 };
 
