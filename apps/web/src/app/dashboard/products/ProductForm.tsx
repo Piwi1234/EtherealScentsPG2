@@ -27,6 +27,33 @@ function roundUpToTen(value: number): number {
   return Math.ceil(value / 10) * 10;
 }
 
+// Oferta Flash: el admin siempre carga la hora en GMT-4 (la zona horaria de la tienda), sin importar
+// en qué huso esté su propia computadora — se convierte a UTC acá mismo, antes de mandarlo al backend.
+const GMT4_OFFSET_MS = 4 * 60 * 60 * 1000;
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** dateStr "YYYY-MM-DD" + timeStr "HH:mm" (hora de pared en GMT-4) -> instante UTC en ISO. */
+function gmt4ToUtcIso(dateStr: string, timeStr: string, seconds = 0): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  // Date.UTC toma los componentes tal cual (como si fueran UTC); sumar el offset de GMT-4 corrige
+  // eso para que el resultado sea el instante UTC real que corresponde a esa hora de pared.
+  return new Date(Date.UTC(y, m - 1, d, hh, mm, seconds) + GMT4_OFFSET_MS).toISOString();
+}
+
+/** Instante UTC en ISO -> { date, time } de su hora de pared equivalente en GMT-4 (para precargar el form). */
+function utcIsoToGmt4Parts(iso: string): { date: string; time: string } {
+  const gmt4Ms = new Date(iso).getTime() - GMT4_OFFSET_MS;
+  const d = new Date(gmt4Ms);
+  return {
+    date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`,
+    time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`,
+  };
+}
+
 type VariantFormState = {
   optionsByAttribute: Record<string, string>;
   purchasePrice: string;
@@ -62,6 +89,14 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [utility, setUtility] = useState(editing?.utility ?? "0");
   const [minPriceBs, setMinPriceBs] = useState(editing?.minPriceBs ?? "");
   const [discountBs, setDiscountBs] = useState(editing?.discountBs ?? "0");
+  // Oferta Flash: "endOfDay" y "exact" son solo del formulario (no se guardan como tales) — al
+  // editar, si la hora de pared en GMT-4 guardada es 23:59 se asume "endOfDay", si no "exact".
+  const initialFlashParts = editing?.ofertaFlashHasta ? utcIsoToGmt4Parts(editing.ofertaFlashHasta) : null;
+  const [flashMode, setFlashMode] = useState<"none" | "exact" | "endOfDay">(
+    !initialFlashParts ? "none" : initialFlashParts.time === "23:59" ? "endOfDay" : "exact",
+  );
+  const [flashDate, setFlashDate] = useState(initialFlashParts?.date ?? "");
+  const [flashTime, setFlashTime] = useState(initialFlashParts?.time ?? "20:00");
   const [exchangeRate, setExchangeRate] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
@@ -231,6 +266,15 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       return;
     }
 
+    if (flashMode !== "none" && !flashDate) {
+      setFormError("Elegí una fecha para la Oferta Flash (o quitale el temporizador).");
+      return;
+    }
+    if (flashMode === "exact" && !flashTime) {
+      setFormError("Elegí una hora para la Oferta Flash.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const regularPayload = regularAttrs
@@ -251,6 +295,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       // variante: pedirlo acá también sería redundante. Ojo: hay que OMITIR purchasePrice (no mandar
       // 0), porque el backend lo valida como número positivo cuando el campo está presente.
       const usesPricedVariants = pricedVariantAttrs.length > 0;
+      const ofertaFlashHasta =
+        flashMode === "none"
+          ? null
+          : flashMode === "endOfDay"
+            ? gmt4ToUtcIso(flashDate, "23:59", 59)
+            : gmt4ToUtcIso(flashDate, flashTime);
       const payload = {
         name,
         purchasePrice: usesPricedVariants ? undefined : Number(purchasePrice),
@@ -260,6 +310,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
         brandId: brandId || undefined,
         categoryId,
         attributeValues: [...regularPayload, ...multiSelectPayload],
+        ofertaFlashHasta,
       };
 
       const saved = editing
@@ -1174,6 +1225,40 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="card" style={{ marginTop: 20 }}>
+          <h2 className="section-label">Oferta Flash</h2>
+          <p className="cell-muted" style={{ fontSize: 13, margin: "0 0 14px" }}>
+            Mientras el temporizador esté activo, el producto aparece en el filtro "Ofertas Flash" del home. La
+            hora se interpreta siempre en GMT-4 (la zona horaria de la tienda).
+          </p>
+          <div className="grid-2">
+            <div>
+              <label>Temporizador</label>
+              <select
+                className="field"
+                value={flashMode}
+                onChange={(e) => setFlashMode(e.target.value as "none" | "exact" | "endOfDay")}
+              >
+                <option value="none">Sin temporizador</option>
+                <option value="exact">Hasta una hora exacta</option>
+                <option value="endOfDay">Hasta el final del día (23:59:59)</option>
+              </select>
+            </div>
+            {flashMode !== "none" && (
+              <div>
+                <label>Fecha (GMT-4)</label>
+                <input className="field" type="date" value={flashDate} onChange={(e) => setFlashDate(e.target.value)} />
+              </div>
+            )}
+          </div>
+          {flashMode === "exact" && (
+            <div style={{ marginTop: 12, maxWidth: 220 }}>
+              <label>Hora (GMT-4)</label>
+              <input className="field" type="time" value={flashTime} onChange={(e) => setFlashTime(e.target.value)} />
+            </div>
+          )}
         </div>
 
         {formError && <p className="error-text">{formError}</p>}

@@ -37,6 +37,7 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [flashOnly, setFlashOnly] = useState(false);
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
@@ -68,11 +69,16 @@ export default function HomePage() {
 
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
   // modificación), de 4 en 4 — el 5to lugar de la fila lo ocupa el banner de ofertas (ver abajo).
+  // "Ofertas Flash" reemplaza el filtro de descuento/categoría por productos con temporizador vigente.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (categoryFilter) params.set("categoryId", categoryFilter);
+    if (flashOnly) {
+      params.set("onlyFlash", "true");
+    } else {
+      if (categoryFilter) params.set("categoryId", categoryFilter);
+      params.set("onlyDiscounted", "true");
+    }
     params.set("pageSize", "40");
-    params.set("onlyDiscounted", "true");
     params.set("sortBy", "actualizados");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then((page) => {
@@ -80,7 +86,7 @@ export default function HomePage() {
         setOffersSlide(0);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [categoryFilter]);
+  }, [categoryFilter, flashOnly]);
 
   const offersChunks = useMemo(() => chunk(productsPage?.items ?? [], OFFERS_SLIDE_SIZE), [productsPage]);
 
@@ -208,8 +214,11 @@ export default function HomePage() {
           <div className="landing-filter-pills">
             <button
               type="button"
-              className={`landing-pill${categoryFilter === "" ? " landing-pill-active" : ""}`}
-              onClick={() => setCategoryFilter("")}
+              className={`landing-pill${categoryFilter === "" && !flashOnly ? " landing-pill-active" : ""}`}
+              onClick={() => {
+                setCategoryFilter("");
+                setFlashOnly(false);
+              }}
             >
               Todas
             </button>
@@ -217,14 +226,23 @@ export default function HomePage() {
               <button
                 key={cat.id}
                 type="button"
-                className={`landing-pill${categoryFilter === cat.id ? " landing-pill-active" : ""}`}
-                onClick={() => setCategoryFilter(cat.id)}
+                className={`landing-pill${categoryFilter === cat.id && !flashOnly ? " landing-pill-active" : ""}`}
+                onClick={() => {
+                  setCategoryFilter(cat.id);
+                  setFlashOnly(false);
+                }}
               >
                 {cat.name}
               </button>
             ))}
-            {/* Todavía sin lógica de filtro propia — falta definir cómo se usa (pendiente). */}
-            <button type="button" className="landing-pill landing-pill-flash">
+            <button
+              type="button"
+              className={`landing-pill landing-pill-flash${flashOnly ? " landing-pill-flash-active" : ""}`}
+              onClick={() => {
+                setFlashOnly(true);
+                setCategoryFilter("");
+              }}
+            >
               Ofertas Flash
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M13 2 3 14h6.5l-1.5 8L21 10h-6.5L13 2Z" />

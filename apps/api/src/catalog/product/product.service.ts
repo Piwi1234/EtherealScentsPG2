@@ -222,6 +222,7 @@ export class ProductService {
             discountBs: dto.discountBs ?? 0,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
+            ofertaFlashHasta: dto.ofertaFlashHasta,
             attributeValues: { create: attributeValuesData },
           },
         });
@@ -333,6 +334,7 @@ export class ProductService {
             discountBs: dto.discountBs,
             brandId: dto.brandId,
             categoryId: dto.categoryId,
+            ofertaFlashHasta: dto.ofertaFlashHasta,
           },
         });
 

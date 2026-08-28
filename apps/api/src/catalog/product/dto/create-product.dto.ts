@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min, ValidateNested } from "class-validator";
+import { IsArray, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min, ValidateNested } from "class-validator";
 import { ProductAttributeValueInputDto } from "./product-attribute-value.dto";
 
 export class CreateProductDto {
@@ -57,4 +57,14 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductAttributeValueInputDto)
   attributeValues?: ProductAttributeValueInputDto[];
+
+  @ApiPropertyOptional({
+    example: "2026-08-30T03:59:59.000Z",
+    description:
+      "Instante UTC hasta el que el producto aparece en \"Ofertas Flash\" — null para quitarle el temporizador.",
+    nullable: true,
+  })
+  @IsOptional()
+  @IsISO8601()
+  ofertaFlashHasta?: string | null;
 }

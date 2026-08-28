@@ -3454,7 +3454,8 @@ a {
   color: #d81f26;
 }
 
-.landing-pill-flash:hover {
+.landing-pill-flash:hover,
+.landing-pill-flash-active {
   background: #d81f26;
   color: #ffffff;
 }
@@ -3929,11 +3930,36 @@ a {
   line-height: 1.4;
 }
 
+.landing-flash-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #d81f26;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.landing-flash-countdown svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
 .landing-product-price {
   font-size: 17px;
   font-weight: 700;
   margin-top: auto;
   padding-top: 8px;
+}
+
+.landing-flash-countdown + .landing-product-price,
+.landing-flash-countdown + .landing-product-soldout-stamp {
+  margin-top: 6px;
 }
 
 /* Cuando el producto/variante mostrada tiene descuento: precio anterior tachado + precio nuevo en

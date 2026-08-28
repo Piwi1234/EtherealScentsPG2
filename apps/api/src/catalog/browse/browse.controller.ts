@@ -24,9 +24,10 @@ export class CatalogBrowseController {
     @Query("search") search?: string,
     @Query("attr") attr?: Record<string, string>,
     @Query("onlyDiscounted") onlyDiscounted?: string,
+    @Query("onlyFlash") onlyFlash?: string,
     @Query("sortBy") sortBy?: string,
   ) {
-    return this.browse.findProducts({ categoryId, brandId, page, pageSize, search, attr, onlyDiscounted, sortBy });
+    return this.browse.findProducts({ categoryId, brandId, page, pageSize, search, attr, onlyDiscounted, onlyFlash, sortBy });
   }
 
   @Get("categories/:categoryId/filters")

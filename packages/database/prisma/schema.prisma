@@ -363,6 +363,10 @@ model Product {
   categoryId    String   @map("category_id") @db.Uuid
   category      Category @relation(fields: [categoryId], references: [id])
   imageUrl      String?  @map("image_url")
+  // Instante UTC hasta el que el producto aparece en el filtro "Ofertas Flash" del home — se guarda
+  // siempre en UTC; el panel lo arma a partir de la hora que carga el admin en GMT-4 (ver
+  // gmt4ToUtcIso en apps/web). Null = sin temporizador activo.
+  ofertaFlashHasta DateTime? @map("oferta_flash_hasta")
 
   attributeValues     ProductAttributeValue[]
   variantOptionValues ProductVariantOptionValue[]

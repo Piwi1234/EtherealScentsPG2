@@ -28,6 +28,9 @@ export interface FindCatalogProductsQuery {
    * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
    * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). */
   onlyDiscounted?: string;
+  /** "true": solo productos con un temporizador de "Ofertas Flash" todavía vigente
+   * (ofertaFlashHasta en el futuro). */
+  onlyFlash?: string;
   /** "actualizados": orden por última modificación (usado por el carrusel de ofertas del home).
    * Cualquier otro valor (u omitido) mantiene el orden por defecto, más reciente creado primero. */
   sortBy?: string;
@@ -78,6 +81,10 @@ export class CatalogBrowseService {
       andConditions.push({
         OR: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } }],
       });
+    }
+
+    if (query.onlyFlash === "true") {
+      andConditions.push({ ofertaFlashHasta: { gt: new Date() } });
     }
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};

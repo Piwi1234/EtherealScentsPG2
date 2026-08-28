@@ -6,6 +6,7 @@ import { useCart } from "../../lib/cart-context";
 import { cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
 import { formatAtributosVisiblesValores, formatCartAtributos } from "../proformas/AtributosVisibles";
+import { FlashCountdown } from "./FlashCountdown";
 
 // Tarjeta de producto compartida por home (ofertas + colección de la semana), /categoria y /buscar —
 // antes cada página inlineaba esta misma marcación por separado; se unificó acá al agregarle el botón
@@ -67,6 +68,7 @@ export function ProductCard({ product, className = "" }: { product: Product; cla
         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
         <p className="landing-product-name">{product.name}</p>
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
+        {product.ofertaFlashHasta && <FlashCountdown until={product.ofertaFlashHasta} />}
         {soldOut ? (
           <span className="landing-product-soldout-stamp">Sold Out</span>
         ) : discountBs > 0 ? (
