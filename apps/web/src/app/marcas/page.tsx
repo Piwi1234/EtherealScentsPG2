@@ -11,6 +11,20 @@ import { ImageCarousel } from "../../components/landing/ImageCarousel";
 
 const MARCAS_BANNER_AUTOPLAY_MS = 10000;
 
+// Alfabeto español para el filtro por letra — Ñ como letra propia, "#" agrupa nombres que no
+// arrancan con ninguna de estas (dígitos, símbolos).
+const MARCAS_LETTERS = ["#", ..."ABCDEFGHIJKLMN".split(""), "Ñ", ..."OPQRSTUVWXYZ".split("")];
+
+/** A qué letra del filtro pertenece una marca: la inicial en mayúscula, sin acentos (Álvarez → A),
+ * con Ñ como bucket propio (distinto de N) — si no cae en A-Z ni Ñ (arranca con dígito o símbolo),
+ * cae en "#". */
+function marcaLetterBucket(name: string): string {
+  const first = name.trim().charAt(0).toUpperCase();
+  if (first === "Ñ") return "Ñ";
+  const normalized = first.replace(/[ÁÀÄÂ]/, "A").replace(/[ÉÈËÊ]/, "E").replace(/[ÍÌÏÎ]/, "I").replace(/[ÓÒÖÔ]/, "O").replace(/[ÚÙÜÛ]/, "U");
+  return /^[A-Z]$/.test(normalized) ? normalized : "#";
+}
+
 export default function MarcasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -18,6 +32,7 @@ export default function MarcasPage() {
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [letterFilter, setLetterFilter] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,9 +57,11 @@ export default function MarcasPage() {
     if (!rootCategoryFilter && rootCategories.length > 0) setRootCategoryFilter(rootCategories[0].id);
   }, [rootCategories, rootCategoryFilter]);
 
-  // Cambiar de categoría raíz limpia el filtro de subcategoría — es específico de la raíz anterior.
+  // Cambiar de categoría raíz limpia el filtro de subcategoría y de letra — son específicos de la
+  // raíz anterior (una letra sin marcas en la categoría nueva dejaría la grilla vacía sin aviso).
   useEffect(() => {
     setSubCategoryFilter("");
+    setLetterFilter("");
   }, [rootCategoryFilter]);
 
   const selectedCategory = rootCategories.find((c) => c.id === rootCategoryFilter) ?? null;
@@ -57,7 +74,9 @@ export default function MarcasPage() {
     [categories, rootCategoryFilter],
   );
 
-  const filteredBrands = useMemo(() => {
+  // Sin el filtro de letra todavía — de acá salen las letras disponibles para la grilla de abajo,
+  // así siguen mostrando todas las que tienen alguna marca aunque ya haya una letra elegida.
+  const searchFilteredBrands = useMemo(() => {
     if (!rootCategoryFilter) return [];
     const query = search.trim().toLowerCase();
     return brands
@@ -66,15 +85,31 @@ export default function MarcasPage() {
           ? b.categories.some((bc) => bc.categoryId === subCategoryFilter)
           : b.categories.some((bc) => bc.category.parentId === rootCategoryFilter),
       )
-      .filter((b) => !query || b.name.toLowerCase().includes(query))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter((b) => !query || b.name.toLowerCase().includes(query));
   }, [brands, rootCategoryFilter, subCategoryFilter, search]);
 
-  // Agrupa por inicial (A, B, C...) para que la grilla se recorra alfabéticamente en bloques.
+  const availableLetters = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of searchFilteredBrands) set.add(marcaLetterBucket(b.name));
+    return set;
+  }, [searchFilteredBrands]);
+
+  const filteredBrands = useMemo(() => {
+    const list = letterFilter ? searchFilteredBrands.filter((b) => marcaLetterBucket(b.name) === letterFilter) : searchFilteredBrands;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }, [searchFilteredBrands, letterFilter]);
+
+  // Tocar la letra ya elegida la destilda (vuelve a mostrar todas), como cualquier otro filtro tipo pill.
+  function selectLetter(letter: string) {
+    setLetterFilter((prev) => (prev === letter ? "" : letter));
+  }
+
+  // Agrupa por inicial (A, B, C...) para que la grilla se recorra alfabéticamente en bloques — mismo
+  // criterio que el filtro de letras de arriba (Ñ propia, "#" para lo que no cae en A-Z/Ñ).
   const brandGroups = useMemo(() => {
     const groups = new Map<string, Brand[]>();
     for (const brand of filteredBrands) {
-      const letter = brand.name.charAt(0).toUpperCase();
+      const letter = marcaLetterBucket(brand.name);
       const list = groups.get(letter);
       if (list) list.push(brand);
       else groups.set(letter, [brand]);
@@ -142,6 +177,30 @@ export default function MarcasPage() {
         </div>
       )}
 
+      {selectedCategory && (
+        <div className="landing-marcas-letters">
+          <div className="landing-container">
+            <p className="landing-marcas-letters-title">Todas las marcas</p>
+            <div className="landing-marcas-letters-row">
+              {MARCAS_LETTERS.map((letter) => {
+                const disabled = !availableLetters.has(letter);
+                return (
+                  <button
+                    type="button"
+                    key={letter}
+                    disabled={disabled}
+                    className={`landing-marcas-letter-btn${letterFilter === letter ? " landing-marcas-letter-btn--active" : ""}${disabled ? " landing-marcas-letter-btn--disabled" : ""}`}
+                    onClick={() => selectLetter(letter)}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="landing-section">
         <div className="landing-container">
           {error && <p className="error-text">{error}</p>}
@@ -161,9 +220,9 @@ export default function MarcasPage() {
             <p className="landing-empty-note">
               {(() => {
                 const scopeName = subcategories.find((s) => s.id === subCategoryFilter)?.name ?? selectedCategory.name;
-                return search
-                  ? `No hay marcas que coincidan con "${search}" en ${scopeName}.`
-                  : `Todavía no hay marcas cargadas en ${scopeName}.`;
+                if (search) return `No hay marcas que coincidan con "${search}" en ${scopeName}.`;
+                if (letterFilter) return `No hay marcas que empiecen con "${letterFilter}" en ${scopeName}.`;
+                return `Todavía no hay marcas cargadas en ${scopeName}.`;
               })()}
             </p>
           )}

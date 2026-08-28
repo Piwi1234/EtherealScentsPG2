@@ -4695,6 +4695,57 @@ a {
   border-color: var(--lp-accent);
 }
 
+/* Barra de filtro por letra inicial (A-Z, Ñ propia, "#" para lo que no arranca con una letra) —
+   complementa al buscador de arriba; no reemplaza el agrupado alfabético de la grilla de abajo. */
+.landing-marcas-letters {
+  background: var(--lp-surface);
+  border-bottom: 1px solid var(--lp-border);
+  padding: 24px 0 20px;
+}
+
+.landing-marcas-letters-title {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--lp-text);
+  margin: 0 0 16px;
+}
+
+.landing-marcas-letters-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+}
+
+.landing-marcas-letter-btn {
+  padding: 2px 3px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lp-text);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.landing-marcas-letter-btn:hover:not(:disabled) {
+  color: var(--lp-accent);
+}
+
+.landing-marcas-letter-btn--active {
+  color: var(--lp-accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.landing-marcas-letter-btn--disabled {
+  color: var(--lp-muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
 .landing-marcas-letter-group + .landing-marcas-letter-group {
   margin-top: 40px;
 }
