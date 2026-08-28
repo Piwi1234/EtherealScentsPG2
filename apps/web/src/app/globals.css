@@ -2033,6 +2033,68 @@ a {
   background: var(--lp-surface);
 }
 
+/* --- "Descuento y Ofertas": fondo oscuro, con la paleta base del sitio (rojo #d81f26 + navbar
+   dark #111114) en vez de la paleta clara del resto del catálogo público. Todo lo de acá abajo
+   está scoped a esta sección/carrusel puntual — el resto de las tarjetas de producto (categoría,
+   buscar, colección de la semana) no cambian. */
+.landing-section--offers-dark {
+  background: #111114;
+}
+
+.landing-section--offers-dark .landing-eyebrow {
+  color: #d81f26;
+}
+
+.landing-section--offers-dark .landing-section-title {
+  color: #f5f4f0;
+}
+
+.landing-section--offers-dark .landing-section-lead {
+  color: rgba(245, 244, 240, 0.6);
+}
+
+.landing-section--offers-dark .landing-pill {
+  border-color: rgba(245, 244, 240, 0.22);
+  background: transparent;
+  color: rgba(245, 244, 240, 0.85);
+}
+
+.landing-section--offers-dark .landing-pill:hover {
+  border-color: #d81f26;
+}
+
+.landing-section--offers-dark .landing-pill-active {
+  background: #d81f26;
+  border-color: #d81f26;
+  color: #ffffff;
+}
+
+.landing-section--offers-dark .landing-pill-flash {
+  border-color: #d81f26;
+  color: #d81f26;
+}
+
+.landing-section--offers-dark .landing-empty-note {
+  color: rgba(245, 244, 240, 0.6);
+}
+
+.landing-section--offers-dark .landing-carousel-arrow {
+  border-color: rgba(245, 244, 240, 0.25);
+  background: #1a1a1f;
+  color: #f5f4f0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.landing-section--offers-dark .landing-carousel-arrow:hover {
+  background: #d81f26;
+  color: #ffffff;
+}
+
+.landing-section--offers-dark .landing-offers-banner {
+  background: #1a1a1f;
+  border-color: rgba(245, 244, 240, 0.12);
+}
+
 .landing-eyebrow {
   display: inline-block;
   font-size: 12px;
@@ -3546,7 +3608,7 @@ a {
  * largos que en otro producto. Es lo que mantiene fija la altura de toda la fila (y por lo tanto la
  * del banner de al lado, ver .landing-offers-banner) entre una página del carrusel y la siguiente. */
 .landing-product-grid--carousel .landing-product-body {
-  height: 128px;
+  height: 150px;
   padding: 14px 16px 18px;
 }
 
@@ -3564,10 +3626,17 @@ a {
   text-overflow: ellipsis;
 }
 
+/* Etiqueta sólida (no la cinta con muesca de las demás tarjetas del sitio) — cuadradito redondeado
+   arriba a la izquierda, como en la referencia. Solo en este carrusel. */
 .landing-product-grid--carousel .landing-product-offer-badge {
-  top: 8px;
-  padding: 3px 8px 3px 12px;
+  top: 10px;
+  left: 10px;
+  padding: 4px 9px;
   font-size: 9.5px;
+  border: none;
+  border-radius: 6px;
+  clip-path: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 .landing-product-grid--carousel .landing-product-offer-badge svg {
@@ -3582,6 +3651,42 @@ a {
 
 .landing-product-grid--carousel .landing-product-price {
   font-size: 15px;
+}
+
+/* --- Tema oscuro de la tarjeta en sí (fondo, texto, placeholder a rayas) — ver comentario del
+   bloque .landing-section--offers-dark de arriba sobre el alcance de este scoping. --- */
+.landing-product-grid--carousel .landing-product-card {
+  background: #1a1a1f;
+  border-color: rgba(245, 244, 240, 0.12);
+}
+
+.landing-product-grid--carousel .landing-product-card:hover {
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+}
+
+.landing-product-grid--carousel .landing-product-image-placeholder {
+  background: repeating-linear-gradient(45deg, #232329, #232329 10px, #1c1c21 10px, #1c1c21 20px);
+}
+
+.landing-product-grid--carousel .landing-product-brand {
+  color: #d1b280;
+}
+
+.landing-product-grid--carousel .landing-product-name {
+  color: #f5f4f0;
+}
+
+.landing-product-grid--carousel .landing-product-attrs {
+  color: rgba(245, 244, 240, 0.5);
+}
+
+.landing-product-grid--carousel .landing-product-price,
+.landing-product-grid--carousel .landing-product-price-new {
+  color: #ffffff;
+}
+
+.landing-product-grid--carousel .landing-product-price-old {
+  color: rgba(245, 244, 240, 0.4);
 }
 
 /* 5to lugar de la fila de "Descuento y Ofertas": carrusel de imágenes promocional, mismo tamaño que
@@ -3959,6 +4064,53 @@ a {
 
 .landing-flash-countdown + .landing-product-price,
 .landing-flash-countdown + .landing-product-soldout-stamp {
+  margin-top: 6px;
+}
+
+/* Casilleros HH/MM/SS (variant="boxes" de FlashCountdown) — carrusel de "Descuento y Ofertas".
+   Celeste mientras falten más de 3 horas, rosado oscuro por debajo de eso (ver
+   URGENT_THRESHOLD_MS en FlashCountdown.tsx). */
+.landing-flash-boxes {
+  display: flex;
+  gap: 6px;
+  align-self: stretch;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.landing-flash-box {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 0 3px;
+  border-radius: 6px;
+  background: rgba(245, 244, 240, 0.08);
+}
+
+.landing-flash-box-value {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: #35dceb;
+  transition: color 0.2s ease;
+}
+
+.landing-flash-box-label {
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(245, 244, 240, 0.45);
+}
+
+.landing-flash-boxes--urgent .landing-flash-box-value {
+  color: #d91e76;
+}
+
+.landing-flash-boxes + .landing-product-price,
+.landing-flash-boxes + .landing-product-soldout-stamp {
   margin-top: 6px;
 }
 

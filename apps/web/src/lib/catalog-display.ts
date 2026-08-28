@@ -63,12 +63,14 @@ export function hasDiscount(product: Product): boolean {
   return product.variants.some((v) => !v.isDefault && Number(v.discountBs) > 0);
 }
 
-/** Instante (ISO) hasta el que corre la Oferta Flash a mostrar — de la variante puntual si el
- * producto tiene variantes con precio propio (más de una, la "default" auto-provista no cuenta),
- * del producto si no. Mismo criterio que `codigo` en la página de producto/ProductCard: el producto
- * es la fuente de verdad para catálogo simple, la variante para catálogo con precio propio. */
+/** Instante (ISO) hasta el que corre la Oferta Flash a mostrar — de la variante puntual si tiene
+ * precio propio (isDefault=false), del producto si no. A diferencia de otros lugares que usan
+ * `variants.length > 1` como atajo, acá hace falta el campo real `isDefault`: un producto con
+ * categoría de precio propio pero con una sola variante cargada hasta ahora también debe leer el
+ * temporizador de ESA variante, no el del producto (que para ella no aplica). Mismo criterio que
+ * `hasDiscount` de acá arriba. */
 export function flashUntilFor(product: Product, variant: ProductVariant | null): string | null {
-  return variant && product.variants.length > 1 ? variant.ofertaFlashHasta : product.ofertaFlashHasta;
+  return variant && !variant.isDefault ? variant.ofertaFlashHasta : product.ofertaFlashHasta;
 }
 
 /** true si TODAS las variantes del producto están marcadas no disponibles — en ese caso la tarjeta

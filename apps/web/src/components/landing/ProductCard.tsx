@@ -11,7 +11,16 @@ import { FlashCountdown } from "./FlashCountdown";
 // Tarjeta de producto compartida por home (ofertas + colección de la semana), /categoria y /buscar —
 // antes cada página inlineaba esta misma marcación por separado; se unificó acá al agregarle el botón
 // de "agregar al carrito", para no repetir esa lógica en 4 lugares.
-export function ProductCard({ product, className = "" }: { product: Product; className?: string }) {
+export function ProductCard({
+  product,
+  className = "",
+  flashVariant = "pill",
+}: {
+  product: Product;
+  className?: string;
+  /** "boxes": casilleros HH/MM/SS — usado por el carrusel de "Descuento y Ofertas" del home. */
+  flashVariant?: "pill" | "boxes";
+}) {
   const { addItem } = useCart();
   const { bs, fromPrice, variant, discountBs } = displayPrice(product);
   const image = productImageSrc(cardImageUrl(product, variant));
@@ -69,7 +78,7 @@ export function ProductCard({ product, className = "" }: { product: Product; cla
         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
         <p className="landing-product-name">{product.name}</p>
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
-        {flashUntil && <FlashCountdown until={flashUntil} />}
+        {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
         {soldOut ? (
           <span className="landing-product-soldout-stamp">Sold Out</span>
         ) : discountBs > 0 ? (
