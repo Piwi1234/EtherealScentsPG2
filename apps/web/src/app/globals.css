@@ -3524,6 +3524,10 @@ a {
   font-size: 11px;
   color: var(--lp-muted);
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  /* Se alinea al borde derecho de la fila aunque el label de al lado sea una pastilla con flex:none
+     (ej. "En Stock"/"Por tiempo limitado") — con flex:1 en el label (ej. "Productos con Descuento")
+     no cambia nada, ya quedaba ahí. */
+  margin-left: auto;
 }
 
 .landing-filter-checkbox:has(input:checked) .landing-filter-count {
