@@ -208,6 +208,8 @@ export type ContactoInfo = {
   telefonos: string | null;
   email: string | null;
   ciudad: string | null;
+  // A dónde redirige el botón "Canal de ofertas" de la sección Newsletter del home.
+  canalOfertasUrl: string | null;
 };
 
 /** Red social mostrada en el footer (solo se muestra el logo, sin el nombre). */

@@ -160,6 +160,9 @@ model SystemSetting {
   telefonos String? @map("telefonos")
   email     String? @map("email")
   ciudad    String? @map("ciudad")
+  // Botón "Canal de ofertas" de la sección Newsletter del home — a dónde redirige (ej. un grupo/canal
+  // de WhatsApp o Telegram). Null = el botón queda sin destino.
+  canalOfertasUrl String? @map("canal_ofertas_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")

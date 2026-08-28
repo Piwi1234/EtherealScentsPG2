@@ -4317,31 +4317,7 @@ a {
 
 .landing-newsletter-form {
   display: flex;
-  gap: 10px;
-  max-width: 420px;
-  margin: 0 auto;
-}
-
-.landing-newsletter-form input {
-  flex: 1;
-  padding: 14px 18px;
-  border-radius: 999px;
-  border: 1.5px solid var(--lp-border);
-  background: var(--lp-surface);
-  font-size: 14px;
-  color: var(--lp-text);
-  font-family: var(--lp-font-body);
-}
-
-.landing-newsletter-form input:focus {
-  outline: none;
-  border-color: var(--lp-accent);
-}
-
-.landing-newsletter-note {
-  margin-top: 14px;
-  font-size: 12px;
-  color: var(--lp-muted);
+  justify-content: center;
 }
 
 /* --- Footer --- */
@@ -4966,10 +4942,6 @@ a {
     width: 30px;
     height: 30px;
     font-size: 15px;
-  }
-
-  .landing-newsletter-form {
-    flex-direction: column;
   }
 
   .landing-footer-grid {

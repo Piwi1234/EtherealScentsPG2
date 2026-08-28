@@ -13,6 +13,7 @@ export default function ContactoPage() {
   const [telefonos, setTelefonos] = useState("");
   const [email, setEmail] = useState("");
   const [ciudad, setCiudad] = useState("");
+  const [canalOfertasUrl, setCanalOfertasUrl] = useState("");
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoError, setInfoError] = useState("");
@@ -35,6 +36,7 @@ export default function ContactoPage() {
         setTelefonos(data.telefonos ?? "");
         setEmail(data.email ?? "");
         setCiudad(data.ciudad ?? "");
+        setCanalOfertasUrl(data.canalOfertasUrl ?? "");
       })
       .catch((e) => setInfoError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingInfo(false));
@@ -53,7 +55,7 @@ export default function ContactoPage() {
     setInfoSuccess(false);
     setSavingInfo(true);
     try {
-      await apiPut("/settings/contacto-info", { telefonos, email, ciudad });
+      await apiPut("/settings/contacto-info", { telefonos, email, ciudad, canalOfertasUrl });
       setInfoSuccess(true);
       setTimeout(() => setInfoSuccess(false), 4000);
     } catch (e) {
@@ -131,6 +133,16 @@ export default function ContactoPage() {
             <div>
               <label>Ciudad</label>
               <input className="field" value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
+            </div>
+            <div>
+              <label>URL del botón "Canal de ofertas" (Newsletter del home)</label>
+              <input
+                className="field"
+                type="url"
+                value={canalOfertasUrl}
+                onChange={(e) => setCanalOfertasUrl(e.target.value)}
+                placeholder="https://chat.whatsapp.com/xxxxx"
+              />
             </div>
             {infoError && <p className="error-text">{infoError}</p>}
             <div className="form-actions">

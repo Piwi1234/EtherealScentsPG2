@@ -58,16 +58,22 @@ export class SettingsService {
       telefonos: setting?.telefonos ?? null,
       email: setting?.email ?? null,
       ciudad: setting?.ciudad ?? null,
+      canalOfertasUrl: setting?.canalOfertasUrl ?? null,
     };
   }
 
-  async setContactoInfo(data: { telefonos?: string; email?: string; ciudad?: string }) {
+  async setContactoInfo(data: { telefonos?: string; email?: string; ciudad?: string; canalOfertasUrl?: string }) {
     const setting = await this.prisma.systemSetting.upsert({
       where: { id: SETTINGS_ID },
       update: data,
       create: { id: SETTINGS_ID, ...data },
     });
-    return { telefonos: setting.telefonos, email: setting.email, ciudad: setting.ciudad };
+    return {
+      telefonos: setting.telefonos,
+      email: setting.email,
+      ciudad: setting.ciudad,
+      canalOfertasUrl: setting.canalOfertasUrl,
+    };
   }
 
   /** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del

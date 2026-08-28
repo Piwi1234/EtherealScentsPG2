@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
 import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
-import type { Brand, CarouselImage, Category, Page, Product } from "../../lib/types";
+import type { Brand, CarouselImage, Category, ContactoInfo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -54,6 +54,7 @@ export default function HomePage() {
   } | null>(null);
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
+  const [contacto, setContacto] = useState<ContactoInfo | null>(null);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
 
@@ -62,6 +63,7 @@ export default function HomePage() {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     getBrands().then(setBrands).catch(() => {});
     getLandingImages().then(setLandingImages).catch(() => {});
+    apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
   }, []);
 
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
@@ -417,26 +419,23 @@ export default function HomePage() {
       </section>
 
       {/* ============================== 7. Newsletter ============================== */}
-      {/* Solo interfaz por ahora — no hay endpoint de suscripción todavía, falta conectar. */}
       <section className="landing-section landing-newsletter">
         <div className="landing-container">
           <p className="landing-eyebrow">Newsletter</p>
           <h2 className="landing-section-title">Enterate de nuestras novedades</h2>
           <p className="landing-section-lead" style={{ margin: "0 auto 32px" }}>
-            Lanzamientos, ofertas y novedades del catálogo, directo a tu correo.
+            Lanzamientos, ofertas y novedades del catálogo
           </p>
-          <form
-            className="landing-newsletter-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-            }}
-          >
-            <input type="email" required placeholder="Tu email" aria-label="Email" />
-            <button type="submit" className="landing-btn landing-btn-primary">
-              Suscribirme
-            </button>
-          </form>
-          <p className="landing-newsletter-note">Todavía no está conectado a un servicio de envío — próximamente.</p>
+          <div className="landing-newsletter-form">
+            <a
+              className="landing-btn landing-btn-primary"
+              href={contacto?.canalOfertasUrl ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Canal de ofertas
+            </a>
+          </div>
         </div>
       </section>
 

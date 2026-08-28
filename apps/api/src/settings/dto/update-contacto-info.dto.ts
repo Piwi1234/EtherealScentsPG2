@@ -16,4 +16,9 @@ export class UpdateContactoInfoDto {
   @IsOptional()
   @IsString()
   ciudad?: string;
+
+  @ApiPropertyOptional({ example: "https://chat.whatsapp.com/xxxxx", description: "A dónde redirige el botón 'Canal de ofertas' del Newsletter." })
+  @IsOptional()
+  @IsString()
+  canalOfertasUrl?: string;
 }
