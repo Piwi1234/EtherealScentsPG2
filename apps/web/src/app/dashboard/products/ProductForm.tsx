@@ -626,11 +626,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* 1. Datos generales: Categoría → Subcategoría, Marca, Nombre — todo en una fila, ahora que
-            el formulario tiene ancho de sobra para no tener que apilarlos. */}
+        {/* 1. Datos generales: Categoría → Subcategoría, Marca en una fila; Nombre en la suya debajo,
+            más ancho porque el nombre del producto suele ser bastante más largo que el resto. */}
         <div className="form-section">
           <h2 className="section-label">Datos generales</h2>
-          <div className="grid-4">
+          <div className="grid-3">
             <div>
               <label>Categoría</label>
               <select
@@ -678,10 +678,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                 <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Elegí una categoría primero.</p>
               )}
             </div>
-            <div>
-              <label>Nombre</label>
-              <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
+          </div>
+          <div style={{ marginTop: 14, maxWidth: "32.5%" }}>
+            <label>Nombre</label>
+            <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
         </div>
 
