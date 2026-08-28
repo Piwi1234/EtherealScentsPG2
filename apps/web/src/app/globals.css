@@ -4450,6 +4450,22 @@ a {
   text-shadow: none;
   padding: 8px 20px;
   font-size: 12px;
+  /* Empuja el botón al fondo del overlay (el texto queda arriba, ver justify-content: flex-start
+     de .landing-feature-overlay) — abajo, centrado (align-items: center del overlay ya lo centra). */
+  margin-top: auto;
+}
+
+/* Solo se oculta hasta el hover en dispositivos con mouse de verdad — en touch (sin hover) el botón
+   queda siempre visible, si no no habría forma de llegar a "Ver Todo" sin poder pasar el mouse. */
+@media (hover: hover) and (pointer: fine) {
+  .landing-feature-overlay-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .landing-feature-visual .landing-image-carousel-grid-item:hover .landing-feature-overlay-btn {
+    opacity: 1;
+  }
 }
 
 /* Cada bloque es ahora su propia sección de ancho completo (ya no comparte un .landing-container
