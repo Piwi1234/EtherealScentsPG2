@@ -84,9 +84,9 @@ export default function MarcasPage() {
 
   return (
     <div className="landing-page">
-      <LandingNavbar variant="dark" />
+      <LandingNavbar variant="dark" overlay={false} />
 
-      <section className="landing-category-banner">
+      <section className="landing-category-banner landing-category-banner--no-overlay">
         {marcasHeroImages.length > 0 && (
           <div className="landing-category-banner-bg">
             <ImageCarousel

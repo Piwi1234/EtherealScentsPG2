@@ -2895,6 +2895,10 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Encuadre fijo hacia la izquierda (no centrado, el default) — así el recorte siempre prioriza el
+     mismo costado de la imagen sin importar el ancho de pantalla, en vez de mostrar más o menos del
+     centro según el monitor. */
+  object-position: left center;
 }
 
 .landing-category-banner .landing-container {

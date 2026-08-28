@@ -230,8 +230,8 @@ export default function GridImagenesPage() {
       images: offersBannerImages,
       hint:
         "Ocupa el 5to lugar de la fila de \"Descuento y Ofertas\" del home, junto a las 4 tarjetas de producto — " +
-        "mismo tamaño que ellas (~267×462px en pantallas grandes). Recomendado: 550×950px o más, vertical " +
-        "(relación ~7:12), por cada imagen del carrusel.",
+        "mismo tamaño que ellas (~267×450px en pantallas grandes). Recomendado: 550×900px o más, vertical " +
+        "(relación ~3:5), por cada imagen del carrusel.",
     },
     {
       key: "weekly-collection-banner",
@@ -240,10 +240,10 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: weeklyCollectionBannerImages,
       hint:
-        "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 12 " +
+        "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 8 " +
         "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que esa columna " +
-        "(~504×885px en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1750px o más, " +
-        "vertical (relación ~4:7), por cada imagen del carrusel.",
+        "(504×722px fijo en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1450px o " +
+        "más, vertical (relación ~7:10), por cada imagen del carrusel.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-feature`,
@@ -252,10 +252,11 @@ export default function GridImagenesPage() {
       categoryId: cat.id,
       images: cat.carouselImages,
       hint:
-        "Banner ancho del bloque \"Producto destacado\" del home, con título superpuesto (Título 1/Título 2, abajo " +
-        "de cada imagen) — si no cargás Título 2, se usa el nombre de la categoría. Toda la tarjeta es clickeable: " +
-        "va al link propio de la imagen si tiene, si no a la categoría. Recomendado: 2400×1200px o más (relación " +
-        "2:1) — se recorta para llenar el cuadro (object-fit: cover), dejá lugar arriba para el texto.",
+        "Se muestran 3 imágenes lado a lado (recorte vertical) con título superpuesto arriba de cada una " +
+        "(Título 1/Título 2) — si no cargás Título 2, se usa el nombre de la categoría. Toda la tarjeta es " +
+        "clickeable: va al link propio de la imagen si tiene, si no a la categoría. Recomendado: 850×1050px o " +
+        "más (relación 4:5) por cada imagen — se recorta para llenar el cuadro (object-fit: cover), dejá lugar " +
+        "arriba para el texto.",
     })),
   ];
 
