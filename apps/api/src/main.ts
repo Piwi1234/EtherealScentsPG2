@@ -17,6 +17,7 @@ async function bootstrap() {
   mkdirSync(join(process.cwd(), "uploads", "landing"), { recursive: true });
   mkdirSync(join(process.cwd(), "uploads", "carousel"), { recursive: true });
   mkdirSync(join(process.cwd(), "uploads", "carrito-whatsapp"), { recursive: true });
+  mkdirSync(join(process.cwd(), "uploads", "redes-sociales"), { recursive: true });
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });

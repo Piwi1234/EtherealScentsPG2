@@ -4409,6 +4409,12 @@ a {
   justify-content: center;
 }
 
+.landing-footer-social a img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .landing-footer-social a:hover {
   /* Hardcodeado a propósito: el footer no debe cambiar si se retoca la paleta base — ver .landing-page. */
   border-color: #9184d9;

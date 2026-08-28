@@ -12,6 +12,7 @@ import { ContabilidadModule } from "./modules/contabilidad/contabilidad.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { SettingsModule } from "./settings/settings.module";
 import { CarritoWhatsappModule } from "./modules/carrito-whatsapp/carrito-whatsapp.module";
+import { RedesSocialesModule } from "./modules/redes-sociales/redes-sociales.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CarritoWhatsappModule } from "./modules/carrito-whatsapp/carrito-whatsa
     CatalogModule,
     SettingsModule,
     CarritoWhatsappModule,
+    RedesSocialesModule,
   ],
 })
 export class AppModule {}

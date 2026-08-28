@@ -78,6 +78,7 @@ const CONFIGURACION_GROUPS = [
       { href: "/dashboard/empresas", label: "Empresas" },
       { href: "/dashboard/almacenes", label: "Almacenes" },
       { href: "/dashboard/configuracion/tipo-cambio", label: "Tipo de cambio" },
+      { href: "/dashboard/configuracion/contacto", label: "Contacto" },
     ],
   },
   {

@@ -203,6 +203,23 @@ export type CarritoWhatsappContacto = {
   updatedAt: string;
 };
 
+/** Datos del bloque "Contacto" del footer del sitio público (Configuración → Global → Contacto). */
+export type ContactoInfo = {
+  telefonos: string | null;
+  email: string | null;
+  ciudad: string | null;
+};
+
+/** Red social mostrada en el footer (solo se muestra el logo, sin el nombre). */
+export type RedSocial = {
+  id: string;
+  nombre: string;
+  url: string;
+  logoUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export type ExchangeRateResponse = { exchangeRate: number };

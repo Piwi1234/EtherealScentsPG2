@@ -18,6 +18,7 @@ import { Public } from "../modules/auth/decorators/public.decorator";
 import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
 import { UpdateWeeklyCollectionBrandDto } from "./dto/update-weekly-collection-brand.dto";
+import { UpdateContactoInfoDto } from "./dto/update-contacto-info.dto";
 import { landingImageMulterOptions } from "./landing-image.multer";
 import { MoveCarouselImageDto } from "../catalog/carousel-image/dto/move-carousel-image.dto";
 import { UpdateCarouselImageUrlDto } from "../catalog/carousel-image/dto/update-carousel-image-url.dto";
@@ -44,6 +45,18 @@ export class SettingsController {
   @Get("landing-images")
   getLandingImages() {
     return this.settings.getLandingImages();
+  }
+
+  // Público (sin auth): el footer del sitio lo usa para pintar el bloque "Contacto".
+  @Public()
+  @Get("contacto-info")
+  getContactoInfo() {
+    return this.settings.getContactoInfo();
+  }
+
+  @Put("contacto-info")
+  setContactoInfo(@Body() dto: UpdateContactoInfoDto) {
+    return this.settings.setContactoInfo(dto);
   }
 
   @Get("landing-images/hero-carousel")

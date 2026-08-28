@@ -2,17 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, getCasaMatrizLogo } from "../../lib/api";
-import type { Category } from "../../lib/types";
+import { API_ORIGIN, apiGet, getCasaMatrizLogo } from "../../lib/api";
+import type { Category, ContactoInfo, RedSocial } from "../../lib/types";
+
+function redSocialLogoSrc(logoUrl: string | null): string | null {
+  return logoUrl ? `${API_ORIGIN}${logoUrl}` : null;
+}
 
 /** Footer de todo el sitio público — trae el ancla #contacto usada por LandingNavbar. */
 export function LandingFooter() {
   const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [contacto, setContacto] = useState<ContactoInfo | null>(null);
+  const [redes, setRedes] = useState<RedSocial[]>([]);
 
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
+    apiGet<RedSocial[]>("/redes-sociales").then(setRedes).catch(() => {});
   }, []);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
@@ -37,20 +45,24 @@ export function LandingFooter() {
           </div>
           <div className="landing-footer-col">
             <p className="landing-footer-col-title">Contacto</p>
-            {/* Datos de ejemplo — reemplazar por los reales. */}
-            <p>+591 700 00000</p>
-            <p>hola@etherealscents.com</p>
-            <p>Cochabamba, Bolivia</p>
+            {contacto?.telefonos?.split("\n").map((tel, i) => tel.trim() && <p key={i}>{tel.trim()}</p>)}
+            {contacto?.email && <p>{contacto.email}</p>}
+            {contacto?.ciudad && <p>{contacto.ciudad}</p>}
           </div>
-          <div className="landing-footer-col">
-            <p className="landing-footer-col-title">Seguinos</p>
-            {/* Enlaces de ejemplo — reemplazar por las redes reales. */}
-            <div className="landing-footer-social">
-              <a href="#" aria-label="Instagram" onClick={(e) => e.preventDefault()}>IG</a>
-              <a href="#" aria-label="Facebook" onClick={(e) => e.preventDefault()}>FB</a>
-              <a href="#" aria-label="WhatsApp" onClick={(e) => e.preventDefault()}>WA</a>
+          {redes.length > 0 && (
+            <div className="landing-footer-col">
+              <p className="landing-footer-col-title">Seguinos</p>
+              <div className="landing-footer-social">
+                {redes.map((red) =>
+                  redSocialLogoSrc(red.logoUrl) ? (
+                    <a key={red.id} href={red.url} target="_blank" rel="noopener noreferrer" aria-label={red.nombre}>
+                      <img src={redSocialLogoSrc(red.logoUrl)!} alt={red.nombre} />
+                    </a>
+                  ) : null,
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="landing-footer-bottom">
           <span>© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</span>

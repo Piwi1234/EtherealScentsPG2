@@ -155,9 +155,27 @@ model SystemSetting {
   // de gestión) — null = el bloque no se muestra. Una sola marca a la vez (no hay lista).
   weeklyCollectionBrandId String? @map("weekly_collection_brand_id") @db.Uuid
   weeklyCollectionBrand   Brand?  @relation(fields: [weeklyCollectionBrandId], references: [id], onDelete: SetNull)
+  // Datos del módulo de contacto (footer del sitio público) — Configuración → Global → Contacto.
+  // telefonos es texto libre (puede tener más de un número, uno por línea).
+  telefonos String? @map("telefonos")
+  email     String? @map("email")
+  ciudad    String? @map("ciudad")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+/// Red social mostrada en el footer del sitio público (Configuración → Global → Contacto) — se crea y
+/// se borra completa, sin activo/soft-delete. En el footer solo se muestra el logo (sin el nombre).
+model RedSocial {
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String
+  url       String
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("redes_sociales")
 }
 
 model Category {

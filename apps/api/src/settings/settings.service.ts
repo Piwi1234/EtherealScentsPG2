@@ -51,6 +51,25 @@ export class SettingsService {
     };
   }
 
+  /** Público (sin auth) — el footer del sitio público lo usa para pintar el bloque "Contacto". */
+  async getContactoInfo() {
+    const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    return {
+      telefonos: setting?.telefonos ?? null,
+      email: setting?.email ?? null,
+      ciudad: setting?.ciudad ?? null,
+    };
+  }
+
+  async setContactoInfo(data: { telefonos?: string; email?: string; ciudad?: string }) {
+    const setting = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: data,
+      create: { id: SETTINGS_ID, ...data },
+    });
+    return { telefonos: setting.telefonos, email: setting.email, ciudad: setting.ciudad };
+  }
+
   /** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del
    * panel de gestión, aunque el valor vive en SystemSetting (singleton) como el resto de la config
    * global. Null = el bloque no se muestra. */
