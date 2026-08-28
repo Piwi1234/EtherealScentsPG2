@@ -2432,10 +2432,24 @@ a {
   background: linear-gradient(150deg, #9184d9, #4b3f8f);
 }
 
-.landing-navbar-search-result-name {
+.landing-navbar-search-result-info {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  gap: 2px;
+}
+
+.landing-navbar-search-result-name {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-navbar-search-result-attrs {
+  font-size: 11px;
+  color: rgba(245, 244, 240, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2535,7 +2549,8 @@ a {
 #catalogo,
 #nosotros,
 #contacto,
-#product-grid {
+#product-grid,
+#search-results-grid {
   scroll-margin-top: 88px;
 }
 
@@ -3070,7 +3085,7 @@ a {
 
 .landing-category-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 288px 1fr;
   align-items: start;
   gap: 40px;
 }
@@ -3112,7 +3127,7 @@ a {
  * cuerpo del filtro. */
 .landing-filter-groups-box {
   background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
+  border: 1px solid #d8d3ce;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -3597,7 +3612,10 @@ a {
   display: grid;
   grid-template-columns: 504px 1fr;
   gap: 24px;
-  align-items: stretch;
+  /* "start", no "stretch": con dos elementos de alto EXPLÍCITO (px, no aspect-ratio) no hace falta
+     estirar nada — usar stretch acá terminaba en un alto ambiguo/circular (la grilla dependía del
+     banner y viceversa) que rompía el layout. */
+  align-items: start;
 }
 
 .landing-weekly-collection-layout--no-banner {
@@ -3610,6 +3628,9 @@ a {
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
+  /* Alto fijo (no aspect-ratio) para que sea un valor inequívoco — ver .landing-product-grid--weekly
+     acá abajo, que usa este mismo número para no desalinearse. */
+  height: 722px;
 }
 
 .landing-weekly-collection-banner-image {
@@ -3638,17 +3659,22 @@ a {
 
 .landing-product-grid--weekly {
   grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 20px;
+  /* Mismo alto fijo que .landing-weekly-collection-banner, para que las 2 filas de tarjetas calcen
+     exacto con el banner de al lado sin depender de stretch (ver esa regla). */
+  height: 722px;
 }
 
-/* Tarjetas más compactas que el resto del catálogo — el banner de al lado se estira para igualar
-   el alto de esta grilla (align-items: stretch en .landing-weekly-collection-layout), así que achicar
-   la tarjeta es lo que reduce el alto de todo el bloque (~35% menos que si usara el tamaño de
-   tarjeta por defecto) sin perder la proporción con el ancho ampliado del banner. */
+/* Sin aspect-ratio a propósito: la imagen se estira (flex) para llenar el alto que le sobra a la
+   tarjeta después del cuerpo (76px fijo, ver .landing-product-body de acá abajo) — el alto total de
+   la tarjeta sale de dividir el alto fijo de .landing-product-grid--weekly (arriba) entre las 2
+   filas. Si se cambia ESE alto (o el de .landing-weekly-collection-banner, que debe quedar igual),
+   la imagen se ajusta sola sin tocar nada acá. */
 .landing-product-grid--weekly .landing-product-image,
 .landing-product-grid--weekly .landing-product-image-placeholder {
-  aspect-ratio: 10 / 9;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .landing-product-grid--weekly .landing-product-body {
@@ -3742,7 +3768,7 @@ a {
   flex-direction: column;
   height: 100%;
   background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
+  border: 1px solid #d8d3ce;
   border-radius: 16px;
   overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -3761,7 +3787,7 @@ a {
 .landing-product-image,
 .landing-product-image-placeholder {
   width: 100%;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 8 / 9;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -4458,7 +4484,7 @@ a {
   aspect-ratio: 1 / 1;
   object-fit: contain;
   background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
+  border: 1px solid #d8d3ce;
   border-radius: 16px;
 }
 
@@ -4757,7 +4783,7 @@ a {
   }
 
   .landing-product-grid--weekly {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     grid-template-rows: repeat(4, 1fr);
   }
 }
@@ -4797,12 +4823,26 @@ a {
   }
 
   .landing-weekly-collection-banner {
-    height: 220px;
+    height: 250px;
   }
 
   .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(6, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    /* El alto fijo de escritorio (para calzar con el banner de al lado) no aplica acá — apilado en
+       una columna, cada tarjeta usa su propia proporción (aspect-ratio de acá abajo). */
+    height: auto;
+  }
+
+  /* Acá el layout ya se apiló a una columna (banner arriba, grilla abajo, ver
+     .landing-weekly-collection-layout de este mismo media query) — sin fila compartida con el
+     banner no hay de qué "alto restante" llenar, así que la imagen vuelve a tener su propia
+     proporción fija en vez de flex (ver la versión de escritorio, sin media query, más arriba). */
+  .landing-product-grid--weekly .landing-product-image,
+  .landing-product-grid--weekly .landing-product-image-placeholder {
+    flex: none;
+    min-height: auto;
+    aspect-ratio: 8 / 9;
   }
 
   .landing-brand-grid {
@@ -4923,7 +4963,7 @@ a {
 
   .landing-product-grid--weekly {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(12, 1fr);
+    grid-template-rows: repeat(8, 1fr);
   }
 
   .landing-brand-grid {

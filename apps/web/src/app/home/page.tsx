@@ -23,7 +23,7 @@ const HERO_AUTOPLAY_MS = 10000;
 const HERO_BANNERS_SLIDE_SIZE = 3;
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
-const WEEKLY_COLLECTION_SIZE = 12;
+const WEEKLY_COLLECTION_SIZE = 8;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];

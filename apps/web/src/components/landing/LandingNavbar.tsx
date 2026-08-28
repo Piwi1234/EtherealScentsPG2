@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
+import { formatCartAtributos } from "../proformas/AtributosVisibles";
 
 const SEARCH_RESULTS_LIMIT = 7;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -163,6 +164,7 @@ export function LandingNavbar({
                 searchResults.map((product) => {
                   const { variant } = displayPrice(product);
                   const image = productImageSrc(cardImageUrl(product, variant));
+                  const atributos = formatCartAtributos(product.attributeValues, product.variantOptionValues, variant?.options ?? []);
                   return (
                     <Link
                       href={`/producto/${product.slug}`}
@@ -178,7 +180,10 @@ export function LandingNavbar({
                       ) : (
                         <div className="landing-navbar-search-result-image-placeholder">{product.name.slice(0, 1)}</div>
                       )}
-                      <span className="landing-navbar-search-result-name">{product.name}</span>
+                      <span className="landing-navbar-search-result-info">
+                        <span className="landing-navbar-search-result-name">{product.name}</span>
+                        {atributos && <span className="landing-navbar-search-result-attrs">{atributos}</span>}
+                      </span>
                     </Link>
                   );
                 })}
