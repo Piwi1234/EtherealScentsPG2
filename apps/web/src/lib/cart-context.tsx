@@ -11,6 +11,9 @@ export type CartItem = {
   variantId: string | null;
   name: string;
   code: string;
+  // "Val1, Val2" de los atributos mostrarEnProforma=true — mismo criterio que la ficha del producto
+  // en una proforma (ver formatAtributosVisiblesValores). Vacío si el producto no tiene ninguno.
+  atributos: string;
   imageUrl: string | null;
   unitPriceBs: number;
   qty: number;

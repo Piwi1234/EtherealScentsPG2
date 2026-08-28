@@ -12,7 +12,7 @@ function contactoImagenSrc(imagenUrl: string | null): string | null {
 
 // Bolsa con "cerradura" — mismo glifo en el FAB y junto al título del drawer, para que se lean
 // como el mismo ícono de "carrito" en los dos lugares.
-function CartBagIcon() {
+export function CartBagIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M9 9.5V7a3 3 0 0 1 6 0v2.5" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" />
@@ -30,10 +30,18 @@ function buildWhatsappMessage(items: CartItem[], totalBs: number): string {
   return `Hola, quiero solicitar una cotización de:\n\n${lines.join("\n")}\n\nTotal: Bs ${totalBs.toFixed(2)}`;
 }
 
+// Duración de la animación de entrada/salida del drawer — tiene que coincidir con la de
+// landing-cart-drawer-in/-out en globals.css, si no el drawer desaparece a mitad de la animación.
+const DRAWER_ANIMATION_MS = 200;
+
 export function CartWidget() {
   const { items, isOpen, open, close, removeItem, setQty, totalItems, totalBs } = useCart();
   const [contactos, setContactos] = useState<CarritoWhatsappContacto[] | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  // Sigue montado un instante más que `isOpen` para poder reproducir la animación de salida antes
+  // de sacar el drawer del DOM (si no, al cerrar desaparecería de golpe).
+  const [rendered, setRendered] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     apiGet<CarritoWhatsappContacto[]>("/carrito-whatsapp")
@@ -44,6 +52,21 @@ export function CartWidget() {
       .catch(() => setContactos([]));
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (!rendered) return;
+    setClosing(true);
+    const timeout = setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+    }, DRAWER_ANIMATION_MS);
+    return () => clearTimeout(timeout);
+  }, [isOpen]);
+
   const selectedContacto = contactos?.find((c) => c.id === selectedContactId) ?? null;
 
   return (
@@ -53,10 +76,14 @@ export function CartWidget() {
         {totalItems > 0 && <span className="landing-cart-fab-badge">{totalItems}</span>}
       </button>
 
-      {isOpen && (
+      {rendered && (
         <>
-          <div className="landing-cart-overlay" onClick={close} />
-          <aside className="landing-cart-drawer" role="dialog" aria-label="Carrito de compras">
+          <div className={`landing-cart-overlay${closing ? " landing-cart-overlay--closing" : ""}`} onClick={close} />
+          <aside
+            className={`landing-cart-drawer${closing ? " landing-cart-drawer--closing" : ""}`}
+            role="dialog"
+            aria-label="Carrito de compras"
+          >
             <div className="landing-cart-drawer-header">
               <h2>
                 <span className="landing-cart-drawer-title-icon">
@@ -84,6 +111,7 @@ export function CartWidget() {
                       <Link href={`/producto/${item.productSlug}`} className="landing-cart-item-name" onClick={close}>
                         {item.name}
                       </Link>
+                      {item.atributos && <p className="landing-cart-item-attrs">{item.atributos}</p>}
                       <p className="landing-cart-item-code">Código {item.code}</p>
                       <div className="landing-cart-item-row">
                         <div className="landing-cart-item-qty">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
 import { cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
-import { formatAtributosVisiblesValores } from "../proformas/AtributosVisibles";
+import { formatAtributosVisiblesValores, formatCartAtributos } from "../proformas/AtributosVisibles";
 
 // Tarjeta de producto compartida por home (ofertas + colección de la semana), /categoria y /buscar —
 // antes cada página inlineaba esta misma marcación por separado; se unificó acá al agregarle el botón
@@ -28,6 +28,7 @@ export function ProductCard({ product, className = "" }: { product: Product; cla
       variantId: variant?.id ?? null,
       name: product.name,
       code: codigo,
+      atributos: formatCartAtributos(product.attributeValues, product.variantOptionValues, variant?.options ?? []),
       imageUrl: image,
       unitPriceBs: bs,
     });

@@ -9,6 +9,8 @@ import { displayPrice, getAllAttributeDetails, productImageSrc } from "../../../
 import type { Category, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
+import { formatCartAtributos } from "../../../components/proformas/AtributosVisibles";
+import { CartBagIcon } from "../../../components/landing/CartWidget";
 
 type VariantGroup = { attributeId: string; attributeName: string; options: { optionValueId: string; label: string }[] };
 
@@ -110,6 +112,9 @@ export default function ProductoPage() {
   const disponible = selectedVariant ? selectedVariant.disponible : true;
   const codigo = product && product.variants.length > 1 && selectedVariant ? selectedVariant.variantCode : product?.productCode ?? "";
   const detalles = product ? getAllAttributeDetails(product) : [];
+  const atributos = product
+    ? formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? [])
+    : "";
 
   return (
     <div className="landing-page landing-product-page">
@@ -243,6 +248,7 @@ export default function ProductoPage() {
                             variantId: selectedVariant?.id ?? null,
                             name: product!.name,
                             code: codigo,
+                            atributos,
                             imageUrl: image,
                             unitPriceBs: priceBs,
                           },
@@ -250,6 +256,7 @@ export default function ProductoPage() {
                         )
                       }
                     >
+                      <CartBagIcon />
                       Agregar al carrito
                     </button>
                   </div>

@@ -1,4 +1,4 @@
-import type { ProductAttributeValue, ProductVariantOptionValue } from "../../lib/types";
+import type { ProductAttributeValue, ProductVariantOption, ProductVariantOptionValue } from "../../lib/types";
 
 function formatValue(pv: ProductAttributeValue): string {
   if (pv.option) return pv.option.value;
@@ -78,6 +78,20 @@ export function formatAtributosVisiblesValores(
   return visiblesOrdenados(attributeValues, variantOptionValues)
     .map((a) => a.valor)
     .join(", ");
+}
+
+/** "Val1, Val2" para el resumen del carrito público: el/los valor(es) de la variante con precio
+ * propio elegida (ej. "50 ML", que `formatAtributosVisiblesValores` excluye a propósito, ver su doc)
+ * + los valores heredados del producto — mismo criterio sin nombre de atributo, solo que acá sí
+ * importa mostrar cuál variante se agregó. */
+export function formatCartAtributos(
+  attributeValues: ProductAttributeValue[],
+  variantOptionValues: ProductVariantOptionValue[] = [],
+  variantOptions: ProductVariantOption[] = [],
+): string {
+  const propios = variantOptions.map((o) => o.optionValue.value);
+  const heredados = visiblesOrdenados(attributeValues, variantOptionValues).map((a) => a.valor);
+  return [...propios, ...heredados].join(", ");
 }
 
 /** Solo los atributos marcados mostrarEnProforma=true, ordenados por `orden`. */

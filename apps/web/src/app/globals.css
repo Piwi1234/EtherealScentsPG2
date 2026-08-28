@@ -4677,13 +4677,17 @@ a {
 }
 
 .landing-product-detail-add-btn {
-  flex: 1;
-  padding: 13px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 0 28%;
+  padding: 13px 12px;
   border: none;
   border-radius: 999px;
   background: #d81f26;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -4693,6 +4697,12 @@ a {
 
 .landing-product-detail-add-btn:hover {
   background: #b81a20;
+}
+
+.landing-product-detail-add-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .landing-product-detail-divider {
@@ -5023,6 +5033,29 @@ a {
   height: 100vh;
   height: 100dvh;
   background: rgba(0, 0, 0, 0.5);
+  animation: landing-cart-overlay-in 0.2s ease;
+}
+
+.landing-cart-overlay--closing {
+  animation: landing-cart-overlay-out 0.2s ease forwards;
+}
+
+@keyframes landing-cart-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landing-cart-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .landing-cart-drawer {
@@ -5041,12 +5074,25 @@ a {
   animation: landing-cart-drawer-in 0.2s ease;
 }
 
+.landing-cart-drawer--closing {
+  animation: landing-cart-drawer-out 0.2s ease forwards;
+}
+
 @keyframes landing-cart-drawer-in {
   from {
     transform: translateX(100%);
   }
   to {
     transform: translateX(0);
+  }
+}
+
+@keyframes landing-cart-drawer-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
   }
 }
 
@@ -5153,6 +5199,13 @@ a {
 
 .landing-cart-item-name:hover {
   text-decoration: underline;
+}
+
+.landing-cart-item-attrs {
+  margin: 2px 0 0;
+  font-size: 10.5px;
+  color: #a89e97;
+  line-height: 1.35;
 }
 
 .landing-cart-item-code {
