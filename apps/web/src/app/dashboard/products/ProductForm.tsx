@@ -63,6 +63,12 @@ function utcIsoToGmt4Parts(iso: string): { date: string; time: string } {
   };
 }
 
+/** "YYYY-MM-DD" del día de hoy en GMT-4 — default del campo Fecha al activar un temporizador nuevo. */
+function todayInGmt4(): string {
+  const d = new Date(Date.now() - GMT4_OFFSET_MS);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 type VariantFormState = {
   optionsByAttribute: Record<string, string>;
   purchasePrice: string;
@@ -104,7 +110,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [flashMode, setFlashMode] = useState<"none" | "exact" | "endOfDay">(
     !initialFlashParts ? "none" : initialFlashParts.time === "23:59" ? "endOfDay" : "exact",
   );
-  const [flashDate, setFlashDate] = useState(initialFlashParts?.date ?? "");
+  const [flashDate, setFlashDate] = useState(initialFlashParts?.date ?? todayInGmt4());
   const [flashTime, setFlashTime] = useState(initialFlashParts?.time ?? "20:00");
   const [exchangeRate, setExchangeRate] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<Attribute[]>([]);
@@ -473,7 +479,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     const parts = variant.ofertaFlashHasta ? utcIsoToGmt4Parts(variant.ofertaFlashHasta) : null;
     setFlashModalVariantId(variant.id);
     setVariantFlashMode(!parts ? "none" : parts.time === "23:59" ? "endOfDay" : "exact");
-    setVariantFlashDate(parts?.date ?? "");
+    setVariantFlashDate(parts?.date ?? todayInGmt4());
     setVariantFlashTime(parts?.time ?? "20:00");
     setVariantFlashError("");
   }

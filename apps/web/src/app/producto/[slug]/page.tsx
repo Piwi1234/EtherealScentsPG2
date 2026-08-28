@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
 import { useCart } from "../../../lib/cart-context";
-import { displayPrice, getAllAttributeDetails, productImageSrc } from "../../../lib/catalog-display";
+import { displayPrice, flashUntilFor, getAllAttributeDetails, productImageSrc } from "../../../lib/catalog-display";
 import type { Category, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { formatCartAtributos } from "../../../components/proformas/AtributosVisibles";
 import { CartBagIcon } from "../../../components/landing/CartWidget";
+import { FlashCountdown } from "../../../components/landing/FlashCountdown";
 
 type VariantGroup = { attributeId: string; attributeName: string; options: { optionValueId: string; label: string }[] };
 
@@ -115,6 +116,7 @@ export default function ProductoPage() {
   const atributos = product
     ? formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? [])
     : "";
+  const flashUntil = product ? flashUntilFor(product, selectedVariant) : null;
 
   return (
     <div className="landing-page landing-product-page">
@@ -219,6 +221,10 @@ export default function ProductoPage() {
                   ) : (
                     <p className="landing-product-detail-price-bs">Bs {priceBs.toFixed(2)}</p>
                   )
+                )}
+
+                {disponible && flashUntil && (
+                  <FlashCountdown until={flashUntil} variant="boxes" className="landing-product-detail-flash" />
                 )}
 
                 <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>

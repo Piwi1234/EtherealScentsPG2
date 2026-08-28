@@ -4844,6 +4844,26 @@ a {
   color: #e0262c;
 }
 
+/* Cuenta regresiva de Oferta Flash — mismos casilleros que las tarjetas (ver .landing-flash-boxes),
+   agrandados y con su propio margen porque acá no vive dentro de una tarjeta flex angosta. */
+.landing-product-detail-flash {
+  max-width: 260px;
+  margin: 0 0 14px;
+}
+
+.landing-product-detail-flash .landing-flash-box {
+  padding: 9px 0 7px;
+  background: #1a1a1f;
+}
+
+.landing-product-detail-flash .landing-flash-box-value {
+  font-size: 22px;
+}
+
+.landing-product-detail-flash .landing-flash-box-label {
+  font-size: 9.5px;
+}
+
 .landing-product-detail-availability {
   display: inline-block;
   font-size: 12.5px;
