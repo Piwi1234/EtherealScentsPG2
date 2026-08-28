@@ -5037,8 +5037,10 @@ a {
   background: #111114;
 }
 
+/* Dorado ("gold leaf"), mismo acento que usan los demás bloques oscuros de la web (ver
+   .landing-feature-block--dark, que lo aplica pisando --lp-accent-dark) — antes era rojo acá. */
 .landing-section--faq-dark .landing-eyebrow {
-  color: #d81f26;
+  color: #d1b280;
 }
 
 .landing-section--faq-dark .landing-section-title,
@@ -5053,7 +5055,7 @@ a {
 }
 
 .landing-section--faq-dark .landing-faq-group-title {
-  color: #d81f26;
+  color: #d1b280;
 }
 
 .landing-section--faq-dark .landing-faq-item {
