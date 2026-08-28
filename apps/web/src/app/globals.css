@@ -2239,6 +2239,16 @@ a {
   color: #d81f26;
 }
 
+/* Sin esto, dos reglas de esta misma sección (fondo transparente del pill base, texto rojo del
+   .landing-pill-flash de arriba) le ganaban por especificidad al fondo/texto blanco de
+   .landing-pill-flash-active — el botón se quedaba transparente (o con letras rojas sobre fondo
+   rojo) en vez de quedar sólido como "Descuentos" al seleccionarse o en hover. */
+.landing-section--offers-dark .landing-pill-flash:hover,
+.landing-section--offers-dark .landing-pill-flash-active {
+  background: #d81f26;
+  color: #ffffff;
+}
+
 .landing-section--offers-dark .landing-empty-note {
   color: rgba(245, 244, 240, 0.6);
 }
@@ -3653,6 +3663,11 @@ a {
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 36px;
+}
+
+/* Cuando hay 2 filas de filtros seguidas (modo + categoría) — más juntas entre sí que del resto. */
+.landing-filter-pills--row1 {
+  margin-bottom: 14px;
 }
 
 .landing-pill {

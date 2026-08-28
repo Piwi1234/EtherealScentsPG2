@@ -82,19 +82,17 @@ export default function HomePage() {
 
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
   // modificación), de 4 en 4 — el 5to lugar de la fila lo ocupa el banner de ofertas (ver abajo).
-  // "Ofertas Flash" reemplaza el filtro de descuento/categoría por productos con temporizador vigente.
+  // Modo (1ra fila) y categoría (2da fila) se combinan siempre — "Ofertas Flash" ya no es exclusivo
+  // de todas las categorías juntas, también se puede acotar a una.
   useEffect(() => {
     // Esperar a saber si hay ofertas flash (ver arriba) antes de disparar el fetch real — si no,
-    // arrancaría en "Todas" y a los pocos ms saltaría a "Ofertas Flash", con doble fetch y salto visual.
+    // arrancaría en "Descuentos" y a los pocos ms saltaría a "Ofertas Flash", con doble fetch y salto visual.
     if (hasFlashOffers === null) return;
 
     const params = new URLSearchParams();
-    if (flashOnly) {
-      params.set("onlyFlash", "true");
-    } else {
-      if (categoryFilter) params.set("categoryId", categoryFilter);
-      params.set("onlyDiscounted", "true");
-    }
+    if (flashOnly) params.set("onlyFlash", "true");
+    else params.set("onlyDiscounted", "true");
+    if (categoryFilter) params.set("categoryId", categoryFilter);
     params.set("pageSize", "40");
     params.set("sortBy", "actualizados");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
@@ -228,15 +226,14 @@ export default function HomePage() {
           <h2 className="landing-section-title">Descuento y Ofertas</h2>
           <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
 
-          <div className="landing-filter-pills">
+          {/* 1ra fila: modo (Ofertas Flash = temporizador vigente / Descuentos = precio rebajado) —
+              independiente de la categoría, que se elige aparte en la 2da fila de acá abajo. */}
+          <div className="landing-filter-pills landing-filter-pills--row1">
             {hasFlashOffers && (
               <button
                 type="button"
                 className={`landing-pill landing-pill-flash${flashOnly ? " landing-pill-flash-active" : ""}`}
-                onClick={() => {
-                  setFlashOnly(true);
-                  setCategoryFilter("");
-                }}
+                onClick={() => setFlashOnly(true)}
               >
                 Ofertas Flash
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -249,11 +246,20 @@ export default function HomePage() {
             )}
             <button
               type="button"
-              className={`landing-pill${categoryFilter === "" && !flashOnly ? " landing-pill-active" : ""}`}
-              onClick={() => {
-                setCategoryFilter("");
-                setFlashOnly(false);
-              }}
+              className={`landing-pill${!flashOnly ? " landing-pill-active" : ""}`}
+              onClick={() => setFlashOnly(false)}
+            >
+              Descuentos
+            </button>
+          </div>
+
+          {/* 2da fila: categoría — se aplica dentro del modo elegido arriba (Ofertas Flash o
+              Descuentos), no lo reemplaza. */}
+          <div className="landing-filter-pills">
+            <button
+              type="button"
+              className={`landing-pill${categoryFilter === "" ? " landing-pill-active" : ""}`}
+              onClick={() => setCategoryFilter("")}
             >
               Todas
             </button>
@@ -261,11 +267,8 @@ export default function HomePage() {
               <button
                 key={cat.id}
                 type="button"
-                className={`landing-pill${categoryFilter === cat.id && !flashOnly ? " landing-pill-active" : ""}`}
-                onClick={() => {
-                  setCategoryFilter(cat.id);
-                  setFlashOnly(false);
-                }}
+                className={`landing-pill${categoryFilter === cat.id ? " landing-pill-active" : ""}`}
+                onClick={() => setCategoryFilter(cat.id)}
               >
                 {cat.name}
               </button>
