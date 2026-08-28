@@ -50,6 +50,9 @@ export default function ProductsPage() {
   const [brandFilter, setBrandFilter] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [offerFilter, setOfferFilter] = useState<"" | "discount" | "flash">("");
+  const [productCodeInput, setProductCodeInput] = useState("");
+  const [debouncedProductCode, setDebouncedProductCode] = useState("");
   const [page, setPage] = useState<Page<Product> | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
@@ -64,7 +67,9 @@ export default function ProductsPage() {
   const effectiveCategoryFilter = subCategoryFilter || rootCategoryFilter;
   // No se cargan productos hasta que se elija al menos un filtro (evita traer la tabla completa,
   // con sus columnas variables, apenas se entra a la página).
-  const hasAnyFilter = Boolean(effectiveCategoryFilter || brandFilter || debouncedSearch.trim());
+  const hasAnyFilter = Boolean(
+    effectiveCategoryFilter || brandFilter || debouncedSearch.trim() || offerFilter || debouncedProductCode.trim(),
+  );
 
   // Las marcas solo se asignan a subcategorías (nunca a categorías raíz), así que si todavía no
   // se eligió una subcategoría puntual, se consideran válidas las de cualquier subcategoría de la
@@ -94,6 +99,9 @@ export default function ProductsPage() {
     if (effectiveCategoryFilter) params.set("categoryId", effectiveCategoryFilter);
     if (brandFilter) params.set("brandId", brandFilter);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    if (offerFilter === "discount") params.set("onlyDiscounted", "true");
+    else if (offerFilter === "flash") params.set("onlyFlash", "true");
+    if (debouncedProductCode.trim()) params.set("productCode", debouncedProductCode.trim());
     params.set("page", String(pageNumber));
     params.set("pageSize", String(PAGE_SIZE));
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
@@ -121,13 +129,18 @@ export default function ProductsPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedProductCode(productCodeInput), 300);
+    return () => clearTimeout(timeout);
+  }, [productCodeInput]);
+
   // Vuelve a la primera página cada vez que cambia un filtro (si no, se podría quedar en una
   // página que ya no existe para el nuevo resultado).
   useEffect(() => {
     setPageNumber(1);
-  }, [effectiveCategoryFilter, brandFilter, debouncedSearch]);
+  }, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode]);
 
-  useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch, pageNumber]);
+  useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode, pageNumber]);
 
   async function handleDelete(product: Product) {
     if (!confirm(`¿Eliminar el producto "${product.name}"?`)) return;
@@ -279,7 +292,7 @@ export default function ProductsPage() {
         <div className="filter-field" style={{ minWidth: 200 }}>
           <label className="filter-label">Categoría</label>
           <select className="field" value={rootCategoryFilter} onChange={(e) => handleRootCategoryFilterChange(e.target.value)}>
-            <option value="">Todas</option>
+            <option value="">Seleccionar . . .</option>
             {rootCategoryOptions.map((cat) => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
@@ -321,6 +334,33 @@ export default function ProductsPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Nombre o marca"
+          />
+        </div>
+      </div>
+
+      <div className="filters-bar" style={{ marginTop: -8 }}>
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Ofertas</label>
+          <select
+            className="field"
+            value={offerFilter}
+            onChange={(e) => setOfferFilter(e.target.value as typeof offerFilter)}
+            disabled={!effectiveCategoryFilter}
+          >
+            <option value="">Todas</option>
+            <option value="discount">Con Descuento</option>
+            <option value="flash">Con Temporizador</option>
+          </select>
+        </div>
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">ID Producto</label>
+          <input
+            className="field"
+            type="search"
+            value={productCodeInput}
+            onChange={(e) => setProductCodeInput(e.target.value)}
+            placeholder="Código del producto"
+            disabled={!effectiveCategoryFilter}
           />
         </div>
       </div>

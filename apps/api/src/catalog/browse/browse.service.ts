@@ -23,6 +23,9 @@ export interface FindCatalogProductsQuery {
   pageSize?: string;
   /** Busca por nombre de producto o de marca (contiene, sin distinguir mayúsculas). */
   search?: string;
+  /** Busca por código de producto (contiene, sin distinguir mayúsculas) — filtro aparte de `search`,
+   * para el panel de Gestión ("ID Producto"), donde se busca por código puntual, no por nombre. */
+  productCode?: string;
   /** Filtros dinámicos por atributo filtrable: { [attributeId]: "valor1,valor2" }. */
   attr?: Record<string, string>;
   /** "true": solo productos con descuento (descuento propio, o el de alguna de sus variantes con
@@ -74,6 +77,10 @@ export class CatalogBrowseService {
           { brand: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
+    }
+
+    if (query.productCode && query.productCode.trim()) {
+      andConditions.push({ productCode: { contains: query.productCode.trim(), mode: "insensitive" } });
     }
 
     if (query.attr && Object.keys(query.attr).length > 0) {
