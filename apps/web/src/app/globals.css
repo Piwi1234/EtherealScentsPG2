@@ -5151,6 +5151,124 @@ a {
   font-weight: 600;
 }
 
+/* --- /ingresar y /registro (auth de cliente) --- */
+
+.landing-auth-section {
+  display: flex;
+  justify-content: center;
+}
+
+.landing-auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 16px;
+  padding: 40px 36px;
+}
+
+.landing-auth-title {
+  font-size: 24px;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.landing-auth-lead {
+  color: var(--lp-muted);
+  font-size: 14px;
+  text-align: center;
+  margin: 0 0 28px;
+}
+
+.landing-auth-field {
+  margin-bottom: 16px;
+}
+
+.landing-auth-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.landing-auth-field input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  font-size: 14px;
+}
+
+.landing-auth-field input:focus {
+  outline: none;
+  border-color: var(--lp-accent);
+}
+
+.landing-auth-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.landing-auth-error {
+  color: #d81f26;
+  font-size: 13px;
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.landing-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  color: var(--lp-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.landing-auth-divider::before,
+.landing-auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--lp-border);
+}
+
+.landing-auth-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.landing-auth-google:hover {
+  border-color: var(--lp-accent);
+}
+
+.landing-auth-footer {
+  text-align: center;
+  font-size: 13px;
+  margin-top: 24px;
+  color: var(--lp-muted);
+}
+
+.landing-auth-footer a {
+  color: var(--lp-accent-dark);
+  font-weight: 600;
+}
+
 .landing-product-detail-brand {
   font-size: 12px;
   font-weight: 700;

@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { OrigenCliente, Prisma, TipoCliente } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { validarClienteNoDuplicado } from "../../common/cliente-duplicate-check";
 import { CreateClienteDto } from "./dto/create-cliente.dto";
 import { UpdateClienteDto } from "./dto/update-cliente.dto";
 import { QueryClienteDto } from "./dto/query-cliente.dto";
@@ -11,31 +12,6 @@ import { QueryPagosClienteDto } from "./dto/query-pagos-cliente.dto";
 @Injectable()
 export class ClientesService {
   constructor(private readonly prisma: PrismaService) {}
-
-  /**
-   * numeroDocumento y email son los campos clave para evitar duplicados. Reusable tal cual cuando
-   * más adelante exista registro público desde la web (mismo chequeo, otro origen).
-   */
-  private async validarNoDuplicado(
-    fields: { numeroDocumento?: string; email?: string },
-    excludeId?: string,
-  ) {
-    const or: Prisma.ClienteWhereInput[] = [];
-    if (fields.numeroDocumento) or.push({ numeroDocumento: fields.numeroDocumento });
-    if (fields.email) or.push({ email: fields.email });
-    if (or.length === 0) return;
-
-    const existing = await this.prisma.cliente.findFirst({
-      where: { OR: or, ...(excludeId ? { id: { not: excludeId } } : {}) },
-    });
-    if (!existing) return;
-
-    const campo =
-      fields.numeroDocumento && existing.numeroDocumento === fields.numeroDocumento
-        ? "número de documento"
-        : "email";
-    throw new ConflictException(`Ya existe un cliente registrado con ese ${campo}.`);
-  }
 
   async findAll(query: QueryClienteDto) {
     const { page, pageSize, skip, take } = getPagination({
@@ -104,7 +80,7 @@ export class ClientesService {
   }
 
   async create(dto: CreateClienteDto, creadoPorId: string) {
-    await this.validarNoDuplicado({ numeroDocumento: dto.numeroDocumento, email: dto.email });
+    await validarClienteNoDuplicado(this.prisma, { numeroDocumento: dto.numeroDocumento, email: dto.email });
     try {
       return await this.prisma.cliente.create({
         data: {
@@ -130,7 +106,7 @@ export class ClientesService {
   async update(id: string, dto: UpdateClienteDto) {
     await this.findOne(id);
     if (dto.numeroDocumento !== undefined || dto.email !== undefined) {
-      await this.validarNoDuplicado({ numeroDocumento: dto.numeroDocumento, email: dto.email }, id);
+      await validarClienteNoDuplicado(this.prisma, { numeroDocumento: dto.numeroDocumento, email: dto.email }, id);
     }
     try {
       return await this.prisma.cliente.update({

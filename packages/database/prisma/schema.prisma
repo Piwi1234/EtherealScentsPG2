@@ -68,8 +68,8 @@ enum TipoDocumento {
   @@map("tipo_documento")
 }
 
-/// MANUAL: cargado desde gestión (ADMIN/SELLER). WEB: registro propio del cliente — todavía no
-/// implementado, pero el campo ya existe para no requerir otra migración cuando se agregue.
+/// MANUAL: cargado desde gestión (ADMIN/SELLER). WEB: registro propio del cliente (ver
+/// ClienteAuthModule — email/contraseña o Google).
 enum OrigenCliente {
   MANUAL
   WEB
@@ -81,12 +81,15 @@ enum OrigenCliente {
 /// que más adelante se registren solos desde la web pública (origen = WEB) y para relacionarse con
 /// un futuro módulo de Proformas (todavía no existe: sin referencias a eso acá).
 model Cliente {
-  id              String        @id @default(uuid()) @db.Uuid
-  tipo            TipoCliente   @default(NATURAL)
+  id              String         @id @default(uuid()) @db.Uuid
+  tipo            TipoCliente    @default(NATURAL)
   nombre          String
-  tipoDocumento   TipoDocumento @map("tipo_documento")
-  numeroDocumento String        @unique @map("numero_documento")
-  email           String?       @unique
+  // Opcionales: un cliente autorregistrado (origen=WEB) no los carga al momento del alta — se piden
+  // recién cuando hace falta un documento real (ej. al facturar una proforma). El form de gestión
+  // (CreateClienteDto) los sigue exigiendo por su cuenta, esto solo relaja la columna.
+  tipoDocumento   TipoDocumento? @map("tipo_documento")
+  numeroDocumento String?        @unique @map("numero_documento")
+  email           String?        @unique
   telefono        String?
   direccion       String?
   ciudad          String?
@@ -101,13 +104,34 @@ model Cliente {
   creadoPorId String?       @map("creado_por_id") @db.Uuid
   creadoPor   Usuario?      @relation(fields: [creadoPorId], references: [id])
 
+  // --- Autenticación propia del cliente (origen=WEB) — ver ClienteAuthModule. Null en clientes
+  // cargados desde gestión (origen=MANUAL), que no tienen login propio. ---
+  passwordHash String? @map("password_hash") // null si el cliente solo entra con Google
+  googleId     String? @unique @map("google_id")
+
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  proformas Proforma[]
+  proformas            Proforma[]
+  clienteRefreshTokens ClienteRefreshToken[]
 
   @@map("clientes")
+}
+
+/// Un refresh token emitido a un Cliente autenticado (registro propio o Google) — mismo mecanismo que
+/// RefreshToken (Usuario), tabla separada porque son dos audiencias de token distintas (scope
+/// "gestion" vs "cliente") que nunca deben poder canjearse entre sí.
+model ClienteRefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiraEn  DateTime @map("expira_en")
+  revocado  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("cliente_refresh_tokens")
 }
 
 enum AttributeType {

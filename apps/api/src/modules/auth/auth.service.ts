@@ -1,17 +1,11 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { compare } from "bcryptjs";
-import { createHash } from "node:crypto";
 import { Rol } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
+import { sha256 } from "../../common/hash.util";
 import type { AccessTokenPayload } from "./strategies/jwt.strategy";
 import { parseDurationMs, parseDurationSeconds } from "./duration.util";
-
-/** Los refresh tokens nunca se guardan en texto plano: solo su hash (determinístico, para poder
- * buscarlos por igualdad exacta al validarlos). */
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
 
 @Injectable()
 export class AuthService {

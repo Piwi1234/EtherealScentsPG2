@@ -7,6 +7,7 @@ import { apiGet, getCasaMatrizLogo } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
 import type { Category, Page, Product } from "../../lib/types";
 import { formatCartAtributos } from "../proformas/AtributosVisibles";
+import { getCustomerUser, type CustomerUser } from "../../lib/customer-auth";
 
 const SEARCH_RESULTS_LIMIT = 7;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -43,6 +44,7 @@ export function LandingNavbar({
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [customer, setCustomer] = useState<CustomerUser | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -55,6 +57,7 @@ export function LandingNavbar({
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    setCustomer(getCustomerUser());
   }, []);
 
   // Dispara el cambio de color a --dark al pasar ~80px de scroll (ver navbarClass) — solo aplica en
@@ -210,6 +213,9 @@ export function LandingNavbar({
           <Link href="/preventa-faq" className="landing-navbar-actions-link">PREVENTA Y FAQ</Link>
           <a className="landing-navbar-actions-link" href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a className="landing-navbar-actions-link" href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
+          <Link href={customer ? "/cuenta" : "/ingresar"} className="landing-navbar-actions-link">
+            {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
+          </Link>
           <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
           <button
             type="button"
@@ -306,6 +312,9 @@ export function LandingNavbar({
           <Link href="/preventa-faq" onClick={() => setMobileMenuOpen(false)}>PREVENTA Y FAQ</Link>
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
+          <Link href={customer ? "/cuenta" : "/ingresar"} onClick={() => setMobileMenuOpen(false)}>
+            {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
+          </Link>
           <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
         </nav>
       )}

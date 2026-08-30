@@ -4,6 +4,7 @@ import { CommonModule } from "./common/common.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsuariosModule } from "./modules/usuarios/usuarios.module";
 import { ClientesModule } from "./modules/clientes/clientes.module";
+import { ClienteAuthModule } from "./modules/cliente-auth/cliente-auth.module";
 import { EmpresasModule } from "./modules/empresas/empresas.module";
 import { AlmacenesModule } from "./modules/almacenes/almacenes.module";
 import { ProveedoresModule } from "./modules/proveedores/proveedores.module";
@@ -22,6 +23,7 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
     AuthModule,
     UsuariosModule,
     ClientesModule,
+    ClienteAuthModule,
     EmpresasModule,
     AlmacenesModule,
     ProveedoresModule,

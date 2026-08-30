@@ -49,7 +49,9 @@ import type {
 
 const DEFAULT_API_HOST = "http://localhost:4100";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_HOST;
-const API_BASE = typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL ? "/api" : `${API_URL}/api`;
+// Exportado para lib/customer-api.ts (mismo criterio de base, para respetar el mismo esquema
+// relativo/absoluto según haya o no reverse proxy en producción).
+export const API_BASE = typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL ? "/api" : `${API_URL}/api`;
 
 /** Origen del backend (sin /api), para construir URLs de archivos estáticos como /uploads/... */
 export const API_ORIGIN = API_URL;
