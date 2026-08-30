@@ -210,7 +210,7 @@ export function LandingNavbar({
         </div>
 
         <div className="landing-navbar-actions">
-          <Link href="/preventa-faq" className="landing-navbar-actions-link">PREVENTA Y FAQ</Link>
+          <Link href="/preventa-faq" className="landing-navbar-actions-link">FAQ</Link>
           <a className="landing-navbar-actions-link" href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a className="landing-navbar-actions-link" href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           <Link href={customer ? "/cuenta" : "/ingresar"} className="landing-navbar-actions-link">
@@ -309,7 +309,7 @@ export function LandingNavbar({
             </Link>
           ))}
           <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
-          <Link href="/preventa-faq" onClick={() => setMobileMenuOpen(false)}>PREVENTA Y FAQ</Link>
+          <Link href="/preventa-faq" onClick={() => setMobileMenuOpen(false)}>FAQ</Link>
           <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
           <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
           <Link href={customer ? "/cuenta" : "/ingresar"} onClick={() => setMobileMenuOpen(false)}>
