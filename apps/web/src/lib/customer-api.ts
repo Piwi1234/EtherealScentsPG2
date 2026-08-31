@@ -8,10 +8,12 @@ import { clearCustomerSession } from "./customer-auth";
 async function customerApiRequest<T>(path: string, init: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
 
+  let hadToken = false;
   if (typeof window !== "undefined") {
     init.headers = init.headers ?? {};
     const token = localStorage.getItem("customer_token");
     if (token) {
+      hadToken = true;
       (init.headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     }
   }
@@ -23,7 +25,9 @@ async function customerApiRequest<T>(path: string, init: RequestInit): Promise<T
     throw new Error(`API request failed: ${url} — ${String(error)}`);
   }
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  // Ver el comentario equivalente en lib/api.ts: sin token (ej. login/register con datos
+  // incorrectos) un 401 es un error normal, no una sesión vencida.
+  if (response.status === 401 && hadToken && typeof window !== "undefined") {
     clearCustomerSession();
     window.location.href = "/ingresar";
     throw new ApiError(401, "Sesión expirada.");

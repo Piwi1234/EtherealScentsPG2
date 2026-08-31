@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_ORIGIN, apiGet, apiPost } from "../../lib/api";
+import { API_ORIGIN, ApiError, apiGet, apiPost } from "../../lib/api";
 import { saveSession, type AuthUser } from "../../lib/auth";
 
 function UserIcon() {
@@ -45,8 +45,12 @@ export default function LoginPage() {
       saveSession(res.accessToken, res.refreshToken, res.usuario);
       router.push("/dashboard");
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setError(message.includes("401") ? "Credenciales inválidas." : `Error de conexión: ${message}`);
+      if (e instanceof ApiError && e.status === 401) {
+        setError("Credenciales inválidas.");
+      } else {
+        const message = e instanceof Error ? e.message : String(e);
+        setError(`Error de conexión: ${message}`);
+      }
     } finally {
       setLoading(false);
     }

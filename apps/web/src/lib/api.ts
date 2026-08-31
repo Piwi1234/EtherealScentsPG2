@@ -68,10 +68,12 @@ export class ApiError extends Error {
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
 
+  let hadToken = false;
   if (typeof window !== "undefined") {
     init.headers = init.headers ?? {};
     const token = localStorage.getItem("app_token");
     if (token) {
+      hadToken = true;
       (init.headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     }
   }
@@ -83,7 +85,11 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${url} — ${String(error)}`);
   }
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  // Un 401 solo significa "se venció la sesión" si la request llevaba un token (había sesión
+  // para empezar). Sin token — ej. el propio POST /auth/login con contraseña incorrecta — un 401
+  // es un error normal (credenciales inválidas) y debe mostrar el mensaje real de la API, no
+  // redirigir como si hubiera expirado algo que nunca existió.
+  if (response.status === 401 && hadToken && typeof window !== "undefined") {
     clearSession();
     window.location.href = "/login";
     // La navegación va a desmontar todo; esto solo evita que el código que llamó siga ejecutando.
