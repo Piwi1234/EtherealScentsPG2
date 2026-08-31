@@ -1,8 +1,9 @@
 import { extname, join } from "node:path";
 import { diskStorage } from "multer";
 import type { Request } from "express";
+import { UPLOADS_ROOT } from "../../common/uploads-root";
 
-export const CARRITO_WHATSAPP_IMAGENES_DIR = join(process.cwd(), "uploads", "carrito-whatsapp");
+export const CARRITO_WHATSAPP_IMAGENES_DIR = join(UPLOADS_ROOT, "carrito-whatsapp");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 

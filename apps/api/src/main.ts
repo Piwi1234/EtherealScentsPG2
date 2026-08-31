@@ -7,20 +7,21 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { UPLOADS_ROOT } from "./common/uploads-root";
 
 async function bootstrap() {
   // Carpetas de imágenes: deben existir antes de que multer/estáticos las usen.
-  mkdirSync(join(process.cwd(), "uploads", "products"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "empresas"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "brands"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "categories"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "landing"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "carousel"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "carrito-whatsapp"), { recursive: true });
-  mkdirSync(join(process.cwd(), "uploads", "redes-sociales"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "products"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "empresas"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "brands"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "categories"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "landing"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "carousel"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "carrito-whatsapp"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "redes-sociales"), { recursive: true });
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
+  app.useStaticAssets(UPLOADS_ROOT, { prefix: "/uploads" });
   // Express 5 cambió el parser de query por defecto a "simple" (querystring nativo), que no
   // entiende notación de corchetes. La volvemos a "extended" (qs) para poder recibir filtros
   // dinámicos de catálogo como `?attr[<attributeId>]=valor`.

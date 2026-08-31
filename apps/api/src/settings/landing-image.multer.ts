@@ -1,8 +1,9 @@
 import { extname, join } from "node:path";
 import { diskStorage } from "multer";
 import type { Request } from "express";
+import { UPLOADS_ROOT } from "../common/uploads-root";
 
-export const LANDING_IMAGES_DIR = join(process.cwd(), "uploads", "landing");
+export const LANDING_IMAGES_DIR = join(UPLOADS_ROOT, "landing");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 

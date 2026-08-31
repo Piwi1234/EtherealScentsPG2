@@ -1,8 +1,9 @@
 import { extname, join } from "node:path";
 import { diskStorage } from "multer";
 import type { Request } from "express";
+import { UPLOADS_ROOT } from "../../common/uploads-root";
 
-export const RED_SOCIAL_LOGOS_DIR = join(process.cwd(), "uploads", "redes-sociales");
+export const RED_SOCIAL_LOGOS_DIR = join(UPLOADS_ROOT, "redes-sociales");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 

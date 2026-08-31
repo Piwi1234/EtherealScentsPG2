@@ -2,8 +2,9 @@ import { extname, join } from "node:path";
 import { randomInt } from "node:crypto";
 import { diskStorage } from "multer";
 import type { Request } from "express";
+import { UPLOADS_ROOT } from "../../common/uploads-root";
 
-export const CAROUSEL_IMAGES_DIR = join(process.cwd(), "uploads", "carousel");
+export const CAROUSEL_IMAGES_DIR = join(UPLOADS_ROOT, "carousel");
 
 const IMAGE_MIME_TYPES = /^image\/(jpeg|png|webp|gif)$/;
 
