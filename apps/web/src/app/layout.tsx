@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { CartRoot } from "../components/landing/CartRoot";
+import { API_ORIGIN, getCasaMatrizLogo } from "../lib/api";
 
 // Inter: tipografía del Dashboard interno (.nocturne-theme) — declarada por nombre en globals.css
 // pero nunca cargada de verdad hasta ahora (sin esto, el navegador caía al fallback system-ui).
@@ -16,17 +18,30 @@ const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600
 const SITE_TITLE = "Ethereal Scents";
 const SITE_DESCRIPTION = "Perfumes y vapes originales — catálogo, ofertas y cotización directa.";
 
-export const metadata = {
-  title: SITE_TITLE,
-  description: SITE_DESCRIPTION,
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  // Logo de la casa matriz (Gestión → Empresas) como og:image — si la API no responde (build sin
+  // backend levantado, o caída puntual), el sitio sigue funcionando con título/descripción nomás.
+  let logoUrl: string | null = null;
+  try {
+    const empresa = await getCasaMatrizLogo();
+    logoUrl = empresa.logoUrl;
+  } catch {
+    logoUrl = null;
+  }
+
+  return {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    siteName: SITE_TITLE,
-    locale: "es",
-    type: "website",
-  },
-};
+    openGraph: {
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      siteName: SITE_TITLE,
+      locale: "es",
+      type: "website",
+      images: logoUrl ? [{ url: `${API_ORIGIN}${logoUrl}` }] : undefined,
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
