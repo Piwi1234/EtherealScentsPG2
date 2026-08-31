@@ -13,9 +13,19 @@ import { CartRoot } from "../components/landing/CartRoot";
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-inter" });
 const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-manrope" });
 
+const SITE_TITLE = "Ethereal Scents";
+const SITE_DESCRIPTION = "Perfumes y vapes originales — catálogo, ofertas y cotización directa.";
+
 export const metadata = {
-  title: "Nuevo Proyecto",
-  description: "Esqueleto técnico: monorepo pnpm + Turborepo, NestJS, Next.js, Prisma.",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: SITE_TITLE,
+    locale: "es",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
