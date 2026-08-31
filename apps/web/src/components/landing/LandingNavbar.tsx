@@ -8,6 +8,7 @@ import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-d
 import type { Category, Page, Product } from "../../lib/types";
 import { formatCartAtributos } from "../proformas/AtributosVisibles";
 import { getCustomerUser, type CustomerUser } from "../../lib/customer-auth";
+import { getAuthUser } from "../../lib/auth";
 
 const SEARCH_RESULTS_LIMIT = 7;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -45,6 +46,7 @@ export function LandingNavbar({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerUser | null>(null);
+  const [isStaff, setIsStaff] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -58,6 +60,7 @@ export function LandingNavbar({
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     setCustomer(getCustomerUser());
+    setIsStaff(getAuthUser() !== null);
   }, []);
 
   // Dispara el cambio de color a --dark al pasar ~80px de scroll (ver navbarClass) — solo aplica en
@@ -216,7 +219,9 @@ export function LandingNavbar({
           <Link href={customer ? "/cuenta" : "/ingresar"} className="landing-navbar-actions-link">
             {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
           </Link>
-          <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
+          {isStaff && (
+            <Link href="/dashboard" className="landing-btn landing-btn-primary">Gestión</Link>
+          )}
           <button
             type="button"
             className={`landing-navbar-toggle${mobileMenuOpen ? " landing-navbar-toggle--open" : ""}`}
@@ -315,7 +320,9 @@ export function LandingNavbar({
           <Link href={customer ? "/cuenta" : "/ingresar"} onClick={() => setMobileMenuOpen(false)}>
             {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
           </Link>
-          <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
+          {isStaff && (
+            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
+          )}
         </nav>
       )}
     </header>
