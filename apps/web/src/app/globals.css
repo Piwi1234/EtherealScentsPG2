@@ -2441,7 +2441,7 @@ a {
   position: relative;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .landing-navbar-links > a:hover,
@@ -2566,6 +2566,13 @@ a {
   gap: 14px;
   flex: 1;
   justify-content: flex-end;
+}
+
+/* "Gestión" reusa .landing-btn (compartido con otros CTA del sitio) — se achica solo acá, sin tocar
+   la clase base. */
+.landing-navbar-actions .landing-btn {
+  padding: 9px 20px;
+  font-size: 12px;
 }
 
 /* --- Buscador de productos, dentro de la misma fila del navbar (entre los links y "Gestión") --- */
@@ -4858,8 +4865,8 @@ a {
 
 .landing-about-visual {
   display: block;
-  width: 100%;
-  aspect-ratio: 4 / 5;
+  width: 75%;
+  aspect-ratio: 8 / 5;
   border-radius: 20px;
   object-fit: cover;
   background: linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);

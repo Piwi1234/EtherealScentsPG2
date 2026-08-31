@@ -322,12 +322,23 @@ export default function GridImagenesPage() {
           <div className="grid-3" style={{ gap: 20, marginBottom: 28 }}>
             {(
               [
-                { id: "value", label: "Propuesta de valor", imageUrl: landingImages?.valueImageUrl ?? null },
-                { id: "about", label: "Sobre nosotros", imageUrl: landingImages?.aboutImageUrl ?? null },
+                {
+                  id: "value",
+                  label: "Propuesta de valor",
+                  imageUrl: landingImages?.valueImageUrl ?? null,
+                  hint: "Recomendado: 1600×1100px o más (relación 16:11).",
+                },
+                {
+                  id: "about",
+                  label: "Sobre nosotros",
+                  imageUrl: landingImages?.aboutImageUrl ?? null,
+                  hint: "Recomendado: 1600×1000px o más, horizontal (relación 8:5).",
+                },
               ] as const
             ).map((slot) => (
               <div key={slot.id} style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 12 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>{slot.label}</label>
+                <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 8px", lineHeight: 1.4 }}>{slot.hint}</p>
                 <div className="image-uploader">
                   {imgSrc(slot.imageUrl) ? (
                     <img src={imgSrc(slot.imageUrl)!} alt={slot.label} />
