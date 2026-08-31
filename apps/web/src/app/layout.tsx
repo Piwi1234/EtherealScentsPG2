@@ -29,16 +29,19 @@ export async function generateMetadata(): Promise<Metadata> {
     logoUrl = null;
   }
 
+  const absoluteLogoUrl = logoUrl ? `${API_ORIGIN}${logoUrl}` : null;
+
   return {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    icons: absoluteLogoUrl ? { icon: absoluteLogoUrl } : undefined,
     openGraph: {
       title: SITE_TITLE,
       description: SITE_DESCRIPTION,
       siteName: SITE_TITLE,
       locale: "es",
       type: "website",
-      images: logoUrl ? [{ url: `${API_ORIGIN}${logoUrl}` }] : undefined,
+      images: absoluteLogoUrl ? [{ url: absoluteLogoUrl }] : undefined,
     },
   };
 }
