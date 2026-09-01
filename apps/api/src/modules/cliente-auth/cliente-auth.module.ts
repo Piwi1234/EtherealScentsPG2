@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ClienteAuthController } from "./cliente-auth.controller";
 import { ClienteAuthService } from "./cliente-auth.service";
+import { ClienteEmailService } from "./cliente-email.service";
 import { ClienteJwtStrategy } from "./strategies/cliente-jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { parseDurationSeconds } from "../auth/duration.util";
@@ -21,6 +22,6 @@ import { parseDurationSeconds } from "../auth/duration.util";
     }),
   ],
   controllers: [ClienteAuthController],
-  providers: [ClienteAuthService, ClienteJwtStrategy, GoogleStrategy],
+  providers: [ClienteAuthService, ClienteEmailService, ClienteJwtStrategy, GoogleStrategy],
 })
 export class ClienteAuthModule {}

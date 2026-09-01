@@ -113,8 +113,9 @@ model Cliente {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  proformas            Proforma[]
-  clienteRefreshTokens ClienteRefreshToken[]
+  proformas                  Proforma[]
+  clienteRefreshTokens       ClienteRefreshToken[]
+  clientePasswordResetTokens ClientePasswordResetToken[]
 
   @@map("clientes")
 }
@@ -132,6 +133,22 @@ model ClienteRefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("cliente_refresh_tokens")
+}
+
+/// Token de un solo uso para el flujo de "olvidé mi contraseña" de un Cliente. Igual mecanismo que
+/// ClienteRefreshToken (solo se guarda el hash, nunca el token en texto plano) — tabla separada
+/// porque la semántica es distinta: expira mucho antes (1h vs 7d) y se consume una sola vez (`usado`)
+/// en vez de rotar.
+model ClientePasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiraEn  DateTime @map("expira_en")
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("cliente_password_reset_tokens")
 }
 
 enum AttributeType {

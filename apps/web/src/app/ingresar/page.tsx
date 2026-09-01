@@ -74,6 +74,10 @@ export default function IngresarPage() {
             />
           </div>
 
+          <p className="landing-auth-forgot">
+            <Link href="/olvide-contrasena">¿Olvidaste tu contraseña?</Link>
+          </p>
+
           <button type="button" className="landing-btn landing-btn-primary landing-auth-submit" onClick={submit} disabled={loading}>
             {loading ? "Ingresando..." : "Ingresar"}
           </button>

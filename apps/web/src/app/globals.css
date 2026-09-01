@@ -5218,6 +5218,20 @@ a {
   margin-top: 8px;
 }
 
+.landing-auth-forgot {
+  text-align: right;
+  font-size: 12.5px;
+  margin: -8px 0 16px;
+}
+
+.landing-auth-forgot a {
+  color: var(--lp-muted);
+}
+
+.landing-auth-forgot a:hover {
+  color: var(--lp-accent-dark);
+}
+
 .landing-auth-error {
   color: #d81f26;
   font-size: 13px;

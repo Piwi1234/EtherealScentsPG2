@@ -8,6 +8,8 @@ import { RefreshTokenDto } from "../auth/dto/refresh-token.dto";
 import { ClienteAuthService } from "./cliente-auth.service";
 import { RegisterClienteDto } from "./dto/register-cliente.dto";
 import { LoginClienteDto } from "./dto/login-cliente.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ClienteJwtAuthGuard } from "./guards/cliente-jwt-auth.guard";
 import { CurrentCliente } from "./decorators/current-cliente.decorator";
 import type { AuthenticatedCliente } from "./strategies/cliente-jwt.strategy";
@@ -41,6 +43,29 @@ export class ClienteAuthController {
   @ApiResponse({ status: 401, description: "Credenciales inválidas." })
   login(@Body() dto: LoginClienteDto) {
     return this.clienteAuth.login(dto.email, dto.password);
+  }
+
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Pide el link para restablecer la contraseña. Siempre responde 200, exista o no el email." })
+  @ApiResponse({ status: 200, description: "Mensaje genérico (no revela si el email existe)." })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.clienteAuth.forgotPassword(dto.email);
+    return { message: "Si el email existe, te enviamos un link para restablecer la contraseña." };
+  }
+
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Establece una contraseña nueva a partir del token recibido por email." })
+  @ApiResponse({ status: 200, description: "Contraseña actualizada." })
+  @ApiResponse({ status: 401, description: "Token inválido, ya usado o expirado." })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.clienteAuth.resetPassword(dto.token, dto.password);
+    return { message: "Contraseña actualizada." };
   }
 
   @Post("refresh-token")

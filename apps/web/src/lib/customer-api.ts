@@ -70,6 +70,14 @@ export function loginCustomer(email: string, password: string) {
   return customerApiPost<ClienteAuthResponse>("/cliente-auth/login", { email, password });
 }
 
+export function forgotPassword(email: string) {
+  return customerApiPost<{ message: string }>("/cliente-auth/forgot-password", { email });
+}
+
+export function resetPassword(token: string, password: string) {
+  return customerApiPost<{ message: string }>("/cliente-auth/reset-password", { token, password });
+}
+
 export function logoutCustomer(refreshToken: string) {
   return customerApiRequest<void>("/cliente-auth/logout", {
     method: "POST",
