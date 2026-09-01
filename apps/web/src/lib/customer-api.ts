@@ -56,6 +56,10 @@ function customerApiPost<T>(path: string, data: unknown): Promise<T> {
   return customerApiRequest<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
 
+function customerApiPatch<T>(path: string, data: unknown): Promise<T> {
+  return customerApiRequest<T>(path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+
 export type ClienteAuthResponse = {
   accessToken: string;
   refreshToken: string;
@@ -90,4 +94,21 @@ export function logoutCustomer(refreshToken: string) {
  * navegación de browser para que la cadena de redirects de Google funcione. */
 export function googleAuthUrl(): string {
   return `${API_BASE}/cliente-auth/google`;
+}
+
+export type ClientePerfil = {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+};
+
+export function getMyProfile() {
+  return customerApiRequest<ClientePerfil>("/cliente-auth/me", { method: "GET" });
+}
+
+export function updateMyProfile(data: { nombre?: string; telefono?: string; direccion?: string; ciudad?: string }) {
+  return customerApiPatch<ClientePerfil>("/cliente-auth/me", data);
 }

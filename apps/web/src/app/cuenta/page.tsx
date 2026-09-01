@@ -4,17 +4,58 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
-import { clearCustomerSession, getCustomerUser, type CustomerUser } from "../../lib/customer-auth";
-import { logoutCustomer } from "../../lib/customer-api";
+import { clearCustomerSession, getCustomerUser, updateCustomerUserName, type CustomerUser } from "../../lib/customer-auth";
+import { getMyProfile, logoutCustomer, updateMyProfile } from "../../lib/customer-api";
 
 export default function CuentaPage() {
   const router = useRouter();
   const [customer, setCustomer] = useState<CustomerUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
   useEffect(() => {
     setCustomer(getCustomerUser());
+    getMyProfile()
+      .then((perfil) => {
+        setNombre(perfil.nombre);
+        setTelefono(perfil.telefono ?? "");
+        setDireccion(perfil.direccion ?? "");
+        setCiudad(perfil.ciudad ?? "");
+        setEmail(perfil.email);
+      })
+      .catch(() => setError("No se pudieron cargar tus datos."))
+      .finally(() => setLoadingProfile(false));
   }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const perfil = await updateMyProfile({
+        nombre: nombre.trim(),
+        telefono: telefono.trim(),
+        direccion: direccion.trim(),
+        ciudad: ciudad.trim(),
+      });
+      updateCustomerUserName(perfil.nombre);
+      setCustomer((prev) => (prev ? { ...prev, nombre: perfil.nombre } : prev));
+      setMessage("Datos actualizados.");
+    } catch {
+      setError("No se pudieron guardar los cambios, intentá de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -37,11 +78,47 @@ export default function CuentaPage() {
           <h1 className="landing-auth-title">Mi cuenta</h1>
           {customer ? (
             <>
-              <p className="landing-auth-lead">
-                Hola, {customer.nombre}
-                {customer.email ? ` — ${customer.email}` : ""}
-              </p>
-              <button type="button" className="landing-btn landing-btn-primary landing-auth-submit" onClick={handleLogout} disabled={loggingOut}>
+              <p className="landing-auth-lead">Hola, {customer.nombre}{email ? ` — ${email}` : ""}</p>
+
+              {!loadingProfile && (
+                <>
+                  {message && <p className="landing-auth-lead">{message}</p>}
+                  {error && <p className="landing-auth-error">{error}</p>}
+
+                  <div className="landing-auth-field">
+                    <label htmlFor="cuenta-nombre">Nombre</label>
+                    <input id="cuenta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  </div>
+                  <div className="landing-auth-field">
+                    <label htmlFor="cuenta-telefono">Teléfono</label>
+                    <input id="cuenta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                  </div>
+                  <div className="landing-auth-field">
+                    <label htmlFor="cuenta-direccion">Dirección</label>
+                    <input id="cuenta-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} />
+                  </div>
+                  <div className="landing-auth-field">
+                    <label htmlFor="cuenta-ciudad">Ciudad</label>
+                    <input id="cuenta-ciudad" value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="landing-btn landing-btn-primary landing-auth-submit"
+                    onClick={handleSave}
+                    disabled={saving || !nombre.trim()}
+                  >
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                className="landing-btn landing-btn-outline-dark landing-auth-submit landing-auth-logout"
+                onClick={handleLogout}
+                disabled={loggingOut}
+              >
                 {loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
               </button>
             </>

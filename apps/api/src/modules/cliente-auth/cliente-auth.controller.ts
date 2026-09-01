@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
@@ -10,6 +10,7 @@ import { RegisterClienteDto } from "./dto/register-cliente.dto";
 import { LoginClienteDto } from "./dto/login-cliente.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { UpdateClientePerfilDto } from "./dto/update-cliente-perfil.dto";
 import { ClienteJwtAuthGuard } from "./guards/cliente-jwt-auth.guard";
 import { CurrentCliente } from "./decorators/current-cliente.decorator";
 import type { AuthenticatedCliente } from "./strategies/cliente-jwt.strategy";
@@ -85,6 +86,22 @@ export class ClienteAuthController {
   @ApiResponse({ status: 204, description: "Sesión cerrada." })
   logout(@CurrentCliente() cliente: AuthenticatedCliente, @Body() dto: RefreshTokenDto) {
     return this.clienteAuth.logout(cliente.id, dto.refreshToken);
+  }
+
+  @UseGuards(ClienteJwtAuthGuard)
+  @Get("me")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Datos del cliente logueado." })
+  getMe(@CurrentCliente() cliente: AuthenticatedCliente) {
+    return this.clienteAuth.getProfile(cliente.id);
+  }
+
+  @UseGuards(ClienteJwtAuthGuard)
+  @Patch("me")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Actualiza los datos de contacto del cliente logueado (no email ni documento)." })
+  updateMe(@CurrentCliente() cliente: AuthenticatedCliente, @Body() dto: UpdateClientePerfilDto) {
+    return this.clienteAuth.updateProfile(cliente.id, dto);
   }
 
   @Get("google")

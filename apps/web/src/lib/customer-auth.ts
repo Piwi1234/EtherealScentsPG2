@@ -21,6 +21,14 @@ export function getCustomerUser(): CustomerUser | null {
   }
 }
 
+/** Actualiza el nombre guardado localmente (ej. tras editar el perfil) sin tocar los tokens — el
+ * navbar y el resto del sitio lo leen de acá, no vuelven a pedirlo a la API en cada render. */
+export function updateCustomerUserName(nombre: string) {
+  const current = getCustomerUser();
+  if (!current) return;
+  localStorage.setItem("customer_user", JSON.stringify({ ...current, nombre }));
+}
+
 export function clearCustomerSession() {
   localStorage.removeItem("customer_token");
   localStorage.removeItem("customer_refresh_token");

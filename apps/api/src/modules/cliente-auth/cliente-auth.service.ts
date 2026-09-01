@@ -10,6 +10,7 @@ import { validarClienteNoDuplicado } from "../../common/cliente-duplicate-check"
 import { parseDurationMs, parseDurationSeconds } from "../auth/duration.util";
 import type { ClienteAccessTokenPayload } from "./strategies/cliente-jwt.strategy";
 import { RegisterClienteDto } from "./dto/register-cliente.dto";
+import { UpdateClientePerfilDto } from "./dto/update-cliente-perfil.dto";
 import { ClienteEmailService } from "./cliente-email.service";
 
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
@@ -152,6 +153,31 @@ export class ClienteAuthService {
       throw new ForbiddenException("Refresh token inválido");
     }
     await this.prisma.clienteRefreshToken.update({ where: { id: stored.id }, data: { revocado: true } });
+  }
+
+  async getProfile(clienteId: string) {
+    const cliente = await this.prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { id: true, nombre: true, email: true, telefono: true, direccion: true, ciudad: true },
+    });
+    if (!cliente) {
+      throw new UnauthorizedException("Cliente no encontrado");
+    }
+    return cliente;
+  }
+
+  async updateProfile(clienteId: string, dto: UpdateClientePerfilDto) {
+    const cliente = await this.prisma.cliente.update({
+      where: { id: clienteId },
+      data: {
+        nombre: dto.nombre?.trim(),
+        telefono: dto.telefono?.trim(),
+        direccion: dto.direccion?.trim(),
+        ciudad: dto.ciudad?.trim(),
+      },
+      select: { id: true, nombre: true, email: true, telefono: true, direccion: true, ciudad: true },
+    });
+    return cliente;
   }
 
   /** Siempre resuelve sin error, exista o no el email — nunca hay que revelar si una cuenta existe.
