@@ -41,7 +41,6 @@ export function LandingFooter() {
                 {cat.name}
               </Link>
             ))}
-            <Link href="/dashboard">Gestión</Link>
           </div>
           <div className="landing-footer-col">
             <p className="landing-footer-col-title">Contacto</p>
