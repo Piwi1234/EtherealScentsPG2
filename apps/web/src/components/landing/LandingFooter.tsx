@@ -66,6 +66,7 @@ export function LandingFooter() {
         <div className="landing-footer-bottom">
           <span>© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</span>
           <span>Panel de gestión interno — no es una tienda con checkout online.</span>
+          <Link href="/politica-privacidad">Política de Privacidad</Link>
         </div>
       </div>
     </footer>
