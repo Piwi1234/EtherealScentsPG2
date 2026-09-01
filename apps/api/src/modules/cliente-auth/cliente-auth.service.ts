@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { compare, hash } from "bcryptjs";
 import { OrigenCliente, TipoCliente } from "@app/database";
@@ -155,11 +155,18 @@ export class ClienteAuthService {
     await this.prisma.clienteRefreshToken.update({ where: { id: stored.id }, data: { revocado: true } });
   }
 
+  private readonly perfilSelect = {
+    id: true,
+    nombre: true,
+    email: true,
+    telefono: true,
+    direccion: true,
+    ciudadId: true,
+    ciudadRef: { select: { nombre: true } },
+  } as const;
+
   async getProfile(clienteId: string) {
-    const cliente = await this.prisma.cliente.findUnique({
-      where: { id: clienteId },
-      select: { id: true, nombre: true, email: true, telefono: true, direccion: true, ciudad: true },
-    });
+    const cliente = await this.prisma.cliente.findUnique({ where: { id: clienteId }, select: this.perfilSelect });
     if (!cliente) {
       throw new UnauthorizedException("Cliente no encontrado");
     }
@@ -167,15 +174,22 @@ export class ClienteAuthService {
   }
 
   async updateProfile(clienteId: string, dto: UpdateClientePerfilDto) {
+    if (dto.ciudadId) {
+      const ciudad = await this.prisma.ciudad.findUnique({ where: { id: dto.ciudadId } });
+      if (!ciudad || !ciudad.activo) {
+        throw new BadRequestException("Ciudad inválida.");
+      }
+    }
+
     const cliente = await this.prisma.cliente.update({
       where: { id: clienteId },
       data: {
         nombre: dto.nombre?.trim(),
         telefono: dto.telefono?.trim(),
         direccion: dto.direccion?.trim(),
-        ciudad: dto.ciudad?.trim(),
+        ciudadId: dto.ciudadId,
       },
-      select: { id: true, nombre: true, email: true, telefono: true, direccion: true, ciudad: true },
+      select: this.perfilSelect,
     });
     return cliente;
   }

@@ -231,6 +231,11 @@ export function getCasaMatrizLogo() {
   return apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo");
 }
 
+/** Público (sin auth) — ciudades activas para el select de "Mi cuenta" (cliente). */
+export function getCiudadesPublicas() {
+  return apiGet<{ id: string; nombre: string }[]>("/ciudades/publicas");
+}
+
 /** Público (sin auth) — carrusel del hero del home, del hero de /marcas, del banner de ofertas del
  * home y del banner de "Colección de la semana" (ordenados, con su `url` de redirección si tiene),
  * la marca elegida para ese bloque, e imágenes de "Propuesta de valor"/"Sobre nosotros" del home

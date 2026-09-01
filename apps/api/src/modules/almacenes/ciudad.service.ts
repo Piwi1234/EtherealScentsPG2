@@ -9,6 +9,17 @@ import { UpdateCiudadDto } from "./dto/update-ciudad.dto";
 export class CiudadService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Para selects públicos (ej. perfil de cliente) — solo lo mínimo, sin paginar y sin las
+   * inactivas. A diferencia de findAll() (staff, paginado) no hace falta que sea eficiente en
+   * miles de filas: son ciudades registradas a mano, siempre van a ser pocas. */
+  async findAllPublic() {
+    return this.prisma.ciudad.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+  }
+
   async findAll(query: { page?: string; pageSize?: string }) {
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",

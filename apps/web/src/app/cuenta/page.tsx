@@ -6,6 +6,7 @@ import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { clearCustomerSession, getCustomerUser, updateCustomerUserName, type CustomerUser } from "../../lib/customer-auth";
 import { getMyProfile, logoutCustomer, updateMyProfile } from "../../lib/customer-api";
+import { getCiudadesPublicas } from "../../lib/api";
 
 export default function CuentaPage() {
   const router = useRouter();
@@ -15,7 +16,8 @@ export default function CuentaPage() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [ciudad, setCiudad] = useState("");
+  const [ciudadId, setCiudadId] = useState("");
+  const [ciudades, setCiudades] = useState<{ id: string; nombre: string }[]>([]);
   const [email, setEmail] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,12 +26,13 @@ export default function CuentaPage() {
 
   useEffect(() => {
     setCustomer(getCustomerUser());
+    getCiudadesPublicas().then(setCiudades).catch(() => {});
     getMyProfile()
       .then((perfil) => {
         setNombre(perfil.nombre);
         setTelefono(perfil.telefono ?? "");
         setDireccion(perfil.direccion ?? "");
-        setCiudad(perfil.ciudad ?? "");
+        setCiudadId(perfil.ciudadId ?? "");
         setEmail(perfil.email);
       })
       .catch(() => setError("No se pudieron cargar tus datos."))
@@ -45,7 +48,7 @@ export default function CuentaPage() {
         nombre: nombre.trim(),
         telefono: telefono.trim(),
         direccion: direccion.trim(),
-        ciudad: ciudad.trim(),
+        ciudadId: ciudadId || undefined,
       });
       updateCustomerUserName(perfil.nombre);
       setCustomer((prev) => (prev ? { ...prev, nombre: perfil.nombre } : prev));
@@ -99,7 +102,14 @@ export default function CuentaPage() {
                   </div>
                   <div className="landing-auth-field">
                     <label htmlFor="cuenta-ciudad">Ciudad</label>
-                    <input id="cuenta-ciudad" value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
+                    <select id="cuenta-ciudad" value={ciudadId} onChange={(e) => setCiudadId(e.target.value)}>
+                      <option value="">Seleccioná una ciudad</option>
+                      {ciudades.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <button

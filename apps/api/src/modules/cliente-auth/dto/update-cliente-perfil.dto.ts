@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString, MinLength } from "class-validator";
+import { IsOptional, IsString, IsUUID, MinLength } from "class-validator";
 
 // A propósito no incluye email (cambiarlo sin un flujo de verificación es riesgoso: alguien podría
 // tomar el email de otra persona) ni tipoDocumento/numeroDocumento (los administra gestión, ver
@@ -21,8 +21,11 @@ export class UpdateClientePerfilDto {
   @IsString()
   direccion?: string;
 
+  // Reemplaza al viejo campo de texto libre `ciudad` (ese lo sigue usando gestión) — el perfil de
+  // cliente ahora elige de la lista real de ciudades registradas (Configuración > Almacenes >
+  // Ciudades), como ya hace Proforma.ciudadEntregaId.
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  ciudad?: string;
+  @IsUUID()
+  ciudadId?: string;
 }

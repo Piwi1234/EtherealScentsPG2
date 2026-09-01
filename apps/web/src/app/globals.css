@@ -5198,7 +5198,8 @@ a {
   margin-bottom: 6px;
 }
 
-.landing-auth-field input {
+.landing-auth-field input,
+.landing-auth-field select {
   width: 100%;
   padding: 11px 14px;
   border-radius: 8px;
@@ -5208,7 +5209,8 @@ a {
   font-size: 14px;
 }
 
-.landing-auth-field input:focus {
+.landing-auth-field input:focus,
+.landing-auth-field select:focus {
   outline: none;
   border-color: var(--lp-accent);
 }
