@@ -17,6 +17,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { Public } from "../../modules/auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { BrandService } from "./brand.service";
 import { BrandImportService } from "./brand-import.service";
 import { CreateBrandDto } from "./dto/create-brand.dto";
@@ -81,7 +82,7 @@ export class BrandController {
   }
 
   @Post(":id/logo")
-  @UseInterceptors(FileInterceptor("file", brandLogoMulterOptions))
+  @UseInterceptors(FileInterceptor("file", brandLogoMulterOptions), WebpUploadInterceptor)
   uploadLogo(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;
     // el filtro de tipo ya corrió en multer (brand-logo.multer.ts) antes de guardar en disco.

@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../../modules/auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { CategoryService } from "./category.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
@@ -72,7 +73,7 @@ export class CategoryController {
   }
 
   @Post(":id/carousel-images")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addCarouselImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;
     // el filtro de tipo ya corrió en multer (carousel-image.multer.ts) antes de guardar en disco.
@@ -122,7 +123,7 @@ export class CategoryController {
   }
 
   @Post(":id/hero-carousel-images")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addHeroCarouselImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");

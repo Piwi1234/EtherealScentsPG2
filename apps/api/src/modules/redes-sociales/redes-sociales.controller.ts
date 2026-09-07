@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { RedesSocialesService } from "./redes-sociales.service";
 import { CreateRedSocialDto } from "./dto/create-red-social.dto";
 import { UpdateRedSocialDto } from "./dto/update-red-social.dto";
@@ -58,7 +59,7 @@ export class RedesSocialesController {
   }
 
   @Post(":id/logo")
-  @UseInterceptors(FileInterceptor("file", redSocialLogoMulterOptions))
+  @UseInterceptors(FileInterceptor("file", redSocialLogoMulterOptions), WebpUploadInterceptor)
   @ApiOperation({ summary: "Sube el logo de la red social (JPEG/PNG/WEBP/GIF, hasta 5MB)." })
   uploadLogo(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;

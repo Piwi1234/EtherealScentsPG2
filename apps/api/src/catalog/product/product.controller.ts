@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { ProductService } from "./product.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -54,7 +55,7 @@ export class ProductController {
   }
 
   @Post(":id/image")
-  @UseInterceptors(FileInterceptor("file", productImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", productImageMulterOptions), WebpUploadInterceptor)
   uploadImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;
     // el filtro de tipo ya corrió en multer (product-image.multer.ts) antes de guardar en disco.
@@ -84,7 +85,7 @@ export class ProductController {
   }
 
   @Post(":id/variants/:variantId/image")
-  @UseInterceptors(FileInterceptor("file", productVariantImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", productVariantImageMulterOptions), WebpUploadInterceptor)
   uploadVariantImage(
     @Param("id", ParseUUIDPipe) id: string,
     @Param("variantId", ParseUUIDPipe) variantId: string,

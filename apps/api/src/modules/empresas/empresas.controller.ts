@@ -17,6 +17,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { Public } from "../auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { EmpresasService } from "./empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
@@ -73,7 +74,7 @@ export class EmpresasController {
 
   @Post(":id/logo")
   @Roles(Rol.ADMIN)
-  @UseInterceptors(FileInterceptor("file", empresaLogoMulterOptions))
+  @UseInterceptors(FileInterceptor("file", empresaLogoMulterOptions), WebpUploadInterceptor)
   @ApiOperation({ summary: "Sube el logo de la empresa (JPEG/PNG/WEBP/GIF, hasta 5MB). Solo ADMIN." })
   uploadLogo(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;

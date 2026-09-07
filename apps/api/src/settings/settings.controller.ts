@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import { Public } from "../modules/auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../common/webp-upload.interceptor";
 import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
 import { UpdateWeeklyCollectionBrandDto } from "./dto/update-weekly-collection-brand.dto";
@@ -65,7 +66,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/hero-carousel")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addHeroCarouselImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
@@ -94,7 +95,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/marcas-hero-carousel")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addMarcasHeroCarouselImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
@@ -123,7 +124,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/offers-banner-carousel")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addOffersBannerCarouselImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
@@ -152,7 +153,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/weekly-collection-carousel")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
   addWeeklyCollectionBannerCarouselImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
@@ -186,7 +187,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/value")
-  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("value")))
+  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("value")), WebpUploadInterceptor)
   uploadValueImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
@@ -195,7 +196,7 @@ export class SettingsController {
   }
 
   @Post("landing-images/about")
-  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("about")))
+  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("about")), WebpUploadInterceptor)
   uploadAboutImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");

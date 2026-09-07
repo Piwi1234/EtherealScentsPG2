@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/decorators/public.decorator";
+import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { CarritoWhatsappService } from "./carrito-whatsapp.service";
 import { CreateCarritoWhatsappContactoDto } from "./dto/create-carrito-whatsapp-contacto.dto";
 import { UpdateCarritoWhatsappContactoDto } from "./dto/update-carrito-whatsapp-contacto.dto";
@@ -58,7 +59,7 @@ export class CarritoWhatsappController {
   }
 
   @Post(":id/imagen")
-  @UseInterceptors(FileInterceptor("file", carritoWhatsappImagenMulterOptions))
+  @UseInterceptors(FileInterceptor("file", carritoWhatsappImagenMulterOptions), WebpUploadInterceptor)
   @ApiOperation({ summary: "Sube la imagen del contacto (JPEG/PNG/WEBP/GIF, hasta 5MB)." })
   uploadImagen(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
     // Con diskStorage no hay file.buffer para que Nest valide el tipo por contenido;
