@@ -1,0 +1,30 @@
+name: Backup de base de datos
+
+on:
+  schedule:
+    # 07:00 UTC todos los días (~03:00 hora Bolivia, UTC-4).
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente de PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Generar el dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          mkdir -p backup
+          pg_dump "$DATABASE_URL" --format=custom --file="backup/ethereal-scents-$(date -u +%Y-%m-%d).dump"
+
+      # Formato "custom" de pg_dump: comprimido y restaurable selectivamente. Para restaurar:
+      #   pg_restore --clean --if-exists --no-owner --dbname="<DATABASE_URL>" archivo.dump
+      - name: Subir el backup como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/*.dump
+          retention-days: 90
