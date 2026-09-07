@@ -10,15 +10,23 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Instalar cliente de PostgreSQL
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      # pg_dump no puede volcar un servidor más nuevo que él mismo (Railway corre Postgres 18) —
+      # el paquete "postgresql-client" de los repos de Ubuntu trae una versión vieja (16), así que
+      # se instala la 18 puntual desde el repositorio oficial de PostgreSQL (PGDG).
+      - name: Instalar cliente de PostgreSQL 18
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
 
       - name: Generar el dump
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           mkdir -p backup
-          pg_dump "$DATABASE_URL" --format=custom --file="backup/ethereal-scents-$(date -u +%Y-%m-%d).dump"
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --format=custom --file="backup/ethereal-scents-$(date -u +%Y-%m-%d).dump"
 
       # Formato "custom" de pg_dump: comprimido y restaurable selectivamente. Para restaurar:
       #   pg_restore --clean --if-exists --no-owner --dbname="<DATABASE_URL>" archivo.dump
