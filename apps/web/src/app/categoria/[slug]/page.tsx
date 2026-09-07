@@ -20,6 +20,10 @@ const CATEGORY_BANNER_AUTOPLAY_MS = 10000;
 const FILTER_VISIBLE_DEFAULT = 10;
 // 4 tarjetas por fila x 5 filas visibles — a partir de ahí se pagina.
 const CARDS_PER_PAGE = 20;
+// Tope de valores simultáneos para un filtro "allowMultiple" (ej. Acordes) — coincide con el límite
+// que valida el backend en browse.service.ts, donde el producto debe coincidir con TODOS los
+// seleccionados (no con cualquiera).
+const MAX_ALLOW_MULTIPLE_FILTER_VALUES = 4;
 
 export default function CategoriaPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -702,6 +706,7 @@ function FilterGroups({
             selected={attributeFilters[attribute.id] ?? []}
             onToggle={(value) => onToggleAttributeValue(attribute.id, value)}
             variant="scroll"
+            maxSelected={attribute.allowMultiple ? MAX_ALLOW_MULTIPLE_FILTER_VALUES : undefined}
           />
         );
       })}
@@ -724,12 +729,16 @@ function FilterOptionList({
   selected,
   onToggle,
   variant = "expand",
+  maxSelected,
 }: {
   title: string;
   options: FilterOption[];
   selected: string[];
   onToggle: (value: string) => void;
   variant?: "expand" | "scroll";
+  /** Ej. Acordes: no deja tildar una opción nueva una vez alcanzado el tope (las ya tildadas se
+   * pueden seguir destildando). */
+  maxSelected?: number;
 }) {
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -740,17 +749,25 @@ function FilterOptionList({
   const needsSearch = sorted.length > FILTER_VISIBLE_DEFAULT;
   const visible =
     variant === "scroll" ? filtered : term || showAll ? filtered : filtered.slice(0, FILTER_VISIBLE_DEFAULT);
+  const limitReached = maxSelected !== undefined && selected.length >= maxSelected;
 
   const list = (
     <>
-      {visible.map((option) => (
-        <label className="landing-filter-checkbox" key={option.value}>
-          <input type="checkbox" checked={selected.includes(option.value)} onChange={() => onToggle(option.value)} />
-          {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
-          <span className="landing-filter-checkbox-label">{option.label}</span>
-          {option.count !== undefined && <span className="landing-filter-count">{option.count}</span>}
-        </label>
-      ))}
+      {visible.map((option) => {
+        const isSelected = selected.includes(option.value);
+        const disabled = limitReached && !isSelected;
+        return (
+          <label
+            className={`landing-filter-checkbox${disabled ? " landing-filter-checkbox--disabled" : ""}`}
+            key={option.value}
+          >
+            <input type="checkbox" checked={isSelected} disabled={disabled} onChange={() => onToggle(option.value)} />
+            {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
+            <span className="landing-filter-checkbox-label">{option.label}</span>
+            {option.count !== undefined && <span className="landing-filter-count">{option.count}</span>}
+          </label>
+        );
+      })}
       {visible.length === 0 && (
         <p className="landing-empty-note" style={{ margin: 0, fontSize: 12.5 }}>
           Sin resultados.
@@ -776,6 +793,11 @@ function FilterOptionList({
         <button type="button" className="landing-filter-clear" style={{ marginTop: 6 }} onClick={() => setShowAll((v) => !v)}>
           {showAll ? "Mostrar menos" : `Mostrar más (${filtered.length - FILTER_VISIBLE_DEFAULT})`}
         </button>
+      )}
+      {maxSelected !== undefined && (
+        <p className="landing-empty-note" style={{ margin: "6px 0 0", fontSize: 12 }}>
+          {limitReached ? `Máximo ${maxSelected} seleccionados.` : `Hasta ${maxSelected} a la vez.`}
+        </p>
       )}
     </div>
   );

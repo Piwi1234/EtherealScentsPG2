@@ -80,7 +80,7 @@ export class AttributeService {
             ? { create: dto.options!.map((o) => ({ value: o.value, color: o.color })) }
             : undefined,
         },
-        include: { options: true },
+        include: { options: { orderBy: { value: "asc" } } },
       });
     } catch (error) {
       rethrowPrismaError(error, "Atributo");
@@ -93,7 +93,7 @@ export class AttributeService {
 
     const attributes = await this.prisma.attribute.findMany({
       where: { categoryId: { in: categoryIds } },
-      include: { options: true },
+      include: { options: { orderBy: { value: "asc" } } },
       orderBy: { name: "asc" },
     });
 
@@ -104,7 +104,10 @@ export class AttributeService {
   }
 
   async findOne(id: string) {
-    const attribute = await this.prisma.attribute.findUnique({ where: { id }, include: { options: true } });
+    const attribute = await this.prisma.attribute.findUnique({
+      where: { id },
+      include: { options: { orderBy: { value: "asc" } } },
+    });
     if (!attribute) {
       throw new NotFoundException("Atributo no encontrado.");
     }
@@ -120,7 +123,7 @@ export class AttributeService {
       return await this.prisma.attribute.update({
         where: { id },
         data: dto,
-        include: { options: true },
+        include: { options: { orderBy: { value: "asc" } } },
       });
     } catch (error) {
       rethrowPrismaError(error, "Atributo");

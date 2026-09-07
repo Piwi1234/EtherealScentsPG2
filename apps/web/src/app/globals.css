@@ -3641,6 +3641,22 @@ a {
   color: var(--lp-text);
 }
 
+/* Ej. Acordes al llegar al tope de 4: opciones no tildadas quedan atenuadas y sin click, las
+   ya tildadas se siguen viendo y pudiendo destildar normalmente. */
+.landing-filter-checkbox--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.landing-filter-checkbox--disabled:hover {
+  background: none;
+  color: var(--lp-muted);
+}
+
+.landing-filter-checkbox--disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
 /* Filtro ya activo: label en negrita, mismo criterio que el ".wd-active" de la referencia. */
 .landing-filter-checkbox:has(input:checked) .landing-filter-checkbox-label {
   font-weight: 600;

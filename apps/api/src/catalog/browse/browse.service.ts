@@ -8,6 +8,11 @@ import { SettingsService } from "../../settings/settings.service";
 import { withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
 
+/** Tope de valores simultáneos para un filtro "allowMultiple" (ej. Acordes) — ver `buildAttributeFilters`:
+ * ahí el producto tiene que coincidir con TODOS los seleccionados, así que permitir demasiados a la
+ * vez volvería casi imposible que algún producto matchee. */
+const MAX_ALLOW_MULTIPLE_FILTER_VALUES = 4;
+
 const includeDetails = {
   brand: true,
   category: true,
@@ -230,6 +235,19 @@ export class CatalogBrowseService {
         if (invalid.length > 0) {
           throw new BadRequestException(`optionId inválido para '${definition.name}': ${invalid.join(", ")}`);
         }
+
+        if (definition.allowMultiple) {
+          // Ej. Acordes: acá el producto tiene que tener TODOS los valores marcados, no alcanza con
+          // uno solo — por eso es un AND de un "some" por valor, en vez de un solo optionId: { in }
+          // (que sería "cualquiera de estos").
+          if (rawValues.length > MAX_ALLOW_MULTIPLE_FILTER_VALUES) {
+            throw new BadRequestException(
+              `El filtro '${definition.name}' admite como máximo ${MAX_ALLOW_MULTIPLE_FILTER_VALUES} valores seleccionados a la vez.`,
+            );
+          }
+          return { AND: rawValues.map((value) => ({ attributeValues: { some: { attributeId, optionId: value } } })) };
+        }
+
         return { attributeValues: { some: { attributeId, optionId: { in: rawValues } } } };
       }
 
