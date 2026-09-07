@@ -2384,14 +2384,39 @@ a {
 
 .landing-navbar--dark .landing-navbar-mobile {
   background: #111114;
-  border-top-color: rgba(245, 244, 240, 0.14);
 }
 
-.landing-navbar--dark .landing-navbar-mobile a {
+.landing-navbar--dark .landing-navbar-mobile-header,
+.landing-navbar--dark .landing-navbar-mobile-divider,
+.landing-navbar--dark .landing-navbar-mobile-subgroup {
+  border-color: rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-divider {
+  background: rgba(245, 244, 240, 0.14);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-brand,
+.landing-navbar--dark .landing-navbar-mobile-close,
+.landing-navbar--dark .landing-navbar-mobile-link,
+.landing-navbar--dark .landing-navbar-mobile-chevron {
   color: rgba(245, 244, 240, 0.9);
 }
 
-.landing-navbar--dark .landing-navbar-mobile-heading {
+.landing-navbar--dark .landing-navbar-mobile-close:hover {
+  background: rgba(245, 244, 240, 0.08);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-sublink,
+.landing-navbar--dark .landing-navbar-mobile-secondary-link {
+  color: rgba(245, 244, 240, 0.7);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-section-title {
+  color: rgba(245, 244, 240, 0.4);
+}
+
+.landing-navbar--dark .landing-navbar-mobile-link--ofertas {
   color: #e08585;
 }
 
@@ -2752,40 +2777,173 @@ a {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* background usa var(--lp-surface) porque esa sigue siendo blanca (no cambia con la paleta base);
-   border/color hardcodeados a propósito, mismo motivo que el resto del navbar. */
+/* Drawer lateral izquierdo (antes era un panel que se desplegaba debajo del header) — overlay
+   oscuro atrás + el panel en sí, ambos fixed y por encima de todo el sitio. background usa
+   var(--lp-surface) porque esa sigue siendo blanca (no cambia con la paleta base); border/color
+   hardcodeados a propósito, mismo motivo que el resto del navbar. */
+@keyframes landing-navbar-mobile-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes landing-navbar-mobile-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+.landing-navbar-mobile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 20, 0.55);
+  z-index: 70;
+  animation: landing-navbar-mobile-fade-in 0.2s ease;
+}
+
 .landing-navbar-mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 71;
+  width: min(84vw, 320px);
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-surface);
+  box-shadow: 12px 0 32px rgba(26, 26, 46, 0.2);
+  animation: landing-navbar-mobile-slide-in 0.25s ease;
+}
+
+.landing-navbar-mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e8e0d0;
+  flex-shrink: 0;
+}
+
+.landing-navbar-mobile-logo {
+  max-height: 32px;
+}
+
+.landing-navbar-mobile-brand {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.landing-navbar-mobile-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #1a1a2e;
+  cursor: pointer;
+}
+
+.landing-navbar-mobile-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.landing-navbar-mobile-close:hover {
+  background: rgba(26, 26, 46, 0.06);
+}
+
+.landing-navbar-mobile-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px 28px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 24px 24px;
-  background: var(--lp-surface);
-  border-top: 1px solid #e8e0d0;
-  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.12);
 }
 
-.landing-navbar-mobile-group a {
+.landing-navbar-mobile-section-title {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 46, 0.45);
+}
+
+.landing-navbar-mobile-row {
+  display: flex;
+  align-items: center;
+}
+
+.landing-navbar-mobile-link {
+  flex: 1;
   display: block;
-  padding: 10px 4px;
-  font-size: 14px;
+  padding: 11px 4px;
+  font-size: 14.5px;
   font-weight: 600;
   color: #1a1a2e;
 }
 
-.landing-navbar-mobile-heading {
+.landing-navbar-mobile-link--ofertas {
   color: #c0392b;
 }
 
-.landing-navbar-mobile-sub {
-  padding-left: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #1a1a2e;
+.landing-navbar-mobile-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(26, 26, 46, 0.55);
+  cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
-.landing-navbar-mobile-cta {
-  margin-top: 10px;
-  align-self: flex-start;
+.landing-navbar-mobile-chevron svg {
+  width: 16px;
+  height: 16px;
+}
+
+.landing-navbar-mobile-chevron--open {
+  transform: rotate(180deg);
+}
+
+.landing-navbar-mobile-subgroup {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 6px 14px;
+  border-left: 1.5px solid #e8e0d0;
+  margin-left: 6px;
+}
+
+.landing-navbar-mobile-sublink {
+  padding: 8px 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(26, 26, 46, 0.75);
+}
+
+.landing-navbar-mobile-divider {
+  height: 1px;
+  background: #e8e0d0;
+  margin: 14px 0;
+  flex-shrink: 0;
+}
+
+.landing-navbar-mobile-secondary-link {
+  padding: 9px 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(26, 26, 46, 0.7);
 }
 
 /* El navbar es fixed y no reserva espacio en el flujo — compensamos el scroll

@@ -47,6 +47,7 @@ export function LandingNavbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerUser | null>(null);
   const [isStaff, setIsStaff] = useState(false);
+  const [openMobileGroups, setOpenMobileGroups] = useState<Set<string>>(new Set());
   const router = useRouter();
   const pathname = usePathname();
 
@@ -74,6 +75,29 @@ export function LandingNavbar({
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [variant]);
+
+  // Bloquea el scroll del fondo mientras el drawer mobile está abierto — si no, se puede scrollear
+  // el contenido detrás del overlay a la vez que el drawer, se siente roto.
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  function toggleMobileGroup(id: string) {
+    setOpenMobileGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+    setOpenMobileGroups(new Set());
+  }
 
   // Ya en /home: en vez de navegar (no hace nada, Next.js no re-renderiza la misma ruta), sube al
   // hero con scroll suave — en cualquier otra página, el Link de abajo navega a /home normal.
@@ -280,50 +304,98 @@ export function LandingNavbar({
       </div>
 
       {mobileMenuOpen && (
-        <nav className="landing-navbar-mobile">
-          {categoryTree.map((cat) => (
-            <div className="landing-navbar-mobile-group" key={cat.id}>
-              <Link
-                className="landing-navbar-mobile-heading"
-                href={`/categoria/${cat.slug}`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {cat.name}
-              </Link>
-              {cat.children.map((sub) => (
-                <Link
-                  key={sub.id}
-                  className="landing-navbar-mobile-sub"
-                  href={`/categoria/${sub.slug}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {sub.name}
-                </Link>
-              ))}
+        <>
+          <div className="landing-navbar-mobile-overlay" onClick={closeMobileMenu} />
+          <nav className="landing-navbar-mobile">
+            <div className="landing-navbar-mobile-header">
+              {logoSrc ? <img className="landing-navbar-mobile-logo" src={logoSrc} alt={brandName} /> : <span className="landing-navbar-mobile-brand">{brandName}</span>}
+              <button type="button" className="landing-navbar-mobile-close" aria-label="Cerrar menú" onClick={closeMobileMenu}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
             </div>
-          ))}
-          <p className="landing-navbar-mobile-heading">¡¡OFERTAS!!</p>
-          {rootCategories.map((cat) => (
-            <Link
-              key={`oferta-${cat.id}`}
-              className="landing-navbar-mobile-sub"
-              href={`/categoria/${cat.slug}?descuento=true`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {cat.name}
-            </Link>
-          ))}
-          <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
-          <Link href="/preventa-faq" onClick={() => setMobileMenuOpen(false)}>FAQ</Link>
-          <a href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
-          <a href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
-          <Link href={customer ? "/cuenta" : "/ingresar"} onClick={() => setMobileMenuOpen(false)}>
-            {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
-          </Link>
-          {isStaff && (
-            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Gestión</Link>
-          )}
-        </nav>
+
+            <div className="landing-navbar-mobile-body">
+              <p className="landing-navbar-mobile-section-title">Categorías</p>
+              {categoryTree.map((cat) => {
+                const expanded = openMobileGroups.has(cat.id);
+                return (
+                  <div className="landing-navbar-mobile-group" key={cat.id}>
+                    <div className="landing-navbar-mobile-row">
+                      <Link className="landing-navbar-mobile-link" href={`/categoria/${cat.slug}`} onClick={closeMobileMenu}>
+                        {cat.name}
+                      </Link>
+                      {cat.children.length > 0 && (
+                        <button
+                          type="button"
+                          className={`landing-navbar-mobile-chevron${expanded ? " landing-navbar-mobile-chevron--open" : ""}`}
+                          aria-label={expanded ? `Ocultar subcategorías de ${cat.name}` : `Ver subcategorías de ${cat.name}`}
+                          aria-expanded={expanded}
+                          onClick={() => toggleMobileGroup(cat.id)}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    {expanded && cat.children.length > 0 && (
+                      <div className="landing-navbar-mobile-subgroup">
+                        {cat.children.map((sub) => (
+                          <Link key={sub.id} className="landing-navbar-mobile-sublink" href={`/categoria/${sub.slug}`} onClick={closeMobileMenu}>
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="landing-navbar-mobile-group">
+                <div className="landing-navbar-mobile-row">
+                  <span className="landing-navbar-mobile-link landing-navbar-mobile-link--ofertas">¡¡OFERTAS!!</span>
+                  <button
+                    type="button"
+                    className={`landing-navbar-mobile-chevron${openMobileGroups.has("ofertas") ? " landing-navbar-mobile-chevron--open" : ""}`}
+                    aria-label={openMobileGroups.has("ofertas") ? "Ocultar categorías en oferta" : "Ver categorías en oferta"}
+                    aria-expanded={openMobileGroups.has("ofertas")}
+                    onClick={() => toggleMobileGroup("ofertas")}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </div>
+                {openMobileGroups.has("ofertas") && (
+                  <div className="landing-navbar-mobile-subgroup">
+                    {rootCategories.map((cat) => (
+                      <Link key={`oferta-${cat.id}`} className="landing-navbar-mobile-sublink" href={`/categoria/${cat.slug}?descuento=true`} onClick={closeMobileMenu}>
+                        {cat.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Link className="landing-navbar-mobile-link" href="/marcas" onClick={closeMobileMenu}>Marcas</Link>
+
+              <div className="landing-navbar-mobile-divider" />
+
+              <Link className="landing-navbar-mobile-secondary-link" href="/preventa-faq" onClick={closeMobileMenu}>FAQ</Link>
+              <a className="landing-navbar-mobile-secondary-link" href="#nosotros" onClick={(e) => { e.preventDefault(); goToSection("nosotros"); }}>Nosotros</a>
+              <a className="landing-navbar-mobile-secondary-link" href="#contacto" onClick={(e) => { e.preventDefault(); goToSection("contacto"); }}>Contacto</a>
+              <Link className="landing-navbar-mobile-secondary-link" href={customer ? "/cuenta" : "/ingresar"} onClick={closeMobileMenu}>
+                {customer ? customer.nombre.split(" ")[0] : "Ingresar"}
+              </Link>
+              {isStaff && (
+                <Link className="landing-navbar-mobile-secondary-link" href="/dashboard" onClick={closeMobileMenu}>Gestión</Link>
+              )}
+            </div>
+          </nav>
+        </>
       )}
     </header>
   );
