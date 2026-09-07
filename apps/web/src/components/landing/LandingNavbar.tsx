@@ -45,6 +45,7 @@ export function LandingNavbar({
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerUser | null>(null);
   const [isStaff, setIsStaff] = useState(false);
   const [openMobileGroups, setOpenMobileGroups] = useState<Set<string>>(new Set());
@@ -153,6 +154,7 @@ export function LandingNavbar({
     if (!query) return;
     setSearchOpen(false);
     setMobileMenuOpen(false);
+    setMobileSearchOpen(false);
     router.push(`/buscar?q=${encodeURIComponent(query)}`);
   }
 
@@ -176,7 +178,7 @@ export function LandingNavbar({
           {logoSrc ? <img className="landing-navbar-logo" src={logoSrc} alt={brandName} /> : brandName}
         </Link>
 
-        <div className="landing-navbar-search">
+        <div className={`landing-navbar-search${mobileSearchOpen ? " landing-navbar-search--mobile-open" : ""}`}>
           <svg className="landing-navbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
@@ -213,6 +215,7 @@ export function LandingNavbar({
                       onClick={() => {
                         setSearchOpen(false);
                         setSearchQuery("");
+                        setMobileSearchOpen(false);
                       }}
                     >
                       {image ? (
@@ -258,6 +261,29 @@ export function LandingNavbar({
             <span />
           </button>
         </div>
+
+        {/* Solo mobile (ver breakpoint 768px): reemplaza al buscador siempre visible por un ícono
+            que lo despliega — el buscador en sí (input + resultados) es el mismo de arriba, no se
+            duplica, la CSS mobile lo saca del flujo y lo muestra como una fila propia debajo. */}
+        <button
+          type="button"
+          className="landing-navbar-search-toggle"
+          aria-label={mobileSearchOpen ? "Cerrar buscador" : "Abrir buscador"}
+          aria-expanded={mobileSearchOpen}
+          onClick={() => setMobileSearchOpen((open) => !open)}
+        >
+          {mobileSearchOpen ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Segunda fila: categorías/ofertas/marcas, como el "menu-top" separado de pontocom.com. */}

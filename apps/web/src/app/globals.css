@@ -2753,7 +2753,16 @@ a {
   padding: 0;
   border: none;
   background: transparent;
+  /* Los <button> no heredan color del contenedor por defecto en todos los navegadores — sin esto
+     las 3 líneas (currentColor) podían salir con el color de texto por default en vez de blancas. */
+  color: var(--nav-fg);
   cursor: pointer;
+}
+
+/* Oculto por default (solo desktop) — el breakpoint de 768px lo muestra, igual que
+   .landing-navbar-toggle de arriba. */
+.landing-navbar-search-toggle {
+  display: none;
 }
 
 .landing-navbar-toggle span {
@@ -3022,6 +3031,38 @@ a {
 
 .landing-hero-banner-card:hover .landing-hero-banner-image {
   transform: scale(1.04);
+}
+
+/* Mobile: 1 sola imagen por vez (heroWindowSize=1, ver home/page.tsx) en vez del carrusel de 3 lado
+   a lado — mismo breakpoint que usa el JS para decidir el tamaño de la ventana. Con una sola
+   columna, "un ancho de columna" es 100% de la grilla, no el 33.3334% de las keyframes de arriba
+   (pensadas para 3 columnas). */
+@keyframes landing-hero-banners-slide-next-mobile {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes landing-hero-banners-slide-prev-mobile {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-hero-banner-grid--next {
+    animation-name: landing-hero-banners-slide-next-mobile;
+  }
+
+  .landing-hero-banner-grid--prev {
+    animation-name: landing-hero-banners-slide-prev-mobile;
+  }
 }
 
 /* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
@@ -5768,10 +5809,6 @@ a {
     position: static;
   }
 
-  .landing-hero-banner-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .landing-image-carousel-grid {
     grid-template-columns: repeat(min(var(--landing-carousel-columns, 3), 2), 1fr);
   }
@@ -5868,8 +5905,92 @@ a {
     display: flex;
   }
 
+  /* Fila principal reordenada como agatres.co: hamburguesa a la izquierda, logo centrado, lupa a
+     la derecha (en vez de logo-izquierda/buscador-siempre-visible-al-centro/hamburguesa-derecha de
+     escritorio). Grid con 3 columnas fijas en vez de reordenar el flex — así el logo queda
+     perfectamente centrado sin importar el ancho real de los botones de los costados, y no hace
+     falta reordenar el DOM (accesibilidad/tab-order se mantienen). */
+  .landing-navbar-inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: 12px;
+  }
+
+  .landing-navbar-brand {
+    grid-column: 2;
+    justify-self: center;
+    flex: none;
+  }
+
+  .landing-navbar-actions {
+    grid-column: 1;
+    justify-self: start;
+    flex: none;
+  }
+
+  /* El buscador de escritorio (input siempre visible) se esconde acá — en su lugar se usa el botón
+     de lupa de abajo, que lo despliega como una fila propia debajo del navbar (mismo componente,
+     no uno duplicado: solo cambia dónde y cómo se muestra). */
   .landing-navbar-search {
-    width: 280px;
+    display: none;
+  }
+
+  .landing-navbar-search--mobile-open {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: auto;
+    padding: 12px 20px 18px;
+    /* Mismo fondo (casi opaco, no el translúcido de arriba) que el header — se ve como una fila más
+       del navbar, no como un panel flotante aparte. Igual que .landing-navbar-mobile de abajo,
+       .landing-navbar--dark lo pisa a un sólido más adelante. */
+    background: rgba(16, 14, 28, 0.97);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .landing-navbar--dark .landing-navbar-search--mobile-open {
+    background: #111114;
+  }
+
+  /* Acá el buscador pasa a ser flex (ícono + input como elementos alineados en línea) en vez de la
+     superposición por position:absolute que usa la versión de escritorio (pensada para un input
+     angosto de 400px) — con el ancho completo de la pantalla, el ícono "flotando" adentro se veía
+     descentrado/con un padding-left mágico que no siempre calzaba bien. */
+  .landing-navbar-search--mobile-open .landing-navbar-search-icon {
+    position: static;
+    transform: none;
+    flex: none;
+  }
+
+  .landing-navbar-search--mobile-open .landing-navbar-search-input {
+    flex: 1;
+    padding-left: 14px;
+  }
+
+  .landing-navbar-search-toggle {
+    display: flex;
+    grid-column: 3;
+    justify-self: end;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--nav-fg);
+    cursor: pointer;
+  }
+
+  .landing-navbar-search-toggle svg {
+    width: 20px;
+    height: 20px;
   }
 
   /* El navbar vuelve a una sola fila acá (arriba se esconde .landing-navbar-categories) — el
@@ -5892,15 +6013,32 @@ a {
   .landing-brand-logo {
     max-height: 60px;
   }
+
+  /* En mobile "Producto destacado" pasa a mostrar 1 sola imagen (visibleCount=1, ver isMobile en
+     home/page.tsx) — ese modo del carrusel no trae el aspect-ratio fijo que sí tiene la tarjeta de
+     la grilla de escritorio (.landing-image-carousel-grid-item, ver arriba), así que sin esto el
+     alto del bloque variaba según las dimensiones reales de cada imagen (no todas son iguales),
+     saltando de tamaño al cambiar de foto. */
+  /* :not(--fallback) porque ese caso (categoría sin imágenes de carrusel cargadas) no pasa por
+     ImageCarousel — es un bloque estático con su propio aspect-ratio (21/9), no debería cambiar. */
+  .landing-feature-visual:not(.landing-feature-visual--fallback) {
+    aspect-ratio: 4 / 5;
+    border-radius: 16px;
+    background: #171426;
+  }
+
+  /* En mobile el carrusel de "Descuento y Ofertas" pagina de a 2 productos (ver
+     offersSlideSize/isMobile en home/page.tsx) en vez de 4 — con solo 2 tarjetas por slide, el
+     banner ocupa su propia fila completa abajo en vez de quedar pegado a una sola columna con un
+     hueco vacío al lado. */
+  .landing-offers-banner {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 560px) {
   .landing-section {
     padding: 56px 0;
-  }
-
-  .landing-hero-banner-grid {
-    grid-template-columns: 1fr;
   }
 
   .landing-image-carousel-grid {
@@ -5919,21 +6057,23 @@ a {
     font-size: 26px;
   }
 
+  /* 2 tarjetas por línea en vez de 1 (a diferencia del resto de las grillas de esta media query,
+     que sí colapsan a una columna) — a este ancho ya viene así desde los 900px, esto solo evita
+     que colapse más abajo de acá. */
   .landing-product-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
   }
 
   .landing-product-grid--carousel {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .landing-offers-banner {
-    grid-column: 1;
-  }
-
+  /* 2 tarjetas por línea en vez de 1 — a este ancho ya viene así desde los 900px, esto solo evita
+     que colapse más abajo de acá (mismo criterio que .landing-product-grid arriba). */
   .landing-product-grid--weekly {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
   }
 
   .landing-brand-grid {

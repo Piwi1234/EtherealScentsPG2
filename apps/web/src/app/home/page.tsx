@@ -15,12 +15,16 @@ function scrollToId(id: string) {
 }
 
 const OFFERS_SLIDE_SIZE = 4;
+const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
 const OFFERS_BANNER_AUTOPLAY_MS = 10000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
 const HERO_BANNERS_SLIDE_SIZE = 3;
+// Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el hero muestra 1 sola
+// imagen por vez (en vez de 3 lado a lado) y el carrusel de ofertas pagina de a 2 (en vez de 4).
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_SIZE = 8;
@@ -46,6 +50,7 @@ export default function HomePage() {
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
+  const [isMobile, setIsMobile] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
   const [heroAutoKey, setHeroAutoKey] = useState(0);
   const [heroDirection, setHeroDirection] = useState<1 | -1>(1);
@@ -103,7 +108,12 @@ export default function HomePage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, flashOnly, hasFlashOffers]);
 
-  const offersChunks = useMemo(() => chunk(productsPage?.items ?? [], OFFERS_SLIDE_SIZE), [productsPage]);
+  // En mobile pagina de a 2 productos en vez de 4 (ver el useEffect de matchMedia más abajo).
+  const offersSlideSize = isMobile ? OFFERS_SLIDE_SIZE_MOBILE : OFFERS_SLIDE_SIZE;
+  const offersChunks = useMemo(
+    () => chunk(productsPage?.items ?? [], offersSlideSize),
+    [productsPage, offersSlideSize],
+  );
 
   // "Colección de la semana": los últimos 12 productos creados de la marca elegida en Marcas del
   // panel de gestión — bloque oculto si no hay ninguna marca elegida.
@@ -138,11 +148,21 @@ export default function HomePage() {
     setOffersAutoKey((k) => k + 1);
   }
 
+  // En mobile el hero muestra 1 sola imagen por vez (en vez de 3 lado a lado) y el carrusel de
+  // ofertas pagina de a 2 (en vez de 4) — ninguno de los dos cambia en PC.
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT);
+    setIsMobile(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
   // Hero: carrusel de 3 banners lado a lado (ver Grid Imágenes → Hero principal) que rota de a UNA
   // imagen por vez (ventana deslizante), no de a grupos de 3 — mismo mecanismo de dirección/autoplay
   // que el resto de los carruseles del home.
   const heroImages = landingImages?.heroImages ?? [];
-  const heroWindowSize = Math.min(HERO_BANNERS_SLIDE_SIZE, heroImages.length);
+  const heroWindowSize = Math.min(isMobile ? 1 : HERO_BANNERS_SLIDE_SIZE, heroImages.length);
   const heroWindow = useMemo(
     () => Array.from({ length: heroWindowSize }, (_, i) => heroImages[(heroSlide + i) % heroImages.length]),
     [heroImages, heroSlide, heroWindowSize],
@@ -389,7 +409,7 @@ export default function HomePage() {
                     alt={cat.name}
                     imgClassName="landing-feature-visual-image"
                     autoplayMs={FEATURE_AUTOPLAY_MS}
-                    visibleCount={3}
+                    visibleCount={isMobile ? 1 : 3}
                     renderOverlay={(image) => (
                       <div className="landing-feature-overlay">
                         <div className="landing-feature-overlay-text">

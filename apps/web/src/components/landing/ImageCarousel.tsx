@@ -141,15 +141,17 @@ export function ImageCarousel({
     <>
       {href ? (
         <a key={slide} className="landing-image-carousel-link" href={href}>
-          <img className={slideClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />
-          {overlay}
+          {img}
         </a>
       ) : (
-        <>
-          {img}
-          {overlay}
-        </>
+        img
       )}
+      {/* Fuera del <a> de arriba a propósito: si el overlay trae su propio link (ej. el botón "Ver
+          Todo" de "Producto destacado", vía renderOverlay), anidarlo dentro del <a> de la imagen
+          rompe el HTML (<a> no puede contener otro <a>) — se posiciona igual (position:absolute
+          sobre el wrapper con position:relative que pone quien usa el componente), no depende de
+          estar anidado adentro. */}
+      {overlay}
       {hasNav && (
         <>
           <button
