@@ -640,12 +640,14 @@ a {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.products-table .final-bs-col {
+.products-table .final-bs-col,
+.products-table .compra-col {
   background: #000000;
   color: #ffffff;
 }
 
-.products-table td.final-bs-col .unit {
+.products-table td.final-bs-col .unit,
+.products-table td.compra-col .unit {
   color: rgba(255, 255, 255, 0.65);
 }
 
