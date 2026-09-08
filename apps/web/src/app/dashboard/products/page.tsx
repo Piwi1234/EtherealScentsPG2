@@ -382,7 +382,7 @@ export default function ProductsPage() {
                   {extraAttributeColumns.map((column) => (
                     <th key={column.id}>{column.name}</th>
                   ))}
-                  <th className="num">Compra $</th>
+                  <th className="num compra-col">Compra $</th>
                   <th className="num">Utilidad $</th>
                   <th className="num">Precio $</th>
                   <th className="num col-group-start may-bs-col">May Bs</th>
@@ -418,7 +418,7 @@ export default function ProductsPage() {
                       {extraAttributeColumns.map((column) => (
                         <td key={column.id}>{renderAttributeCell(product, column)}</td>
                       ))}
-                      <td className="num"><span className="unit">$</span>{priceSource.purchasePrice}</td>
+                      <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
                       <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
                       <td className="num">
                         <span className="unit">$</span>{priceSource.price.toFixed(2)}
