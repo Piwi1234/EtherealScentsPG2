@@ -1,11 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { API_ORIGIN, ApiError, apiDelete, apiGet, apiPatch } from "../../../lib/api";
+import {
+  API_ORIGIN,
+  ApiError,
+  apiDelete,
+  apiGet,
+  apiPatch,
+  downloadProductsImportTemplate,
+  importProductsFromFile,
+} from "../../../lib/api";
 import { consumeFlashMessage } from "../../../lib/flash";
-import type { AttributeType, AttributeVariantMode, Brand, Category, Page, Product, ProductVariant } from "../../../lib/types";
+import type {
+  AttributeType,
+  AttributeVariantMode,
+  Brand,
+  Category,
+  Page,
+  Product,
+  ProductImportReport,
+  ProductVariant,
+} from "../../../lib/types";
+import { Modal } from "../../../components/Modal";
 
 function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
@@ -57,6 +75,11 @@ export default function ProductsPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importReport, setImportReport] = useState<ProductImportReport | null>(null);
+  const [importReportError, setImportReportError] = useState("");
   // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
   // de la tabla. Es puramente de vista: no se guarda en el backend.
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
@@ -113,6 +136,32 @@ export default function ProductsPage() {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
   }, []);
+
+  async function handleDownloadImportTemplate() {
+    setDownloadingTemplate(true);
+    try {
+      await downloadProductsImportTemplate();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setImportReportError("");
+    setImportReport(null);
+    try {
+      const report = await importProductsFromFile(file);
+      setImportReport(report);
+      if (report.errors.length === 0) loadProducts();
+    } catch (e) {
+      setImportReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setImporting(false);
+    }
+  }
 
   // Mensaje de éxito pendiente de la página de crear/editar (sobrevivió al router.push).
   useEffect(() => {
@@ -272,12 +321,32 @@ export default function ProductsPage() {
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Productos</h1>
-        <Link href="/dashboard/products/new" className="btn-cta">
-          <span className="btn-cta-icon">+</span> Nuevo producto
-        </Link>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" className="action-btn" onClick={handleDownloadImportTemplate} disabled={downloadingTemplate}>
+            {downloadingTemplate ? "Descargando..." : "Descargar plantilla"}
+          </button>
+          <button type="button" className="action-btn" onClick={() => importInputRef.current?.click()} disabled={importing}>
+            {importing ? "Importando..." : "Importar productos"}
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleImportFile(file);
+            }}
+          />
+          <Link href="/dashboard/products/new" className="btn-cta">
+            <span className="btn-cta-icon">+</span> Nuevo producto
+          </Link>
+        </div>
       </div>
+      {importReportError && <p className="error-text">{importReportError}</p>}
       {flashMessage && (
         <div className="success-banner">
           <span>{flashMessage}</span>
@@ -491,6 +560,37 @@ export default function ProductsPage() {
             </div>
           )}
         </>
+      )}
+
+      {importReport && (
+        <Modal title="Resultado de la importación" onClose={() => setImportReport(null)}>
+          {importReport.errors.length === 0 ? (
+            <p>
+              Listo: {importReport.created} producto{importReport.created === 1 ? "" : "s"} creado
+              {importReport.created === 1 ? "" : "s"}. Quedaron con precio de compra en $0 y sin atributos —
+              completalos desde Editar.
+            </p>
+          ) : (
+            <>
+              <p className="error-text">
+                No se importó nada — hay {importReport.errors.length} error{importReport.errors.length === 1 ? "" : "es"} en la
+                planilla. Corregilos y volvé a subir el archivo.
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {importReport.errors.map((err, i) => (
+                  <li key={i}>
+                    Fila {err.row}: {err.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="form-actions">
+            <button type="button" className="button" onClick={() => setImportReport(null)}>
+              Cerrar
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );
