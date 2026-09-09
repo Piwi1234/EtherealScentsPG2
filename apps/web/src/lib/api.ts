@@ -30,6 +30,7 @@ import type {
   PresentacionVenta,
   PresentacionVentaInput,
   Product,
+  ProductImportReport,
   Proforma,
   ProformaInput,
   Proveedor,
@@ -526,6 +527,14 @@ export function downloadBrandsImportTemplate() {
 
 export function importBrandsFromFile(file: File) {
   return apiUpload<BrandImportReport>("/brands/import", file);
+}
+
+export function downloadProductsImportTemplate() {
+  return apiDownload("/products/import/template", "plantilla-importacion-productos.xlsx");
+}
+
+export function importProductsFromFile(file: File) {
+  return apiUpload<ProductImportReport>("/products/import", file);
 }
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de

@@ -9,24 +9,31 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { ProductService } from "./product.service";
+import { ProductImportService } from "./product-import.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
 import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { productImageMulterOptions } from "./product-image.multer";
 import { productVariantImageMulterOptions } from "./product-variant-image.multer";
+import { productImportMulterOptions } from "./product-import.multer";
 
 @ApiTags("products")
 @Controller("products")
 export class ProductController {
-  constructor(private readonly products: ProductService) {}
+  constructor(
+    private readonly products: ProductService,
+    private readonly productImport: ProductImportService,
+  ) {}
 
   @Get()
   findAll(
@@ -37,6 +44,27 @@ export class ProductController {
     @Query("search") search?: string,
   ) {
     return this.products.findAll({ page, pageSize, categoryId, brandId, search });
+  }
+
+  // Antes de ":id" — "import" no es un uuid, pero se declara primero para que quede a la vista
+  // junto al resto de rutas fijas.
+  @Get("import/template")
+  async downloadImportTemplate(@Res() res: Response) {
+    const buffer = await this.productImport.buildTemplate();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="plantilla-importacion-productos.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post("import")
+  @UseInterceptors(FileInterceptor("file", productImportMulterOptions))
+  importProducts(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser un Excel (.xlsx) de hasta 5MB.");
+    }
+    return this.productImport.importFromFile(file.buffer);
   }
 
   @Get(":id")
