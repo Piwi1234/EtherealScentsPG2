@@ -2189,7 +2189,7 @@ a {
 .landing-container {
   max-width: 1500px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 75px;
 }
 
 .landing-section {
@@ -2427,7 +2427,11 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
+  /* Antes pisaba el padding horizontal de .landing-container (mismo elemento, ambas clases) dejando
+     el navbar pegado al borde — ahora solo agrega el vertical propio y respeta el margen lateral
+     compartido con el resto del sitio. */
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .landing-navbar-brand {
