@@ -26,8 +26,11 @@ async function bootstrap() {
   // entiende notación de corchetes. La volvemos a "extended" (qs) para poder recibir filtros
   // dinámicos de catálogo como `?attr[<attributeId>]=valor`.
   app.set("query parser", "extended");
+  // WEB_ORIGIN admite una lista separada por comas — hace falta más de un origen habilitado
+  // mientras el dominio raíz (sin www) siga siendo válido además del canónico (con www).
+  const webOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:3100").split(",").map((o) => o.trim());
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? "http://localhost:3100",
+    origin: webOrigins,
     credentials: true,
   });
   app.setGlobalPrefix("api");
