@@ -17,6 +17,7 @@ const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600
 
 const SITE_TITLE = "Ethereal Scents";
 const SITE_DESCRIPTION = "Perfumes y vapes originales — catálogo, ofertas y cotización directa.";
+const SITE_ORIGIN = "https://www.etherealscents-bo.com";
 
 export async function generateMetadata(): Promise<Metadata> {
   // Logo de la casa matriz (Gestión → Empresas) como og:image — si la API no responde (build sin
@@ -32,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const absoluteLogoUrl = logoUrl ? `${API_ORIGIN}${logoUrl}` : null;
 
   return {
+    metadataBase: new URL(SITE_ORIGIN),
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     icons: absoluteLogoUrl ? { icon: absoluteLogoUrl } : undefined,
