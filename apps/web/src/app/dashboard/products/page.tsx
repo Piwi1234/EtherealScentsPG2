@@ -37,18 +37,22 @@ function attributeValueLabel(pv: Product["attributeValues"][number]): string {
   return "—";
 }
 
-function productAttributeCell(product: Product, attributeId: string): string {
+function productAttributeCell(product: Product, attributeIds: string[]): string {
   // Los atributos con variante (MULTI_VALUE/PRICED_VARIANT) no guardan ProductAttributeValue: sus
   // valores propios del producto viven en variantOptionValues.
-  const fromValues = product.attributeValues.filter((pv) => pv.attributeId === attributeId).map(attributeValueLabel);
+  const fromValues = product.attributeValues.filter((pv) => attributeIds.includes(pv.attributeId)).map(attributeValueLabel);
   const fromVariantValues = product.variantOptionValues
-    .filter((v) => v.attributeId === attributeId)
+    .filter((v) => attributeIds.includes(v.attributeId))
     .map((v) => v.value);
   const values = Array.from(new Set([...fromValues, ...fromVariantValues]));
   return values.length > 0 ? values.join(", ") : "—";
 }
 
-type ExtraColumn = { id: string; name: string; type: AttributeType; variantMode: AttributeVariantMode };
+// Los atributos son por-categoría (Attribute.categoryId): "Tamaño" en una subcategoría y "Tamaño" en
+// otra son dos registros distintos con id propio. Acá se agrupan por nombre para que compartan una
+// sola columna — attributeIds guarda todos los id reales a buscar en cada producto (cada producto
+// solo va a tener valor bajo uno de ellos, el de su propia categoría).
+type ExtraColumn = { key: string; name: string; type: AttributeType; variantMode: AttributeVariantMode; attributeIds: string[] };
 
 // Por defecto se elige la variante de mayor precio (ej. si "Tamaño" tiene 50 ML y 100 ML,
 // arranca mostrando la de 100 ML).
@@ -222,21 +226,33 @@ export default function ProductsPage() {
 
   // Columnas extra: atributos marcados "Mostrar en tabla de productos", solo los que
   // efectivamente aparecen en los productos listados (evita columnas vacías de otras categorías).
+  // Agrupadas por nombre (ver comentario de ExtraColumn) — así "Tamaño" de dos subcategorías
+  // distintas comparte una sola columna en vez de aparecer duplicada.
   const extraAttributeColumns: ExtraColumn[] = (() => {
     const map = new Map<string, ExtraColumn>();
-    for (const product of page?.items ?? []) {
-      for (const pv of product.attributeValues) {
-        if (pv.attribute.showInProductList) {
-          map.set(pv.attributeId, { id: pv.attributeId, name: pv.attribute.name, type: pv.attribute.type, variantMode: pv.attribute.variantMode });
-        }
+    function addAttribute(
+      attributeId: string,
+      attribute: { name: string; type: AttributeType; variantMode: AttributeVariantMode; showInProductList: boolean },
+    ) {
+      if (!attribute.showInProductList) return;
+      const existing = map.get(attribute.name);
+      if (existing) {
+        if (!existing.attributeIds.includes(attributeId)) existing.attributeIds.push(attributeId);
+      } else {
+        map.set(attribute.name, {
+          key: attribute.name,
+          name: attribute.name,
+          type: attribute.type,
+          variantMode: attribute.variantMode,
+          attributeIds: [attributeId],
+        });
       }
+    }
+    for (const product of page?.items ?? []) {
+      for (const pv of product.attributeValues) addAttribute(pv.attributeId, pv.attribute);
       // Atributos con variante (MULTI_VALUE/PRICED_VARIANT): sus valores propios del producto viven
       // en variantOptionValues, no en attributeValues.
-      for (const v of product.variantOptionValues) {
-        if (v.attribute.showInProductList) {
-          map.set(v.attributeId, { id: v.attributeId, name: v.attribute.name, type: v.attribute.type, variantMode: v.attribute.variantMode });
-        }
-      }
+      for (const v of product.variantOptionValues) addAttribute(v.attributeId, v.attribute);
     }
     return Array.from(map.values());
   })();
@@ -257,7 +273,10 @@ export default function ProductsPage() {
     if (column.variantMode === "PRICED_VARIANT") {
       if (product.variants.length === 0) return "—";
       const options = product.variants
-        .map((v) => ({ variantId: v.id, label: v.options.find((o) => o.optionValue.attributeId === column.id)?.optionValue.value }))
+        .map((v) => ({
+          variantId: v.id,
+          label: v.options.find((o) => column.attributeIds.includes(o.optionValue.attributeId))?.optionValue.value,
+        }))
         .filter((o): o is { variantId: string; label: string } => Boolean(o.label));
       if (options.length === 0) return "—";
       const selected = getSelectedVariant(product);
@@ -276,9 +295,9 @@ export default function ProductsPage() {
     }
 
     if (column.variantMode === "MULTI_VALUE") {
-      const matches = product.variantOptionValues.filter((v) => v.attributeId === column.id);
+      const matches = product.variantOptionValues.filter((v) => column.attributeIds.includes(v.attributeId));
       if (matches.length === 0) return "—";
-      const cellKey = `${product.id}:${column.id}`;
+      const cellKey = `${product.id}:${column.key}`;
       const selectedValueId = selectedMultiValueByCell[cellKey] ?? matches[0].id;
       return (
         <select
@@ -295,12 +314,12 @@ export default function ProductsPage() {
     }
 
     if (column.type === "SELECT") {
-      const matches = product.attributeValues.filter((pv) => pv.attributeId === column.id && pv.optionId);
+      const matches = product.attributeValues.filter((pv) => column.attributeIds.includes(pv.attributeId) && pv.optionId);
       if (matches.length === 0) return "—";
       // Con un solo valor posible (ej. Concentración, que no admite elegir más de una opción) no
       // hace falta un desplegable — el select solo tiene sentido cuando hay algo entre qué elegir.
       if (matches.length === 1) return matches[0].option!.value;
-      const cellKey = `${product.id}:${column.id}`;
+      const cellKey = `${product.id}:${column.key}`;
       const selectedOptionId = selectedMultiValueByCell[cellKey] ?? matches[0].optionId!;
       return (
         <select
@@ -316,7 +335,7 @@ export default function ProductsPage() {
       );
     }
 
-    return productAttributeCell(product, column.id);
+    return productAttributeCell(product, column.attributeIds);
   }
 
   return (
@@ -449,7 +468,7 @@ export default function ProductsPage() {
                   <th>Marca</th>
                   <th style={{ minWidth: 260 }}>Nombre</th>
                   {extraAttributeColumns.map((column) => (
-                    <th key={column.id}>{column.name}</th>
+                    <th key={column.key}>{column.name}</th>
                   ))}
                   <th className="num compra-col">Compra $</th>
                   <th className="num">Utilidad $</th>
@@ -485,7 +504,7 @@ export default function ProductsPage() {
                       <td className="cell-muted">{product.brand?.name ?? "—"}</td>
                       <td className="cell-primary">{product.name}</td>
                       {extraAttributeColumns.map((column) => (
-                        <td key={column.id}>{renderAttributeCell(product, column)}</td>
+                        <td key={column.key}>{renderAttributeCell(product, column)}</td>
                       ))}
                       <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
                       <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
