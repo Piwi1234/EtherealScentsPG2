@@ -193,6 +193,11 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
     return <p className="cell-muted">Todavía no hay líneas en esta proforma.</p>;
   }
 
+  // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
+  // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
+  const totalCols = (tipo === "VENTA" ? 6 : 11) + (editable ? 1 : 0);
+  const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
+
   return (
     <div className="table-scroll">
       <table className="table table-minimal">
@@ -230,6 +235,17 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
             />
           ))}
         </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={3} className="cell-muted" style={{ textAlign: "right", fontWeight: 600, borderTop: "2px solid var(--line)" }}>
+              Total unidades
+            </td>
+            <td className="num cell-primary" style={{ borderTop: "2px solid var(--line)" }}>
+              {totalCantidad}
+            </td>
+            {totalCols > 4 && <td colSpan={totalCols - 4} style={{ borderTop: "2px solid var(--line)" }}></td>}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
