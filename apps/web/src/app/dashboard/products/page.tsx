@@ -567,8 +567,8 @@ export default function ProductsPage() {
           {importReport.errors.length === 0 ? (
             <p>
               Listo: {importReport.created} producto{importReport.created === 1 ? "" : "s"} creado
-              {importReport.created === 1 ? "" : "s"}. Quedaron con precio de compra en $0 y sin atributos —
-              completalos desde Editar.
+              {importReport.created === 1 ? "" : "s"}. Quedaron con precio de compra en $0 (y con los atributos
+              de la columna Atributos, si se completó) — el resto se completa desde Editar.
             </p>
           ) : (
             <>

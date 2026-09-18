@@ -26,7 +26,7 @@ const includeDetails = {
   variants: { include: { options: { include: { optionValue: { include: { attribute: true } } } } } },
 } as const;
 
-type AttributeValueWrite = {
+export type AttributeValueWrite = {
   attributeId: string;
   valueText?: string;
   valueNumber?: number;
@@ -47,9 +47,10 @@ export class ProductService {
    * Valida que los atributos enviados pertenezcan a la categoría del producto (propios o
    * heredados de un ancestro), que estén los requeridos, y que el campo de valor usado coincida
    * con el `type` del atributo. Los atributos con variante (MULTI_VALUE o PRICED_VARIANT) no se
-   * manejan acá: van por /products/:id/variant-options y /products/:id/variants.
+   * manejan acá: van por /products/:id/variant-options y /products/:id/variants. Público — lo
+   * reusa product-import.service.ts para no duplicar esta validación al importar por planilla.
    */
-  private async buildAttributeValuesData(
+  async buildAttributeValuesData(
     categoryId: string,
     inputs: ProductAttributeValueInputDto[] = [],
   ): Promise<AttributeValueWrite[]> {
