@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, createTraspasoAlmacen, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
+import { ApiError, createTraspasoAlmacen, downloadStockExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
@@ -40,6 +40,7 @@ export default function StockPage() {
   const [stockMarcaId, setStockMarcaId] = useState("");
   const [stockPageNum, setStockPageNum] = useState(1);
   const [stockLoading, setStockLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const parentCategories = categories.filter((c) => c.parentId === null);
   // Marcas enlazadas a alguna subcategoría (hija directa) de la categoría padre elegida — no al padre.
@@ -127,6 +128,17 @@ export default function StockPage() {
     return () => clearTimeout(timeout);
   }, [stockSearchInput]);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadStockExport();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function handleVerLotes(row: StockRow) {
     setLotesVarianteId(row.varianteId);
     setLotesVarianteLabel(`${row.variante.product.name} — ${row.variante.variantCode}`);
@@ -202,6 +214,9 @@ export default function StockPage() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h1 style={{ margin: 0, fontSize: 20 }}>Existencias</h1>
+          <button type="button" className="button" onClick={handleExport} disabled={exporting}>
+            {exporting ? "Exportando..." : "Exportar a Excel"}
+          </button>
         </div>
 
         <div className="filters-bar" style={{ marginBottom: 16 }}>
