@@ -23,6 +23,14 @@ export const includeDetails = {
   paisProcedencia: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
+    // Sin esto, Postgres devuelve las filas en su orden físico (sin ORDER BY no hay garantía de
+    // orden), que cambia con cada UPDATE — una línea "saltaba" al final apenas se editaba cualquier
+    // valor. Alfabético por marca y luego por producto, de paso: mismo criterio pedido para el orden
+    // de visualización de las líneas.
+    orderBy: [
+      { variante: { product: { brand: { name: "asc" as const } } } },
+      { variante: { product: { name: "asc" as const } } },
+    ],
     include: {
       // attributeValues+attribute+option: atributos NONE (un valor por producto). variantOptionValues:
       // atributos MULTI_VALUE (el producto puede tener 1+ valores, ej. sabores de un vape) — ambos
