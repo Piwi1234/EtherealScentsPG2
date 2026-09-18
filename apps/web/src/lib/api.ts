@@ -513,6 +513,10 @@ export function getStock(
   return apiGet<Page<StockRow>>(`/stock${qs ? `?${qs}` : ""}`);
 }
 
+export function downloadStockExport() {
+  return apiDownload("/stock/export", "existencias.xlsx");
+}
+
 export function getCategories() {
   return apiGet<Category[]>("/categories");
 }
