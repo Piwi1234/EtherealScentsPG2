@@ -208,6 +208,10 @@ export type Product = {
   // Calculado en vivo por el backend: true si alguna variante (incluidas las de precio propio) tiene
   // stock disponible (física - reservada > 0). Nunca informa cantidades.
   hasStock: boolean;
+  // Solo poblados por /products (panel admin) — suma de TODAS las variantes y almacenes. El catálogo
+  // público (/catalog/products) no los trae, ahí solo importa hasStock (sin cantidades).
+  stockDisponible: number;
+  stockReservado: number;
   createdAt: string;
 };
 

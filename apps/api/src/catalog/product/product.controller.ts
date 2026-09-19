@@ -46,8 +46,17 @@ export class ProductController {
     return this.products.findAll({ page, pageSize, categoryId, brandId, search });
   }
 
-  // Antes de ":id" — "import" no es un uuid, pero se declara primero para que quede a la vista
-  // junto al resto de rutas fijas.
+  // Antes de ":id" — ninguna de estas es un uuid, pero se declaran primero para que queden a la
+  // vista junto al resto de rutas fijas.
+  @Get("stock-summary")
+  stockSummary(@Query("ids") ids?: string) {
+    const productIds = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    return this.products.stockSummary(productIds);
+  }
+
   @Get("import/template")
   async downloadImportTemplate(@Res() res: Response) {
     const buffer = await this.productImport.buildTemplate();

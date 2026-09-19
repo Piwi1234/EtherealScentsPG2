@@ -12,6 +12,7 @@ import type {
   Product,
   TipoProforma,
 } from "../../lib/types";
+import { StockCell } from "../StockCell";
 
 const DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
@@ -371,6 +372,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
             <table className="table table-minimal">
               <thead>
                 <tr>
+                  <th>Stock</th>
                   <th>Imagen</th>
                   <th>ID Producto</th>
                   <th>Marca</th>
@@ -399,6 +401,9 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                   );
                   return (
                     <tr key={product.id}>
+                      <td>
+                        <StockCell disponible={product.stockDisponible} reservado={product.stockReservado} />
+                      </td>
                       <td>
                         {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
                           <img

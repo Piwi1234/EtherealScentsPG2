@@ -23,8 +23,36 @@ const includeDetails = {
   category: true,
   attributeValues: { include: { attribute: true, option: true } },
   variantOptionValues: { include: { attribute: true } },
-  variants: { include: { options: { include: { optionValue: { include: { attribute: true } } } } } },
+  variants: {
+    include: {
+      options: { include: { optionValue: { include: { attribute: true } } } },
+      // Solo lo necesario para sumar stockDisponible/stockReservado (ver withStock) — a diferencia
+      // de browse.service.ts (catálogo público), acá SÍ se exponen las cantidades: es el panel admin.
+      stock: { select: { cantidadFisica: true, cantidadReservada: true } },
+    },
+  },
 } as const;
+
+/** Suma el stock físico/reservado de TODAS las variantes y almacenes del producto — Productos y el
+ * buscador de proformas solo necesitan un total a simple vista, no el desglose por almacén (que
+ * recién importa al elegir almacén en la proforma). Saca el detalle crudo por variante antes de
+ * responder, mismo criterio que browse.service.ts con hasStock. */
+function withStock<T extends { variants: { stock: { cantidadFisica: number; cantidadReservada: number }[] }[] }>(product: T) {
+  let disponible = 0;
+  let reservado = 0;
+  for (const variant of product.variants) {
+    for (const s of variant.stock) {
+      disponible += s.cantidadFisica - s.cantidadReservada;
+      reservado += s.cantidadReservada;
+    }
+  }
+  return {
+    ...product,
+    variants: product.variants.map(({ stock, ...rest }) => rest),
+    stockDisponible: disponible,
+    stockReservado: reservado,
+  };
+}
 
 export type AttributeValueWrite = {
   attributeId: string;
@@ -235,7 +263,7 @@ export class ProductService {
 
         return tx.product.findUniqueOrThrow({ where: { id: created.id }, include: includeDetails });
       });
-      return withPrice(product, await this.settings.getExchangeRate());
+      return withStock(withPrice(product, await this.settings.getExchangeRate()));
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -271,7 +299,7 @@ export class ProductService {
       this.settings.getExchangeRate(),
     ]);
 
-    return { items: items.map((item) => withPrice(item, exchangeRate)), total, page, pageSize };
+    return { items: items.map((item) => withStock(withPrice(item, exchangeRate))), total, page, pageSize };
   }
 
   async findOne(id: string) {
@@ -280,7 +308,28 @@ export class ProductService {
     if (!product) {
       throw new NotFoundException("Producto no encontrado.");
     }
-    return withPrice(product, await this.settings.getExchangeRate());
+    return withStock(withPrice(product, await this.settings.getExchangeRate()));
+  }
+
+  /** La tabla de Productos del panel lista vía /catalog/products (público, sin cantidades — ver
+   * finalizeProduct en browse.service.ts), así que el stock real de esos productos se pide aparte,
+   * acá, autenticado. Misma suma que `withStock`: todas las variantes y almacenes de cada producto. */
+  async stockSummary(productIds: string[]): Promise<Record<string, { disponible: number; reservado: number }>> {
+    const result: Record<string, { disponible: number; reservado: number }> = {};
+    for (const id of productIds) result[id] = { disponible: 0, reservado: 0 };
+    if (productIds.length === 0) return result;
+
+    const rows = await this.prisma.stock.findMany({
+      where: { variante: { productId: { in: productIds } } },
+      select: { cantidadFisica: true, cantidadReservada: true, variante: { select: { productId: true } } },
+    });
+    for (const row of rows) {
+      const entry = result[row.variante.productId];
+      if (!entry) continue;
+      entry.disponible += row.cantidadFisica - row.cantidadReservada;
+      entry.reservado += row.cantidadReservada;
+    }
+    return result;
   }
 
   async update(id: string, dto: UpdateProductDto) {
@@ -364,7 +413,7 @@ export class ProductService {
         }
       }
 
-      return withPrice(product, await this.settings.getExchangeRate());
+      return withStock(withPrice(product, await this.settings.getExchangeRate()));
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }
@@ -388,7 +437,7 @@ export class ProductService {
         }
       }
 
-      return withPrice(updated, await this.settings.getExchangeRate());
+      return withStock(withPrice(updated, await this.settings.getExchangeRate()));
     } catch (error) {
       rethrowPrismaError(error, "Producto");
     }

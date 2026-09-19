@@ -10,6 +10,7 @@ import {
   apiGet,
   apiPatch,
   downloadProductsImportTemplate,
+  getProductsStockSummary,
   importProductsFromFile,
 } from "../../../lib/api";
 import { consumeFlashMessage } from "../../../lib/flash";
@@ -24,6 +25,7 @@ import type {
   ProductVariant,
 } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
+import { StockCell } from "../../../components/StockCell";
 
 function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
@@ -76,6 +78,9 @@ export default function ProductsPage() {
   const [productCodeInput, setProductCodeInput] = useState("");
   const [debouncedProductCode, setDebouncedProductCode] = useState("");
   const [page, setPage] = useState<Page<Product> | null>(null);
+  // /catalog/products (público) no trae cantidades de stock — se piden aparte, autenticado, y se
+  // mergean acá por id (ver getProductsStockSummary).
+  const [stockByProduct, setStockByProduct] = useState<Record<string, { disponible: number; reservado: number }>>({});
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
@@ -132,7 +137,11 @@ export default function ProductsPage() {
     params.set("page", String(pageNumber));
     params.set("pageSize", String(PAGE_SIZE));
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
-      .then(setPage)
+      .then((result) => {
+        setPage(result);
+        return getProductsStockSummary(result.items.map((item) => item.id));
+      })
+      .then(setStockByProduct)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
 
@@ -464,6 +473,7 @@ export default function ProductsPage() {
             <table className="table table-minimal products-table">
               <thead>
                 <tr>
+                  <th>Stock</th>
                   <th>Imagen</th>
                   <th>Marca</th>
                   <th style={{ minWidth: 260 }}>Nombre</th>
@@ -490,6 +500,12 @@ export default function ProductsPage() {
                   const variantCount = product.variants.length;
                   return (
                     <tr key={product.id} onDoubleClick={(e) => handleRowDoubleClick(e, product)} style={{ cursor: "pointer" }}>
+                      <td>
+                        <StockCell
+                          disponible={stockByProduct[product.id]?.disponible ?? 0}
+                          reservado={stockByProduct[product.id]?.reservado ?? 0}
+                        />
+                      </td>
                       <td>
                         {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
                           <img
