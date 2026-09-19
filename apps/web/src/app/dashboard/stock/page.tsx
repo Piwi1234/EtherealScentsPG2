@@ -300,12 +300,12 @@ export default function StockPage() {
             <table className="table table-minimal">
               <thead>
                 <tr>
+                  <th>Almacén</th>
                   <th>Marca</th>
                   <th>Producto</th>
-                  <th>Almacén</th>
-                  <th className="num">Física</th>
+                  <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Física</th>
                   <th className="num">Reservada</th>
-                  <th className="num">Disponible</th>
+                  <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Disponible</th>
                   <th>Actualizado</th>
                   <th></th>
                 </tr>
@@ -315,6 +315,7 @@ export default function StockPage() {
                   const etiqueta = atributosLabel(row);
                   return (
                   <tr key={`${row.varianteId}-${row.almacenId}`}>
+                    <td>{row.almacen.nombre}</td>
                     <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
                     <td className="cell-primary">
                       {row.variante.product.name}
@@ -325,10 +326,12 @@ export default function StockPage() {
                       )}
                       {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
                     </td>
-                    <td>{row.almacen.nombre}</td>
-                    <td className="num">{row.cantidadFisica}{row.variante.unidad === "ML" ? " ml" : ""}</td>
+                    <td className="num" style={{ background: "#000000", color: "#ffffff" }}>
+                      {row.cantidadFisica}
+                      {row.variante.unidad === "ML" ? " ml" : ""}
+                    </td>
                     <td className="num">{row.cantidadReservada}{row.variante.unidad === "ML" ? " ml" : ""}</td>
-                    <td className="num">
+                    <td className="num" style={{ background: "#000000", color: "#ffffff" }}>
                       {row.cantidadFisica - row.cantidadReservada}
                       {row.variante.unidad === "ML" ? " ml" : ""}
                     </td>
