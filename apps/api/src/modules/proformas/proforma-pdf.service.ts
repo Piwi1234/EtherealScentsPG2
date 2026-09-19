@@ -24,6 +24,11 @@ const TOP_ZONE_HEIGHT = 66;
 const LOGO_SIZE = 54;
 const LOGO_ZONE_WIDTH = 170;
 const LOGO_Y = (TOP_ZONE_HEIGHT - LOGO_SIZE) / 2 + 5;
+// El pie (línea + "Creado por…") se dibuja a page.height - 34 (ver drawFooter); el contenido puede
+// llegar hasta un poco antes. Queda por encima del margen inferior de pdfkit (24), así ningún
+// .text() dispara una página automática.
+const FOOTER_TOP = PAGE_SIZE[1] - 34;
+const CONTENT_BOTTOM = FOOTER_TOP - 6;
 
 // Helvetica (fuente estándar de pdfkit) no tiene tabla ToUnicode ni cubre bien acentos/ñ/° —
 // el texto se ve/extrae mal ("Tama�o"). Roboto sí es Unicode completo; se embebe desde acá en vez
@@ -233,7 +238,9 @@ export class ProformaPdfService {
       doc.fontSize(8).font("Roboto");
       const rowHeight = Math.max(20, doc.heightOfString(concepto, { width: colConcepto }) + 10);
 
-      if (y + rowHeight > doc.page.height - PAGE_MARGIN - 110) {
+      // Solo se reserva el pie: los totales se ubican solos (ver drawTotales). Antes se reservaba
+      // también el alto del bloque de totales en TODAS las páginas y la tabla cortaba a mitad de hoja.
+      if (y + rowHeight > CONTENT_BOTTOM) {
         doc.addPage();
         y = drawTableHeader(PAGE_MARGIN);
       }
@@ -255,15 +262,11 @@ export class ProformaPdfService {
   private drawTotales(doc: PDFKit.PDFDocument, proforma: Proforma, esVenta: boolean, prefix: string, subtotal: number) {
     const width = doc.page.width - PAGE_MARGIN * 2;
     const left = PAGE_MARGIN;
-    let y = doc.y;
 
-    const row = (label: string, value: string, strong = false) => {
-      doc.fontSize(strong ? 10 : 8.5).font(strong ? "Roboto-Bold" : "Roboto");
-      doc.fillColor(strong ? NAVY : "#000000").text(label, left, y, { width: width - 90 });
-      doc.text(value, left + width - 90, y, { width: 90, align: "right" });
-      doc.fillColor("#000000");
-      y += strong ? 16 : 13;
-    };
+    // Primero se arma la lista de filas para saber cuánto ocupa el bloque entero y decidir si entra
+    // en lo que queda de la página o pasa completo a una nueva — nunca se parte a la mitad.
+    const rows: { label: string; value: string; strong: boolean }[] = [];
+    const row = (label: string, value: string, strong = false) => rows.push({ label, value, strong });
 
     row("Subtotal", money(subtotal, prefix));
 
@@ -288,6 +291,21 @@ export class ProformaPdfService {
         row("Tipo de cambio", Number(proforma.tipoCambioProf).toFixed(4));
         row("Total Bs", money(subtotal * Number(proforma.tipoCambioProf), "Bs"), true);
       }
+    }
+
+    const blockHeight = rows.reduce((sum, r) => sum + (r.strong ? 16 : 13), 0);
+    let y = doc.y;
+    if (y + blockHeight > CONTENT_BOTTOM) {
+      doc.addPage();
+      y = PAGE_MARGIN;
+    }
+
+    for (const r of rows) {
+      doc.fontSize(r.strong ? 10 : 8.5).font(r.strong ? "Roboto-Bold" : "Roboto");
+      doc.fillColor(r.strong ? NAVY : "#000000").text(r.label, left, y, { width: width - 90 });
+      doc.text(r.value, left + width - 90, y, { width: 90, align: "right" });
+      doc.fillColor("#000000");
+      y += r.strong ? 16 : 13;
     }
 
     doc.y = y + 8;
