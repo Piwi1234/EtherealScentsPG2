@@ -5528,8 +5528,8 @@ a {
 
 .landing-product-detail-brand-logo {
   display: block;
-  max-height: 100px;
-  max-width: 400px;
+  max-height: 130px;
+  max-width: 520px;
   object-fit: contain;
   margin: 0 auto 12px;
 }
