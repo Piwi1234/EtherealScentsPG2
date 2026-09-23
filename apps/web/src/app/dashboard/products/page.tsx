@@ -484,7 +484,7 @@ export default function ProductsPage() {
                   <th className="num">Utilidad $</th>
                   <th className="num">Precio $</th>
                   <th className="num col-group-start may-bs-col">May Bs</th>
-                  <th className="num">Add May</th>
+                  <th className="num">Add May $</th>
                   <th className="num">Desc. Bs</th>
                   <th className="num final-bs-col">Final Bs</th>
                   <th>Disponible</th>
@@ -531,7 +531,7 @@ export default function ProductsPage() {
                       <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
                       <td className="num">
                         {priceSource.minPriceBs !== null ? (
-                          <><span className="unit">Bs</span> {priceSource.minPriceBs}</>
+                          <><span className="unit">$</span>{priceSource.minPriceBs}</>
                         ) : (
                           <span className="cell-muted">—</span>
                         )}
