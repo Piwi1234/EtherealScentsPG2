@@ -9,7 +9,7 @@ import { parseDurationMs, parseDurationSeconds } from "./duration.util";
 
 @Injectable()
 export class AuthService {
-  private readonly accessExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN ?? "30m";
+  private readonly accessExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN ?? "2h";
   private readonly refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? "7d";
   private readonly refreshSecret = process.env.JWT_REFRESH_SECRET ?? "development-refresh-secret";
 

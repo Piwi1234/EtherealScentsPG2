@@ -20,7 +20,7 @@ import { parseDurationSeconds } from "./duration.util";
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_ACCESS_SECRET ?? "development-access-secret",
-        signOptions: { expiresIn: parseDurationSeconds(process.env.JWT_ACCESS_EXPIRES_IN ?? "30m") },
+        signOptions: { expiresIn: parseDurationSeconds(process.env.JWT_ACCESS_EXPIRES_IN ?? "2h") },
       }),
     }),
     // Límite específico de /auth/login (ver @Throttle en AuthController); no se aplica globalmente.
