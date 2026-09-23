@@ -396,9 +396,12 @@ model Product {
   // Utilidad cargada manualmente; ni los 3 costos heredados ni el precio final se guardan acá:
   // el precio $ se calcula en vivo como purchasePrice + costos de `category` + utility.
   utility       Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
-  // Precios en bolívares. Precio May Bs (mayorista) se calcula en vivo (precio $ * tipo de cambio
-  // del sistema); "Add May" (este campo, minPriceBs — el nombre no cambió, solo su significado) y
-  // Descuento se cargan a mano; Precio Final Bs = (Precio May Bs + Add May) - Descuento. Si la
+  // Precio May Bs (mayorista) se calcula en vivo (precio $ * tipo de cambio del sistema). "Add May"
+  // (este campo, minPriceBs — el nombre no cambió, solo su significado, van dos veces ya: primero
+  // pasó de ser un piso a un monto que se suma, ahora pasa de cargarse en Bs a cargarse en $) se
+  // carga a mano EN DÓLARES y se convierte a Bs al tipo de cambio del sistema, igual que el precio
+  // base — así nunca queda desactualizado si el tipo de cambio se mueve. Descuento sigue en Bs, sin
+  // convertir. Precio Final Bs = (Precio May Bs + Add May $ * tipo de cambio) - Descuento. Si la
   // categoría tiene variantes con precio propio, estos dos campos manuales se cargan por variante en
   // lugar de acá (mismo criterio que purchasePrice/utility).
   minPriceBs    Decimal? @map("min_price_bs") @db.Decimal(12, 2)

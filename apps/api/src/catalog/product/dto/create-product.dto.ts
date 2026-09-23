@@ -26,10 +26,11 @@ export class CreateProductDto {
   utility?: number;
 
   @ApiPropertyOptional({
-    example: 350,
+    example: 50,
     description:
-      "\"Add May\" (manual): monto que se suma a Precio May Bs para armar Precio Final Bs. Igual que " +
-      "purchasePrice, si la categoría tiene atributos con precio propio se carga por variante en su lugar.",
+      "\"Add May\" (manual, en DÓLARES): se convierte a Bs al tipo de cambio del sistema y se suma a " +
+      "Precio May Bs para armar Precio Final Bs. Igual que purchasePrice, si la categoría tiene " +
+      "atributos con precio propio se carga por variante en su lugar.",
   })
   @IsOptional()
   @IsNumber()

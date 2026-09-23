@@ -24,7 +24,10 @@ export class CreateProductVariantDto {
   @IsNumber()
   utility?: number;
 
-  @ApiPropertyOptional({ example: 350, description: "\"Add May\" (manual) propio de esta variante: monto que se suma a Precio May Bs." })
+  @ApiPropertyOptional({
+    example: 50,
+    description: "\"Add May\" (manual, en DÓLARES) propio de esta variante: se convierte a Bs al tipo de cambio del sistema y se suma a Precio May Bs.",
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
