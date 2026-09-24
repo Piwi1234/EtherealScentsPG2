@@ -5,8 +5,11 @@ import { API_ORIGIN, apiDelete, apiGet, apiPost, apiUpload, ApiError } from "../
 import type { CarritoWhatsappContacto } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 
+// Imágenes subidas antes de la migración a R2 tienen imagenUrl relativo ("/uploads/..."); las nuevas
+// ya vienen con la URL pública completa.
 function imagenSrc(imagenUrl: string | null): string | null {
-  return imagenUrl ? `${API_ORIGIN}${imagenUrl}` : null;
+  if (!imagenUrl) return null;
+  return imagenUrl.startsWith("http") ? imagenUrl : `${API_ORIGIN}${imagenUrl}`;
 }
 
 export default function CarritoWhatsappPage() {

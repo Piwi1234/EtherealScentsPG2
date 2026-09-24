@@ -38,8 +38,11 @@ import {
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
 
+// Imágenes subidas antes de la migración a R2 tienen url relativo ("/uploads/..."); las nuevas ya
+// vienen con la URL pública completa.
 function imgSrc(url: string | null): string | null {
-  return url ? `${API_ORIGIN}${url}` : null;
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_ORIGIN}${url}`;
 }
 
 // site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
@@ -430,7 +433,7 @@ function CarouselSlotEditor({
         {images.map((image, index) => (
           <div key={image.id} style={{ width: onSetTitulos ? 160 : 140 }}>
             <div className="image-uploader" style={{ marginBottom: 6 }}>
-              <img src={`${API_ORIGIN}${image.imageUrl}`} alt={`${title} ${index + 1}`} />
+              <img src={imgSrc(image.imageUrl)!} alt={`${title} ${index + 1}`} />
             </div>
             <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
               <button

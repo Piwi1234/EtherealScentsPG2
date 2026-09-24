@@ -1,9 +1,7 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../common/prisma.service";
 import { CarouselImageService } from "../catalog/carousel-image/carousel-image.service";
-import { LANDING_IMAGES_DIR } from "./landing-image.multer";
+import { deleteFromR2 } from "../common/r2-storage";
 
 const SETTINGS_ID = "default";
 
@@ -189,7 +187,8 @@ export class SettingsService {
 
   private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
     const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
-    const url = `/uploads/landing/${file.filename}`;
+    // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+    const url = file.filename;
 
     const updated = await this.prisma.systemSetting.upsert({
       where: { id: SETTINGS_ID },
@@ -197,13 +196,10 @@ export class SettingsService {
       create: { id: SETTINGS_ID, [field]: url },
     });
 
-    // Best-effort: borra la imagen anterior para no acumular huérfanos en disco.
+    // Best-effort: borra la imagen anterior para no acumular huérfanos en R2.
     const previousUrl = existing?.[field];
     if (previousUrl) {
-      const previousFilename = previousUrl.split("/").pop();
-      if (previousFilename) {
-        await unlink(join(LANDING_IMAGES_DIR, previousFilename)).catch(() => {});
-      }
+      await deleteFromR2(previousUrl).catch(() => {});
     }
 
     return updated;

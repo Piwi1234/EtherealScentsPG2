@@ -1,10 +1,9 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
 import { getPagination, slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { deleteFromR2 } from "../../common/r2-storage";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
 import { SettingsService } from "../../settings/settings.service";
@@ -16,7 +15,6 @@ import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/
 import { generateUniqueEntityCode } from "../entity-code";
 import { withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
-import { PRODUCT_IMAGES_DIR } from "./product-image.multer";
 
 const includeDetails = {
   brand: true,
@@ -402,14 +400,11 @@ export class ProductService {
       });
 
       // Best-effort: las variantes borradas por el cambio de categoría (arriba) pueden haber tenido
-      // imagen propia — no dejar huérfanos en disco.
+      // imagen propia — no dejar huérfanos en R2.
       if (categoryChanged) {
         for (const variant of existing.variants) {
           if (!variant.imageUrl) continue;
-          const filename = variant.imageUrl.split("/").pop();
-          if (filename) {
-            await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
-          }
+          await deleteFromR2(variant.imageUrl).catch(() => {});
         }
       }
 
@@ -425,16 +420,14 @@ export class ProductService {
     try {
       const updated = await this.prisma.product.update({
         where: { id },
-        data: { imageUrl: `/uploads/products/${file.filename}` },
+        // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+        data: { imageUrl: file.filename },
         include: includeDetails,
       });
 
-      // Best-effort: borra el archivo anterior para no acumular huérfanos en disco.
+      // Best-effort: borra el archivo anterior para no acumular huérfanos en R2.
       if (existing.imageUrl) {
-        const previousFilename = existing.imageUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(PRODUCT_IMAGES_DIR, previousFilename)).catch(() => {});
-        }
+        await deleteFromR2(existing.imageUrl).catch(() => {});
       }
 
       return withStock(withPrice(updated, await this.settings.getExchangeRate()));
@@ -458,15 +451,13 @@ export class ProductService {
     try {
       await this.prisma.productVariant.update({
         where: { id: variantId },
-        data: { imageUrl: `/uploads/products/${file.filename}` },
+        // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+        data: { imageUrl: file.filename },
       });
 
-      // Best-effort: borra el archivo anterior para no acumular huérfanos en disco.
+      // Best-effort: borra el archivo anterior para no acumular huérfanos en R2.
       if (variant.imageUrl) {
-        const previousFilename = variant.imageUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(PRODUCT_IMAGES_DIR, previousFilename)).catch(() => {});
-        }
+        await deleteFromR2(variant.imageUrl).catch(() => {});
       }
 
       return this.findOne(productId);
@@ -604,10 +595,7 @@ export class ProductService {
     try {
       await this.prisma.productVariant.delete({ where: { id: variantId } });
       if (variant.imageUrl) {
-        const filename = variant.imageUrl.split("/").pop();
-        if (filename) {
-          await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
-        }
+        await deleteFromR2(variant.imageUrl).catch(() => {});
       }
     } catch (error) {
       rethrowPrismaError(error, "Variante de producto");
@@ -679,10 +667,7 @@ export class ProductService {
       await this.prisma.product.delete({ where: { id } });
       const imageUrls = [existing.imageUrl, ...existing.variants.map((v) => v.imageUrl)].filter((url): url is string => Boolean(url));
       for (const imageUrl of imageUrls) {
-        const filename = imageUrl.split("/").pop();
-        if (filename) {
-          await unlink(join(PRODUCT_IMAGES_DIR, filename)).catch(() => {});
-        }
+        await deleteFromR2(imageUrl).catch(() => {});
       }
     } catch (error) {
       rethrowPrismaError(error, "Producto");

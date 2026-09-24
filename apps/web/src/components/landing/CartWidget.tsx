@@ -6,8 +6,11 @@ import { apiGet, API_ORIGIN } from "../../lib/api";
 import { useCart, type CartItem } from "../../lib/cart-context";
 import type { CarritoWhatsappContacto } from "../../lib/types";
 
+// Imágenes subidas antes de la migración a R2 tienen imagenUrl relativo ("/uploads/..."); las nuevas
+// ya vienen con la URL pública completa.
 function contactoImagenSrc(imagenUrl: string | null): string | null {
-  return imagenUrl ? `${API_ORIGIN}${imagenUrl}` : null;
+  if (!imagenUrl) return null;
+  return imagenUrl.startsWith("http") ? imagenUrl : `${API_ORIGIN}${imagenUrl}`;
 }
 
 // Carrito de compras clásico (canasta + ruedas) — mismo glifo en el FAB, junto al título del

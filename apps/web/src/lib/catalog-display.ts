@@ -1,8 +1,11 @@
 import { API_ORIGIN } from "./api";
 import type { Attribute, Brand, Product, ProductVariant } from "./types";
 
+// Las imágenes subidas antes de la migración a R2 tienen imageUrl relativo ("/uploads/..."), servido
+// por la API; las subidas desde ahí en adelante ya vienen con la URL pública completa de R2.
 export function productImageSrc(imageUrl: string | null): string | null {
-  return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
+  if (!imageUrl) return null;
+  return imageUrl.startsWith("http") ? imageUrl : `${API_ORIGIN}${imageUrl}`;
 }
 
 /** A dónde lleva el logo/nombre de una marca: la página de esa categoría raíz, con la marca ya

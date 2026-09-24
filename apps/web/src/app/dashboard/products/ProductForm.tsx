@@ -27,8 +27,11 @@ import type {
 } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
+// Imágenes subidas antes de la migración a R2 tienen imageUrl relativo ("/uploads/..."); las nuevas
+// ya vienen con la URL pública completa.
 function productImageSrc(imageUrl: string | null): string | null {
-  return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
+  if (!imageUrl) return null;
+  return imageUrl.startsWith("http") ? imageUrl : `${API_ORIGIN}${imageUrl}`;
 }
 
 /** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 10 más cercano. Misma regla que el backend. */
