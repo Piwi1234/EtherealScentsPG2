@@ -1,12 +1,10 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { deleteFromR2 } from "../../common/r2-storage";
 import { CreateBrandDto } from "./dto/create-brand.dto";
 import { UpdateBrandDto } from "./dto/update-brand.dto";
-import { BRAND_LOGOS_DIR } from "./brand-logo.multer";
 
 const includeCategories = {
   categories: { include: { category: true } },
@@ -115,16 +113,14 @@ export class BrandService {
     try {
       const updated = await this.prisma.brand.update({
         where: { id },
-        data: { logoUrl: `/uploads/brands/${file.filename}` },
+        // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+        data: { logoUrl: file.filename },
         include: includeCategories,
       });
 
-      // Best-effort: borra el logo anterior para no acumular huérfanos en disco.
+      // Best-effort: borra el logo anterior para no acumular huérfanos en R2.
       if (existing.logoUrl) {
-        const previousFilename = existing.logoUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(BRAND_LOGOS_DIR, previousFilename)).catch(() => {});
-        }
+        await deleteFromR2(existing.logoUrl).catch(() => {});
       }
 
       return updated;

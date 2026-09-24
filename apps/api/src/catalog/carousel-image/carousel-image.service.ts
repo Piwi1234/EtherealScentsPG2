@@ -1,9 +1,7 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { CarouselKind } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
-import { CAROUSEL_IMAGES_DIR } from "./carousel-image.multer";
+import { deleteFromR2 } from "../../common/r2-storage";
 
 /**
  * CRUD genérico sobre CarouselImage, agnóstico de a qué carrusel pertenece: `categoryId: null` es
@@ -24,7 +22,8 @@ export class CarouselImageService {
   async add(categoryId: string | null, kind: CarouselKind, file: Express.Multer.File) {
     const last = await this.prisma.carouselImage.findFirst({ where: { categoryId, kind }, orderBy: { orden: "desc" } });
     return this.prisma.carouselImage.create({
-      data: { categoryId, kind, imageUrl: `/uploads/carousel/${file.filename}`, orden: (last?.orden ?? -1) + 1 },
+      // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+      data: { categoryId, kind, imageUrl: file.filename, orden: (last?.orden ?? -1) + 1 },
     });
   }
 
@@ -35,11 +34,8 @@ export class CarouselImageService {
     }
     await this.prisma.carouselImage.delete({ where: { id } });
 
-    // Best-effort: borra el archivo para no acumular huérfanos en disco.
-    const filename = existing.imageUrl.split("/").pop();
-    if (filename) {
-      await unlink(join(CAROUSEL_IMAGES_DIR, filename)).catch(() => {});
-    }
+    // Best-effort: borra el archivo para no acumular huérfanos en R2.
+    await deleteFromR2(existing.imageUrl).catch(() => {});
   }
 
   /** Link opcional al que redirige la imagen en el sitio público al hacer click — `null`/vacío la

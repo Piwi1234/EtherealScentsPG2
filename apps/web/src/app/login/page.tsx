@@ -60,7 +60,11 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         {logo?.logoUrl && (
-          <img className="login-logo" src={`${API_ORIGIN}${logo.logoUrl}`} alt={logo.nombre ?? "Logo"} />
+          <img
+            className="login-logo"
+            src={logo.logoUrl.startsWith("http") ? logo.logoUrl : `${API_ORIGIN}${logo.logoUrl}`}
+            alt={logo.nombre ?? "Logo"}
+          />
         )}
         <div className="login-badge">Iniciar sesión</div>
 

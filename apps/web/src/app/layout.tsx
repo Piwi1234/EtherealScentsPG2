@@ -30,7 +30,9 @@ export async function generateMetadata(): Promise<Metadata> {
     logoUrl = null;
   }
 
-  const absoluteLogoUrl = logoUrl ? `${API_ORIGIN}${logoUrl}` : null;
+  // Logos subidos antes de la migración a R2 tienen logoUrl relativo ("/uploads/..."); los nuevos
+  // ya vienen con la URL pública completa.
+  const absoluteLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`) : null;
 
   return {
     metadataBase: new URL(SITE_ORIGIN),

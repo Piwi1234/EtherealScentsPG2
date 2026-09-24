@@ -27,8 +27,11 @@ import type {
 import { Modal } from "../../../components/Modal";
 import { StockCell } from "../../../components/StockCell";
 
+// Imágenes subidas antes de la migración a R2 tienen imageUrl relativo ("/uploads/..."); las nuevas
+// ya vienen con la URL pública completa.
 function productImageSrc(imageUrl: string | null): string | null {
-  return imageUrl ? `${API_ORIGIN}${imageUrl}` : null;
+  if (!imageUrl) return null;
+  return imageUrl.startsWith("http") ? imageUrl : `${API_ORIGIN}${imageUrl}`;
 }
 
 function attributeValueLabel(pv: Product["attributeValues"][number]): string {

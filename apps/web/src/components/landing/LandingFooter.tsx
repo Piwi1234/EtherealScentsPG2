@@ -5,8 +5,11 @@ import Link from "next/link";
 import { API_ORIGIN, apiGet, getCasaMatrizLogo } from "../../lib/api";
 import type { Category, ContactoInfo, RedSocial } from "../../lib/types";
 
+// Logos subidos antes de la migración a R2 tienen logoUrl relativo ("/uploads/..."); los nuevos ya
+// vienen con la URL pública completa.
 function redSocialLogoSrc(logoUrl: string | null): string | null {
-  return logoUrl ? `${API_ORIGIN}${logoUrl}` : null;
+  if (!logoUrl) return null;
+  return logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`;
 }
 
 /** Footer de todo el sitio público — trae el ancla #contacto usada por LandingNavbar. */

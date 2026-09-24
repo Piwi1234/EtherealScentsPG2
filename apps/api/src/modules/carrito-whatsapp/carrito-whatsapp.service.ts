@@ -1,11 +1,9 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { deleteFromR2 } from "../../common/r2-storage";
 import { CreateCarritoWhatsappContactoDto } from "./dto/create-carrito-whatsapp-contacto.dto";
 import { UpdateCarritoWhatsappContactoDto } from "./dto/update-carrito-whatsapp-contacto.dto";
-import { CARRITO_WHATSAPP_IMAGENES_DIR } from "./carrito-whatsapp-imagen.multer";
 
 @Injectable()
 export class CarritoWhatsappService {
@@ -46,15 +44,13 @@ export class CarritoWhatsappService {
     try {
       const updated = await this.prisma.carritoWhatsappContacto.update({
         where: { id },
-        data: { imagenUrl: `/uploads/carrito-whatsapp/${file.filename}` },
+        // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+        data: { imagenUrl: file.filename },
       });
 
-      // Best-effort: borra la imagen anterior para no acumular huérfanos en disco.
+      // Best-effort: borra la imagen anterior para no acumular huérfanos en R2.
       if (existing.imagenUrl) {
-        const previousFilename = existing.imagenUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(CARRITO_WHATSAPP_IMAGENES_DIR, previousFilename)).catch(() => {});
-        }
+        await deleteFromR2(existing.imagenUrl).catch(() => {});
       }
 
       return updated;
@@ -73,10 +69,7 @@ export class CarritoWhatsappService {
     }
 
     if (existing.imagenUrl) {
-      const filename = existing.imagenUrl.split("/").pop();
-      if (filename) {
-        await unlink(join(CARRITO_WHATSAPP_IMAGENES_DIR, filename)).catch(() => {});
-      }
+      await deleteFromR2(existing.imagenUrl).catch(() => {});
     }
   }
 }

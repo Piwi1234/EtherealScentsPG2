@@ -1,11 +1,9 @@
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { deleteFromR2 } from "../../common/r2-storage";
 import { CreateRedSocialDto } from "./dto/create-red-social.dto";
 import { UpdateRedSocialDto } from "./dto/update-red-social.dto";
-import { RED_SOCIAL_LOGOS_DIR } from "./red-social-logo.multer";
 
 @Injectable()
 export class RedesSocialesService {
@@ -46,15 +44,13 @@ export class RedesSocialesService {
     try {
       const updated = await this.prisma.redSocial.update({
         where: { id },
-        data: { logoUrl: `/uploads/redes-sociales/${file.filename}` },
+        // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+        data: { logoUrl: file.filename },
       });
 
-      // Best-effort: borra el logo anterior para no acumular huérfanos en disco.
+      // Best-effort: borra el logo anterior para no acumular huérfanos en R2.
       if (existing.logoUrl) {
-        const previousFilename = existing.logoUrl.split("/").pop();
-        if (previousFilename) {
-          await unlink(join(RED_SOCIAL_LOGOS_DIR, previousFilename)).catch(() => {});
-        }
+        await deleteFromR2(existing.logoUrl).catch(() => {});
       }
 
       return updated;
@@ -73,10 +69,7 @@ export class RedesSocialesService {
     }
 
     if (existing.logoUrl) {
-      const filename = existing.logoUrl.split("/").pop();
-      if (filename) {
-        await unlink(join(RED_SOCIAL_LOGOS_DIR, filename)).catch(() => {});
-      }
+      await deleteFromR2(existing.logoUrl).catch(() => {});
     }
   }
 }
