@@ -15,9 +15,6 @@ import { SettingsModule } from "./settings/settings.module";
 import { CarritoWhatsappModule } from "./modules/carrito-whatsapp/carrito-whatsapp.module";
 import { RedesSocialesModule } from "./modules/redes-sociales/redes-sociales.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
-// TEMPORAL — ver admin-tools/backfill-r2.service.ts. Sacar este import + el módulo de la lista de
-// abajo una vez terminado el backfill de producción.
-import { AdminToolsModule } from "./modules/admin-tools/admin-tools.module";
 
 @Module({
   imports: [
@@ -37,7 +34,6 @@ import { AdminToolsModule } from "./modules/admin-tools/admin-tools.module";
     CarritoWhatsappModule,
     RedesSocialesModule,
     DashboardModule,
-    AdminToolsModule,
   ],
 })
 export class AppModule {}
