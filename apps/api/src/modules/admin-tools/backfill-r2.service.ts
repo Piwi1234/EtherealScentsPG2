@@ -121,8 +121,24 @@ export class BackfillR2Service {
 
     for (const row of rows) {
       const url = getUrl(row);
-      if (!url || url.startsWith("http")) {
+      if (!url) {
         report.skipped++;
+        continue;
+      }
+
+      // Fila migrada en una corrida anterior (o más arriba en esta misma) — la DB ya apunta a R2,
+      // pero el archivo local puede seguir ahí (una corrida previa sin deleteLocal no lo borró). El
+      // key de R2 espeja la ruta relativa a UPLOADS_ROOT, así que se puede reconstruir el path local
+      // a partir de la URL pública para limpiarlo ahora.
+      if (url.startsWith("http")) {
+        report.skipped++;
+        if (deleteLocal) {
+          const orphanPath = this.localPathForPublicUrl(url);
+          if (orphanPath && existsSync(orphanPath)) {
+            await unlink(orphanPath).catch(() => {});
+            report.deletedLocal++;
+          }
+        }
         continue;
       }
 
@@ -155,5 +171,16 @@ export class BackfillR2Service {
     }
 
     return field;
+  }
+
+  /** Inverso de uploadFileToR2: dada una URL pública ya guardada, reconstruye el path local
+   * equivalente bajo UPLOADS_ROOT (mismo key, ver comentario más arriba). Null si la URL no es de
+   * nuestro bucket. */
+  private localPathForPublicUrl(url: string): string | null {
+    const base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/+$/, "");
+    const prefix = `${base}/`;
+    if (!base || !url.startsWith(prefix)) return null;
+    const key = url.slice(prefix.length);
+    return join(UPLOADS_ROOT, key);
   }
 }
