@@ -37,6 +37,11 @@ export default function CategoriaPage() {
   // de esta misma tanda paginada (pageSize=200, recortado a 100 por el backend) y con miles de
   // productos ni de cerca alcanzaba a cubrir todas las marcas que existen.
   const [basePage, setBasePage] = useState<Page<Product> | null>(null);
+  // Conteo por subcategoría (para el propio grupo "Subcategoría" del sidebar) — siempre a nivel raíz,
+  // independiente de cuál esté marcada, para que se sigan viendo los conteos de las hermanas.
+  const [rootSubcategoryCounts, setRootSubcategoryCounts] = useState<Record<string, number>>({});
+  // Marca/ofertas/stock/precio del sidebar — a nivel raíz, o de la subcategoría marcada si hay una
+  // (ver el efecto de abajo), para que la lista de marcas coincida con lo que se está mostrando.
   const [aggregates, setAggregates] = useState<CategoryAggregates | null>(null);
   // Con categoría (o subcategoría) + atributos ya aplicados server-side: es lo que se muestra.
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
@@ -123,9 +128,19 @@ export default function CategoriaPage() {
       .then(setBasePage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     apiGet<CategoryAggregates>(`/catalog/categories/${effectiveRootId}/aggregates`)
-      .then(setAggregates)
+      .then((data) => setRootSubcategoryCounts(data.subcategoryCounts))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [effectiveRootId]);
+
+  // Marca/ofertas/stock/precio del sidebar, acotados a la subcategoría marcada cuando hay una — así
+  // "Marca" solo ofrece las que realmente tienen productos ahí, no todas las de la categoría raíz.
+  useEffect(() => {
+    if (!effectiveRootId) return;
+    const targetCategoryId = subCategoryFilter || effectiveRootId;
+    apiGet<CategoryAggregates>(`/catalog/categories/${targetCategoryId}/aggregates`)
+      .then(setAggregates)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [effectiveRootId, subCategoryFilter]);
 
   // Paginado 100% del lado del servidor — antes se traía como mucho una sola tanda de 100 productos
   // y se paginaba/ordenaba/filtraba por marca y precio en el navegador sobre esos mismos 100, así que
@@ -284,9 +299,10 @@ export default function CategoriaPage() {
   const subcategories = categories.filter((c) => c.parentId === effectiveRootId);
   const parentCategory = category?.parentId ? categories.find((c) => c.id === category.parentId) ?? null : null;
 
-  // Estos 5 ya vienen calculados del backend (ver `aggregates`, sobre el total real de la
-  // categoría) — antes se armaban acá mismo contando sobre `basePage.items` (una muestra chica).
-  const subcategoryCounts = aggregates?.subcategoryCounts ?? {};
+  // Estos ya vienen calculados del backend sobre el total real de la categoría (antes se armaban
+  // acá mismo contando sobre `basePage.items`, una muestra chica). subcategoryCounts es siempre a
+  // nivel raíz (`rootSubcategoryCounts`); el resto sigue a la subcategoría marcada (`aggregates`).
+  const subcategoryCounts = rootSubcategoryCounts;
   const discountCount = aggregates?.discountCount ?? 0;
   const flashCount = aggregates?.flashCount ?? 0;
   const inStockCount = aggregates?.inStockCount ?? 0;
