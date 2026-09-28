@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import { displayPrice, getAttributeFilterOptions, hasActiveFlash, hasDiscount } from "../../../lib/catalog-display";
-import type { Attribute, Category, Page, Product } from "../../../lib/types";
+import { getAttributeFilterOptions } from "../../../lib/catalog-display";
+import type { Attribute, Category, CategoryAggregates, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../../components/landing/ImageCarousel";
@@ -30,9 +30,14 @@ export default function CategoriaPage() {
 
   const [category, setCategory] = useState<Category | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  // Sin filtro de subcategoría/atributo: de acá salen los contadores y rangos del sidebar, para
-  // que no cambien de golpe cada vez que se marca un checkbox de otro grupo.
+  // Sin filtro de subcategoría/atributo: de acá salen las opciones de los filtros de atributo tipo
+  // MULTI_VALUE/TEXT/NUMBER/BOOLEAN (ver getAttributeFilterOptions) — los SELECT (ej. Acordes) no la
+  // necesitan, sus opciones salen directo de filterableAttributes. Los conteos del sidebar
+  // (subcategoría/marca/ofertas/precio) NO salen de acá — ver `aggregates`, más abajo: antes salían
+  // de esta misma tanda paginada (pageSize=200, recortado a 100 por el backend) y con miles de
+  // productos ni de cerca alcanzaba a cubrir todas las marcas que existen.
   const [basePage, setBasePage] = useState<Page<Product> | null>(null);
+  const [aggregates, setAggregates] = useState<CategoryAggregates | null>(null);
   // Con categoría (o subcategoría) + atributos ya aplicados server-side: es lo que se muestra.
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -117,6 +122,9 @@ export default function CategoriaPage() {
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setBasePage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    apiGet<CategoryAggregates>(`/catalog/categories/${effectiveRootId}/aggregates`)
+      .then(setAggregates)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [effectiveRootId]);
 
   // Paginado 100% del lado del servidor — antes se traía como mucho una sola tanda de 100 productos
@@ -161,14 +169,9 @@ export default function CategoriaPage() {
     pageNumber,
   ]);
 
-  // Techo del slider de precio: precio más alto entre los productos de la categoría. Se fija recién
-  // cuando se conoce (basePage llega después de category) y solo se resetea si cambia de techo.
-  const priceBoundsMax = useMemo(() => {
-    const items = basePage?.items ?? [];
-    if (items.length === 0) return 0;
-    const max = Math.max(...items.map((p) => displayPrice(p).bs));
-    return Math.max(10, Math.ceil(max / 10) * 10);
-  }, [basePage]);
+  // Techo del slider de precio: precio más alto entre los productos de la categoría, ya calculado
+  // por el backend (ver getCategoryAggregates) sobre el total real, no sobre una muestra.
+  const priceBoundsMax = aggregates?.maxPriceBs ?? 0;
 
   useEffect(() => {
     if (priceBoundsMax > 0) setPriceRange([0, priceBoundsMax]);
@@ -281,25 +284,13 @@ export default function CategoriaPage() {
   const subcategories = categories.filter((c) => c.parentId === effectiveRootId);
   const parentCategory = category?.parentId ? categories.find((c) => c.id === category.parentId) ?? null : null;
 
-  const subcategoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of basePage?.items ?? []) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
-    return counts;
-  }, [basePage]);
-
-  const discountCount = useMemo(() => (basePage?.items ?? []).filter(hasDiscount).length, [basePage]);
-  const flashCount = useMemo(() => (basePage?.items ?? []).filter(hasActiveFlash).length, [basePage]);
-  const inStockCount = useMemo(() => (basePage?.items ?? []).filter((p) => p.hasStock).length, [basePage]);
-
-  const brandsWithCounts: BrandCount[] = useMemo(() => {
-    const byId = new Map<string, BrandCount>();
-    for (const p of basePage?.items ?? []) {
-      if (!p.brand) continue;
-      const current = byId.get(p.brand.id);
-      byId.set(p.brand.id, { id: p.brand.id, name: p.brand.name, count: (current?.count ?? 0) + 1 });
-    }
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [basePage]);
+  // Estos 5 ya vienen calculados del backend (ver `aggregates`, sobre el total real de la
+  // categoría) — antes se armaban acá mismo contando sobre `basePage.items` (una muestra chica).
+  const subcategoryCounts = aggregates?.subcategoryCounts ?? {};
+  const discountCount = aggregates?.discountCount ?? 0;
+  const flashCount = aggregates?.flashCount ?? 0;
+  const inStockCount = aggregates?.inStockCount ?? 0;
+  const brandsWithCounts: BrandCount[] = aggregates?.brands ?? [];
 
   // Marca, precio y orden ya se resuelven en el fetch de arriba (server-side) — acá no queda nada
   // que filtrar/ordenar/paginar de nuevo: `productsPage.items` ya es exactamente la página pedida.
@@ -599,7 +590,7 @@ type FilterGroupsProps = {
   subcategories: Category[];
   subCategoryFilter: string;
   onSelectSubcategory: (id: string) => void;
-  subcategoryCounts: Map<string, number>;
+  subcategoryCounts: Record<string, number>;
   filterableAttributes: Attribute[];
   attributeFilters: Record<string, string[]>;
   onToggleAttributeValue: (attributeId: string, value: string) => void;
@@ -696,7 +687,7 @@ function FilterGroups({
           options={subcategories.map((sub) => ({
             value: sub.id,
             label: sub.name,
-            count: subcategoryCounts.get(sub.id) ?? 0,
+            count: subcategoryCounts[sub.id] ?? 0,
           }))}
           selected={subCategoryFilter ? [subCategoryFilter] : []}
           onToggle={onSelectSubcategory}

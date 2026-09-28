@@ -53,6 +53,11 @@ export class CatalogBrowseController {
     return this.browse.getFiltersForCategory(categoryId);
   }
 
+  @Get("categories/:categoryId/aggregates")
+  getAggregates(@Param("categoryId", ParseUUIDPipe) categoryId: string) {
+    return this.browse.getCategoryAggregates(categoryId);
+  }
+
   @Get("products/:id")
   getProduct(@Param("id", ParseUUIDPipe) id: string) {
     return this.browse.getProduct(id);

@@ -270,6 +270,17 @@ export type DashCuentasPorCobrar = { totalBs: number; cantidad: number };
 
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
+/** GET /catalog/categories/:categoryId/aggregates — conteos del sidebar de filtros de la categoría
+ * (ella + sus subcategorías), calculados sobre el total real, no sobre una tanda paginada. */
+export type CategoryAggregates = {
+  subcategoryCounts: Record<string, number>;
+  brands: { id: string; name: string; count: number }[];
+  discountCount: number;
+  flashCount: number;
+  inStockCount: number;
+  maxPriceBs: number;
+};
+
 export type ExchangeRateResponse = { exchangeRate: number };
 
 export type Rol = "ADMIN" | "SELLER";
