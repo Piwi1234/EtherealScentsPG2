@@ -52,8 +52,30 @@ function finalizeProduct(product: RawProduct, exchangeRate: number) {
   };
 }
 
+/** Mismo criterio que `displayPrice` del frontend (apps/web/src/lib/catalog-display.ts): la variante
+ * disponible más barata, o si ninguna está disponible, la más barata de todas; sin variantes, el
+ * precio del producto. Tiene que coincidir exactamente para que el filtro/orden de precio del
+ * catálogo público filtre por el mismo número que la tarjeta le muestra al cliente.
+ *
+ * El parámetro está tipado como `unknown` a propósito: `finalPriceBs` SÍ está en cada variante en
+ * runtime (lo pone incondicionalmente `computeBsPrices`, ver product-price.ts), pero TS pierde ese
+ * campo del tipo al pasar el resultado de `withPrice` por el `.map()` de `finalizeProduct` — un tipo
+ * generado por Prisma tan grande/anidado (producto → variantes → opciones → valor → atributo) hace
+ * que TS angoste el tipo ahí sin ninguna forma práctica de evitarlo (ni separando genéricos, ni
+ * anotando el retorno, ni evitando la desestructuración — se probaron las tres). */
+function cheapestFinalPriceBs(item: unknown): number {
+  const typed = item as { finalPriceBs: number; variants: { finalPriceBs: number; disponible: boolean }[] };
+  if (typed.variants.length === 0) {
+    return typed.finalPriceBs;
+  }
+  const available = typed.variants.filter((v) => v.disponible);
+  const pool = available.length > 0 ? available : typed.variants;
+  return pool.reduce((min, v) => Math.min(min, v.finalPriceBs), pool[0].finalPriceBs);
+}
+
 export interface FindCatalogProductsQuery {
   categoryId?: string;
+  /** Uno o varios ids separados por coma (mismo formato que `attr`). */
   brandId?: string;
   page?: string;
   pageSize?: string;
@@ -74,8 +96,12 @@ export interface FindCatalogProductsQuery {
   /** "true": solo productos con stock disponible (física - reservada > 0) en alguna variante,
    * incluidas las de precio propio. Nunca informa cantidades, solo disponibilidad. */
   onlyInStock?: string;
-  /** "actualizados": orden por última modificación (usado por el carrusel de ofertas del home).
-   * Cualquier otro valor (u omitido) mantiene el orden por defecto, más reciente creado primero. */
+  /** Rango de precio en Bs, contra el mismo precio que se muestra en la tarjeta (ver `cheapestFinalPriceBs`). */
+  minPriceBs?: string;
+  maxPriceBs?: string;
+  /** "actualizados" (última modificación, usado por el carrusel de ofertas del home), "nombre-asc",
+   * "precio-asc"/"precio-desc". Cualquier otro valor (u omitido) es el orden por defecto, más
+   * reciente creado primero. */
   sortBy?: string;
 }
 
@@ -105,7 +131,8 @@ export class CatalogBrowseService {
     }
 
     if (query.brandId) {
-      andConditions.push({ brandId: query.brandId });
+      const brandIds = query.brandId.split(",").map((v) => v.trim()).filter(Boolean);
+      andConditions.push({ brandId: { in: brandIds } });
     }
 
     if (query.search && query.search.trim()) {
@@ -142,18 +169,44 @@ export class CatalogBrowseService {
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
     const orderBy: Prisma.ProductOrderByWithRelationInput =
-      query.sortBy === "actualizados" ? { updatedAt: "desc" } : { createdAt: "desc" };
+      query.sortBy === "actualizados"
+        ? { updatedAt: "desc" }
+        : query.sortBy === "nombre-asc"
+          ? { name: "asc" }
+          : { createdAt: "desc" };
 
     const exchangeRate = await this.settings.getExchangeRate();
 
-    if (query.onlyInStock === "true") {
-      // "Física - reservada > 0" no se puede expresar en un where de Prisma (no compara columnas
-      // entre sí), así que se trae todo lo que matchea el resto de filtros y se filtra/pagina acá,
-      // en memoria — el catálogo de una categoría es chico, no hace falta más que esto.
+    const minPriceBs = query.minPriceBs !== undefined && query.minPriceBs !== "" ? Number(query.minPriceBs) : undefined;
+    const maxPriceBs = query.maxPriceBs !== undefined && query.maxPriceBs !== "" ? Number(query.maxPriceBs) : undefined;
+    const isPriceSort = query.sortBy === "precio-asc" || query.sortBy === "precio-desc";
+
+    if (query.onlyInStock === "true" || minPriceBs !== undefined || maxPriceBs !== undefined || isPriceSort) {
+      // Ni "física - reservada > 0" ni el precio final (calculado en vivo a partir de la categoría y
+      // el tipo de cambio, no una columna) se pueden expresar en un where/orderBy de Prisma — así que
+      // acá se trae todo lo que matchea el resto de filtros y se filtra/ordena/pagina en memoria.
       const all = await this.prisma.product.findMany({ where, orderBy, include: includeDetails });
-      const inStock = all.filter((item) => hasAvailableStock(item.variants));
-      const pageItems = inStock.slice(skip, skip + take);
-      return { items: pageItems.map((item) => finalizeProduct(item, exchangeRate)), total: inStock.length, page, pageSize };
+      let finalized = all.map((item) => finalizeProduct(item, exchangeRate));
+
+      if (query.onlyInStock === "true") {
+        finalized = finalized.filter((item) => item.hasStock);
+      }
+      if (minPriceBs !== undefined) {
+        finalized = finalized.filter((item) => cheapestFinalPriceBs(item) >= minPriceBs);
+      }
+      if (maxPriceBs !== undefined) {
+        finalized = finalized.filter((item) => cheapestFinalPriceBs(item) <= maxPriceBs);
+      }
+      if (isPriceSort) {
+        finalized.sort((a, b) =>
+          query.sortBy === "precio-asc"
+            ? cheapestFinalPriceBs(a) - cheapestFinalPriceBs(b)
+            : cheapestFinalPriceBs(b) - cheapestFinalPriceBs(a),
+        );
+      }
+
+      const pageItems = finalized.slice(skip, skip + take);
+      return { items: pageItems, total: finalized.length, page, pageSize };
     }
 
     const [items, total] = await Promise.all([
