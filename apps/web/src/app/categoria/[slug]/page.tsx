@@ -612,8 +612,9 @@ type FilterGroupsProps = {
 /** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden: Ofertas,
  * Subcategoría, Marca, Atributos — el de Precio se movió al lado de "Ordenar por" en la barra de
  * herramientas (ver landing-price-dropdown en el render principal), ya no vive acá. Subcategoría/
- * Marca/Atributos están ordenados alfabéticamente y, si superan los 10 valores, se comportan como
- * el filtro de Marca (buscador + "Mostrar más/menos") — ver `FilterOptionList`. */
+ * Marca/Atributos están ordenados alfabéticamente; si superan los 10 valores suman un buscador, y
+ * Marca/Atributos (variant="scroll") muestran todo dentro de una caja con scroll propio en vez de
+ * "Mostrar más/menos" — ver `FilterOptionList`. */
 function FilterGroups({
   resetKey,
   inStockOnly,
@@ -709,6 +710,7 @@ function FilterGroups({
           options={brandsWithCounts.map((brand) => ({ value: brand.id, label: brand.name, count: brand.count }))}
           selected={brandFilters}
           onToggle={onToggleBrand}
+          variant="scroll"
         />
       )}
 

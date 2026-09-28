@@ -3788,10 +3788,11 @@ a {
   border-color: var(--lp-accent);
 }
 
-/* Variante "scroll" de FilterOptionList (ej. Acordes): en vez de truncar a 10 + "Mostrar más", se
- * ve la lista completa dentro de una caja de alto fijo con su propio scroll. */
+/* Variante "scroll" de FilterOptionList (ej. Acordes, Marca): en vez de truncar a 10 + "Mostrar
+ * más", se ve la lista completa dentro de una caja de alto fijo con su propio scroll. 306px = 8
+ * filas de .landing-filter-checkbox (38.25px cada una, medido en vivo). */
 .landing-filter-options-scroll {
-  max-height: 200px;
+  max-height: 306px;
   overflow-y: auto;
   padding-right: 6px;
   margin-right: -6px;
