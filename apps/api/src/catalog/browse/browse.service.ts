@@ -5,7 +5,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
 import { SettingsService } from "../../settings/settings.service";
-import { withPrice } from "../product-price";
+import { computeBsPrices, computeCatalogPrice, withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
 
 /** Tope de valores simultáneos para un filtro "allowMultiple" (ej. Acordes) — ver `buildAttributeFilters`:
@@ -249,6 +249,104 @@ export class CatalogBrowseService {
     return attributes.filter(
       (attribute) => attribute.isFilterable && attribute.variantMode !== AttributeVariantMode.PRICED_VARIANT,
     );
+  }
+
+  /**
+   * Datos agregados del sidebar de filtros de una categoría (conteos por subcategoría, por marca,
+   * de ofertas/stock, y el techo del slider de precio) — SIEMPRE sobre el total real de la
+   * categoría (ella + sus subcategorías), nunca sobre una sola tanda paginada de productos. Antes el
+   * frontend armaba estos mismos datos a mano a partir de un solo `GET /catalog/products?pageSize=200`
+   * (en la práctica recortado a 100 por `getPagination`) — con un catálogo de miles de productos esa
+   * "muestra" ni siquiera alcanza a cubrir todas las marcas que existen, así que el sidebar terminaba
+   * mostrando solo un puñado.
+   */
+  async getCategoryAggregates(categoryId: string) {
+    const categoryIds = await this.categories.getDescendantIds(categoryId);
+    const where: Prisma.ProductWhereInput = { categoryId: { in: categoryIds } };
+    const exchangeRate = await this.settings.getExchangeRate();
+
+    const [subcategoryGroups, brandGroups, discountCount, flashCount, priced] = await Promise.all([
+      this.prisma.product.groupBy({ by: ["categoryId"], where, _count: { _all: true } }),
+      this.prisma.product.groupBy({
+        by: ["brandId"],
+        where: { ...where, brandId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.product.count({
+        where: { ...where, OR: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } }] },
+      }),
+      this.prisma.product.count({
+        where: {
+          ...where,
+          OR: [{ ofertaFlashHasta: { gt: new Date() } }, { variants: { some: { ofertaFlashHasta: { gt: new Date() } } } }],
+        },
+      }),
+      // hasStock y el precio final no son columnas (ver `findProducts`) — acá se trae solo lo mínimo
+      // necesario para calcularlos, sin el include pesado de `includeDetails` (nada de atributos ni
+      // opciones de variante, que acá no hacen falta).
+      this.prisma.product.findMany({
+        where,
+        select: {
+          purchasePrice: true,
+          utility: true,
+          minPriceBs: true,
+          discountBs: true,
+          category: { select: { logisticsCost: true, shippingCost: true, securityCost: true } },
+          variants: {
+            select: {
+              purchasePrice: true,
+              utility: true,
+              minPriceBs: true,
+              discountBs: true,
+              disponible: true,
+              stock: { select: { cantidadFisica: true, cantidadReservada: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const brandIds = brandGroups.map((g) => g.brandId).filter((id): id is string => id !== null);
+    const brandRows =
+      brandIds.length > 0 ? await this.prisma.brand.findMany({ where: { id: { in: brandIds } }, select: { id: true, name: true } }) : [];
+    const brandNameById = new Map(brandRows.map((b) => [b.id, b.name]));
+
+    let inStockCount = 0;
+    let maxPriceBs = 0;
+    for (const product of priced) {
+      const hasStock = product.variants.some((v) => v.stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0));
+      if (hasStock) inStockCount++;
+
+      // Mismo criterio que `cheapestFinalPriceBs`/`displayPrice` (frontend): la variante disponible
+      // más barata, o la más barata de todas si ninguna está disponible; sin variantes, el precio del
+      // producto. El techo del slider es el máximo de ESE precio entre todos los productos.
+      const candidates =
+        product.variants.length > 0
+          ? (() => {
+              const available = product.variants.filter((v) => v.disponible);
+              return available.length > 0 ? available : product.variants;
+            })()
+          : [product];
+      const cheapest = Math.min(
+        ...candidates.map((c) => {
+          const priceUsd = computeCatalogPrice(c.purchasePrice, c.utility, product.category);
+          return computeBsPrices(priceUsd, c, exchangeRate).finalPriceBs;
+        }),
+      );
+      if (cheapest > maxPriceBs) maxPriceBs = cheapest;
+    }
+
+    return {
+      subcategoryCounts: Object.fromEntries(subcategoryGroups.map((g) => [g.categoryId, g._count._all])),
+      brands: brandGroups
+        .filter((g): g is typeof g & { brandId: string } => g.brandId !== null)
+        .map((g) => ({ id: g.brandId, name: brandNameById.get(g.brandId) ?? "?", count: g._count._all }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      discountCount,
+      flashCount,
+      inStockCount,
+      maxPriceBs: maxPriceBs > 0 ? Math.max(10, Math.ceil(maxPriceBs / 10) * 10) : 0,
+    };
   }
 
   private async buildAttributeFilters(attrQuery: Record<string, string>): Promise<Prisma.ProductWhereInput[]> {
