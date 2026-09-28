@@ -71,6 +71,7 @@ export default function CategoriaPage() {
     setBrandFilters(marcaFromQuery ? [marcaFromQuery] : []);
     setSortBy("relevancia");
     setAttributeFilters({});
+    setPageNumber(1);
     setFiltersDrawerOpen(false);
     setNotFound(false);
     setCategory(null);
@@ -118,21 +119,47 @@ export default function CategoriaPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [effectiveRootId]);
 
+  // Paginado 100% del lado del servidor — antes se traía como mucho una sola tanda de 100 productos
+  // y se paginaba/ordenaba/filtraba por marca y precio en el navegador sobre esos mismos 100, así que
+  // una categoría con más de 100 productos (ej. tras un import masivo) nunca mostraba el resto. Ahora
+  // cada cambio de página/filtro/orden dispara un fetch nuevo con exactamente lo que hace falta.
   useEffect(() => {
     if (!category) return;
     const params = new URLSearchParams();
     params.set("categoryId", subCategoryFilter || category.id);
-    params.set("pageSize", "100");
+    params.set("page", String(pageNumber));
+    params.set("pageSize", String(CARDS_PER_PAGE));
     for (const [attributeId, values] of Object.entries(attributeFilters)) {
       if (values.length > 0) params.set(`attr[${attributeId}]`, values.join(","));
     }
     if (discountOnly) params.set("onlyDiscounted", "true");
     if (flashOnly) params.set("onlyFlash", "true");
     if (inStockOnly) params.set("onlyInStock", "true");
+    if (brandFilters.length > 0) params.set("brandId", brandFilters.join(","));
+    if (priceApplied) {
+      params.set("minPriceBs", String(priceApplied[0]));
+      params.set("maxPriceBs", String(priceApplied[1]));
+    }
+    // "relevancia" y "recientes" son el mismo orden por defecto del backend (createdAt desc) — no
+    // hace falta mandar el parámetro para esos dos.
+    if (sortBy === "precio-asc" || sortBy === "precio-desc" || sortBy === "nombre-asc") {
+      params.set("sortBy", sortBy);
+    }
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then(setProductsPage)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [category, subCategoryFilter, attributeFilters, discountOnly, flashOnly, inStockOnly]);
+  }, [
+    category,
+    subCategoryFilter,
+    attributeFilters,
+    discountOnly,
+    flashOnly,
+    inStockOnly,
+    brandFilters,
+    priceApplied,
+    sortBy,
+    pageNumber,
+  ]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría. Se fija recién
   // cuando se conoce (basePage llega después de category) y solo se resetea si cambia de techo.
@@ -147,6 +174,10 @@ export default function CategoriaPage() {
     if (priceBoundsMax > 0) setPriceRange([0, priceBoundsMax]);
   }, [priceBoundsMax]);
 
+  // Cada handler de filtro vuelve a la página 1 en el mismo evento que cambia el filtro (no en un
+  // efecto aparte) — así React junta los dos `setState` en un solo render y el fetch de productos
+  // sale una sola vez, ya con la página correcta, en vez de una vez con la página vieja y otra con
+  // la 1 apenas se re-renderiza.
   function toggleAttributeValue(attributeId: string, value: string) {
     setAttributeFilters((prev) => {
       const current = prev[attributeId] ?? [];
@@ -156,26 +187,32 @@ export default function CategoriaPage() {
       else delete updated[attributeId];
       return updated;
     });
+    setPageNumber(1);
   }
 
   function toggleBrand(brandId: string) {
     setBrandFilters((prev) => (prev.includes(brandId) ? prev.filter((v) => v !== brandId) : [...prev, brandId]));
+    setPageNumber(1);
   }
 
   function selectSubcategory(subId: string) {
     setSubCategoryFilter((prev) => (prev === subId ? "" : subId));
+    setPageNumber(1);
   }
 
   function toggleDiscountOnly() {
     setDiscountOnly((prev) => !prev);
+    setPageNumber(1);
   }
 
   function toggleFlashOnly() {
     setFlashOnly((prev) => !prev);
+    setPageNumber(1);
   }
 
   function toggleInStockOnly() {
     setInStockOnly((prev) => !prev);
+    setPageNumber(1);
   }
 
   function handlePriceMinChange(value: number) {
@@ -195,6 +232,7 @@ export default function CategoriaPage() {
   function applyPriceFilter() {
     if (priceRange) setPriceApplied(priceRange);
     setPriceDropdownOpen(false);
+    setPageNumber(1);
   }
 
   // Cierra el desplegable de precio al hacer click afuera — un listener en el documento en vez de
@@ -219,6 +257,7 @@ export default function CategoriaPage() {
     setPriceApplied(null);
     setBrandFilters([]);
     setAttributeFilters({});
+    setPageNumber(1);
   }
 
   const hasActiveAttributeFilters = Object.keys(attributeFilters).length > 0;
@@ -262,34 +301,9 @@ export default function CategoriaPage() {
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [basePage]);
 
-  const displayedProducts = useMemo(() => {
-    if (!productsPage) return [];
-    let items = productsPage.items;
-    if (brandFilters.length > 0) items = items.filter((p) => p.brand && brandFilters.includes(p.brand.id));
-    if (priceApplied) {
-      const [min, max] = priceApplied;
-      items = items.filter((p) => {
-        const price = displayPrice(p).bs;
-        return price >= min && price <= max;
-      });
-    }
-    items = [...items];
-    if (sortBy === "recientes") items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    else if (sortBy === "precio-asc") items.sort((a, b) => displayPrice(a).bs - displayPrice(b).bs);
-    else if (sortBy === "precio-desc") items.sort((a, b) => displayPrice(b).bs - displayPrice(a).bs);
-    else if (sortBy === "nombre-asc") items.sort((a, b) => a.name.localeCompare(b.name));
-    return items;
-  }, [productsPage, brandFilters, priceApplied, sortBy]);
-
-  // Vuelve a la primera página cada vez que cambia el resultado filtrado/ordenado (si no, se podría
-  // quedar en una página que ya no existe para el nuevo resultado).
-  useEffect(() => {
-    setPageNumber(1);
-  }, [displayedProducts]);
-
-  const totalPages = Math.max(1, Math.ceil(displayedProducts.length / CARDS_PER_PAGE));
-  const currentPage = Math.min(pageNumber, totalPages);
-  const pagedProducts = displayedProducts.slice((currentPage - 1) * CARDS_PER_PAGE, currentPage * CARDS_PER_PAGE);
+  // Marca, precio y orden ya se resuelven en el fetch de arriba (server-side) — acá no queda nada
+  // que filtrar/ordenar/paginar de nuevo: `productsPage.items` ya es exactamente la página pedida.
+  const totalPages = productsPage ? Math.max(1, Math.ceil(productsPage.total / CARDS_PER_PAGE)) : 1;
 
   if (notFound) {
     return (
@@ -401,7 +415,7 @@ export default function CategoriaPage() {
                 </button>
               )}
               <p className="landing-toolbar-count">
-                {productsPage ? `${displayedProducts.length} producto${displayedProducts.length === 1 ? "" : "s"}` : ""}
+                {productsPage ? `${productsPage.total} producto${productsPage.total === 1 ? "" : "s"}` : ""}
               </p>
 
               {priceBoundsMax > 0 && priceRange && (
@@ -469,7 +483,10 @@ export default function CategoriaPage() {
                 <select
                   className="landing-select"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as SortBy);
+                    setPageNumber(1);
+                  }}
                 >
                   <option value="relevancia">Relevancia</option>
                   <option value="recientes">Más recientes</option>
@@ -482,14 +499,14 @@ export default function CategoriaPage() {
 
             {error && <p className="error-text">{error}</p>}
             {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
-            {productsPage && displayedProducts.length === 0 && (
+            {productsPage && productsPage.total === 0 && (
               <p className="landing-empty-note">No hay productos para mostrar con estos filtros.</p>
             )}
 
-            {displayedProducts.length > 0 && (
+            {productsPage && productsPage.total > 0 && (
               <>
                 <div className="landing-product-grid" id="product-grid">
-                  {pagedProducts.map((product) => (
+                  {productsPage.items.map((product) => (
                     <ProductCard product={product} key={product.id} />
                   ))}
                 </div>
@@ -499,23 +516,23 @@ export default function CategoriaPage() {
                     <button
                       type="button"
                       className="landing-btn landing-btn-outline-dark"
-                      disabled={currentPage <= 1}
+                      disabled={pageNumber <= 1}
                       onClick={() => {
-                        setPageNumber(currentPage - 1);
+                        setPageNumber((p) => p - 1);
                         document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
                       ← Anterior
                     </button>
                     <span className="landing-pagination-info">
-                      Página {currentPage} de {totalPages}
+                      Página {pageNumber} de {totalPages}
                     </span>
                     <button
                       type="button"
                       className="landing-btn landing-btn-outline-dark"
-                      disabled={currentPage >= totalPages}
+                      disabled={pageNumber >= totalPages}
                       onClick={() => {
-                        setPageNumber(currentPage + 1);
+                        setPageNumber((p) => p + 1);
                         document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
@@ -553,7 +570,7 @@ export default function CategoriaPage() {
                 </button>
               )}
               <button type="button" className="landing-btn landing-btn-primary" onClick={() => setFiltersDrawerOpen(false)}>
-                Ver {displayedProducts.length} producto{displayedProducts.length === 1 ? "" : "s"}
+                Ver {productsPage?.total ?? 0} producto{(productsPage?.total ?? 0) === 1 ? "" : "s"}
               </button>
             </div>
           </div>

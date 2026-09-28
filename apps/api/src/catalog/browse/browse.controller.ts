@@ -27,6 +27,8 @@ export class CatalogBrowseController {
     @Query("onlyDiscounted") onlyDiscounted?: string,
     @Query("onlyFlash") onlyFlash?: string,
     @Query("onlyInStock") onlyInStock?: string,
+    @Query("minPriceBs") minPriceBs?: string,
+    @Query("maxPriceBs") maxPriceBs?: string,
     @Query("sortBy") sortBy?: string,
   ) {
     return this.browse.findProducts({
@@ -40,6 +42,8 @@ export class CatalogBrowseController {
       onlyDiscounted,
       onlyFlash,
       onlyInStock,
+      minPriceBs,
+      maxPriceBs,
       sortBy,
     });
   }
