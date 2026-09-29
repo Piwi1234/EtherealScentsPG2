@@ -49,6 +49,7 @@ export class ProductVariantImportService {
       ],
       ["Tamaño", 'Obligatorio. Texto libre (ej. "50 ml", "100 ml").'],
       ["Precio de Compra ($)", "Obligatorio. Número mayor a 0, en dólares — mismo campo que \"Compra $\" en la tabla de Productos."],
+      ["Utilidad ($)", "Opcional (si se deja vacío, queda en 0). Número mayor o igual a 0, en dólares — mismo campo que \"Utilidad $\" en la tabla de Productos."],
     ];
     for (const [col, rule] of rules) {
       const row = info.addRow([col, rule]);
@@ -78,12 +79,13 @@ export class ProductVariantImportService {
       { header: "Código de producto", key: "codigo", width: 20 },
       { header: "Tamaño", key: "tamanio", width: 18 },
       { header: "Precio de Compra ($)", key: "precio", width: 22 },
+      { header: "Utilidad ($)", key: "utilidad", width: 18 },
     ];
     sheet.getRow(1).font = { bold: true };
     sheet.getRow(1).eachCell((cell) => (cell.fill = HEADER_FILL));
     sheet.views = [{ state: "frozen", ySplit: 1 }];
 
-    const exampleRow = sheet.addRow({ codigo: "AB12CD3", tamanio: "50 ml", precio: 25 });
+    const exampleRow = sheet.addRow({ codigo: "AB12CD3", tamanio: "50 ml", precio: 25, utilidad: 5 });
     exampleRow.font = { italic: true, color: { argb: "FF888888" } };
     for (let i = 0; i < 30; i++) sheet.addRow({});
 
@@ -111,15 +113,16 @@ export class ProductVariantImportService {
       throw new BadRequestException('El archivo no tiene una hoja llamada "Variantes".');
     }
 
-    type RawRow = { row: number; codigo: string; tamanio: string; precioRaw: string };
+    type RawRow = { row: number; codigo: string; tamanio: string; precioRaw: string; utilidadRaw: string };
     const rawRows: RawRow[] = [];
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
       const codigo = cellText(row.getCell(1).value);
       const tamanio = cellText(row.getCell(2).value);
       const precioRaw = cellText(row.getCell(3).value);
-      if (!codigo && !tamanio && !precioRaw) return;
-      rawRows.push({ row: rowNumber, codigo, tamanio, precioRaw });
+      const utilidadRaw = cellText(row.getCell(4).value);
+      if (!codigo && !tamanio && !precioRaw && !utilidadRaw) return;
+      rawRows.push({ row: rowNumber, codigo, tamanio, precioRaw, utilidadRaw });
     });
 
     const errors: ProductVariantImportRowError[] = [];
@@ -151,7 +154,7 @@ export class ProductVariantImportService {
       pricedAttributeByCategory.set(categoryId, priced.length === 1 ? priced[0] : priced.length === 0 ? null : "multiple");
     }
 
-    type Op = { row: number; productId: string; attributeId: string; value: string; purchasePrice: number };
+    type Op = { row: number; productId: string; attributeId: string; value: string; purchasePrice: number; utility: number };
     const ops: Op[] = [];
     // Para detectar duplicados dentro de la propia planilla (mismo producto + mismo tamaño dos veces).
     const seenInSheet = new Map<string, number>();
@@ -168,6 +171,13 @@ export class ProductVariantImportService {
       const precio = Number(raw.precioRaw.replace(",", "."));
       if (!raw.precioRaw || Number.isNaN(precio) || precio <= 0) {
         fail(raw.row, `Precio de Compra inválido: "${raw.precioRaw}" — tiene que ser un número mayor a 0.`);
+        continue;
+      }
+
+      // Opcional: vacío queda en 0, igual que el resto de la app (ver CreateProductVariantDto).
+      const utilidad = raw.utilidadRaw ? Number(raw.utilidadRaw.replace(",", ".")) : 0;
+      if (raw.utilidadRaw && (Number.isNaN(utilidad) || utilidad < 0)) {
+        fail(raw.row, `Utilidad inválida: "${raw.utilidadRaw}" — tiene que ser un número mayor o igual a 0.`);
         continue;
       }
 
@@ -208,7 +218,14 @@ export class ProductVariantImportService {
         continue;
       }
 
-      ops.push({ row: raw.row, productId: product.id, attributeId: pricedAttribute.id, value: raw.tamanio, purchasePrice: precio });
+      ops.push({
+        row: raw.row,
+        productId: product.id,
+        attributeId: pricedAttribute.id,
+        value: raw.tamanio,
+        purchasePrice: precio,
+        utility: utilidad,
+      });
     }
 
     if (errors.length > 0) {
@@ -231,7 +248,7 @@ export class ProductVariantImportService {
             productId: op.productId,
             variantCode,
             purchasePrice: op.purchasePrice,
-            utility: 0,
+            utility: op.utility,
             minPriceBs: null,
             discountBs: 0,
             isDefault: false,
