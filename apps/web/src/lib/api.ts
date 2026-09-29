@@ -31,6 +31,7 @@ import type {
   PresentacionVentaInput,
   Product,
   ProductImportReport,
+  ProductVariantImportReport,
   Proforma,
   ProformaInput,
   Proveedor,
@@ -533,12 +534,24 @@ export function importBrandsFromFile(file: File) {
   return apiUpload<BrandImportReport>("/brands/import", file);
 }
 
+export function downloadProductsExport() {
+  return apiDownload("/products/export", "productos.xlsx");
+}
+
 export function downloadProductsImportTemplate() {
   return apiDownload("/products/import/template", "plantilla-importacion-productos.xlsx");
 }
 
 export function importProductsFromFile(file: File) {
   return apiUpload<ProductImportReport>("/products/import", file);
+}
+
+export function downloadProductVariantsImportTemplate() {
+  return apiDownload("/products/import-variants/template", "plantilla-importacion-variantes.xlsx");
+}
+
+export function importProductVariantsFromFile(file: File) {
+  return apiUpload<ProductVariantImportReport>("/products/import-variants", file);
 }
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de
