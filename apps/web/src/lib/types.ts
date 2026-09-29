@@ -61,6 +61,12 @@ export type ProductImportReport = {
   errors: { row: number; message: string }[];
 };
 
+export type ProductVariantImportReport = {
+  total: number;
+  created: number;
+  errors: { row: number; message: string }[];
+};
+
 export type AttributeType = "TEXT" | "NUMBER" | "BOOLEAN" | "SELECT";
 
 /**

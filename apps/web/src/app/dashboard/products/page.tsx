@@ -9,9 +9,12 @@ import {
   apiDelete,
   apiGet,
   apiPatch,
+  downloadProductsExport,
   downloadProductsImportTemplate,
+  downloadProductVariantsImportTemplate,
   getProductsStockSummary,
   importProductsFromFile,
+  importProductVariantsFromFile,
 } from "../../../lib/api";
 import { consumeFlashMessage } from "../../../lib/flash";
 import type {
@@ -23,6 +26,7 @@ import type {
   Product,
   ProductImportReport,
   ProductVariant,
+  ProductVariantImportReport,
 } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { StockCell } from "../../../components/StockCell";
@@ -87,11 +91,17 @@ export default function ProductsPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [importReport, setImportReport] = useState<ProductImportReport | null>(null);
   const [importReportError, setImportReportError] = useState("");
+  const importVariantInputRef = useRef<HTMLInputElement>(null);
+  const [importingVariants, setImportingVariants] = useState(false);
+  const [downloadingVariantTemplate, setDownloadingVariantTemplate] = useState(false);
+  const [importVariantReport, setImportVariantReport] = useState<ProductVariantImportReport | null>(null);
+  const [importVariantReportError, setImportVariantReportError] = useState("");
   // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
   // de la tabla. Es puramente de vista: no se guarda en el backend.
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
@@ -153,6 +163,17 @@ export default function ProductsPage() {
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
   }, []);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadProductsExport();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleDownloadImportTemplate() {
     setDownloadingTemplate(true);
     try {
@@ -176,6 +197,32 @@ export default function ProductsPage() {
       setImportReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function handleDownloadVariantImportTemplate() {
+    setDownloadingVariantTemplate(true);
+    try {
+      await downloadProductVariantsImportTemplate();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDownloadingVariantTemplate(false);
+    }
+  }
+
+  async function handleImportVariantFile(file: File) {
+    setImportingVariants(true);
+    setImportVariantReportError("");
+    setImportVariantReport(null);
+    try {
+      const report = await importProductVariantsFromFile(file);
+      setImportVariantReport(report);
+      if (report.errors.length === 0) loadProducts();
+    } catch (e) {
+      setImportVariantReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setImportingVariants(false);
     }
   }
 
@@ -355,6 +402,9 @@ export default function ProductsPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Productos</h1>
         <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" className="action-btn" onClick={handleExport} disabled={exporting}>
+            {exporting ? "Exportando..." : "Exportar (Código + Nombre)"}
+          </button>
           <button type="button" className="action-btn" onClick={handleDownloadImportTemplate} disabled={downloadingTemplate}>
             {downloadingTemplate ? "Descargando..." : "Descargar plantilla"}
           </button>
@@ -372,12 +422,40 @@ export default function ProductsPage() {
               if (file) handleImportFile(file);
             }}
           />
+          <button
+            type="button"
+            className="action-btn"
+            onClick={handleDownloadVariantImportTemplate}
+            disabled={downloadingVariantTemplate}
+          >
+            {downloadingVariantTemplate ? "Descargando..." : "Plantilla de variantes"}
+          </button>
+          <button
+            type="button"
+            className="action-btn"
+            onClick={() => importVariantInputRef.current?.click()}
+            disabled={importingVariants}
+          >
+            {importingVariants ? "Importando..." : "Importar variantes"}
+          </button>
+          <input
+            ref={importVariantInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleImportVariantFile(file);
+            }}
+          />
           <Link href="/dashboard/products/new" className="btn-cta">
             <span className="btn-cta-icon">+</span> Nuevo producto
           </Link>
         </div>
       </div>
       {importReportError && <p className="error-text">{importReportError}</p>}
+      {importVariantReportError && <p className="error-text">{importVariantReportError}</p>}
       {flashMessage && (
         <div className="success-banner">
           <span>{flashMessage}</span>
@@ -625,6 +703,36 @@ export default function ProductsPage() {
           )}
           <div className="form-actions">
             <button type="button" className="button" onClick={() => setImportReport(null)}>
+              Cerrar
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {importVariantReport && (
+        <Modal title="Resultado de la importación de variantes" onClose={() => setImportVariantReport(null)}>
+          {importVariantReport.errors.length === 0 ? (
+            <p>
+              Listo: {importVariantReport.created} variante{importVariantReport.created === 1 ? "" : "s"} creada
+              {importVariantReport.created === 1 ? "" : "s"}.
+            </p>
+          ) : (
+            <>
+              <p className="error-text">
+                No se importó nada — hay {importVariantReport.errors.length} error
+                {importVariantReport.errors.length === 1 ? "" : "es"} en la planilla. Corregilos y volvé a subir el archivo.
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {importVariantReport.errors.map((err, i) => (
+                  <li key={i}>
+                    Fila {err.row}: {err.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="form-actions">
+            <button type="button" className="button" onClick={() => setImportVariantReport(null)}>
               Cerrar
             </button>
           </div>

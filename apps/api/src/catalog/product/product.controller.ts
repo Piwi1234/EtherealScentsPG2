@@ -19,6 +19,7 @@ import type { Response } from "express";
 import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { ProductService } from "./product.service";
 import { ProductImportService } from "./product-import.service";
+import { ProductVariantImportService } from "./product-variant-import.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
@@ -26,6 +27,7 @@ import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/
 import { productImageMulterOptions } from "./product-image.multer";
 import { productVariantImageMulterOptions } from "./product-variant-image.multer";
 import { productImportMulterOptions } from "./product-import.multer";
+import { productVariantImportMulterOptions } from "./product-variant-import.multer";
 
 @ApiTags("products")
 @Controller("products")
@@ -33,6 +35,7 @@ export class ProductController {
   constructor(
     private readonly products: ProductService,
     private readonly productImport: ProductImportService,
+    private readonly productVariantImport: ProductVariantImportService,
   ) {}
 
   @Get()
@@ -57,6 +60,16 @@ export class ProductController {
     return this.products.stockSummary(productIds);
   }
 
+  @Get("export")
+  async exportProducts(@Res() res: Response) {
+    const buffer = await this.products.exportToExcel();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="productos.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Get("import/template")
   async downloadImportTemplate(@Res() res: Response) {
     const buffer = await this.productImport.buildTemplate();
@@ -74,6 +87,25 @@ export class ProductController {
       throw new BadRequestException("Archivo inválido: debe ser un Excel (.xlsx) de hasta 5MB.");
     }
     return this.productImport.importFromFile(file.buffer);
+  }
+
+  @Get("import-variants/template")
+  async downloadVariantImportTemplate(@Res() res: Response) {
+    const buffer = await this.productVariantImport.buildTemplate();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="plantilla-importacion-variantes.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post("import-variants")
+  @UseInterceptors(FileInterceptor("file", productVariantImportMulterOptions))
+  importVariants(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser un Excel (.xlsx) de hasta 5MB.");
+    }
+    return this.productVariantImport.importFromFile(file.buffer);
   }
 
   @Get(":id")

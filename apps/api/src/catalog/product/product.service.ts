@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import ExcelJS from "exceljs";
 import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
 import { getPagination, slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
@@ -307,6 +308,47 @@ export class ProductService {
       throw new NotFoundException("Producto no encontrado.");
     }
     return withStock(withPrice(product, await this.settings.getExchangeRate()));
+  }
+
+  /** Código + Nombre (+ Marca/Categoría de referencia) de TODOS los productos — para cruzar contra
+   * una planilla propia (ej. de nombre/tamaño/precio) y armar la de import-variants sin ambigüedad,
+   * sin tener que buscar producto por producto en el filtro "ID Producto". */
+  async exportToExcel(): Promise<Buffer> {
+    const products = await this.prisma.product.findMany({
+      select: {
+        productCode: true,
+        name: true,
+        brand: { select: { name: true } },
+        category: { select: { name: true, parent: { select: { name: true } } } },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Ethereal Scents";
+    wb.created = new Date();
+
+    const sheet = wb.addWorksheet("Productos");
+    sheet.columns = [
+      { header: "Código de producto", key: "codigo", width: 20 },
+      { header: "Nombre", key: "nombre", width: 45 },
+      { header: "Marca", key: "marca", width: 22 },
+      { header: "Categoría", key: "categoria", width: 30 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E6F7" } }));
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    for (const product of products) {
+      sheet.addRow({
+        codigo: product.productCode,
+        nombre: product.name,
+        marca: product.brand?.name ?? "",
+        categoria: product.category.parent ? `${product.category.parent.name} > ${product.category.name}` : product.category.name,
+      });
+    }
+
+    return Buffer.from(await wb.xlsx.writeBuffer());
   }
 
   /** La tabla de Productos del panel lista vía /catalog/products (público, sin cantidades — ver
