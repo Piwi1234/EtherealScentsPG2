@@ -10,6 +10,17 @@ const includeCategories = {
   categories: { include: { category: true } },
 } as const;
 
+/** "ACQUA DI PARMA" -> "Acqua Di Parma": primera letra de cada palabra (separada por espacio) en
+ * mayúscula, el resto en minúscula. Separadores que no son espacio (ej. "&" en "Dolce & Gabbana")
+ * quedan tal cual, no cuentan como una palabra propia. */
+function titleCase(name: string): string {
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word.length > 0 ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(" ");
+}
+
 @Injectable()
 export class BrandService {
   constructor(private readonly prisma: PrismaService) {}
@@ -105,6 +116,29 @@ export class BrandService {
     } catch (error) {
       rethrowPrismaError(error, "Marca");
     }
+  }
+
+  /** Vista previa de "Normalizar mayúsculas" — solo las marcas cuyo nombre cambiaría, para que se
+   * revisen antes de aplicar (ej. siglas como "BDK"/"UFC" quedan "Bdk"/"Ufc", capaz no se quieren
+   * así — se corrigen a mano después desde Editar si hace falta). */
+  async previewNormalizeCase() {
+    const brands = await this.prisma.brand.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+    return brands
+      .map((b) => ({ id: b.id, oldName: b.name, newName: titleCase(b.name) }))
+      .filter((b) => b.oldName !== b.newName);
+  }
+
+  async applyNormalizeCase() {
+    const brands = await this.prisma.brand.findMany({ select: { id: true, name: true } });
+    const toUpdate = brands
+      .map((b) => ({ id: b.id, oldName: b.name, newName: titleCase(b.name) }))
+      .filter((b) => b.oldName !== b.newName);
+
+    await this.prisma.$transaction(
+      toUpdate.map((b) => this.prisma.brand.update({ where: { id: b.id }, data: { name: b.newName } })),
+    );
+
+    return { updated: toUpdate.length };
   }
 
   async setLogo(id: string, file: Express.Multer.File) {

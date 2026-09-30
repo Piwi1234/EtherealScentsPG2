@@ -4,6 +4,7 @@ import type {
   AprobarProformaInput,
   Brand,
   BrandImportReport,
+  BrandNormalizeCasePreviewRow,
   Cartera,
   CarteraInput,
   CarouselImage,
@@ -532,6 +533,14 @@ export function downloadBrandsImportTemplate() {
 
 export function importBrandsFromFile(file: File) {
   return apiUpload<BrandImportReport>("/brands/import", file);
+}
+
+export function previewBrandsNormalizeCase() {
+  return apiGet<BrandNormalizeCasePreviewRow[]>("/brands/normalize-case/preview");
+}
+
+export function applyBrandsNormalizeCase() {
+  return apiPost<{ updated: number }>("/brands/normalize-case/apply", {});
 }
 
 export function downloadProductsExport() {
