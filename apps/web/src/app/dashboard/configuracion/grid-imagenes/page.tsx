@@ -7,31 +7,26 @@ import {
   addCategoryHeroCarouselImage,
   addHeroCarouselImage,
   addMarcasHeroCarouselImage,
-  addOffersBannerCarouselImage,
   addWeeklyCollectionBannerCarouselImage,
   apiGet,
   getHeroCarouselImages,
   getMarcasHeroCarouselImages,
-  getOffersBannerCarouselImages,
   getWeeklyCollectionBannerCarouselImages,
   moveCategoryCarouselImage,
   moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
   moveMarcasHeroCarouselImage,
-  moveOffersBannerCarouselImage,
   moveWeeklyCollectionBannerCarouselImage,
   removeCategoryCarouselImage,
   removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
   removeMarcasHeroCarouselImage,
-  removeOffersBannerCarouselImage,
   removeWeeklyCollectionBannerCarouselImage,
   updateCategoryCarouselImageTitulos,
   updateCategoryCarouselImageUrl,
   updateCategoryHeroCarouselImageUrl,
   updateHeroCarouselImageUrl,
   updateMarcasHeroCarouselImageUrl,
-  updateOffersBannerCarouselImageUrl,
   updateWeeklyCollectionBannerCarouselImageUrl,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
@@ -47,16 +42,13 @@ function imgSrc(url: string | null): string | null {
 // destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[slug], también uno
 // por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
 // compartido con todas las subcategorías de esa raíz, que no tienen uno propio. marcas-hero: hero de
-// /marcas (categoryId null, singleton, independiente del Hero principal del home). offers-banner:
-// banner de imágenes del home (categoryId null, singleton) que ocupa el 5to lugar de la fila de
-// "Descuento y Ofertas", mismo tamaño que una tarjeta de producto.
-type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "offers-banner" | "weekly-collection-banner";
+// /marcas (categoryId null, singleton, independiente del Hero principal del home).
+type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "weekly-collection-banner";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
  * Imágenes usadas en las secciones visuales del sitio, organizadas en dos bloques: "Home" (Hero
- * principal, banners de "Descuento y Ofertas"/"Colección de la semana", "Producto destacado" por
- * categoría raíz, y las imágenes únicas de "Propuesta de valor"/"Sobre nosotros") y "Hero de
+ * principal, banner de "Colección de la semana", "Producto destacado" por categoría raíz) y "Hero de
  * categorías y marcas" (hero de /marcas y hero de /categoria/[slug] por categoría raíz, compartido con
  * sus subcategorías). Si un carrusel queda sin ninguna imagen, esa sección muestra un degradado de
  * relleno en su lugar.
@@ -65,7 +57,6 @@ export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
   const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
-  const [offersBannerImages, setOffersBannerImages] = useState<CarouselImage[]>([]);
   const [weeklyCollectionBannerImages, setWeeklyCollectionBannerImages] = useState<CarouselImage[]>([]);
   const [error, setError] = useState("");
   const [busySlot, setBusySlot] = useState<string | null>(null);
@@ -80,9 +71,6 @@ export default function GridImagenesPage() {
     getMarcasHeroCarouselImages()
       .then(setMarcasHeroImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getOffersBannerCarouselImages()
-      .then(setOffersBannerImages)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getWeeklyCollectionBannerCarouselImages()
       .then(setWeeklyCollectionBannerImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -96,7 +84,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await addHeroCarouselImage(file);
       else if (kind === "marcas-hero") await addMarcasHeroCarouselImage(file);
-      else if (kind === "offers-banner") await addOffersBannerCarouselImage(file);
       else if (kind === "weekly-collection-banner") await addWeeklyCollectionBannerCarouselImage(file);
       else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
       else await addCategoryHeroCarouselImage(categoryId!, file);
@@ -114,7 +101,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await removeHeroCarouselImage(imageId);
       else if (kind === "marcas-hero") await removeMarcasHeroCarouselImage(imageId);
-      else if (kind === "offers-banner") await removeOffersBannerCarouselImage(imageId);
       else if (kind === "weekly-collection-banner") await removeWeeklyCollectionBannerCarouselImage(imageId);
       else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
       else await removeCategoryHeroCarouselImage(categoryId!, imageId);
@@ -132,7 +118,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
       else if (kind === "marcas-hero") await moveMarcasHeroCarouselImage(imageId, direction);
-      else if (kind === "offers-banner") await moveOffersBannerCarouselImage(imageId, direction);
       else if (kind === "weekly-collection-banner") await moveWeeklyCollectionBannerCarouselImage(imageId, direction);
       else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
       else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
@@ -156,7 +141,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await updateHeroCarouselImageUrl(imageId, url);
       else if (kind === "marcas-hero") await updateMarcasHeroCarouselImageUrl(imageId, url);
-      else if (kind === "offers-banner") await updateOffersBannerCarouselImageUrl(imageId, url);
       else if (kind === "weekly-collection-banner") await updateWeeklyCollectionBannerCarouselImageUrl(imageId, url);
       else if (kind === "feature") await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
       else await updateCategoryHeroCarouselImageUrl(categoryId!, imageId, url);
@@ -203,17 +187,6 @@ export default function GridImagenesPage() {
         "Se muestran de a 3 banners lado a lado (como en agatres.co) — si hay más de 3 imágenes, rotan solas de a " +
         "grupos de 3. Cada imagen puede llevar su propio link de redirección (no comparten uno solo). Recomendado: " +
         "1200×1360px o más, vertical (relación 3:3.4), por cada imagen.",
-    },
-    {
-      key: "offers-banner",
-      kind: "offers-banner",
-      title: "Banner de Ofertas",
-      categoryId: null,
-      images: offersBannerImages,
-      hint:
-        "Ocupa el 5to lugar de la fila de \"Descuento y Ofertas\" del home, junto a las 4 tarjetas de producto — " +
-        "mismo tamaño que ellas (~267×450px en pantallas grandes). Recomendado: 550×900px o más, vertical " +
-        "(relación ~3:5), por cada imagen del carrusel.",
     },
     {
       key: "weekly-collection-banner",

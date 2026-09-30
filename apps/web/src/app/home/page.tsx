@@ -14,16 +14,15 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-const OFFERS_SLIDE_SIZE = 4;
+const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
-const OFFERS_BANNER_AUTOPLAY_MS = 10000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
 const HERO_BANNERS_SLIDE_SIZE = 3;
 // Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el hero muestra 1 sola
-// imagen por vez (en vez de 3 lado a lado) y el carrusel de ofertas pagina de a 2 (en vez de 4).
+// imagen por vez (en vez de 3 lado a lado) y el carrusel de ofertas pagina de a 2 (en vez de 5).
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
@@ -44,7 +43,7 @@ export default function HomePage() {
   const [flashOnly, setFlashOnly] = useState(false);
   // null = todavía no se sabe si hay ofertas flash vigentes (se está consultando al montar). Hasta
   // que se resuelva, el pill "Ofertas Flash" queda oculto y el fetch de productos de abajo espera —
-  // así arranca directo en el filtro correcto (Flash si hay, Todas si no) sin parpadeo.
+  // así arranca directo en el filtro correcto sin parpadeo.
   const [hasFlashOffers, setHasFlashOffers] = useState<boolean | null>(null);
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
@@ -56,17 +55,22 @@ export default function HomePage() {
   const [heroDirection, setHeroDirection] = useState<1 | -1>(1);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
-    offersBannerImages: CarouselImage[];
     weeklyCollectionBannerImages: CarouselImage[];
     weeklyCollectionBrand: { id: string; name: string; slug: string; logoUrl: string | null } | null;
-    valueImageUrl: string | null;
-    aboutImageUrl: string | null;
   } | null>(null);
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [contacto, setContacto] = useState<ContactoInfo | null>(null);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
+
+  // Arranca en la primera categoría (según su orden real, ver category.service.ts) apenas cargan —
+  // antes había un pill "Todas" que se sacó a pedido, ahora el filtro de categoría de este bloque
+  // siempre apunta a una puntual.
+  useEffect(() => {
+    if (categoryFilter || rootCategories.length === 0) return;
+    setCategoryFilter(rootCategories[0].id);
+  }, [rootCategories, categoryFilter]);
 
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
@@ -75,7 +79,7 @@ export default function HomePage() {
     getLandingImages().then(setLandingImages).catch(() => {});
     apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
 
-    // Si hay ofertas flash vigentes, ese pill arranca seleccionado por defecto (en vez de "Todas").
+    // Si hay ofertas flash vigentes, ese pill arranca seleccionado por defecto.
     apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
       .then((page) => {
         const has = page.total > 0;
@@ -86,18 +90,19 @@ export default function HomePage() {
   }, []);
 
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
-  // modificación), de 4 en 4 — el 5to lugar de la fila lo ocupa el banner de ofertas (ver abajo).
-  // Modo (1ra fila) y categoría (2da fila) se combinan siempre — "Ofertas Flash" ya no es exclusivo
-  // de todas las categorías juntas, también se puede acotar a una.
+  // modificación) de la categoría elegida, de 5 en 5. Modo (1ra fila) y categoría (2da fila) se
+  // combinan siempre — "Ofertas Flash" ya no es exclusivo de todas las categorías juntas, también se
+  // puede acotar a una.
   useEffect(() => {
-    // Esperar a saber si hay ofertas flash (ver arriba) antes de disparar el fetch real — si no,
-    // arrancaría en "Descuentos" y a los pocos ms saltaría a "Ofertas Flash", con doble fetch y salto visual.
-    if (hasFlashOffers === null) return;
+    // Esperar a saber si hay ofertas flash (ver arriba) y a que se resuelva la categoría por defecto
+    // (ver el efecto de arriba) antes de disparar el fetch real — si no, arrancaría sin categoría y a
+    // los pocos ms saltaría a la primera, con doble fetch y salto visual.
+    if (hasFlashOffers === null || !categoryFilter) return;
 
     const params = new URLSearchParams();
     if (flashOnly) params.set("onlyFlash", "true");
     else params.set("onlyDiscounted", "true");
-    if (categoryFilter) params.set("categoryId", categoryFilter);
+    params.set("categoryId", categoryFilter);
     params.set("pageSize", "40");
     params.set("sortBy", "actualizados");
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
@@ -108,7 +113,7 @@ export default function HomePage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, flashOnly, hasFlashOffers]);
 
-  // En mobile pagina de a 2 productos en vez de 4 (ver el useEffect de matchMedia más abajo).
+  // En mobile pagina de a 2 productos en vez de 5 (ver el useEffect de matchMedia más abajo).
   const offersSlideSize = isMobile ? OFFERS_SLIDE_SIZE_MOBILE : OFFERS_SLIDE_SIZE;
   const offersChunks = useMemo(
     () => chunk(productsPage?.items ?? [], offersSlideSize),
@@ -149,7 +154,7 @@ export default function HomePage() {
   }
 
   // En mobile el hero muestra 1 sola imagen por vez (en vez de 3 lado a lado) y el carrusel de
-  // ofertas pagina de a 2 (en vez de 4) — ninguno de los dos cambia en PC.
+  // ofertas pagina de a 2 (en vez de 5) — ninguno de los dos cambia en PC.
   useEffect(() => {
     const mql = window.matchMedia(MOBILE_BREAKPOINT);
     setIsMobile(mql.matches);
@@ -276,13 +281,6 @@ export default function HomePage() {
           {/* 2da fila: categoría — se aplica dentro del modo elegido arriba (Ofertas Flash o
               Descuentos), no lo reemplaza. */}
           <div className="landing-filter-pills">
-            <button
-              type="button"
-              className={`landing-pill${categoryFilter === "" ? " landing-pill-active" : ""}`}
-              onClick={() => setCategoryFilter("")}
-            >
-              Todas
-            </button>
             {rootCategories.map((cat) => (
               <button
                 key={cat.id}
@@ -322,16 +320,6 @@ export default function HomePage() {
                 {offersChunks[offersSlide].map((product) => (
                   <ProductCard product={product} flashVariant="boxes" key={`${offersSlide}-${product.id}`} />
                 ))}
-                {landingImages && landingImages.offersBannerImages.length > 0 && (
-                  <div className="landing-offers-banner">
-                    <ImageCarousel
-                      images={landingImages.offersBannerImages}
-                      alt=""
-                      imgClassName="landing-offers-banner-image"
-                      autoplayMs={OFFERS_BANNER_AUTOPLAY_MS}
-                    />
-                  </div>
-                )}
               </div>
 
               <button
