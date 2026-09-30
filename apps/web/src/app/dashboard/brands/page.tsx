@@ -7,14 +7,16 @@ import {
   apiGet,
   apiPatch,
   apiPost,
+  applyBrandsNormalizeCase,
   apiUpload,
   ApiError,
   downloadBrandsImportTemplate,
   getWeeklyCollectionBrand,
   importBrandsFromFile,
+  previewBrandsNormalizeCase,
   setWeeklyCollectionBrand,
 } from "../../../lib/api";
-import type { Brand, BrandImportReport, Category } from "../../../lib/types";
+import type { Brand, BrandImportReport, BrandNormalizeCasePreviewRow, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 
 // Marcas sembradas antes de este cambio podrían tener logoUrl absoluto; los subidos desde acá en
@@ -51,6 +53,12 @@ export default function BrandsPage() {
   const [weeklyCollectionBrandId, setWeeklyCollectionBrandId] = useState<string | null>(null);
   const [weeklyCollectionSaving, setWeeklyCollectionSaving] = useState(false);
   const [weeklyCollectionError, setWeeklyCollectionError] = useState("");
+
+  const [loadingNormalizePreview, setLoadingNormalizePreview] = useState(false);
+  const [normalizePreview, setNormalizePreview] = useState<BrandNormalizeCasePreviewRow[] | null>(null);
+  const [normalizeApplying, setNormalizeApplying] = useState(false);
+  const [normalizeError, setNormalizeError] = useState("");
+  const [normalizeDone, setNormalizeDone] = useState<number | null>(null);
 
   function handleLogoSelect(file: File | null, currentLogoUrl: string | null) {
     if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
@@ -163,6 +171,35 @@ export default function BrandsPage() {
     }
   }
 
+  async function handleOpenNormalizePreview() {
+    setLoadingNormalizePreview(true);
+    setNormalizeError("");
+    setNormalizeDone(null);
+    try {
+      const rows = await previewBrandsNormalizeCase();
+      setNormalizePreview(rows);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoadingNormalizePreview(false);
+    }
+  }
+
+  async function handleApplyNormalize() {
+    setNormalizeApplying(true);
+    setNormalizeError("");
+    try {
+      const result = await applyBrandsNormalizeCase();
+      setNormalizeDone(result.updated);
+      setNormalizePreview(null);
+      loadBrands();
+    } catch (e) {
+      setNormalizeError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setNormalizeApplying(false);
+    }
+  }
+
   async function handleDelete(brand: Brand) {
     if (!confirm(`¿Eliminar la marca "${brand.name}"?`)) return;
     try {
@@ -203,6 +240,9 @@ export default function BrandsPage() {
           <button type="button" className="action-btn" onClick={() => importInputRef.current?.click()} disabled={importing}>
             {importing ? "Importando..." : "Importar marcas"}
           </button>
+          <button type="button" className="action-btn" onClick={handleOpenNormalizePreview} disabled={loadingNormalizePreview}>
+            {loadingNormalizePreview ? "Revisando..." : "Normalizar mayúsculas"}
+          </button>
           <input
             ref={importInputRef}
             type="file"
@@ -241,6 +281,16 @@ export default function BrandsPage() {
       )}
       {weeklyCollectionError && <p className="error-text">{weeklyCollectionError}</p>}
       {importReportError && <p className="error-text">{importReportError}</p>}
+      {normalizeDone !== null && (
+        <div className="success-banner">
+          <span>
+            Listo: {normalizeDone} marca{normalizeDone === 1 ? "" : "s"} normalizada{normalizeDone === 1 ? "" : "s"}.
+          </span>
+          <button type="button" className="link-button" style={{ margin: 0 }} onClick={() => setNormalizeDone(null)}>
+            Cerrar
+          </button>
+        </div>
+      )}
       {error && <p className="error-text">{error}</p>}
       {!brands && !error && <p>Cargando...</p>}
       {brands && brands.length === 0 && <p>No hay marcas todavía.</p>}
@@ -412,6 +462,41 @@ export default function BrandsPage() {
             <button type="button" className="button" onClick={() => setImportReport(null)}>
               Cerrar
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {normalizePreview && (
+        <Modal title="Normalizar mayúsculas de marcas" onClose={() => setNormalizePreview(null)}>
+          {normalizePreview.length === 0 ? (
+            <p>Ya están todas bien — ninguna marca cambiaría.</p>
+          ) : (
+            <>
+              <p>
+                {normalizePreview.length} marca{normalizePreview.length === 1 ? "" : "s"} van a cambiar así (revisá las que sean
+                siglas, ej. "BDK" → "Bdk" — las podés corregir a mano después con Editar si no las querés así):
+              </p>
+              <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {normalizePreview.map((row) => (
+                    <li key={row.id}>
+                      {row.oldName} → {row.newName}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+          {normalizeError && <p className="error-text">{normalizeError}</p>}
+          <div className="form-actions">
+            <button type="button" className="link-button" onClick={() => setNormalizePreview(null)}>
+              Cancelar
+            </button>
+            {normalizePreview.length > 0 && (
+              <button type="button" className="button" onClick={handleApplyNormalize} disabled={normalizeApplying}>
+                {normalizeApplying ? "Aplicando..." : `Aplicar a ${normalizePreview.length} marca${normalizePreview.length === 1 ? "" : "s"}`}
+              </button>
+            )}
           </div>
         </Modal>
       )}

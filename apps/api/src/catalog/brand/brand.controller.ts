@@ -60,6 +60,16 @@ export class BrandController {
     return this.brandImport.importFromFile(file.buffer);
   }
 
+  @Get("normalize-case/preview")
+  previewNormalizeCase() {
+    return this.brands.previewNormalizeCase();
+  }
+
+  @Post("normalize-case/apply")
+  applyNormalizeCase() {
+    return this.brands.applyNormalizeCase();
+  }
+
   @Public()
   @Get(":id")
   findOne(@Param("id", ParseUUIDPipe) id: string) {

@@ -55,6 +55,8 @@ export type BrandImportReport = {
   errors: { row: number; message: string }[];
 };
 
+export type BrandNormalizeCasePreviewRow = { id: string; oldName: string; newName: string };
+
 export type ProductImportReport = {
   total: number;
   created: number;
