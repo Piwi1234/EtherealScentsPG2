@@ -2200,76 +2200,72 @@ a {
   background: var(--lp-surface);
 }
 
-/* --- "Descuento y Ofertas": fondo oscuro, con la paleta base del sitio (rojo #d81f26 + navbar
-   dark #111114) en vez de la paleta clara del resto del catálogo público. Todo lo de acá abajo
-   está scoped a esta sección/carrusel puntual — el resto de las tarjetas de producto (categoría,
-   buscar, colección de la semana) no cambian. */
+/* --- "Descuento y Ofertas": fondo oscuro, con la paleta navy + dorado del sitio (--es-navy-900,
+   mismo tono que encabezado/footer/hero oscuro, con acentos --es-gold) en vez de la paleta clara
+   del resto del catálogo público. Todo lo de acá abajo está scoped a esta sección/carrusel
+   puntual — el resto de las tarjetas de producto (categoría, buscar, colección de la semana) no
+   cambian. */
 .landing-section--offers-dark {
-  background: #111114;
+  background: var(--es-navy-900);
 }
 
 .landing-section--offers-dark .landing-eyebrow {
-  color: #d81f26;
+  color: var(--es-gold);
 }
 
 .landing-section--offers-dark .landing-section-title {
-  color: #f5f4f0;
+  color: var(--es-bg);
 }
 
 .landing-section--offers-dark .landing-section-lead {
-  color: rgba(245, 244, 240, 0.6);
+  color: rgba(244, 245, 248, 0.6);
 }
 
 .landing-section--offers-dark .landing-pill {
-  border-color: rgba(245, 244, 240, 0.22);
+  border-color: rgba(244, 245, 248, 0.22);
   background: transparent;
-  color: rgba(245, 244, 240, 0.85);
+  color: rgba(244, 245, 248, 0.85);
 }
 
 .landing-section--offers-dark .landing-pill:hover {
-  border-color: #d81f26;
+  border-color: var(--es-gold);
 }
 
 .landing-section--offers-dark .landing-pill-active {
-  background: #d81f26;
-  border-color: #d81f26;
-  color: #ffffff;
+  background: var(--es-gold);
+  border-color: var(--es-gold);
+  color: var(--es-navy-900);
 }
 
 .landing-section--offers-dark .landing-pill-flash {
-  border-color: #d81f26;
-  color: #d81f26;
+  border-color: var(--es-gold);
+  color: var(--es-gold);
 }
 
-/* Sin esto, dos reglas de esta misma sección (fondo transparente del pill base, texto rojo del
-   .landing-pill-flash de arriba) le ganaban por especificidad al fondo/texto blanco de
-   .landing-pill-flash-active — el botón se quedaba transparente (o con letras rojas sobre fondo
-   rojo) en vez de quedar sólido como "Descuentos" al seleccionarse o en hover. */
+/* Sin esto, dos reglas de esta misma sección (fondo transparente del pill base, texto dorado del
+   .landing-pill-flash de arriba) le ganaban por especificidad al fondo/texto de
+   .landing-pill-flash-active — el botón se quedaba transparente (o con letras doradas sobre fondo
+   dorado) en vez de quedar sólido como "Descuentos" al seleccionarse o en hover. */
 .landing-section--offers-dark .landing-pill-flash:hover,
 .landing-section--offers-dark .landing-pill-flash-active {
-  background: #d81f26;
-  color: #ffffff;
+  background: var(--es-gold);
+  color: var(--es-navy-900);
 }
 
 .landing-section--offers-dark .landing-empty-note {
-  color: rgba(245, 244, 240, 0.6);
+  color: rgba(244, 245, 248, 0.6);
 }
 
 .landing-section--offers-dark .landing-carousel-arrow {
-  border-color: rgba(245, 244, 240, 0.25);
-  background: #1a1a1f;
-  color: #f5f4f0;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  border-color: rgba(244, 245, 248, 0.25);
+  background: var(--es-navy-700);
+  color: var(--es-bg);
+  box-shadow: 0 8px 20px rgba(13, 26, 48, 0.4);
 }
 
 .landing-section--offers-dark .landing-carousel-arrow:hover {
-  background: #d81f26;
-  color: #ffffff;
-}
-
-.landing-section--offers-dark .landing-offers-banner {
-  background: #1a1a1f;
-  border-color: rgba(245, 244, 240, 0.12);
+  background: var(--es-gold);
+  color: var(--es-navy-900);
 }
 
 .landing-eyebrow {
@@ -3958,14 +3954,14 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  border-color: #d81f26;
-  color: #d81f26;
+  border-color: var(--es-gold);
+  color: var(--es-gold-ink);
 }
 
 .landing-pill-flash:hover,
 .landing-pill-flash-active {
-  background: #d81f26;
-  color: #ffffff;
+  background: var(--es-gold);
+  color: var(--es-navy-900);
 }
 
 .landing-pill-flash svg {
@@ -4021,38 +4017,64 @@ a {
 /* Transición al cambiar de página en el carrusel de "Descuento y Ofertas": las tarjetas entran
    deslizando desde la derecha al avanzar ("next"/autoplay) o desde la izquierda al retroceder
    ("prev") — home/page.tsx decide cuál de las dos clases modificadoras poner en la grilla según
-   goToOffersSlide. El banner de imágenes del 5to lugar (.landing-offers-banner) no está incluido a
-   propósito, para no reiniciar su propio autoplay cada vez que cambia la página de productos. */
+   goToOffersSlide. Desplazamiento corto + fade (en vez del slide de 100% del ancho de tarjeta que
+   había antes) y una cascada leve entre tarjetas (nth-child de abajo) — inspirado en la transición
+   del bloque "Made to Enjoy" de fragrance-nevaeh.com, que usa ese mismo combo (fade + desplazamiento
+   corto con ease-out marcado) en vez de un slide duro. */
 @keyframes landing-offers-slide-next {
   from {
-    transform: translateX(100%);
+    transform: translateX(36px);
+    opacity: 0;
   }
   to {
     transform: translateX(0);
+    opacity: 1;
   }
 }
 
 @keyframes landing-offers-slide-prev {
   from {
-    transform: translateX(-100%);
+    transform: translateX(-36px);
+    opacity: 0;
   }
   to {
     transform: translateX(0);
+    opacity: 1;
   }
 }
 
 .landing-product-grid--carousel-next .landing-product-card {
-  animation: landing-offers-slide-next 0.5s ease-out;
+  animation: landing-offers-slide-next 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .landing-product-grid--carousel-prev .landing-product-card {
-  animation: landing-offers-slide-prev 0.5s ease-out;
+  animation: landing-offers-slide-prev 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-product-grid--carousel-next .landing-product-card:nth-child(2),
+.landing-product-grid--carousel-prev .landing-product-card:nth-child(2) {
+  animation-delay: 0.045s;
+}
+
+.landing-product-grid--carousel-next .landing-product-card:nth-child(3),
+.landing-product-grid--carousel-prev .landing-product-card:nth-child(3) {
+  animation-delay: 0.09s;
+}
+
+.landing-product-grid--carousel-next .landing-product-card:nth-child(4),
+.landing-product-grid--carousel-prev .landing-product-card:nth-child(4) {
+  animation-delay: 0.135s;
+}
+
+.landing-product-grid--carousel-next .landing-product-card:nth-child(5),
+.landing-product-grid--carousel-prev .landing-product-card:nth-child(5) {
+  animation-delay: 0.18s;
 }
 
 /* Alto fijo (no solo padding) — así el precio, que siempre va al fondo (margin-top:auto), termina
  * en el mismo lugar en todas las tarjetas sin importar si el nombre/atributos son más cortos o más
- * largos que en otro producto. Es lo que mantiene fija la altura de toda la fila (y por lo tanto la
- * del banner de al lado, ver .landing-offers-banner) entre una página del carrusel y la siguiente. */
+ * largos que en otro producto. Es lo que mantiene fija la altura de toda la fila entre una página
+ * del carrusel y la siguiente. */
 .landing-product-grid--carousel .landing-product-body {
   height: 150px;
   padding: 14px 16px 18px;
@@ -4140,47 +4162,6 @@ a {
 
 .landing-product-grid--carousel .landing-product-price-old {
   color: rgba(245, 244, 240, 0.4);
-}
-
-/* 5to lugar de la fila de "Descuento y Ofertas": carrusel de imágenes promocional, mismo tamaño que
- * una tarjeta de producto (height:100% ya alcanza porque ahora la fila tiene alto fijo, ver
- * .landing-product-grid--carousel .landing-product-body de arriba). grid-column:5 lo clava en esa
- * columna siempre, aunque la página tenga menos de 4 productos y ocupe menos columnas — así no
- * "salta" al lugar del último producto. */
-.landing-offers-banner {
-  position: relative;
-  grid-column: 5;
-  height: 100%;
-  background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.landing-offers-banner-image {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 4 / 5;
-  object-fit: cover;
-}
-
-/* Flechas/puntos más chicos que los del Hero — la tarjeta es angosta. */
-.landing-offers-banner .landing-image-carousel-arrow {
-  width: 26px;
-  height: 26px;
-  font-size: 14px;
-}
-
-.landing-offers-banner .landing-image-carousel-arrow--prev {
-  left: 8px;
-}
-
-.landing-offers-banner .landing-image-carousel-arrow--next {
-  right: 8px;
-}
-
-.landing-offers-banner .landing-image-carousel-dots {
-  bottom: 10px;
 }
 
 /* --- "Colección de la semana": banner alto a la izquierda (mismo carrusel que el resto, ver
@@ -4389,15 +4370,15 @@ a {
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  background: #d81f26;
-  color: #ffffff;
+  background: var(--es-gold);
+  color: var(--es-navy-900);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border: none;
   border-radius: 6px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 10px rgba(13, 26, 48, 0.3);
 }
 
 .landing-product-offer-badge svg {
@@ -5761,10 +5742,6 @@ a {
   .landing-product-grid--carousel {
     grid-template-columns: repeat(3, 1fr);
   }
-
-  .landing-offers-banner {
-    grid-column: 3;
-  }
 }
 
 @media (max-width: 1100px) {
@@ -5806,10 +5783,6 @@ a {
 
   .landing-product-grid--carousel {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .landing-offers-banner {
-    grid-column: 2;
   }
 
   .landing-weekly-collection-layout {
@@ -6010,14 +5983,6 @@ a {
     aspect-ratio: 4 / 5;
     border-radius: 16px;
     background: #171426;
-  }
-
-  /* En mobile el carrusel de "Descuento y Ofertas" pagina de a 2 productos (ver
-     offersSlideSize/isMobile en home/page.tsx) en vez de 4 — con solo 2 tarjetas por slide, el
-     banner ocupa su propia fila completa abajo en vez de quedar pegado a una sola columna con un
-     hueco vacío al lado. */
-  .landing-offers-banner {
-    grid-column: 1 / -1;
   }
 }
 
