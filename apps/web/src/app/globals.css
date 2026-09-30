@@ -2268,6 +2268,129 @@ a {
   color: var(--es-navy-900);
 }
 
+/* Callout de "no hay ofertas": tarjeta clara (en vez del .landing-empty-note gris del resto del
+   sitio, que quedaría casi invisible sobre el fondo navy de esta sección) con el mensaje a la
+   izquierda y el link al canal de ofertas a la derecha. */
+.landing-offers-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 26px 32px;
+  border-radius: 16px;
+  background: var(--es-bg);
+  box-shadow: 0 10px 30px rgba(13, 26, 48, 0.25);
+}
+
+.landing-offers-empty-text {
+  margin: 0;
+  color: var(--es-text);
+  font-size: 14.5px;
+}
+
+/* .landing-offers-empty .landing-offers-empty-link (2 clases) a propósito — mismo motivo que
+   .landing-btn.landing-btn-primary más abajo: ".landing-page a { color: inherit }" le gana por
+   especificidad a un solo ".landing-offers-empty-link". */
+.landing-offers-empty .landing-offers-empty-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--es-gold-ink);
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.landing-offers-empty-link:hover {
+  opacity: 0.75;
+}
+
+/* CTA al final del bloque (solo cuando SÍ hay tarjetas — el caso sin productos ya trae su propio
+   link arriba, en .landing-offers-empty) invitando al mismo canal de ofertas del newsletter (ver
+   contacto?.canalOfertasUrl), pero acá sirve de invitación a seguir de cerca los descuentos. */
+.landing-offers-channel-cta {
+  margin-top: 36px;
+  text-align: center;
+}
+
+/* .landing-offers-channel-cta .landing-offers-channel-btn (2 clases) — mismo motivo que arriba. */
+.landing-offers-channel-cta .landing-offers-channel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 28px;
+  border-radius: 999px;
+  border: 1.5px solid var(--es-gold);
+  background: transparent;
+  color: var(--es-gold);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.landing-offers-channel-cta .landing-offers-channel-btn:hover {
+  background: var(--es-gold);
+  color: var(--es-navy-900);
+  transform: translateY(-1px);
+}
+
+/* --- Barra de confianza: 4 íconos (originales / envío / pago / asesoría), entre el Hero y
+   "Descuento y Ofertas" --- */
+.landing-trust-bar {
+  padding: 28px 0;
+  background: var(--lp-surface);
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.landing-trust-bar-grid {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.landing-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1 1 200px;
+}
+
+.landing-trust-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--es-navy-100);
+  color: var(--es-navy-700);
+}
+
+.landing-trust-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.landing-trust-title {
+  margin: 0;
+  color: var(--lp-text);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.landing-trust-subtitle {
+  margin: 2px 0 0;
+  color: var(--lp-muted);
+  font-size: 12.5px;
+}
+
 .landing-eyebrow {
   display: inline-block;
   font-size: 12px;
@@ -5853,6 +5976,24 @@ a {
 
 /* Navbar mobile: colapsa links + acciones secundarias a una hamburguesa */
 @media (max-width: 768px) {
+  /* 2 filas de 2 íconos (en vez de 1 fila de 4, o un wrap desparejo) — mismo breakpoint que usa el
+     resto del home para pasar a mobile (ver MOBILE_BREAKPOINT en home/page.tsx). */
+  .landing-trust-bar-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px 12px;
+  }
+
+  /* Ícono arriba en vez de centrado contra todo el bloque de texto — a este ancho el título suele
+     ocupar 2 líneas, y centrado quedaba corrido hacia abajo. */
+  .landing-trust-item {
+    align-items: flex-start;
+  }
+
+  .landing-trust-icon {
+    margin-top: 2px;
+  }
+
   .landing-navbar-categories,
   .landing-navbar-actions-link,
   .landing-navbar-actions .landing-btn-primary {

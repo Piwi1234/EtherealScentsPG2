@@ -244,6 +244,72 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* ================= 2b. Confianza ================= */}
+      <section className="landing-trust-bar">
+        <div className="landing-container landing-trust-bar-grid">
+          <div className="landing-trust-item">
+            <span className="landing-trust-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3 5 6v5c0 4.5 3 8.4 7 9.9 4-1.5 7-5.4 7-9.9V6l-7-3Z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </span>
+            <div>
+              <p className="landing-trust-title">100% originales</p>
+              <p className="landing-trust-subtitle">Con garantía de autenticidad</p>
+            </div>
+          </div>
+
+          <div className="landing-trust-item">
+            <span className="landing-trust-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7h11v9H3z" />
+                <path d="M14 10h4l3 3v3h-7z" />
+                <circle cx="7.5" cy="18" r="1.6" />
+                <circle cx="17.5" cy="18" r="1.6" />
+              </svg>
+            </span>
+            <div>
+              <p className="landing-trust-title">Envío a todo el país</p>
+              <p className="landing-trust-subtitle">Envío gratuito en compras a partir de 1.000 Bs</p>
+            </div>
+          </div>
+
+          <div className="landing-trust-item">
+            <span className="landing-trust-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.2" />
+                <rect x="14" y="3" width="7" height="7" rx="1.2" />
+                <rect x="3" y="14" width="7" height="7" rx="1.2" />
+                <rect x="14" y="14" width="3" height="3" rx="0.6" />
+                <rect x="18" y="14" width="3" height="3" rx="0.6" />
+                <rect x="14" y="18" width="3" height="3" rx="0.6" />
+                <rect x="18" y="18" width="3" height="3" rx="0.6" />
+              </svg>
+            </span>
+            <div>
+              <p className="landing-trust-title">Pago por QR</p>
+              <p className="landing-trust-subtitle">O transferencia bancaria</p>
+            </div>
+          </div>
+
+          <div className="landing-trust-item">
+            <span className="landing-trust-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3C7 3 3 6.6 3 11c0 2.1 1 4 2.6 5.4L5 21l4.8-1.9c.7.2 1.4.3 2.2.3 5 0 9-3.6 9-8S17 3 12 3Z" />
+                <circle cx="8.5" cy="11" r="0.9" fill="currentColor" stroke="none" />
+                <circle cx="12" cy="11" r="0.9" fill="currentColor" stroke="none" />
+                <circle cx="15.5" cy="11" r="0.9" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <div>
+              <p className="landing-trust-title">Asesoría por WhatsApp</p>
+              <p className="landing-trust-subtitle">Te ayudamos a elegir</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ================= 3. Descuento y Ofertas ================= */}
       <section id="catalogo" className="landing-section landing-section--offers-dark">
         <div className="landing-container">
@@ -296,7 +362,17 @@ export default function HomePage() {
           {error && <p className="error-text">{error}</p>}
           {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
           {productsPage && productsPage.items.length === 0 && (
-            <p className="landing-empty-note">No hay productos en oferta por el momento.</p>
+            <div className="landing-offers-empty">
+              <p className="landing-offers-empty-text">No hay productos en oferta por el momento.</p>
+              <a
+                className="landing-offers-empty-link"
+                href={contacto?.canalOfertasUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Unite al canal de ofertas →
+              </a>
+            </div>
           )}
 
           {offersChunks.length > 0 && (
@@ -331,6 +407,19 @@ export default function HomePage() {
               >
                 ›
               </button>
+            </div>
+          )}
+
+          {offersChunks.length > 0 && (
+            <div className="landing-offers-channel-cta">
+              <a
+                className="landing-offers-channel-btn"
+                href={contacto?.canalOfertasUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Unirte al canal de ofertas
+              </a>
             </div>
           )}
         </div>
