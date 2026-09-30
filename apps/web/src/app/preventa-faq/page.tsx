@@ -9,6 +9,10 @@ const FAQ_GROUPS = [
     title: "Sobre nuestra tienda",
     items: [
       {
+        q: "¿Por qué elegirnos?",
+        a: "Reunimos marcas y productos que normalmente tendrías que buscar en varios lugares distintos, con información clara de precio y disponibilidad desde el primer momento — sin sorpresas. Todo lo que necesitás, en un solo lugar.",
+      },
+      {
         q: "¿Cómo funciona la tienda?",
         a: "Somos una tienda virtual especializada en traer productos a pedido. Trabajamos únicamente con productos originales y de primera calidad, seleccionados para garantizar la mejor experiencia a nuestros clientes.",
       },

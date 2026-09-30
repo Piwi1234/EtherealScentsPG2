@@ -5048,50 +5048,14 @@ a {
   margin: 0;
 }
 
-/* --- Propuesta de valor --- */
-
-.landing-value {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  align-items: center;
-}
-
-.landing-value-visual {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 11;
-  border-radius: 20px;
-  object-fit: cover;
-  background: linear-gradient(135deg, #f1eefc 0%, #e4defa 45%, var(--lp-accent) 100%);
-}
-
-.landing-value h2 {
-  font-size: 34px;
-  margin-bottom: 18px;
-}
-
-.landing-value p {
-  color: var(--lp-muted);
-  font-size: 16px;
-}
-
 /* --- Sobre nosotros --- */
+/* Sin imagen a propósito (se sacó junto con el bloque "Propuesta de valor" de arriba) — una sola
+   columna de texto, centrada, en vez del grid de 2 columnas que usaba antes con la imagen al lado. */
 
 .landing-about {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  align-items: center;
-}
-
-.landing-about-visual {
-  display: block;
-  width: 75%;
-  aspect-ratio: 8 / 5;
-  border-radius: 20px;
-  object-fit: cover;
-  background: linear-gradient(160deg, #201c33 0%, #171426 60%, #100e1c 100%);
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
 }
 
 .landing-about p {
@@ -5893,10 +5857,8 @@ a {
     font-size: 17px;
   }
 
-  .landing-value,
   .landing-about {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    max-width: none;
   }
 
   .landing-category-layout {
@@ -6553,5 +6515,193 @@ a {
 
   .landing-cart-drawer {
     width: 100vw;
+  }
+}
+
+/* ==========================================================================
+   Ethereal Scents — Paleta "Azul marino + dorado" + filtro lineal minimalista
+   Usa las mismas clases y variables que ya tiene el sitio (.landing-*, --lp-*).
+   ========================================================================== */
+
+/* 1. PALETA ---------------------------------------------------------------- */
+:root {
+  --es-navy-900: #0d1a30;   /* encabezado, footer, hero oscuro */
+  --es-navy-700: #1c3561;   /* botones principales, enlaces, casillas activas */
+  --es-navy-100: #e8ecf4;   /* fondos suaves, chips, fondo de imagen de producto */
+  --es-gold:     #c9a96e;   /* acento decorativo sobre fondo oscuro */
+  --es-gold-ink: #86672f;   /* dorado para TEXTO sobre fondo claro (contraste AA) */
+  --es-bg:       #f4f5f8;   /* fondo de página */
+  --es-surface:  #ffffff;
+  --es-text:     #1a2234;
+  --es-muted:    #5f6778;
+  --es-line:     #dde2eb;   /* líneas finas (antes #594d46, muy oscuro) */
+  --es-sale:     #b8412f;   /* ofertas: rojo más sobrio */
+
+  /* variables que ya usa el sitio */
+  --ink: var(--es-navy-900);
+  --gold: var(--es-gold);
+  --paper: var(--es-bg);
+  --surface: var(--es-surface);
+  --line: var(--es-line);
+  --text: var(--es-text);
+  --muted: var(--es-muted);
+  --danger: var(--es-sale);
+}
+
+.landing-page,
+.landing-filters-drawer {
+  --lp-bg: var(--es-bg);
+  --lp-surface: var(--es-surface);
+  --lp-text: var(--es-text);
+  --lp-muted: var(--es-muted);
+  --lp-accent: var(--es-navy-700);
+  --lp-accent-dark: var(--es-navy-900);
+  --lp-border: var(--es-line);
+}
+
+.landing-feature-block--dark {
+  --lp-text: #eef1f7;
+  --lp-muted: rgba(238, 241, 247, 0.7);
+  --lp-accent-dark: var(--es-gold);
+  --lp-border: rgba(238, 241, 247, 0.18);
+}
+
+/* 2. ENCABEZADO / FOOTER / BOTONES ---------------------------------------- */
+.landing-navbar--dark,
+.landing-navbar-dropdown { background: var(--es-navy-900); }
+.landing-navbar-search-input { background: rgba(255, 255, 255, 0.08); }
+.landing-navbar-ofertas { color: var(--es-gold) !important; }   /* reemplaza el rojo */
+.landing-footer,
+.landing-hero-banner-card { background: var(--es-navy-900); }
+.landing-footer-social a:hover { color: var(--es-gold); border-color: var(--es-gold); }
+
+/* .landing-btn.landing-btn-primary (2 clases) a propósito: ".landing-page a { color: inherit }"
+   (definida mucho antes en este archivo) tiene más especificidad que ".landing-btn-primary" sola, así
+   que sin esto el texto del botón termina heredando el color oscuro de párrafo — casi invisible
+   sobre este fondo navy (era el bug del botón "Canal de ofertas" en el newsletter). */
+.landing-btn.landing-btn-primary { background: var(--es-navy-700); color: var(--es-gold); }
+.landing-btn-primary:hover { background: var(--es-navy-900); box-shadow: 0 10px 24px rgba(13, 26, 48, 0.25); }
+.landing-btn-outline { background: var(--es-navy-900); border-color: var(--es-navy-900); }
+.landing-cart-fab { background: var(--es-navy-700); }
+
+.landing-product-card { border-color: var(--es-line); }
+
+/* 3. FILTRO LATERAL — LINEAL ---------------------------------------------- */
+/* Sin caja: solo líneas finas entre secciones */
+.landing-filter-groups-box {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.landing-filter-group { padding: 0 0 14px; }
+.landing-filter-group + .landing-filter-group { border-top: 1px solid var(--es-line); }
+
+/* Títulos: sin banda gris, sin mayúsculas */
+.landing-filter-group-title {
+  background: none;
+  margin: 0;
+  padding: 16px 0 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--es-text);
+}
+.landing-toolbar-filter-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--es-text);
+}
+
+/* Opciones */
+.landing-filter-checkbox {
+  color: var(--es-text);
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.landing-filter-checkbox:hover { background: var(--es-navy-100); }
+.landing-filter-checkbox input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #b9c1cf;
+  border-radius: 4px;
+}
+.landing-filter-checkbox:hover input[type="checkbox"] { border-color: var(--es-navy-700); }
+.landing-filter-checkbox input[type="checkbox"]:checked {
+  background: var(--es-navy-700);
+  border-color: var(--es-navy-700);
+}
+.landing-filter-checkbox:has(input:checked) .landing-filter-checkbox-label { font-weight: 600; }
+
+/* Contadores: número gris simple, sin óvalo */
+.landing-filter-count,
+.landing-filter-checkbox:has(input:checked) .landing-filter-count {
+  border: 0;
+  background: none;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  font-size: 12px;
+  color: var(--es-muted);
+}
+
+/* Buscador: solo línea inferior */
+.landing-filter-search {
+  border: 0;
+  border-bottom: 1px solid var(--es-line);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 2px;
+  margin-bottom: 6px;
+}
+.landing-filter-search:focus { border-bottom-color: var(--es-navy-700); }
+
+/* Listas largas (marcas, acordes): barra de desplazamiento casi invisible */
+.landing-filter-options-scroll { max-height: 220px; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--es-line) transparent; }
+.landing-filter-options-scroll::-webkit-scrollbar { width: 4px; }
+.landing-filter-options-scroll::-webkit-scrollbar-thumb { background: var(--es-line); }
+.landing-filters-sidebar .landing-filter-groups-box { scrollbar-width: thin; scrollbar-color: var(--es-line) transparent; }
+
+.landing-filter-clear { color: var(--es-muted); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+
+/* Barra superior (conteo, precio, ordenar) */
+.landing-toolbar-count { color: var(--es-muted); }
+.landing-filters-mobile-btn,
+.landing-price-dropdown-trigger,
+.landing-select {
+  border: 1px solid var(--es-line);
+  background: var(--es-surface);
+  color: var(--es-text);
+}
+
+/* 4. FILTRO MÓVIL — HOJA INFERIOR ----------------------------------------- */
+.landing-filters-drawer-overlay { background: rgba(13, 26, 48, 0.5); }
+/* el botón flotante del carrito no tapa "Ver productos" mientras el filtro está abierto */
+body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
+
+@media (max-width: 900px) {
+  .landing-filters-drawer {
+    inset: 44px 0 0 0;               /* deja ver el encabezado arriba */
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 40px rgba(13, 26, 48, 0.18);
+  }
+  .landing-filters-drawer::before {    /* tirador */
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--es-line);
+    margin: 8px auto 0;
+  }
+  .landing-filters-drawer-header { border-bottom: 0; padding: 8px 12px 8px 20px; }
+  .landing-filters-drawer-close { width: 44px; height: 44px; }
+  .landing-filters-drawer-body { padding: 0 20px 20px; }
+  .landing-filters-drawer .landing-filter-checkbox { min-height: 44px; }   /* áreas táctiles */
+  .landing-filters-drawer-footer {
+    border-top: 1px solid var(--es-line);
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
   }
 }
