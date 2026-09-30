@@ -10,9 +10,7 @@ import {
   addOffersBannerCarouselImage,
   addWeeklyCollectionBannerCarouselImage,
   apiGet,
-  apiUpload,
   getHeroCarouselImages,
-  getLandingImages,
   getMarcasHeroCarouselImages,
   getOffersBannerCarouselImages,
   getWeeklyCollectionBannerCarouselImages,
@@ -69,9 +67,6 @@ export default function GridImagenesPage() {
   const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [offersBannerImages, setOffersBannerImages] = useState<CarouselImage[]>([]);
   const [weeklyCollectionBannerImages, setWeeklyCollectionBannerImages] = useState<CarouselImage[]>([]);
-  const [landingImages, setLandingImages] = useState<{ valueImageUrl: string | null; aboutImageUrl: string | null } | null>(
-    null,
-  );
   const [error, setError] = useState("");
   const [busySlot, setBusySlot] = useState<string | null>(null);
 
@@ -90,9 +85,6 @@ export default function GridImagenesPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getWeeklyCollectionBannerCarouselImages()
       .then(setWeeklyCollectionBannerImages)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getLandingImages()
-      .then(setLandingImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
 
@@ -189,19 +181,6 @@ export default function GridImagenesPage() {
     setError("");
     try {
       await updateCategoryCarouselImageTitulos(categoryId, imageId, titulo1, titulo2);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusySlot(null);
-    }
-  }
-
-  async function handleUploadSingle(slotId: string, path: string, file: File) {
-    setBusySlot(slotId);
-    setError("");
-    try {
-      await apiUpload(path, file);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -319,54 +298,6 @@ export default function GridImagenesPage() {
                     : undefined
                 }
               />
-            ))}
-          </div>
-
-          <div className="grid-3" style={{ gap: 20, marginBottom: 28 }}>
-            {(
-              [
-                {
-                  id: "value",
-                  label: "Propuesta de valor",
-                  imageUrl: landingImages?.valueImageUrl ?? null,
-                  hint: "Recomendado: 1600×1100px o más (relación 16:11).",
-                },
-                {
-                  id: "about",
-                  label: "Sobre nosotros",
-                  imageUrl: landingImages?.aboutImageUrl ?? null,
-                  hint: "Recomendado: 1600×1000px o más, horizontal (relación 8:5).",
-                },
-              ] as const
-            ).map((slot) => (
-              <div key={slot.id} style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 12 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>{slot.label}</label>
-                <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 8px", lineHeight: 1.4 }}>{slot.hint}</p>
-                <div className="image-uploader">
-                  {imgSrc(slot.imageUrl) ? (
-                    <img src={imgSrc(slot.imageUrl)!} alt={slot.label} />
-                  ) : (
-                    <div className="image-uploader-placeholder">Sin imagen</div>
-                  )}
-                  <input
-                    className="field"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    disabled={busySlot === slot.id}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleUploadSingle(slot.id, `/settings/landing-images/${slot.id}`, file);
-                      e.target.value = "";
-                    }}
-                    style={{ background: "transparent", border: 0, padding: 0 }}
-                  />
-                </div>
-                {busySlot === slot.id && (
-                  <p className="cell-muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    Subiendo...
-                  </p>
-                )}
-              </div>
             ))}
           </div>
 
