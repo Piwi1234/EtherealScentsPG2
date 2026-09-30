@@ -25,7 +25,11 @@ async function getAllProducts(): Promise<Product[]> {
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
-    { url: `${SITE_ORIGIN}/`, changeFrequency: "daily", priority: 1 },
+    // "/" no entra: es un redirect permanente a "/home" (ver app/page.tsx), nunca sirve contenido
+    // propio — listarlo acá era la señal contradictoria que hacía que Search Console reportara
+    // "Google ha elegido una versión canónica diferente a la del usuario" (Google ya elegía /home
+    // bien, por ser la que de verdad linkea todo el sitio — ver LandingNavbar).
+    { url: `${SITE_ORIGIN}/home`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_ORIGIN}/marcas`, changeFrequency: "weekly", priority: 0.6 },
   ];
 
