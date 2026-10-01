@@ -8,14 +8,11 @@ import { getAttributeFilterOptions } from "../../../lib/catalog-display";
 import type { Attribute, Category, CategoryAggregates, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
-import { ImageCarousel } from "../../../components/landing/ImageCarousel";
 import { ProductCard } from "../../../components/landing/ProductCard";
 
 type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 type BrandCount = { id: string; name: string; count: number };
 type PriceRange = [number, number];
-
-const CATEGORY_BANNER_AUTOPLAY_MS = 10000;
 
 const FILTER_VISIBLE_DEFAULT = 10;
 // 4 tarjetas por fila x 5 filas visibles — a partir de ahí se pagina.
@@ -138,9 +135,6 @@ export default function CategoriaPage() {
   // como `basePage` (para que los contadores/rango de precio/marcas cubran todas las hermanas, no
   // solo la actual).
   const effectiveRootId = category ? category.parentId ?? category.id : null;
-  // El carrusel del hero es uno solo por categoría raíz (no por subcategoría) — cuando `category`
-  // es una subcategoría, se usa el de su padre.
-  const rootCategoryForBanner = effectiveRootId ? categories.find((c) => c.id === effectiveRootId) : null;
 
   useEffect(() => {
     if (!effectiveRootId) return;
@@ -325,11 +319,13 @@ export default function CategoriaPage() {
     return (
       <div className="landing-page">
         <LandingNavbar variant="dark" overlay={false} />
-        <section className="landing-category-banner landing-category-banner--no-overlay">
-          <h1>Categoría no encontrada</h1>
-          <p className="landing-category-lead">
-            No pudimos encontrar esta categoría. <Link href="/home">Volvé al inicio</Link>.
-          </p>
+        <section className="landing-category-header">
+          <div className="landing-container">
+            <h1>Categoría no encontrada</h1>
+            <p className="landing-category-lead">
+              No pudimos encontrar esta categoría. <Link href="/home">Volvé al inicio</Link>.
+            </p>
+          </div>
         </section>
         <LandingFooter />
       </div>
@@ -378,25 +374,6 @@ export default function CategoriaPage() {
     <div className="landing-page">
       <LandingNavbar variant="dark" overlay={false} />
 
-      <section className="landing-category-banner landing-category-banner--no-overlay">
-        {rootCategoryForBanner && rootCategoryForBanner.heroCarouselImages.length > 0 && (
-          <div className="landing-category-banner-bg">
-            <ImageCarousel
-              images={rootCategoryForBanner.heroCarouselImages}
-              alt=""
-              imgClassName="landing-category-banner-bg-image"
-              autoplayMs={CATEGORY_BANNER_AUTOPLAY_MS}
-            />
-          </div>
-        )}
-        <div className="landing-container">
-          <h1>{category?.name ?? "Cargando..."}</h1>
-          <p className="landing-category-lead">
-            {category?.comentario || `Descubrí nuestra selección de ${(category?.name ?? "").toLowerCase()}, con stock real y precios claros.`}
-          </p>
-        </div>
-      </section>
-
       <div className="landing-breadcrumb-bar">
         <div className="landing-container">
           <p className="landing-breadcrumb">
@@ -413,7 +390,16 @@ export default function CategoriaPage() {
         </div>
       </div>
 
-      <section className="landing-section">
+      <section className="landing-category-header">
+        <div className="landing-container">
+          <h1>{category?.name ?? "Cargando..."}</h1>
+          <p className="landing-category-lead">
+            {category?.comentario || `Descubrí nuestra selección de ${(category?.name ?? "").toLowerCase()}, con stock real y precios claros.`}
+          </p>
+        </div>
+      </section>
+
+      <section className="landing-section landing-section--category">
         <div className="landing-container landing-category-layout">
           {hasSidebarContent && (
             <aside className="landing-filters-sidebar">

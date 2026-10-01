@@ -2200,6 +2200,13 @@ a {
   background: var(--lp-surface);
 }
 
+/* /categoria/[slug]: justo arriba va .landing-category-header, que ya trae su propio padding
+   inferior — los 84px base de .landing-section se sumaban a eso y dejaban un hueco enorme entre el
+   subtítulo y el toolbar de filtros/productos. */
+.landing-section--category {
+  padding-top: 24px;
+}
+
 /* --- "Descuento y Ofertas": fondo oscuro, con la paleta navy + dorado del sitio (--es-navy-900,
    mismo tono que encabezado/footer/hero oscuro, con acentos --es-gold) en vez de la paleta clara
    del resto del catálogo público. Todo lo de acá abajo está scoped a esta sección/carrusel
@@ -3117,14 +3124,12 @@ a {
   overflow: hidden;
 }
 
-/* Slide "de verdad" (sin fade): la grilla entera arranca corrida exactamente un ancho de columna
-   (33.3334% de sí misma, ya que son 3 columnas iguales) y anima hasta su posición final — como la
-   ventana deslizante ya trae precalculadas las imágenes que "se quedan" en su nueva columna más la
-   única imagen realmente nueva que entra por el borde, el resultado es un track continuo real, igual
-   al de agatres.co, sin tener que mantener un track de DOM persistente. */
+/* Slide "de verdad" (sin fade): la grilla (ahora de 1 sola columna, una imagen a pantalla completa
+   por vez — antes eran 3 lado a lado) arranca corrida el 100% de su propio ancho y anima hasta su
+   posición final, igual al de agatres.co, sin tener que mantener un track de DOM persistente. */
 @keyframes landing-hero-banners-slide-next {
   from {
-    transform: translateX(33.3334%);
+    transform: translateX(100%);
   }
   to {
     transform: translateX(0);
@@ -3133,7 +3138,7 @@ a {
 
 @keyframes landing-hero-banners-slide-prev {
   from {
-    transform: translateX(-33.3334%);
+    transform: translateX(-100%);
   }
   to {
     transform: translateX(0);
@@ -3142,7 +3147,7 @@ a {
 
 .landing-hero-banner-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(1, 1fr);
 }
 
 .landing-hero-banner-grid--next {
@@ -3156,8 +3161,11 @@ a {
 .landing-hero-banner-card {
   position: relative;
   display: block;
-  /* 3:3.4 = 15% menos alto que el 3:4 original (4 * 0.85 = 3.4), mismo ancho. */
-  aspect-ratio: 3 / 3.4;
+  /* Antes eran 3 columnas de 3:3.4 lado a lado (alto total = ancho_pantalla/3 * 3.4/3 =
+     ancho_pantalla * 0.3778). Ahora es 1 sola imagen a todo el ancho — para que el alto total baje
+     un 10% respecto a ese alto de antes (0.3778 * 0.9 = 0.34 * ancho_pantalla), el ratio queda
+     ancho:alto = 1 : 0.34 = 50:17. */
+  aspect-ratio: 50 / 17;
   overflow: hidden;
   background: #171426;
 }
@@ -3171,38 +3179,6 @@ a {
 
 .landing-hero-banner-card:hover .landing-hero-banner-image {
   transform: scale(1.04);
-}
-
-/* Mobile: 1 sola imagen por vez (heroWindowSize=1, ver home/page.tsx) en vez del carrusel de 3 lado
-   a lado — mismo breakpoint que usa el JS para decidir el tamaño de la ventana. Con una sola
-   columna, "un ancho de columna" es 100% de la grilla, no el 33.3334% de las keyframes de arriba
-   (pensadas para 3 columnas). */
-@keyframes landing-hero-banners-slide-next-mobile {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes landing-hero-banners-slide-prev-mobile {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .landing-hero-banner-grid--next {
-    animation-name: landing-hero-banners-slide-next-mobile;
-  }
-
-  .landing-hero-banner-grid--prev {
-    animation-name: landing-hero-banners-slide-prev-mobile;
-  }
 }
 
 /* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
@@ -3464,6 +3440,26 @@ a {
   font-size: 15px;
   color: rgba(245, 244, 240, 0.8);
   max-width: 620px;
+}
+
+/* --- Encabezado simple de /categoria/[slug] y /marcas: reemplaza el banner oscuro con imagen de
+   fondo de antes (ver .landing-category-banner, que /buscar sigue usando tal cual). Reusa el mismo
+   <h1>/.landing-category-lead del banner, así que acá se pisa su color pensado para fondo oscuro —
+   el resto (tamaño, max-width) no hace falta repetirlo. */
+.landing-category-header {
+  padding: 32px 0 28px;
+  background: var(--lp-bg);
+}
+
+.landing-category-header h1 {
+  font-size: 32px;
+  color: var(--lp-text);
+  margin: 0 0 8px;
+}
+
+.landing-category-header .landing-category-lead {
+  color: var(--lp-muted);
+  text-shadow: none;
 }
 
 /* --- Toolbar de filtros (subcategoría/marca) + orden --- */
@@ -6131,6 +6127,14 @@ a {
   }
 
   .landing-category-banner h1 {
+    font-size: 26px;
+  }
+
+  .landing-category-header {
+    padding: 24px 0 20px;
+  }
+
+  .landing-category-header h1 {
     font-size: 26px;
   }
 

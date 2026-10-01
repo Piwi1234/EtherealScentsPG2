@@ -4,29 +4,20 @@ import { useEffect, useState } from "react";
 import {
   API_ORIGIN,
   addCategoryCarouselImage,
-  addCategoryHeroCarouselImage,
   addHeroCarouselImage,
-  addMarcasHeroCarouselImage,
   addWeeklyCollectionBannerCarouselImage,
   apiGet,
   getHeroCarouselImages,
-  getMarcasHeroCarouselImages,
   getWeeklyCollectionBannerCarouselImages,
   moveCategoryCarouselImage,
-  moveCategoryHeroCarouselImage,
   moveHeroCarouselImage,
-  moveMarcasHeroCarouselImage,
   moveWeeklyCollectionBannerCarouselImage,
   removeCategoryCarouselImage,
-  removeCategoryHeroCarouselImage,
   removeHeroCarouselImage,
-  removeMarcasHeroCarouselImage,
   removeWeeklyCollectionBannerCarouselImage,
   updateCategoryCarouselImageTitulos,
   updateCategoryCarouselImageUrl,
-  updateCategoryHeroCarouselImageUrl,
   updateHeroCarouselImageUrl,
-  updateMarcasHeroCarouselImageUrl,
   updateWeeklyCollectionBannerCarouselImageUrl,
 } from "../../../../lib/api";
 import type { CarouselImage, Category } from "../../../../lib/types";
@@ -39,24 +30,19 @@ function imgSrc(url: string | null): string | null {
 }
 
 // site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
-// destacado" del home, uno por categoría raíz. category-hero: hero de /categoria/[slug], también uno
-// por categoría raíz pero un carrusel independiente del de feature (otro tamaño, otro propósito) —
-// compartido con todas las subcategorías de esa raíz, que no tienen uno propio. marcas-hero: hero de
-// /marcas (categoryId null, singleton, independiente del Hero principal del home).
-type SlotKind = "site-hero" | "feature" | "category-hero" | "marcas-hero" | "weekly-collection-banner";
+// destacado" del home, uno por categoría raíz. weekly-collection-banner: banner de "Colección de la
+// semana" del home (categoryId null, singleton).
+type SlotKind = "site-hero" | "feature" | "weekly-collection-banner";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
- * Imágenes usadas en las secciones visuales del sitio, organizadas en dos bloques: "Home" (Hero
- * principal, banner de "Colección de la semana", "Producto destacado" por categoría raíz) y "Hero de
- * categorías y marcas" (hero de /marcas y hero de /categoria/[slug] por categoría raíz, compartido con
- * sus subcategorías). Si un carrusel queda sin ninguna imagen, esa sección muestra un degradado de
- * relleno en su lugar.
+ * Imágenes usadas en las secciones visuales del home: Hero principal, banner de "Colección de la
+ * semana" y "Producto destacado" por categoría raíz. Si un carrusel queda sin ninguna imagen, esa
+ * sección muestra un degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
-  const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [weeklyCollectionBannerImages, setWeeklyCollectionBannerImages] = useState<CarouselImage[]>([]);
   const [error, setError] = useState("");
   const [busySlot, setBusySlot] = useState<string | null>(null);
@@ -67,9 +53,6 @@ export default function GridImagenesPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getHeroCarouselImages()
       .then(setHeroImages)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getMarcasHeroCarouselImages()
-      .then(setMarcasHeroImages)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getWeeklyCollectionBannerCarouselImages()
       .then(setWeeklyCollectionBannerImages)
@@ -83,10 +66,8 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await addHeroCarouselImage(file);
-      else if (kind === "marcas-hero") await addMarcasHeroCarouselImage(file);
       else if (kind === "weekly-collection-banner") await addWeeklyCollectionBannerCarouselImage(file);
-      else if (kind === "feature") await addCategoryCarouselImage(categoryId!, file);
-      else await addCategoryHeroCarouselImage(categoryId!, file);
+      else await addCategoryCarouselImage(categoryId!, file);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -100,10 +81,8 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await removeHeroCarouselImage(imageId);
-      else if (kind === "marcas-hero") await removeMarcasHeroCarouselImage(imageId);
       else if (kind === "weekly-collection-banner") await removeWeeklyCollectionBannerCarouselImage(imageId);
-      else if (kind === "feature") await removeCategoryCarouselImage(categoryId!, imageId);
-      else await removeCategoryHeroCarouselImage(categoryId!, imageId);
+      else await removeCategoryCarouselImage(categoryId!, imageId);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -117,10 +96,8 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
-      else if (kind === "marcas-hero") await moveMarcasHeroCarouselImage(imageId, direction);
       else if (kind === "weekly-collection-banner") await moveWeeklyCollectionBannerCarouselImage(imageId, direction);
-      else if (kind === "feature") await moveCategoryCarouselImage(categoryId!, imageId, direction);
-      else await moveCategoryHeroCarouselImage(categoryId!, imageId, direction);
+      else await moveCategoryCarouselImage(categoryId!, imageId, direction);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -140,10 +117,8 @@ export default function GridImagenesPage() {
     setError("");
     try {
       if (kind === "site-hero") await updateHeroCarouselImageUrl(imageId, url);
-      else if (kind === "marcas-hero") await updateMarcasHeroCarouselImageUrl(imageId, url);
       else if (kind === "weekly-collection-banner") await updateWeeklyCollectionBannerCarouselImageUrl(imageId, url);
-      else if (kind === "feature") await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
-      else await updateCategoryHeroCarouselImageUrl(categoryId!, imageId, url);
+      else await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -175,7 +150,6 @@ export default function GridImagenesPage() {
 
   const rootCategories = (categories ?? []).filter((c) => c.parentId === null);
 
-  // Bloque "Home": todo lo que se ve en la página de inicio.
   const homeSlots: CarouselSlot[] = [
     {
       key: "hero",
@@ -184,9 +158,9 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: heroImages,
       hint:
-        "Se muestran de a 3 banners lado a lado (como en agatres.co) — si hay más de 3 imágenes, rotan solas de a " +
-        "grupos de 3. Cada imagen puede llevar su propio link de redirección (no comparten uno solo). Recomendado: " +
-        "1200×1360px o más, vertical (relación 3:3.4), por cada imagen.",
+        "Se muestra 1 sola imagen a pantalla completa por vez — si hay más de una, rotan solas. Cada imagen puede " +
+        "llevar su propio link de redirección. Recomendado: 2400×816px o más, panorámica (relación ~2.94:1), por " +
+        "cada imagen.",
     },
     {
       key: "weekly-collection-banner",
@@ -215,34 +189,6 @@ export default function GridImagenesPage() {
     })),
   ];
 
-  // Bloque "Hero de categorías y marcas": los heros panorámicos de /categoria/[slug] y /marcas —
-  // independientes de los carruseles del home de arriba.
-  const heroSlots: CarouselSlot[] = [
-    {
-      key: "marcas-hero",
-      kind: "marcas-hero",
-      title: "Hero de Marcas",
-      categoryId: null,
-      images: marcasHeroImages,
-      hint:
-        "Fondo del hero de la página /marcas — carrusel independiente del Hero principal del home. Recomendado: " +
-        "2400×600px o más (relación ~4:1, muy panorámico). El alto de este banner lo da el padding + el texto, " +
-        "unos 300–450px según el dispositivo, así que una imagen muy ancha y baja cubre mejor que una alta.",
-    },
-    ...rootCategories.map((cat) => ({
-      key: `${cat.id}-hero`,
-      kind: "category-hero" as const,
-      title: `${cat.name} — Hero de categoría`,
-      categoryId: cat.id,
-      images: cat.heroCarouselImages,
-      hint:
-        "Se usa como fondo del hero de la página de esta categoría y de todas sus subcategorías — carrusel " +
-        "independiente del de \"Producto destacado\" del home. Recomendado: 2400×600px o más (relación ~4:1, muy " +
-        "panorámico) — el alto de este banner lo da el padding + el texto, unos 300–450px según el dispositivo, " +
-        "así que conviene una imagen muy ancha y baja, no alta.",
-    })),
-  ];
-
   return (
     <div className="card">
       <h1 style={{ marginTop: 0, fontSize: 20, marginBottom: 20 }}>Grid Imágenes</h1>
@@ -250,49 +196,27 @@ export default function GridImagenesPage() {
       {!categories && !error && <p>Cargando...</p>}
 
       {categories && (
-        <>
-          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Home</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
-            {homeSlots.map((slot) => (
-              <CarouselSlotEditor
-                key={slot.key}
-                title={slot.title}
-                hint={slot.hint}
-                images={slot.images}
-                busy={busySlot === slot.key}
-                onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
-                onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
-                onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
-                onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
-                onSetTitulos={
-                  slot.kind === "feature"
-                    ? (imageId, titulo1, titulo2) =>
-                        handleSetCarouselImageTitulos(slot.key, slot.categoryId!, imageId, titulo1, titulo2)
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-
-          <div style={{ background: "#080706", borderRadius: 12, padding: 20 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 12, marginTop: 0, color: "#efefef" }}>Hero de categorías y marcas</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {heroSlots.map((slot) => (
-                <CarouselSlotEditor
-                  key={slot.key}
-                  title={slot.title}
-                  hint={slot.hint}
-                  images={slot.images}
-                  busy={busySlot === slot.key}
-                  onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
-                  onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
-                  onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
-                  onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
-                />
-              ))}
-            </div>
-          </div>
-        </>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {homeSlots.map((slot) => (
+            <CarouselSlotEditor
+              key={slot.key}
+              title={slot.title}
+              hint={slot.hint}
+              images={slot.images}
+              busy={busySlot === slot.key}
+              onAdd={(file) => handleAddCarouselImage(slot.key, slot.kind, slot.categoryId, file)}
+              onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
+              onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
+              onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
+              onSetTitulos={
+                slot.kind === "feature"
+                  ? (imageId, titulo1, titulo2) =>
+                      handleSetCarouselImageTitulos(slot.key, slot.categoryId!, imageId, titulo1, titulo2)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
       )}
     </div>
   );

@@ -20,9 +20,8 @@ const OFFERS_AUTOPLAY_MS = 7000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
 const HERO_AUTOPLAY_MS = 10000;
-const HERO_BANNERS_SLIDE_SIZE = 3;
-// Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el hero muestra 1 sola
-// imagen por vez (en vez de 3 lado a lado) y el carrusel de ofertas pagina de a 2 (en vez de 5).
+// Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el carrusel de ofertas
+// pagina de a 2 (en vez de 5). El hero ya muestra 1 sola imagen a cualquier ancho (ver heroWindow).
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
@@ -163,24 +162,22 @@ export default function HomePage() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // Hero: carrusel de 3 banners lado a lado (ver Grid Imágenes → Hero principal) que rota de a UNA
-  // imagen por vez (ventana deslizante), no de a grupos de 3 — mismo mecanismo de dirección/autoplay
-  // que el resto de los carruseles del home.
+  // Hero: una sola imagen a pantalla completa por vez (antes eran 3 banners lado a lado) — mismo
+  // mecanismo de dirección/autoplay que el resto de los carruseles del home.
   const heroImages = landingImages?.heroImages ?? [];
-  const heroWindowSize = Math.min(isMobile ? 1 : HERO_BANNERS_SLIDE_SIZE, heroImages.length);
   const heroWindow = useMemo(
-    () => Array.from({ length: heroWindowSize }, (_, i) => heroImages[(heroSlide + i) % heroImages.length]),
-    [heroImages, heroSlide, heroWindowSize],
+    () => (heroImages.length > 0 ? [heroImages[heroSlide % heroImages.length]] : []),
+    [heroImages, heroSlide],
   );
 
   useEffect(() => {
-    if (heroImages.length <= heroWindowSize) return;
+    if (heroImages.length <= 1) return;
     const timer = setInterval(() => {
       setHeroDirection(1);
       setHeroSlide((s) => (s + 1) % heroImages.length);
     }, HERO_AUTOPLAY_MS);
     return () => clearInterval(timer);
-  }, [heroImages.length, heroWindowSize, heroAutoKey]);
+  }, [heroImages.length, heroAutoKey]);
 
   function goToHeroSlide(index: number, dir?: 1 | -1) {
     const total = heroImages.length;
@@ -197,7 +194,7 @@ export default function HomePage() {
     <div className="landing-page">
       <LandingNavbar variant="dark" overlay={false} />
 
-      {/* ============ 2. Hero: carrusel de 3 banners lado a lado ============ */}
+      {/* ============ 2. Hero: una imagen a pantalla completa ============ */}
       {heroWindow.length > 0 && (
         <section className="landing-hero-banners">
           <div style={{ position: "relative" }}>
@@ -205,7 +202,6 @@ export default function HomePage() {
               className={`landing-hero-banner-grid${
                 heroDirection === 1 ? " landing-hero-banner-grid--next" : " landing-hero-banner-grid--prev"
               }`}
-              style={heroWindowSize < 3 ? { gridTemplateColumns: `repeat(${heroWindowSize}, 1fr)` } : undefined}
               key={heroSlide}
             >
               {heroWindow.map((image) => {
@@ -227,7 +223,7 @@ export default function HomePage() {
                 );
               })}
             </div>
-            {heroImages.length > heroWindowSize && (
+            {heroImages.length > 1 && (
               <div className="landing-image-carousel-dots">
                 {heroImages.map((_, i) => (
                   <button
