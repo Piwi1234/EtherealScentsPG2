@@ -169,10 +169,9 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: weeklyCollectionBannerImages,
       hint:
-        "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), junto a las 8 " +
-        "tarjetas de los últimos productos de la marca elegida en Marcas — mismo tamaño que esa columna " +
-        "(504×664px fijo en pantallas grandes, más grande que el banner de Ofertas). Recomendado: 1000×1320px o " +
-        "más, vertical (relación ~3:4), por cada imagen del carrusel.",
+        "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), arriba de las " +
+        "últimas 5 tarjetas de la marca elegida en Marcas — ocupa todo el ancho de esa fila de tarjetas, 332px de " +
+        "alto fijo. Recomendado: 2000×492px o más, panorámica (relación ~4:1), por cada imagen del carrusel.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-feature`,

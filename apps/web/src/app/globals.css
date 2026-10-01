@@ -4224,21 +4224,14 @@ a {
   color: rgba(245, 244, 240, 0.4);
 }
 
-/* --- "Colección de la semana": banner alto a la izquierda (mismo carrusel que el resto, ver
-   ImageCarousel) + grilla 4x3 de los últimos 12 productos de la marca elegida en Marcas --- */
-
+/* --- "Colección de la semana": banner panorámico arriba (mismo carrusel que el resto, ver
+   ImageCarousel) + fila de las últimas 5 tarjetas de la marca elegida en Marcas, debajo, con el
+   mismo ancho que el banner — antes el banner era un panel alto a la izquierda con la grilla al
+   lado; ahora todo va apilado en una sola columna. */
 .landing-weekly-collection-layout {
-  display: grid;
-  grid-template-columns: 504px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  /* "start", no "stretch": con dos elementos de alto EXPLÍCITO (px, no aspect-ratio) no hace falta
-     estirar nada — usar stretch acá terminaba en un alto ambiguo/circular (la grilla dependía del
-     banner y viceversa) que rompía el layout. */
-  align-items: start;
-}
-
-.landing-weekly-collection-layout--no-banner {
-  grid-template-columns: 1fr;
 }
 
 .landing-weekly-collection-banner {
@@ -4247,9 +4240,9 @@ a {
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  /* Alto fijo (no aspect-ratio) para que sea un valor inequívoco — ver .landing-product-grid--weekly
-     acá abajo, que usa este mismo número para no desalinearse. */
-  height: 664px;
+  /* La mitad del alto que tenía como panel lateral (664px) — ahora que ocupa el ancho completo de
+     las tarjetas de abajo en vez de una columna angosta, no necesita ser tan alto. */
+  height: 332px;
 }
 
 .landing-weekly-collection-banner-image {
@@ -4277,23 +4270,13 @@ a {
 }
 
 .landing-product-grid--weekly {
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
-  /* Mismo alto fijo que .landing-weekly-collection-banner, para que las 2 filas de tarjetas calcen
-     exacto con el banner de al lado sin depender de stretch (ver esa regla). */
-  height: 664px;
 }
 
-/* Sin aspect-ratio a propósito: la imagen se estira (flex) para llenar el alto que le sobra a la
-   tarjeta después del cuerpo (76px fijo, ver .landing-product-body de acá abajo) — el alto total de
-   la tarjeta sale de dividir el alto fijo de .landing-product-grid--weekly (arriba) entre las 2
-   filas. Si se cambia ESE alto (o el de .landing-weekly-collection-banner, que debe quedar igual),
-   la imagen se ajusta sola sin tocar nada acá. */
 .landing-product-grid--weekly .landing-product-image,
 .landing-product-grid--weekly .landing-product-image-placeholder {
-  flex: 1 1 auto;
-  min-height: 0;
+  aspect-ratio: 8 / 9;
 }
 
 .landing-product-grid--weekly .landing-product-body {
@@ -4346,6 +4329,11 @@ a {
   bottom: 8px;
   padding: 3px 8px;
   font-size: 9.5px;
+}
+
+.landing-weekly-collection-more {
+  margin-top: 8px;
+  text-align: center;
 }
 
 .landing-carousel-arrow {
@@ -5802,6 +5790,10 @@ a {
   .landing-product-grid--carousel {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .landing-product-grid--weekly {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -5815,11 +5807,6 @@ a {
 
   .landing-marcas-grid {
     grid-template-columns: repeat(5, 1fr);
-  }
-
-  .landing-product-grid--weekly {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
   }
 }
 
@@ -5845,31 +5832,8 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .landing-weekly-collection-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-weekly-collection-banner {
-    height: 250px;
-  }
-
   .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    /* El alto fijo de escritorio (para calzar con el banner de al lado) no aplica acá — apilado en
-       una columna, cada tarjeta usa su propia proporción (aspect-ratio de acá abajo). */
-    height: auto;
-  }
-
-  /* Acá el layout ya se apiló a una columna (banner arriba, grilla abajo, ver
-     .landing-weekly-collection-layout de este mismo media query) — sin fila compartida con el
-     banner no hay de qué "alto restante" llenar, así que la imagen vuelve a tener su propia
-     proporción fija en vez de flex (ver la versión de escritorio, sin media query, más arriba). */
-  .landing-product-grid--weekly .landing-product-image,
-  .landing-product-grid--weekly .landing-product-image-placeholder {
-    flex: none;
-    min-height: auto;
-    aspect-ratio: 8 / 9;
   }
 
   .landing-brand-grid {
@@ -6128,7 +6092,6 @@ a {
      que colapse más abajo de acá (mismo criterio que .landing-product-grid arriba). */
   .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
   }
 
   .landing-brand-grid {
