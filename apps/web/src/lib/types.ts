@@ -97,6 +97,8 @@ export type Attribute = {
   name: string;
   type: AttributeType;
   isFilterable: boolean;
+  /** Posición en el filtro lateral de categoría cuando isFilterable está activo (menor primero). */
+  ordenFiltro: number;
   isRequired: boolean;
   /** Si se muestra como columna extra en la tabla de Productos del panel. */
   showInProductList: boolean;

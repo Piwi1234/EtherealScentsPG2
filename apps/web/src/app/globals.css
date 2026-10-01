@@ -3515,73 +3515,6 @@ a {
   cursor: pointer;
 }
 
-/* Filtro de Precio, al lado de "Ordenar por" en la barra de herramientas — desplegable en vez de
-   slider siempre visible, para no ensanchar la barra (mismo look de pastilla que .landing-select). */
-.landing-price-dropdown {
-  position: relative;
-}
-
-.landing-price-dropdown-trigger {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1.5px solid var(--lp-border);
-  background: var(--lp-surface);
-  color: var(--lp-text);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.landing-price-dropdown-trigger:hover {
-  border-color: var(--lp-text);
-}
-
-.landing-price-dropdown-trigger--active {
-  border-color: var(--lp-accent);
-  background: rgba(209, 178, 128, 0.12);
-}
-
-.landing-price-dropdown-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--lp-accent);
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.landing-price-dropdown-arrow {
-  font-size: 11px;
-  line-height: 1;
-  transition: transform 0.2s ease;
-}
-
-.landing-price-dropdown-arrow--open {
-  transform: rotate(180deg);
-}
-
-.landing-price-dropdown-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 5;
-  width: 260px;
-  padding: 16px;
-  background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
-  border-radius: 12px;
-  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.14);
-}
-
 .landing-toolbar-filters .landing-filter-pills {
   margin-bottom: 0;
 }
@@ -6825,10 +6758,9 @@ a {
 
 .landing-filter-clear { color: var(--es-muted); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
 
-/* Barra superior (conteo, precio, ordenar) */
+/* Barra superior (conteo, ordenar) */
 .landing-toolbar-count { color: var(--es-muted); }
 .landing-filters-mobile-btn,
-.landing-price-dropdown-trigger,
 .landing-select {
   border: 1px solid var(--es-line);
   background: var(--es-surface);

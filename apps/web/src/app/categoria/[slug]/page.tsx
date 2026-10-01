@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
@@ -60,14 +60,6 @@ export default function CategoriaPage() {
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
   const [pageNumber, setPageNumber] = useState(1);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
-  const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
-  const pricePanelRef = useRef<HTMLDivElement>(null);
-  // El panel tiene ancho fijo (260px) y anclaje left:0 por CSS — en mobile el botón "Precio" puede
-  // caer cerca del borde derecho del toolbar (el orden de los controles varía con el wrap), y ahí
-  // el panel se salía de la pantalla sin forma de ver el slider completo ni el botón "Filtrar". Se
-  // calcula en JS cuánto desplazarlo hacia la izquierda para que siempre quede dentro del viewport.
-  const [pricePanelShift, setPricePanelShift] = useState(0);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, string[]>>({});
@@ -280,47 +272,8 @@ export default function CategoriaPage() {
 
   function applyPriceFilter() {
     if (priceRange) setPriceApplied(priceRange);
-    setPriceDropdownOpen(false);
     setPageNumber(1);
   }
-
-  // Cierra el desplegable de precio al hacer click afuera — un listener en el documento en vez de
-  // onBlur porque arrastrar el slider no debe cerrarlo a mitad de camino.
-  useEffect(() => {
-    if (!priceDropdownOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (priceDropdownRef.current && !priceDropdownRef.current.contains(e.target as Node)) {
-        setPriceDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [priceDropdownOpen]);
-
-  // Mantiene el panel de precio dentro de la pantalla — layout effect (corre antes de pintar, sin
-  // el parpadeo de un useEffect normal) que mide cuánto se pasa del borde derecho del viewport y lo
-  // corrige con un translateX hacia la izquierda. Se recalcula también al rotar/cambiar el tamaño
-  // de la ventana mientras sigue abierto.
-  useLayoutEffect(() => {
-    if (!priceDropdownOpen) {
-      setPricePanelShift(0);
-      return;
-    }
-    function recalc() {
-      const panel = pricePanelRef.current;
-      if (!panel) return;
-      const margin = 12;
-      panel.style.transform = "";
-      const rect = panel.getBoundingClientRect();
-      const overflowRight = rect.right - (window.innerWidth - margin);
-      let shift = overflowRight > 0 ? -overflowRight : 0;
-      if (rect.left + shift < margin) shift = margin - rect.left;
-      setPricePanelShift(shift);
-    }
-    recalc();
-    window.addEventListener("resize", recalc);
-    return () => window.removeEventListener("resize", recalc);
-  }, [priceDropdownOpen]);
 
   function clearAllFilters() {
     setSubCategoryFilter("");
@@ -393,6 +346,12 @@ export default function CategoriaPage() {
 
   const filterGroupsProps = {
     resetKey: slug,
+    priceBoundsMax,
+    priceRange,
+    priceApplied,
+    onPriceMinChange: handlePriceMinChange,
+    onPriceMaxChange: handlePriceMaxChange,
+    onApplyPriceFilter: applyPriceFilter,
     inStockOnly,
     onToggleInStockOnly: toggleInStockOnly,
     inStockCount,
@@ -480,70 +439,6 @@ export default function CategoriaPage() {
               <p className="landing-toolbar-count">
                 {productsPage ? `${productsPage.total} producto${productsPage.total === 1 ? "" : "s"}` : ""}
               </p>
-
-              {priceBoundsMax > 0 && priceRange && (
-                <div className="landing-price-dropdown" ref={priceDropdownRef}>
-                  <button
-                    type="button"
-                    className={`landing-price-dropdown-trigger${priceApplied ? " landing-price-dropdown-trigger--active" : ""}`}
-                    onClick={() => setPriceDropdownOpen((open) => !open)}
-                  >
-                    Precio {priceApplied && <span className="landing-price-dropdown-badge">1</span>}
-                    <span className={`landing-price-dropdown-arrow${priceDropdownOpen ? " landing-price-dropdown-arrow--open" : ""}`}>▾</span>
-                  </button>
-
-                  {priceDropdownOpen && (
-                    <div
-                      className="landing-price-dropdown-panel"
-                      ref={pricePanelRef}
-                      style={pricePanelShift ? { transform: `translateX(${pricePanelShift}px)` } : undefined}
-                    >
-                      <div className="landing-price-slider">
-                        <div className="landing-price-slider-track">
-                          <div
-                            className="landing-price-slider-fill"
-                            style={{
-                              left: `${(priceRange[0] / priceBoundsMax) * 100}%`,
-                              right: `${100 - (priceRange[1] / priceBoundsMax) * 100}%`,
-                            }}
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          className="landing-price-slider-input"
-                          min={0}
-                          max={priceBoundsMax}
-                          value={priceRange[0]}
-                          onChange={(e) => handlePriceMinChange(Number(e.target.value))}
-                          aria-label="Precio mínimo"
-                        />
-                        <input
-                          type="range"
-                          className="landing-price-slider-input"
-                          min={0}
-                          max={priceBoundsMax}
-                          value={priceRange[1]}
-                          onChange={(e) => handlePriceMaxChange(Number(e.target.value))}
-                          aria-label="Precio máximo"
-                        />
-                      </div>
-                      <div className="landing-price-slider-footer">
-                        <span className="landing-price-slider-value">
-                          Bs {priceRange[0]} — Bs {priceRange[1]}
-                        </span>
-                        <button
-                          type="button"
-                          className="landing-btn landing-btn-outline-dark landing-price-slider-btn"
-                          onClick={applyPriceFilter}
-                          disabled={priceApplied !== null && priceApplied[0] === priceRange[0] && priceApplied[1] === priceRange[1]}
-                        >
-                          Filtrar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <label className="landing-sort-control">
                 <span className="landing-sort-label">Ordenar por:</span>
@@ -654,6 +549,12 @@ type FilterGroupsProps = {
    * (Subcategoría/Atributos/Marca) para que su texto de búsqueda y "mostrar más" arranquen frescos
    * al navegar a otra categoría. */
   resetKey: string;
+  priceBoundsMax: number;
+  priceRange: PriceRange | null;
+  priceApplied: PriceRange | null;
+  onPriceMinChange: (value: number) => void;
+  onPriceMaxChange: (value: number) => void;
+  onApplyPriceFilter: () => void;
   inStockOnly: boolean;
   onToggleInStockOnly: () => void;
   inStockCount: number;
@@ -676,14 +577,23 @@ type FilterGroupsProps = {
   onToggleBrand: (id: string) => void;
 };
 
-/** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden: Ofertas,
- * Subcategoría, Marca, Atributos — el de Precio se movió al lado de "Ordenar por" en la barra de
- * herramientas (ver landing-price-dropdown en el render principal), ya no vive acá. Subcategoría/
- * Marca/Atributos están ordenados alfabéticamente; si superan los 10 valores suman un buscador, y
+/** Contenido de filtros compartido entre el sidebar (desktop) y el drawer (mobile). Orden: Precio,
+ * Ofertas, Subcategoría, Marca, Atributos — Precio vivía aparte, como desplegable al lado de
+ * "Ordenar por" en la barra de herramientas, pero ese panel flotante se salía de la pantalla en
+ * mobile (ancho fijo + posición anclada al botón, que podía caer cerca del borde). Al quedar inline
+ * acá, hereda el mismo scroll del sidebar/drawer y no necesita ningún cálculo de posición propio.
+ * Subcategoría/Marca/Atributos están ordenados alfabéticamente (los Atributos, además, por
+ * `ordenFiltro` — ver attribute.service.ts); si superan los 10 valores suman un buscador, y
  * Marca/Atributos (variant="scroll") muestran todo dentro de una caja con scroll propio en vez de
  * "Mostrar más/menos" — ver `FilterOptionList`. */
 function FilterGroups({
   resetKey,
+  priceBoundsMax,
+  priceRange,
+  priceApplied,
+  onPriceMinChange,
+  onPriceMaxChange,
+  onApplyPriceFilter,
   inStockOnly,
   onToggleInStockOnly,
   inStockCount,
@@ -707,6 +617,54 @@ function FilterGroups({
 }: FilterGroupsProps) {
   return (
     <div className="landing-filter-groups-box">
+      {priceBoundsMax > 0 && priceRange && (
+        <div className="landing-filter-group">
+          <p className="landing-filter-group-title">Precio</p>
+          <div className="landing-price-slider">
+            <div className="landing-price-slider-track">
+              <div
+                className="landing-price-slider-fill"
+                style={{
+                  left: `${(priceRange[0] / priceBoundsMax) * 100}%`,
+                  right: `${100 - (priceRange[1] / priceBoundsMax) * 100}%`,
+                }}
+              />
+            </div>
+            <input
+              type="range"
+              className="landing-price-slider-input"
+              min={0}
+              max={priceBoundsMax}
+              value={priceRange[0]}
+              onChange={(e) => onPriceMinChange(Number(e.target.value))}
+              aria-label="Precio mínimo"
+            />
+            <input
+              type="range"
+              className="landing-price-slider-input"
+              min={0}
+              max={priceBoundsMax}
+              value={priceRange[1]}
+              onChange={(e) => onPriceMaxChange(Number(e.target.value))}
+              aria-label="Precio máximo"
+            />
+          </div>
+          <div className="landing-price-slider-footer">
+            <span className="landing-price-slider-value">
+              Bs {priceRange[0]} — Bs {priceRange[1]}
+            </span>
+            <button
+              type="button"
+              className="landing-btn landing-btn-outline-dark landing-price-slider-btn"
+              onClick={onApplyPriceFilter}
+              disabled={priceApplied !== null && priceApplied[0] === priceRange[0] && priceApplied[1] === priceRange[1]}
+            >
+              Filtrar
+            </button>
+          </div>
+        </div>
+      )}
+
       {(inStockCount > 0 || inStockOnly || discountCount > 0 || discountOnly || flashCount > 0 || flashOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
