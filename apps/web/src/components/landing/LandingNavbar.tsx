@@ -78,11 +78,26 @@ export function LandingNavbar({
   }, [variant]);
 
   // Bloquea el scroll del fondo mientras el drawer mobile está abierto — si no, se puede scrollear
-  // el contenido detrás del overlay a la vez que el drawer, se siente roto.
+  // el contenido detrás del overlay a la vez que el drawer, se siente roto. overflow:hidden solo no
+  // alcanza en iOS Safari (ahí el body sigue scrolleando por "rubber-banding" aunque tenga
+  // overflow:hidden) — position:fixed con el scroll actual guardado en `top` es el fix estándar
+  // para iOS, y se restaura el scroll exacto al cerrar.
   useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    if (!mobileMenuOpen) return;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "";
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.overflow = "";
+      window.scrollTo(0, scrollY);
     };
   }, [mobileMenuOpen]);
 
@@ -169,7 +184,8 @@ export function LandingNavbar({
     .join(" ");
 
   return (
-    <header className={navbarClass}>
+    <>
+      <header className={navbarClass}>
       {/* Fila principal: logo a la izquierda, buscador al centro, utilidades a la derecha — mismo
           orden que pontocom.com. Las categorías van en su propia fila debajo (ver
           .landing-navbar-categories), como su mega-menú separado. */}
@@ -328,7 +344,14 @@ export function LandingNavbar({
           </nav>
         </div>
       </div>
+      </header>
 
+      {/* Overlay + drawer del menú mobile, FUERA de <header> a propósito: ese header tiene
+          backdrop-filter (ver .landing-navbar), y en iOS/Safari un backdrop-filter en un ancestro
+          crea un "containing block" nuevo para sus descendientes position:fixed — el drawer quedaba
+          confinado al alto de la barra del navbar en vez de cubrir toda la pantalla. Moviéndolo
+          afuera, su position:fixed vuelve a tomar el viewport como referencia en todos los
+          navegadores. */}
       {mobileMenuOpen && (
         <>
           <div className="landing-navbar-mobile-overlay" onClick={closeMobileMenu} />
@@ -423,6 +446,6 @@ export function LandingNavbar({
           </nav>
         </>
       )}
-    </header>
+    </>
   );
 }
