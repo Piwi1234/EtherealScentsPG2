@@ -66,6 +66,31 @@ export default function CategoriaPage() {
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, string[]>>({});
 
+  // Bloquea el scroll del fondo mientras el drawer de filtros (mobile) está abierto — si no, al
+  // arrastrar con el dedo dentro del drawer (sobre todo si el toque empieza en el header/footer, no
+  // en el área con overflow-y:auto) el touch "pasa" y scrollea la página de atrás en vez del drawer
+  // (y en iOS Safari, overflow:hidden solo en el body no alcanza: sigue dejando pasar el scroll por
+  // "rubber-banding"). position:fixed con el scroll actual guardado en `top` es el fix estándar para
+  // iOS, y se restaura el scroll exacto al cerrar — mismo patrón que usa LandingNavbar para su menú.
+  useEffect(() => {
+    if (!filtersDrawerOpen) return;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.overflow = "hidden";
+    return () => {
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [filtersDrawerOpen]);
+
   // Todas las categorías (para armar el breadcrumb y las subcategorías) — la categoría cambia con la ruta.
   useEffect(() => {
     // "?descuento=true" (desplegable de ¡¡OFERTAS!! del navbar), "?subcategoria=" + "?marca="

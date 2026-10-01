@@ -3638,6 +3638,8 @@ a {
 .landing-filters-drawer-body {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 20px 24px 24px;
   display: flex;
   flex-direction: column;
@@ -3914,6 +3916,11 @@ a {
 .landing-filter-options-scroll {
   max-height: 306px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Sin esto, al llegar al final de esta lista (marcas, acordes) arrastrando con el dedo en mobile,
+     el scroll "se encadena" hacia la página de atrás del drawer de filtros en vez de frenar acá —
+     se sentía como que el filtro completo se deslizaba junto con el fondo. */
+  overscroll-behavior: contain;
   padding-right: 6px;
   margin-right: -6px;
 }
