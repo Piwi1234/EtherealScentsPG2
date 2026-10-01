@@ -2,14 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands, getLandingImages } from "../../lib/api";
+import { apiGet, getBrands } from "../../lib/api";
 import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
-import type { Brand, CarouselImage, Category } from "../../lib/types";
+import type { Brand, Category } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
-import { ImageCarousel } from "../../components/landing/ImageCarousel";
-
-const MARCAS_BANNER_AUTOPLAY_MS = 10000;
 
 // Alfabeto español para el filtro por letra — Ñ como letra propia, "#" agrupa nombres que no
 // arrancan con ninguna de estas (dígitos, símbolos).
@@ -28,7 +25,6 @@ function marcaLetterBucket(name: string): string {
 export default function MarcasPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [marcasHeroImages, setMarcasHeroImages] = useState<CarouselImage[]>([]);
   const [rootCategoryFilter, setRootCategoryFilter] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -42,9 +38,6 @@ export default function MarcasPage() {
     getBrands()
       .then(setBrands)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getLandingImages()
-      .then((images) => setMarcasHeroImages(images.marcasHeroImages))
-      .catch(() => {});
   }, []);
 
   const rootCategories = useMemo(
@@ -121,17 +114,17 @@ export default function MarcasPage() {
     <div className="landing-page">
       <LandingNavbar variant="dark" overlay={false} />
 
-      <section className="landing-category-banner landing-category-banner--no-overlay">
-        {marcasHeroImages.length > 0 && (
-          <div className="landing-category-banner-bg">
-            <ImageCarousel
-              images={marcasHeroImages}
-              alt=""
-              imgClassName="landing-category-banner-bg-image"
-              autoplayMs={MARCAS_BANNER_AUTOPLAY_MS}
-            />
-          </div>
-        )}
+      <div className="landing-breadcrumb-bar">
+        <div className="landing-container">
+          <p className="landing-breadcrumb">
+            <Link href="/home">Inicio</Link>
+            <span>/</span>
+            <span className="landing-breadcrumb-current">Marcas</span>
+          </p>
+        </div>
+      </div>
+
+      <section className="landing-category-header">
         <div className="landing-container">
           <h1>Marcas</h1>
           <p className="landing-category-lead">Explorá las marcas que trabajamos, organizadas por categoría.</p>

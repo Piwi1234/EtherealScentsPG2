@@ -2200,6 +2200,13 @@ a {
   background: var(--lp-surface);
 }
 
+/* /categoria/[slug]: justo arriba va .landing-category-header, que ya trae su propio padding
+   inferior — los 84px base de .landing-section se sumaban a eso y dejaban un hueco enorme entre el
+   subtítulo y el toolbar de filtros/productos. */
+.landing-section--category {
+  padding-top: 24px;
+}
+
 /* --- "Descuento y Ofertas": fondo oscuro, con la paleta navy + dorado del sitio (--es-navy-900,
    mismo tono que encabezado/footer/hero oscuro, con acentos --es-gold) en vez de la paleta clara
    del resto del catálogo público. Todo lo de acá abajo está scoped a esta sección/carrusel
@@ -3464,6 +3471,26 @@ a {
   font-size: 15px;
   color: rgba(245, 244, 240, 0.8);
   max-width: 620px;
+}
+
+/* --- Encabezado simple de /categoria/[slug] y /marcas: reemplaza el banner oscuro con imagen de
+   fondo de antes (ver .landing-category-banner, que /buscar sigue usando tal cual). Reusa el mismo
+   <h1>/.landing-category-lead del banner, así que acá se pisa su color pensado para fondo oscuro —
+   el resto (tamaño, max-width) no hace falta repetirlo. */
+.landing-category-header {
+  padding: 32px 0 28px;
+  background: var(--lp-bg);
+}
+
+.landing-category-header h1 {
+  font-size: 32px;
+  color: var(--lp-text);
+  margin: 0 0 8px;
+}
+
+.landing-category-header .landing-category-lead {
+  color: var(--lp-muted);
+  text-shadow: none;
 }
 
 /* --- Toolbar de filtros (subcategoría/marca) + orden --- */
@@ -6131,6 +6158,14 @@ a {
   }
 
   .landing-category-banner h1 {
+    font-size: 26px;
+  }
+
+  .landing-category-header {
+    padding: 24px 0 20px;
+  }
+
+  .landing-category-header h1 {
     font-size: 26px;
   }
 
