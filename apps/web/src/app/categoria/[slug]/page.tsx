@@ -16,7 +16,7 @@ type PriceRange = [number, number];
 
 const FILTER_VISIBLE_DEFAULT = 10;
 // 4 tarjetas por fila x 5 filas visibles — a partir de ahí se pagina.
-const CARDS_PER_PAGE = 20;
+const CARDS_PER_PAGE = 16;
 // Tope de valores simultáneos para un filtro "allowMultiple" (ej. Acordes) — coincide con el límite
 // que valida el backend en browse.service.ts, donde el producto debe coincidir con TODOS los
 // seleccionados (no con cualquiera).
@@ -269,6 +269,12 @@ export default function CategoriaPage() {
     setPageNumber(1);
   }
 
+  function clearPriceFilter() {
+    setPriceApplied(null);
+    setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
+    setPageNumber(1);
+  }
+
   function clearAllFilters() {
     setSubCategoryFilter("");
     setDiscountOnly(false);
@@ -314,6 +320,46 @@ export default function CategoriaPage() {
   // Marca, precio y orden ya se resuelven en el fetch de arriba (server-side) — acá no queda nada
   // que filtrar/ordenar/paginar de nuevo: `productsPage.items` ya es exactamente la página pedida.
   const totalPages = productsPage ? Math.max(1, Math.ceil(productsPage.total / CARDS_PER_PAGE)) : 1;
+
+  // Un chip por valor activo (no por grupo: "Acordes" con 2 valores tildados son 2 chips, cada uno
+  // sacable por separado) — solo se muestran en el filtro superior de desktop, ver
+  // .landing-active-filters en globals.css.
+  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
+  if (subCategoryFilter) {
+    const sub = subcategories.find((s) => s.id === subCategoryFilter);
+    if (sub) activeFilterChips.push({ key: `sub-${sub.id}`, label: sub.name, onRemove: () => selectSubcategory(sub.id) });
+  }
+  for (const brandId of brandFilters) {
+    const brand = brandsWithCounts.find((b) => b.id === brandId);
+    activeFilterChips.push({
+      key: `brand-${brandId}`,
+      label: brand?.name ?? brandId,
+      onRemove: () => toggleBrand(brandId),
+    });
+  }
+  if (inStockOnly) activeFilterChips.push({ key: "stock", label: "En Stock", onRemove: toggleInStockOnly });
+  if (discountOnly) activeFilterChips.push({ key: "discount", label: "Con Descuento", onRemove: toggleDiscountOnly });
+  if (flashOnly) activeFilterChips.push({ key: "flash", label: "Por tiempo limitado", onRemove: toggleFlashOnly });
+  if (priceApplied) {
+    activeFilterChips.push({
+      key: "price",
+      label: `Bs ${priceApplied[0]} — Bs ${priceApplied[1]}`,
+      onRemove: clearPriceFilter,
+    });
+  }
+  for (const [attributeId, values] of Object.entries(attributeFilters)) {
+    const attribute = filterableAttributes.find((a) => a.id === attributeId);
+    if (!attribute) continue;
+    const options = getAttributeFilterOptions(attribute, basePage?.items ?? []);
+    for (const value of values) {
+      const option = options.find((o) => o.value === value);
+      activeFilterChips.push({
+        key: `attr-${attributeId}-${value}`,
+        label: option?.label ?? value,
+        onRemove: () => toggleAttributeValue(attributeId, value),
+      });
+    }
+  }
 
   if (notFound) {
     return (
@@ -413,6 +459,24 @@ export default function CategoriaPage() {
               </div>
               <FilterGroups {...filterGroupsProps} />
             </aside>
+          )}
+
+          {activeFilterChips.length > 0 && (
+            <div className="landing-active-filters">
+              {activeFilterChips.map((chip) => (
+                <span className="landing-active-filter-chip" key={chip.key}>
+                  {chip.label}
+                  <button
+                    type="button"
+                    className="landing-active-filter-chip-remove"
+                    aria-label={`Quitar filtro ${chip.label}`}
+                    onClick={chip.onRemove}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
           )}
 
           <div className="landing-category-main">

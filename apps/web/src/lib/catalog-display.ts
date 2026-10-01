@@ -22,6 +22,13 @@ export function brandLinkHref(rootCategory: { id: string; slug: string }, brand:
   return `/categoria/${rootCategory.slug}?${params.toString()}`;
 }
 
+/** Precio en Bs redondeado a entero (sin decimales) con "." como separador de miles — ej. 3240 →
+ * "3.240". Usado en la tarjeta de producto pública (ver ProductCard); el resto de los lugares que
+ * muestran Bs (detalle de producto, carrito, panel de gestión) siguen con su propio formato. */
+export function formatPriceBs(value: number): string {
+  return Math.round(value).toLocaleString("es-BO");
+}
+
 /**
  * Si el producto tiene variantes con precio propio, se muestra "Desde" el precio más bajo entre
  * ellas — devuelve también esa variante (`variant`), para poder usar su imagen propia si tiene
