@@ -3719,6 +3719,18 @@ a {
   border: 1px solid #d8d3ce;
   border-radius: 12px;
   overflow: hidden;
+  /* Sin esto, al ser un hijo flex de un contenedor en columna (.landing-filters-sidebar en
+     escritorio, .landing-filters-drawer-body en el drawer mobile) el spec de flexbox permite
+     que este box se comprima por debajo de la altura real de su contenido apenas no entra en el
+     espacio disponible — como overflow no es "visible", el tamaño mínimo automático pasa a ser 0
+     en vez del tamaño del contenido. Comprimido así, el overflow:hidden de arriba recorta
+     silenciosamente el resto de los filtros (Marca, Acordes, etc.) sin dejar ninguna forma de
+     llegar a ellos ni con scroll del padre ni con scroll propio — se sentía como que el touch no
+     hacía nada. flex-shrink:0 lo obliga a mantener su alto natural; en el drawer mobile eso deja
+     que .landing-filters-drawer-body (que si tiene overflow-y:auto) sea quien scrollee el sobrante,
+     tal como ya asumía el comentario de abajo. En desktop no cambia nada: el box ya tiene su propio
+     max-height + overflow-y:auto (ver .landing-filters-sidebar .landing-filter-groups-box). */
+  flex-shrink: 0;
 }
 
 /* Scroll propio del cuadro de filtros en el sidebar de desktop — independiente del resto de la
