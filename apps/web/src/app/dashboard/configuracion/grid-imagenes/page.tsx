@@ -158,9 +158,9 @@ export default function GridImagenesPage() {
       categoryId: null,
       images: heroImages,
       hint:
-        "Se muestran de a 3 banners lado a lado (como en agatres.co) — si hay más de 3 imágenes, rotan solas de a " +
-        "grupos de 3. Cada imagen puede llevar su propio link de redirección (no comparten uno solo). Recomendado: " +
-        "1200×1360px o más, vertical (relación 3:3.4), por cada imagen.",
+        "Se muestra 1 sola imagen a pantalla completa por vez — si hay más de una, rotan solas. Cada imagen puede " +
+        "llevar su propio link de redirección. Recomendado: 2400×816px o más, panorámica (relación ~2.94:1), por " +
+        "cada imagen.",
     },
     {
       key: "weekly-collection-banner",
