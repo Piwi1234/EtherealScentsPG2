@@ -3,7 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
-import { cardFlashUntil, cardImageUrl, displayPrice, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import { cardFlashUntil, cardImageUrl, displayPrice, formatPriceBs, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
 import { formatAtributosTarjeta, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
@@ -79,7 +79,6 @@ export function ProductCard({
         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
         <p className="landing-product-name">{product.name}</p>
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
-        {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
         {soldOut ? (
           <span className="landing-product-price-soldout">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -90,16 +89,17 @@ export function ProductCard({
           </span>
         ) : discountBs > 0 ? (
           <span className="landing-product-price landing-product-price--discounted">
-            <span className="landing-product-price-old">Bs {(bs + discountBs).toFixed(2)}</span>
+            <span className="landing-product-price-old">Bs {formatPriceBs(bs + discountBs)}</span>
             <span className="landing-product-price-new">
-              {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+              {fromPrice ? "Desde " : ""}Bs {formatPriceBs(bs)}
             </span>
           </span>
         ) : (
           <span className="landing-product-price">
-            {fromPrice ? "Desde " : ""}Bs {bs.toFixed(2)}
+            {fromPrice ? "Desde " : ""}Bs {formatPriceBs(bs)}
           </span>
         )}
+        {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
       </div>
     </Link>
   );

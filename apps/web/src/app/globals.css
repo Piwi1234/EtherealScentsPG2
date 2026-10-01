@@ -4137,7 +4137,7 @@ a {
  * del carrusel y la siguiente. */
 .landing-product-grid--carousel .landing-product-body {
   height: 150px;
-  padding: 14px 16px 18px;
+  padding: 14px 0 18px;
 }
 
 .landing-product-grid--carousel .landing-product-name {
@@ -4174,11 +4174,13 @@ a {
 
 .landing-product-grid--carousel .landing-product-price {
   font-size: 15px;
+  margin-top: auto;
 }
 
 .landing-product-grid--carousel .landing-product-price-soldout {
   font-size: 9.5px;
   padding: 4px 9px;
+  margin-top: auto;
 }
 
 /* --- Tema oscuro de la tarjeta en sí (fondo, texto, placeholder a rayas) — ver comentario del
@@ -4224,21 +4226,14 @@ a {
   color: rgba(245, 244, 240, 0.4);
 }
 
-/* --- "Colección de la semana": banner alto a la izquierda (mismo carrusel que el resto, ver
-   ImageCarousel) + grilla 4x3 de los últimos 12 productos de la marca elegida en Marcas --- */
-
+/* --- "Colección de la semana": banner panorámico arriba (mismo carrusel que el resto, ver
+   ImageCarousel) + fila de las últimas 5 tarjetas de la marca elegida en Marcas, debajo, con el
+   mismo ancho que el banner — antes el banner era un panel alto a la izquierda con la grilla al
+   lado; ahora todo va apilado en una sola columna. */
 .landing-weekly-collection-layout {
-  display: grid;
-  grid-template-columns: 504px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  /* "start", no "stretch": con dos elementos de alto EXPLÍCITO (px, no aspect-ratio) no hace falta
-     estirar nada — usar stretch acá terminaba en un alto ambiguo/circular (la grilla dependía del
-     banner y viceversa) que rompía el layout. */
-  align-items: start;
-}
-
-.landing-weekly-collection-layout--no-banner {
-  grid-template-columns: 1fr;
 }
 
 .landing-weekly-collection-banner {
@@ -4247,9 +4242,9 @@ a {
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  /* Alto fijo (no aspect-ratio) para que sea un valor inequívoco — ver .landing-product-grid--weekly
-     acá abajo, que usa este mismo número para no desalinearse. */
-  height: 664px;
+  /* La mitad del alto que tenía como panel lateral (664px) — ahora que ocupa el ancho completo de
+     las tarjetas de abajo en vez de una columna angosta, no necesita ser tan alto. */
+  height: 332px;
 }
 
 .landing-weekly-collection-banner-image {
@@ -4277,28 +4272,18 @@ a {
 }
 
 .landing-product-grid--weekly {
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
-  /* Mismo alto fijo que .landing-weekly-collection-banner, para que las 2 filas de tarjetas calcen
-     exacto con el banner de al lado sin depender de stretch (ver esa regla). */
-  height: 664px;
 }
 
-/* Sin aspect-ratio a propósito: la imagen se estira (flex) para llenar el alto que le sobra a la
-   tarjeta después del cuerpo (76px fijo, ver .landing-product-body de acá abajo) — el alto total de
-   la tarjeta sale de dividir el alto fijo de .landing-product-grid--weekly (arriba) entre las 2
-   filas. Si se cambia ESE alto (o el de .landing-weekly-collection-banner, que debe quedar igual),
-   la imagen se ajusta sola sin tocar nada acá. */
 .landing-product-grid--weekly .landing-product-image,
 .landing-product-grid--weekly .landing-product-image-placeholder {
-  flex: 1 1 auto;
-  min-height: 0;
+  aspect-ratio: 8 / 9;
 }
 
 .landing-product-grid--weekly .landing-product-body {
   height: 76px;
-  padding: 8px 12px 8px;
+  padding: 0;
 }
 
 .landing-product-grid--weekly .landing-product-brand {
@@ -4324,11 +4309,13 @@ a {
 .landing-product-grid--weekly .landing-product-price {
   font-size: 12px;
   padding-top: 4px;
+  margin-top: auto;
 }
 
 .landing-product-grid--weekly .landing-product-price-soldout {
   font-size: 9.5px;
   padding: 3px 8px;
+  margin-top: auto;
 }
 
 .landing-product-grid--weekly .landing-product-offer-badge {
@@ -4346,6 +4333,11 @@ a {
   bottom: 8px;
   padding: 3px 8px;
   font-size: 9.5px;
+}
+
+.landing-weekly-collection-more {
+  margin-top: 8px;
+  text-align: center;
 }
 
 .landing-carousel-arrow {
@@ -4388,31 +4380,46 @@ a {
   pointer-events: none;
 }
 
+/* La tarjeta ya no es una sola caja con borde — la imagen vive en su propia caja blanca con sombra
+   (ver .landing-product-image-wrap) y el texto de abajo (marca/nombre/precio) queda suelto, sin
+   caja, directo sobre el fondo de la página. */
 .landing-product-card {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--lp-surface);
-  border: 1px solid #d8d3ce;
-  border-radius: 16px;
-  overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  gap: 14px;
+  transition: transform 0.15s ease;
+  /* Los ítems de grid tienen min-width:auto por default — sin esto, un nombre de producto largo
+     (ver .landing-product-name, que lo trunca con ellipsis) evitaba que la columna se achicara a su
+     parte justa del grid, aunque el ellipsis ya estuviera puesto: esa tarjeta quedaba más ancha (y
+     con la imagen más alta, por el aspect-ratio) que el resto de la fila. */
+  min-width: 0;
 }
 
 .landing-product-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.08);
 }
 
 .landing-product-image-wrap {
   position: relative;
   flex-shrink: 0;
+  background: var(--lp-surface);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(26, 26, 46, 0.06), 0 10px 24px rgba(26, 26, 46, 0.06);
+  transition: box-shadow 0.15s ease;
+}
+
+.landing-product-card:hover .landing-product-image-wrap {
+  box-shadow: 0 16px 32px rgba(26, 26, 46, 0.14);
 }
 
 .landing-product-image,
 .landing-product-image-placeholder {
   width: 100%;
-  aspect-ratio: 5 / 4;
+  /* 15% más alta que el 5:4 original (misma base que el comentario de más abajo sobre /categoria y
+     /buscar), a ancho de columna igual. */
+  aspect-ratio: 25 / 23;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -4432,7 +4439,7 @@ a {
   padding: 5px 10px;
   background: var(--es-gold);
   color: var(--es-navy-900);
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4467,7 +4474,7 @@ a {
   padding: 5px 10px;
   background: #1f9d55;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4529,7 +4536,10 @@ a {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 18px 20px 22px;
+  /* Sin padding lateral ni superior a propósito — ya no comparte caja con la imagen de arriba (ver
+     el comentario en .landing-product-card), así que el texto arranca a ras del borde izquierdo de
+     la imagen en vez de estar inset. */
+  padding: 0 0 4px;
 }
 
 .landing-product-brand {
@@ -4541,13 +4551,13 @@ a {
 }
 
 .landing-product-name {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 600;
   margin: 4px 0 6px;
 }
 
 .landing-product-attrs {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--lp-muted);
   margin: 0 0 10px;
   line-height: 1.4;
@@ -4558,7 +4568,10 @@ a {
   align-items: center;
   gap: 4px;
   align-self: flex-start;
-  margin-top: auto;
+  /* Ahora va siempre después del precio (ver ProductCard) — en las tarjetas de alto fijo
+     (carrusel/colección de la semana) es el precio el que tiene margin-top:auto y empuja el par
+     entero al fondo; acá alcanza con un margen chico y fijo. */
+  margin-top: 8px;
   padding: 3px 9px;
   border-radius: 999px;
   background: #d81f26;
@@ -4574,9 +4587,8 @@ a {
 }
 
 .landing-product-price {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
-  margin-top: auto;
   padding-top: 8px;
 }
 
@@ -4588,11 +4600,11 @@ a {
   align-self: flex-start;
   align-items: center;
   gap: 5px;
-  margin-top: auto;
+  margin-top: 8px;
   padding: 5px 10px;
   background: #2b2b2b;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4605,11 +4617,6 @@ a {
   flex-shrink: 0;
 }
 
-.landing-flash-countdown + .landing-product-price,
-.landing-flash-countdown + .landing-product-price-soldout {
-  margin-top: 6px;
-}
-
 /* Casilleros HH/MM/SS (variant="boxes" de FlashCountdown) — carrusel de "Descuento y Ofertas".
    Celeste mientras falten más de 3 horas, rosado oscuro por debajo de eso (ver
    URGENT_THRESHOLD_MS en FlashCountdown.tsx). */
@@ -4617,8 +4624,9 @@ a {
   display: flex;
   gap: 6px;
   align-self: stretch;
-  margin-top: auto;
-  padding-top: 4px;
+  /* Mismo criterio que .landing-flash-countdown de más arriba: siempre después del precio, el
+     margen que empuja al fondo en las tarjetas de alto fijo ya lo pone el precio. */
+  margin-top: 8px;
 }
 
 .landing-flash-box {
@@ -4652,13 +4660,8 @@ a {
   color: #d91e76;
 }
 
-.landing-flash-boxes + .landing-product-price,
-.landing-flash-boxes + .landing-product-price-soldout {
-  margin-top: 6px;
-}
-
-/* Cuando el producto/variante mostrada tiene descuento: precio anterior tachado + precio nuevo en
-   rojo, uno al lado del otro. */
+/* Cuando el producto/variante mostrada tiene descuento: precio anterior tachado + precio nuevo,
+   uno al lado del otro. */
 .landing-product-price--discounted {
   display: flex;
   align-items: baseline;
@@ -4673,7 +4676,7 @@ a {
 }
 
 .landing-product-price-new {
-  color: #e0262c;
+  color: var(--lp-text);
 }
 
 .landing-empty-note {
@@ -5802,6 +5805,10 @@ a {
   .landing-product-grid--carousel {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .landing-product-grid--weekly {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -5815,11 +5822,6 @@ a {
 
   .landing-marcas-grid {
     grid-template-columns: repeat(5, 1fr);
-  }
-
-  .landing-product-grid--weekly {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
   }
 }
 
@@ -5845,31 +5847,8 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .landing-weekly-collection-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-weekly-collection-banner {
-    height: 250px;
-  }
-
   .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    /* El alto fijo de escritorio (para calzar con el banner de al lado) no aplica acá — apilado en
-       una columna, cada tarjeta usa su propia proporción (aspect-ratio de acá abajo). */
-    height: auto;
-  }
-
-  /* Acá el layout ya se apiló a una columna (banner arriba, grilla abajo, ver
-     .landing-weekly-collection-layout de este mismo media query) — sin fila compartida con el
-     banner no hay de qué "alto restante" llenar, así que la imagen vuelve a tener su propia
-     proporción fija en vez de flex (ver la versión de escritorio, sin media query, más arriba). */
-  .landing-product-grid--weekly .landing-product-image,
-  .landing-product-grid--weekly .landing-product-image-placeholder {
-    flex: none;
-    min-height: auto;
-    aspect-ratio: 8 / 9;
   }
 
   .landing-brand-grid {
@@ -6128,7 +6107,6 @@ a {
      que colapse más abajo de acá (mismo criterio que .landing-product-grid arriba). */
   .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(4, 1fr);
   }
 
   .landing-brand-grid {
@@ -6654,8 +6632,6 @@ a {
 .landing-btn-outline { background: var(--es-navy-900); border-color: var(--es-navy-900); }
 .landing-cart-fab { background: var(--es-navy-700); }
 
-.landing-product-card { border-color: var(--es-line); }
-
 /* 3. FILTRO LATERAL — LINEAL ---------------------------------------------- */
 /* Sin caja: solo líneas finas entre secciones */
 .landing-filter-groups-box {
@@ -6772,5 +6748,286 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   .landing-filters-drawer-footer {
     border-top: 1px solid var(--es-line);
     padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ==========================================================================
+   Filtro superior (barra horizontal) · SOLO COMPUTADORA — prueba A/B frente
+   al sidebar lateral de siempre. No afecta pantallas de 900px o menos: el
+   filtro mobile (drawer) sigue igual. Cada grupo (Precio, Subcategoría,
+   Marca, Género, Concentración, Acordes) se vuelve un botón redondeado que
+   abre su menú al pasar el mouse o al navegar con Tab.
+   ========================================================================== */
+
+@media (min-width: 901px) {
+
+  /* 1. Diseño: el filtro pasa de columna lateral a barra arriba ----------- */
+  .landing-category-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .landing-filters-sidebar {
+    position: sticky;
+    /* No 0: el navbar (.landing-navbar, position:sticky con overlay=false acá) ya ocupa ese tope —
+       mismo offset que usaba el sidebar vertical de siempre, para que la barra quede pegada justo
+       debajo en vez de meterse atrás. */
+    top: 100px;
+    z-index: 40;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+    margin-bottom: 24px;
+    background: var(--es-bg, #f4f5f8);
+    border-top: 1px solid var(--es-line, #dde2eb);
+    border-bottom: 1px solid var(--es-line, #dde2eb);
+  }
+
+  /* Mínimo espacio posible entre el subtítulo de la categoría y la barra — los 24px/28px de acá
+     abajo son para el sidebar vertical de siempre; con la barra horizontal sobra casi todo.
+     :has(+ .landing-section--category) en vez de tocar .landing-category-header a secas porque esa
+     misma clase también la usa /marcas, que no tiene esta barra. */
+  .landing-category-header:has(+ .landing-section--category) {
+    padding-bottom: 4px;
+  }
+
+  .landing-section--category {
+    padding-top: 0;
+  }
+
+  .landing-filters-sidebar-header {
+    flex-shrink: 0;
+    gap: 14px;               /* separa "Filtros" de "Limpiar" */
+  }
+
+  .landing-filters-sidebar-header .landing-toolbar-filter-label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--es-muted, #5f6778);
+  }
+
+  .landing-filters-sidebar .landing-filter-groups-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: none;
+    overflow: visible;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* 2. Cada grupo = un botón redondeado ----------------------------------- */
+  .landing-filters-sidebar .landing-filter-group,
+  .landing-filters-sidebar .landing-filter-group + .landing-filter-group {
+    position: relative;
+    height: 46px;            /* 40px del botón + 6px de espacio antes del menú */
+    padding: 0;
+    border: 0;
+  }
+
+  .landing-filters-sidebar .landing-filter-group-title {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    box-sizing: border-box;
+    margin: 0 0 6px;
+    padding: 0 36px 0 16px;
+    border: 1px solid var(--es-line, #dde2eb);
+    border-radius: 999px;
+    background: var(--es-surface, #fff);
+    color: var(--es-text, #1a2234);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+
+  /* flecha ▾ */
+  .landing-filters-sidebar .landing-filter-group-title::after {
+    content: "";
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-70%) rotate(45deg);
+    transition: transform .15s;
+  }
+
+  /* abierto */
+  .landing-filters-sidebar .landing-filter-group:hover,
+  .landing-filters-sidebar .landing-filter-group:focus-within { z-index: 2; }
+
+  .landing-filters-sidebar .landing-filter-group:hover .landing-filter-group-title,
+  .landing-filters-sidebar .landing-filter-group:focus-within .landing-filter-group-title {
+    border-color: var(--es-navy-700, #1c3561);
+  }
+  .landing-filters-sidebar .landing-filter-group:hover .landing-filter-group-title::after,
+  .landing-filters-sidebar .landing-filter-group:focus-within .landing-filter-group-title::after {
+    transform: translateY(-30%) rotate(-135deg);
+  }
+
+  /* con algo marcado: botón relleno en azul marino */
+  .landing-filters-sidebar .landing-filter-group:has(input[type="checkbox"]:checked) .landing-filter-group-title {
+    background: var(--es-navy-700, #1c3561);
+    border-color: var(--es-navy-700, #1c3561);
+    color: #fff;
+  }
+
+  /* 3. El menú desplegable ------------------------------------------------ */
+  /* Todo lo que no es el título forma el panel (300px de ancho).
+     margin-right negativo = el panel no ensancha el botón. */
+  .landing-filters-sidebar .landing-filter-group > :not(.landing-filter-group-title) {
+    position: relative;
+    box-sizing: border-box;
+    width: 300px;
+    max-width: none;
+    margin: 0 -300px 0 0;
+    background: var(--es-surface, #fff);
+    /* cerrado: invisible pero se puede llegar con Tab */
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    pointer-events: none;
+    transition: opacity .12s;
+  }
+
+  .landing-filters-sidebar .landing-filter-group:hover > :not(.landing-filter-group-title),
+  .landing-filters-sidebar .landing-filter-group:focus-within > :not(.landing-filter-group-title) {
+    opacity: 1;
+    clip-path: none;
+    pointer-events: auto;
+  }
+
+  /* sombra única para todo el panel */
+  .landing-filters-sidebar .landing-filter-group:hover,
+  .landing-filters-sidebar .landing-filter-group:focus-within {
+    filter: drop-shadow(0 0 1px rgba(13, 26, 48, .22)) drop-shadow(0 14px 28px rgba(13, 26, 48, .14));
+  }
+
+  /* bordes redondeados arriba y abajo del panel */
+  .landing-filters-sidebar .landing-filter-group-title + * {
+    border-radius: 14px 14px 0 0;
+    padding-top: 10px;
+  }
+  .landing-filters-sidebar .landing-filter-group > :last-child {
+    border-radius: 0 0 14px 14px;
+    padding-bottom: 12px;
+  }
+
+  /* opciones con casilla */
+  .landing-filters-sidebar .landing-filter-group > .landing-filter-checkbox {
+    margin-left: 0;
+    padding: 9px 16px;
+    border-radius: 0;
+  }
+  .landing-filters-sidebar .landing-filter-group-title + .landing-filter-checkbox { border-radius: 14px 14px 0 0; padding-top: 14px; }
+  .landing-filters-sidebar .landing-filter-group > .landing-filter-checkbox:last-child { border-radius: 0 0 14px 14px; padding-bottom: 14px; }
+
+  /* buscador (Marca, Acordes) */
+  .landing-filters-sidebar .landing-filter-group > .landing-filter-search {
+    height: auto;
+    padding: 14px 16px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--es-line, #dde2eb);
+    border-radius: 14px 14px 0 0;
+    outline: none;
+  }
+
+  /* listas largas */
+  .landing-filters-sidebar .landing-filter-group > .landing-filter-options-scroll {
+    max-height: 300px;
+    margin-right: -300px;
+    padding: 6px 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .landing-filters-sidebar .landing-filter-options-scroll .landing-filter-checkbox {
+    margin: 0;
+    padding: 8px;
+  }
+
+  /* nota "Hasta 4 a la vez" en Acordes */
+  .landing-filters-sidebar .landing-filter-group > .landing-empty-note {
+    margin: 0 -300px 0 0 !important;   /* la nota trae margin en línea */
+    padding: 8px 16px 12px;
+    font-size: 12px;
+  }
+
+  /* Precio: el control de rango usa bordes blancos como margen interno
+     porque su barra se posiciona por dentro */
+  .landing-filters-sidebar .landing-filter-group > .landing-price-slider {
+    height: 42px;
+    padding: 0;
+    border-style: solid;
+    border-color: var(--es-surface, #fff);
+    border-width: 22px 18px 0;
+  }
+  .landing-filters-sidebar .landing-price-slider-footer {
+    padding: 12px 16px 14px;
+  }
+  .landing-price-slider-fill { background: var(--es-navy-700, #1c3561); }
+  .landing-price-slider-track { background: var(--es-line, #dde2eb); }
+
+  /* 4. Chips de filtros activos, debajo de la barra ----------------------- */
+  .landing-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 24px;
+  }
+
+  .landing-active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 6px 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--es-line, #dde2eb);
+    background: var(--es-surface, #fff);
+    color: var(--es-text, #1a2234);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .landing-active-filter-chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--es-line, #dde2eb);
+    color: var(--es-text, #1a2234);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+
+  .landing-active-filter-chip-remove:hover {
+    background: var(--es-navy-700, #1c3561);
+    color: #fff;
+  }
+
+  /* 5. Fila de conteo y orden, debajo de la barra ------------------------- */
+  .landing-category-main .landing-toolbar { margin-bottom: 20px; }
+}
+
+/* Los chips solo existen en el filtro superior de desktop — en mobile el drawer ya muestra el
+   conteo de activos en el botón "Filtros (n)". */
+@media (max-width: 900px) {
+  .landing-active-filters {
+    display: none;
   }
 }

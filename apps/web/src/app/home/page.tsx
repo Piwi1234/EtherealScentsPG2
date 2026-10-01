@@ -25,7 +25,7 @@ const HERO_AUTOPLAY_MS = 10000;
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
-const WEEKLY_COLLECTION_SIZE = 8;
+const WEEKLY_COLLECTION_SIZE = 5;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -116,8 +116,9 @@ export default function HomePage() {
     [productsPage, offersSlideSize],
   );
 
-  // "Colección de la semana": los últimos 12 productos creados de la marca elegida en Marcas del
-  // panel de gestión — bloque oculto si no hay ninguna marca elegida.
+  // "Colección de la semana": los últimos 5 productos creados de la marca elegida en Marcas del
+  // panel de gestión — bloque oculto si no hay ninguna marca elegida. Sin sortBy: el mismo orden por
+  // defecto del backend (createdAt desc) ya es "los más nuevos primero".
   const weeklyCollectionBrandId = landingImages?.weeklyCollectionBrand?.id ?? null;
   useEffect(() => {
     if (!weeklyCollectionBrandId) {
@@ -129,6 +130,21 @@ export default function HomePage() {
       .then((page) => setWeeklyCollectionProducts(page.items))
       .catch(() => {});
   }, [weeklyCollectionBrandId]);
+
+  // Link del botón "Ver más": la página de categoría filtrada por esta marca (mismo mecanismo que
+  // brandLinkHref usa para el carrusel "Explorá Nuestras Marcas" de acá abajo) — acá hay que resolver
+  // la categoría raíz a mano porque este bloque no vive dentro de un loop por categoría como ese.
+  const weeklyCollectionBrandFull = brands.find((b) => b.id === weeklyCollectionBrandId) ?? null;
+  const weeklyCollectionBrandCategory = weeklyCollectionBrandFull?.categories[0]?.category ?? null;
+  const weeklyCollectionRootCategory = weeklyCollectionBrandCategory
+    ? weeklyCollectionBrandCategory.parentId
+      ? (categories.find((c) => c.id === weeklyCollectionBrandCategory.parentId) ?? null)
+      : weeklyCollectionBrandCategory
+    : null;
+  const weeklyCollectionHref =
+    weeklyCollectionBrandFull && weeklyCollectionRootCategory
+      ? brandLinkHref(weeklyCollectionRootCategory, weeklyCollectionBrandFull)
+      : null;
 
   // Avanza sola cada 7s; se reinicia cuando el usuario navega a mano (offersAutoKey) para no
   // "pelear" con un click reciente.
@@ -370,11 +386,7 @@ export default function HomePage() {
               Lo último de {landingImages.weeklyCollectionBrand.name}, recién llegado a nuestro catálogo.
             </p>
 
-            <div
-              className={`landing-weekly-collection-layout${
-                landingImages.weeklyCollectionBannerImages.length === 0 ? " landing-weekly-collection-layout--no-banner" : ""
-              }`}
-            >
+            <div className="landing-weekly-collection-layout">
               {landingImages.weeklyCollectionBannerImages.length > 0 && (
                 <div className="landing-weekly-collection-banner">
                   <ImageCarousel
@@ -391,6 +403,14 @@ export default function HomePage() {
                   <ProductCard product={product} key={product.id} />
                 ))}
               </div>
+
+              {weeklyCollectionHref && (
+                <div className="landing-weekly-collection-more">
+                  <Link href={weeklyCollectionHref} className="landing-btn landing-btn-outline-dark">
+                    Ver más
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </section>
