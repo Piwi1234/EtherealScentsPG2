@@ -89,6 +89,21 @@ export class SettingsController {
     return this.settings.setHeroCarouselImageUrl(imageId, dto.url ?? null);
   }
 
+  // Variante de esta misma imagen para pantallas chicas — ver CarouselImageService.setMobileImage.
+  @Post("landing-images/hero-carousel/:imageId/mobile-image")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
+  setHeroCarouselImageMobile(@Param("imageId", ParseUUIDPipe) imageId: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.setHeroCarouselImageMobile(imageId, file);
+  }
+
+  @Delete("landing-images/hero-carousel/:imageId/mobile-image")
+  removeHeroCarouselImageMobile(@Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.settings.removeHeroCarouselImageMobile(imageId);
+  }
+
   @Get("landing-images/marcas-hero-carousel")
   listMarcasHeroCarouselImages() {
     return this.settings.listMarcasHeroCarouselImages();
@@ -174,6 +189,24 @@ export class SettingsController {
   @Patch("landing-images/weekly-collection-carousel/:imageId/url")
   setWeeklyCollectionBannerCarouselImageUrl(@Param("imageId", ParseUUIDPipe) imageId: string, @Body() dto: UpdateCarouselImageUrlDto) {
     return this.settings.setWeeklyCollectionBannerCarouselImageUrl(imageId, dto.url ?? null);
+  }
+
+  // Variante de esta misma imagen para pantallas chicas — ver CarouselImageService.setMobileImage.
+  @Post("landing-images/weekly-collection-carousel/:imageId/mobile-image")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
+  setWeeklyCollectionBannerCarouselImageMobile(
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.setWeeklyCollectionBannerCarouselImageMobile(imageId, file);
+  }
+
+  @Delete("landing-images/weekly-collection-carousel/:imageId/mobile-image")
+  removeWeeklyCollectionBannerCarouselImageMobile(@Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.settings.removeWeeklyCollectionBannerCarouselImageMobile(imageId);
   }
 
   @Get("weekly-collection-brand")

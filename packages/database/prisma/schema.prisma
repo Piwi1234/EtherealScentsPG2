@@ -284,21 +284,24 @@ enum CarouselKind {
 }
 
 model CarouselImage {
-  id         String       @id @default(uuid()) @db.Uuid
-  categoryId String?      @map("category_id") @db.Uuid
-  category   Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  kind       CarouselKind @default(FEATURE)
-  imageUrl   String       @map("image_url")
+  id              String       @id @default(uuid()) @db.Uuid
+  categoryId      String?      @map("category_id") @db.Uuid
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  kind            CarouselKind @default(FEATURE)
+  imageUrl        String       @map("image_url")
+  // Variante opcional para pantallas chicas — si no está cargada, el sitio público cae a
+  // `imageUrl` también en mobile, como era antes de este campo.
+  mobileImageUrl  String?      @map("mobile_image_url")
   // Link opcional: si tiene valor, la imagen se muestra clickeable en el sitio público y redirige
   // ahí; si está vacío, la imagen queda decorativa (sin click), como era antes de este campo.
-  url        String?
+  url             String?
   // Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
   // ("Producto destacado", kind FEATURE): titulo1 = subtítulo chico arriba, titulo2 = título grande
   // debajo. El resto de los carruseles (Hero, banners, heros de categoría/marcas) los ignoran.
-  titulo1    String?      @map("titulo_1")
-  titulo2    String?      @map("titulo_2")
-  orden      Int          @default(0)
-  createdAt  DateTime     @default(now()) @map("created_at")
+  titulo1         String?      @map("titulo_1")
+  titulo2         String?      @map("titulo_2")
+  orden           Int          @default(0)
+  createdAt       DateTime     @default(now()) @map("created_at")
 
   @@index([categoryId, kind, orden])
   @@map("carousel_images")

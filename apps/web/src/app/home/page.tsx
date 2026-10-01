@@ -442,6 +442,7 @@ export default function HomePage() {
                     imgClassName="landing-feature-visual-image"
                     autoplayMs={FEATURE_AUTOPLAY_MS}
                     visibleCount={isMobile ? 1 : 3}
+                    mobileMediaQuery={MOBILE_BREAKPOINT}
                     renderOverlay={(image) => (
                       <div className="landing-feature-overlay">
                         <div className="landing-feature-overlay-text">

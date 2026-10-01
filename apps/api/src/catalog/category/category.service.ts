@@ -250,6 +250,16 @@ export class CategoryService {
     return this.carouselImages.setUrl(imageId, url);
   }
 
+  async setCarouselImageMobile(id: string, imageId: string, file: Express.Multer.File) {
+    await this.assertRootCategory(id);
+    return this.carouselImages.setMobileImage(imageId, file);
+  }
+
+  async removeCarouselImageMobile(id: string, imageId: string) {
+    await this.assertRootCategory(id);
+    return this.carouselImages.removeMobileImage(imageId);
+  }
+
   /** Texto superpuesto del bloque "Producto destacado" del home — solo tiene sentido en el carrusel
    * FEATURE (categorías raíz), pero no hace falta validar el kind acá: quien llama (el controller)
    * solo expone esta acción bajo la ruta de carousel-images (FEATURE), no la de hero-carousel-images. */

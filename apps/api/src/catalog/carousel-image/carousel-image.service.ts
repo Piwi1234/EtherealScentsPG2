@@ -38,6 +38,39 @@ export class CarouselImageService {
     await deleteFromR2(existing.imageUrl).catch(() => {});
   }
 
+  /** Variante para pantallas chicas de una imagen ya cargada — reemplaza la anterior si había una
+   * (se borra de R2). Si nunca se carga, el sitio público usa `imageUrl` también en mobile. */
+  async setMobileImage(id: string, file: Express.Multer.File) {
+    const existing = await this.prisma.carouselImage.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException("Imagen no encontrada.");
+    }
+    const updated = await this.prisma.carouselImage.update({
+      where: { id },
+      // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+      data: { mobileImageUrl: file.filename },
+    });
+
+    if (existing.mobileImageUrl) {
+      await deleteFromR2(existing.mobileImageUrl).catch(() => {});
+    }
+    return updated;
+  }
+
+  /** Saca la variante mobile — vuelve a usar `imageUrl` en pantallas chicas. */
+  async removeMobileImage(id: string) {
+    const existing = await this.prisma.carouselImage.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException("Imagen no encontrada.");
+    }
+    const updated = await this.prisma.carouselImage.update({ where: { id }, data: { mobileImageUrl: null } });
+
+    if (existing.mobileImageUrl) {
+      await deleteFromR2(existing.mobileImageUrl).catch(() => {});
+    }
+    return updated;
+  }
+
   /** Link opcional al que redirige la imagen en el sitio público al hacer click — `null`/vacío la
    * deja decorativa (sin click), como estaba antes de este campo. */
   async setUrl(id: string, url: string | null) {

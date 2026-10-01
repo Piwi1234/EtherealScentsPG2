@@ -119,6 +119,14 @@ export class SettingsService {
     return this.carouselImages.setUrl(imageId, url);
   }
 
+  setHeroCarouselImageMobile(imageId: string, file: Express.Multer.File) {
+    return this.carouselImages.setMobileImage(imageId, file);
+  }
+
+  removeHeroCarouselImageMobile(imageId: string) {
+    return this.carouselImages.removeMobileImage(imageId);
+  }
+
   /** El carrusel del hero de /marcas (categoryId null, kind MARCAS_HERO) — independiente del Hero
    * principal del home, mismo mecanismo. */
   listMarcasHeroCarouselImages() {
@@ -183,6 +191,14 @@ export class SettingsService {
 
   setWeeklyCollectionBannerCarouselImageUrl(imageId: string, url: string | null) {
     return this.carouselImages.setUrl(imageId, url);
+  }
+
+  setWeeklyCollectionBannerCarouselImageMobile(imageId: string, file: Express.Multer.File) {
+    return this.carouselImages.setMobileImage(imageId, file);
+  }
+
+  removeWeeklyCollectionBannerCarouselImageMobile(imageId: string) {
+    return this.carouselImages.removeMobileImage(imageId);
   }
 
   private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
