@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { brandLinkHref } from "../../lib/catalog-display";
+import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
 import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -648,13 +648,19 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
       </button>
 
       <div className={`landing-brand-grid${direction === 1 ? " landing-brand-grid--next" : " landing-brand-grid--prev"}`} key={slide}>
-        {chunks[slide].map((brand, i) => (
-          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id}>
-            <span className="landing-brand-card-name" style={{ color: BRAND_CARD_COLORS[i % BRAND_CARD_COLORS.length] }}>
-              {brand.name}
-            </span>
-          </Link>
-        ))}
+        {chunks[slide].map((brand, i) =>
+          brand.logoUrl ? (
+            <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
+              <img className="landing-brand-card-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
+            </Link>
+          ) : (
+            <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id}>
+              <span className="landing-brand-card-name" style={{ color: BRAND_CARD_COLORS[i % BRAND_CARD_COLORS.length] }}>
+                {brand.name}
+              </span>
+            </Link>
+          ),
+        )}
       </div>
 
       <button
