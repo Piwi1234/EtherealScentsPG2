@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref } from "../../lib/catalog-display";
 import type { Brand, CarouselImage, Category, ContactoInfo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -19,6 +19,9 @@ const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
+// Ciclan por posición dentro de la fila (no por marca) — solo para que la pared de nombres no se
+// vea plana, como en la referencia.
+const BRAND_CARD_COLORS = ["#4a3f3a", "#39507a", "#8a6a1f", "#5c4a8a", "#7a3f45", "#2f4a63", "#3d6b52", "#8a4a2f"];
 const HERO_AUTOPLAY_MS = 10000;
 // Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el carrusel de ofertas
 // pagina de a 2 (en vez de 5). El hero ya muestra 1 sola imagen a cualquier ancho (ver heroWindow).
@@ -442,11 +445,11 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* ================= 3c. Explora Nuestras Marcas ================= */}
+      <BrandsShowcase rootCategories={rootCategories} brands={brands} />
+
       {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
       {rootCategories.map((cat, i) => {
-        // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
-        // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
-        const categoryBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === cat.id));
         // Fondo negro (Black Steel) para el primer bloque, papel para el siguiente, y así alterna —
         // .landing-feature-block--dark/--light ajustan el color de letras/tema para cada caso.
         const isDark = i % 2 === 0;
@@ -490,13 +493,6 @@ export default function HomePage() {
                   className="landing-feature-visual landing-feature-visual--fallback"
                   style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
                 />
-              )}
-
-              {categoryBrands.length > 0 && (
-                <div className="landing-brands-block">
-                  <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
-                  <BrandsCarousel brands={categoryBrands} rootCategory={cat} />
-                </div>
               )}
             </div>
           </section>
@@ -549,8 +545,62 @@ export default function HomePage() {
   );
 }
 
-/** Carrusel de logos de marca de una categoría raíz (sus subcategorías) — mismo mecanismo que el
- * carrusel de "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
+/** Bloque "Explora Nuestras Marcas" del home, debajo de "Colección de la semana" — antes era un
+ * carrusel de logos repetido dentro de cada bloque de "Producto destacado" (uno por categoría raíz,
+ * ver sección 4 más abajo); se sacó de ahí por redundante y se unificó acá en un solo bloque con
+ * pestañas para alternar de categoría, en vez de mostrar las tres a la vez. */
+function BrandsShowcase({ rootCategories, brands }: { rootCategories: Category[]; brands: Brand[] }) {
+  // Solo categorías con alguna marca asignada a una subcategoría suya — una marca nunca se asigna
+  // directo a una raíz (ver BrandsPage/assertCategoriesExist).
+  const categoriesWithBrands = rootCategories.filter((cat) =>
+    brands.some((b) => b.categories.some((bc) => bc.category.parentId === cat.id)),
+  );
+  const [activeCategoryId, setActiveCategoryId] = useState("");
+
+  useEffect(() => {
+    if (activeCategoryId || categoriesWithBrands.length === 0) return;
+    setActiveCategoryId(categoriesWithBrands[0].id);
+  }, [categoriesWithBrands, activeCategoryId]);
+
+  const activeCategory = categoriesWithBrands.find((c) => c.id === activeCategoryId) ?? null;
+  if (!activeCategory) return null;
+
+  const activeBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === activeCategory.id));
+
+  return (
+    <section className="landing-section">
+      <div className="landing-container">
+        <div className="landing-brands-showcase-header">
+          <div>
+            <p className="landing-eyebrow">Explora Nuestras Marcas</p>
+            <h2 className="landing-section-title">Más de 100 marcas</h2>
+          </div>
+          {categoriesWithBrands.length > 1 && (
+            <div className="landing-brands-tabs">
+              {categoriesWithBrands.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`landing-brands-tab${cat.id === activeCategory.id ? " landing-brands-tab--active" : ""}`}
+                  onClick={() => setActiveCategoryId(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* `key` fuerza a remontar el carrusel al cambiar de pestaña — así slide/autoplay arrancan
+            de cero en vez de arrastrar la posición de la categoría anterior. */}
+        <BrandsCarousel key={activeCategory.id} brands={activeBrands} rootCategory={activeCategory} />
+      </div>
+    </section>
+  );
+}
+
+/** Carrusel de nombres de marca de una categoría raíz — mismo mecanismo que el carrusel de
+ * "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
 function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategory: { id: string; slug: string } }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
@@ -590,13 +640,11 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
       </button>
 
       <div className={`landing-brand-grid${direction === 1 ? " landing-brand-grid--next" : " landing-brand-grid--prev"}`} key={slide}>
-        {chunks[slide].map((brand) => (
-          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
-            {brand.logoUrl ? (
-              <img className="landing-brand-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
-            ) : (
-              <div className="landing-brand-logo-placeholder">{brand.name.slice(0, 1)}</div>
-            )}
+        {chunks[slide].map((brand, i) => (
+          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id}>
+            <span className="landing-brand-card-name" style={{ color: BRAND_CARD_COLORS[i % BRAND_CARD_COLORS.length] }}>
+              {brand.name}
+            </span>
           </Link>
         ))}
       </div>
