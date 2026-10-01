@@ -175,11 +175,8 @@ export function LandingNavbar({
 
   const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
   const brandName = empresa?.nombre ?? "Ethereal Scents";
-  const navbarClass = [
-    "landing-navbar",
-    variant === "dark" || (variant === "default" && scrolled) ? "landing-navbar--dark" : "",
-    !overlay ? "landing-navbar--static" : "",
-  ]
+  const isDark = variant === "dark" || (variant === "default" && scrolled);
+  const navbarClass = ["landing-navbar", isDark ? "landing-navbar--dark" : "", !overlay ? "landing-navbar--static" : ""]
     .filter(Boolean)
     .join(" ");
 
@@ -351,9 +348,13 @@ export function LandingNavbar({
           crea un "containing block" nuevo para sus descendientes position:fixed — el drawer quedaba
           confinado al alto de la barra del navbar en vez de cubrir toda la pantalla. Moviéndolo
           afuera, su position:fixed vuelve a tomar el viewport como referencia en todos los
-          navegadores. */}
+          navegadores. El div envoltorio solo existe para seguir llevando "landing-navbar--dark" —
+          las reglas de tema oscuro del drawer (ver más abajo en globals.css) son todas
+          ".landing-navbar--dark .landing-navbar-mobile-*", pensadas para cuando el drawer todavía
+          colgaba del <header>; sin este wrapper esas reglas dejarían de aplicar y el drawer se vería
+          siempre claro aunque el navbar esté en variant="dark". */}
       {mobileMenuOpen && (
-        <>
+        <div className={isDark ? "landing-navbar--dark" : undefined}>
           <div className="landing-navbar-mobile-overlay" onClick={closeMobileMenu} />
           <nav className="landing-navbar-mobile">
             <div className="landing-navbar-mobile-header">
@@ -444,7 +445,7 @@ export function LandingNavbar({
               )}
             </div>
           </nav>
-        </>
+        </div>
       )}
     </>
   );
