@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
-import { UnidadVariante } from "@app/database";
+import { ArrayMinSize, IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { EstadoVariante, UnidadVariante } from "@app/database";
 
 export class CreateProductVariantDto {
   @ApiPropertyOptional({
@@ -50,10 +50,14 @@ export class CreateProductVariantDto {
   @IsUUID(undefined, { each: true })
   optionValueIds!: string[];
 
-  @ApiPropertyOptional({ default: true, description: "Control de catálogo — no afecta stock/proformas todavía." })
+  @ApiPropertyOptional({
+    enum: EstadoVariante,
+    default: EstadoVariante.DISPONIBLE,
+    description: "Control de catálogo — DISPONIBLE/NO_DISPONIBLE/PREVENTA. No afecta stock/proformas.",
+  })
   @IsOptional()
-  @IsBoolean()
-  disponible?: boolean;
+  @IsEnum(EstadoVariante)
+  estado?: EstadoVariante;
 
   @ApiPropertyOptional({
     example: "2026-08-30T03:59:59.000Z",

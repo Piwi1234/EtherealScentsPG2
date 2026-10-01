@@ -3155,6 +3155,17 @@ a {
   }
 }
 
+/* En mobile el marco pasa de panorámico (50:17) a uno más compacto — así la imagen cargada como
+   variante mobile (ver CarouselImage.mobileImageUrl y CarouselImg en ImageCarousel.tsx) puede tener
+   el sujeto centrado en vez de recortado a los costados, en lugar de solo achicarse manteniendo el
+   mismo recorte panorámico de siempre. Mismo breakpoint que usa ImageCarousel para elegir esa
+   variante (900px, ver mobileMediaQuery). */
+@media (max-width: 900px) {
+  .landing-hero-banner-frame {
+    aspect-ratio: 4 / 3;
+  }
+}
+
 /* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
 
 /* Transición direccional (como fairplay.com.bo): la imagen que entra se desliza desde la derecha al
@@ -4165,7 +4176,8 @@ a {
   height: 11px;
 }
 
-.landing-product-grid--carousel .landing-product-instock-badge {
+.landing-product-grid--carousel .landing-product-instock-badge,
+.landing-product-grid--carousel .landing-product-preventa-badge {
   padding: 4px 9px;
   font-size: 9.5px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
@@ -4245,6 +4257,16 @@ a {
   /* La mitad del alto que tenía como panel lateral (664px) — ahora que ocupa el ancho completo de
      las tarjetas de abajo en vez de una columna angosta, no necesita ser tan alto. */
   height: 332px;
+}
+
+/* En mobile pasa de alto fijo panorámico a un marco más compacto (mismo criterio que el Hero, ver
+   .landing-hero-banner-frame) — deja lugar a la variante mobile de la imagen (ver
+   CarouselImage.mobileImageUrl), con el sujeto centrado en vez de recortado a los costados. */
+@media (max-width: 900px) {
+  .landing-weekly-collection-banner {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
 }
 
 .landing-weekly-collection-banner-image {
@@ -4329,7 +4351,8 @@ a {
   height: 11px;
 }
 
-.landing-product-grid--weekly .landing-product-instock-badge {
+.landing-product-grid--weekly .landing-product-instock-badge,
+.landing-product-grid--weekly .landing-product-preventa-badge {
   bottom: 8px;
   padding: 3px 8px;
   font-size: 9.5px;
@@ -4473,6 +4496,24 @@ a {
   z-index: 1;
   padding: 5px 10px;
   background: #1f9d55;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Mismo lugar/forma que "En Stock" (son mutuamente excluyentes — ver ProductCard) pero en el navy
+   del sitio en vez de verde, para no confundirse con "ya hay stock listo para enviar". */
+.landing-product-preventa-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 1;
+  padding: 5px 10px;
+  background: var(--es-navy-700, #1c3561);
   color: #ffffff;
   font-size: 9.5px;
   font-weight: 800;
@@ -5687,6 +5728,10 @@ a {
 
 .landing-product-detail-availability--no {
   color: #c0392b;
+}
+
+.landing-product-detail-availability--preventa {
+  color: var(--es-navy-700, #1c3561);
 }
 
 .landing-product-detail-add-row {

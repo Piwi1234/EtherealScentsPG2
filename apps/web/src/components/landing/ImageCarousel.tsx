@@ -4,6 +4,27 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { productImageSrc } from "../../lib/catalog-display";
 import type { CarouselImage } from "../../lib/types";
 
+/** <img> normal, o <picture> con una variante mobile de abajo de `mobileMediaQuery` si la imagen
+ * tiene `mobileImageUrl` cargado — si no, siempre la de desktop, como antes de este campo. El resto
+ * de las props son las mismas que llevaría un <img suelto (se reenvían tal cual). */
+function CarouselImg({
+  image,
+  mobileMediaQuery,
+  ...imgProps
+}: {
+  image: CarouselImage;
+  mobileMediaQuery: string;
+} & React.ImgHTMLAttributes<HTMLImageElement>) {
+  const mobileSrc = image.mobileImageUrl ? productImageSrc(image.mobileImageUrl) : null;
+  if (!mobileSrc) return <img src={productImageSrc(image.imageUrl)!} {...imgProps} />;
+  return (
+    <picture>
+      <source media={mobileMediaQuery} srcSet={mobileSrc} />
+      <img src={productImageSrc(image.imageUrl)!} {...imgProps} />
+    </picture>
+  );
+}
+
 /** Carrusel de imágenes + flechas + autoplay — usado para el fondo del Hero, el cuadro de "Producto
  * destacado" por categoría raíz y el banner de la página de categoría/subcategoría. El wrapper
  * (`position: relative`) lo pone quien lo usa.
@@ -24,6 +45,7 @@ export function ImageCarousel({
   autoplayMs,
   renderOverlay,
   visibleCount = 1,
+  mobileMediaQuery = "(max-width: 900px)",
 }: {
   images: CarouselImage[];
   alt: string;
@@ -31,6 +53,9 @@ export function ImageCarousel({
   autoplayMs: number;
   renderOverlay?: (image: CarouselImage) => ReactNode;
   visibleCount?: number;
+  /** A partir de qué media query se usa `mobileImageUrl` (si la imagen la tiene cargada) en vez de
+   * la de desktop — 900px por default, el breakpoint general del sitio. */
+  mobileMediaQuery?: string;
 }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
@@ -110,7 +135,7 @@ export function ImageCarousel({
         >
           {visible.map((image) => (
             <div key={image.id} className="landing-image-carousel-grid-item">
-              <img className={imgClassName} src={productImageSrc(image.imageUrl)!} alt={alt} />
+              <CarouselImg image={image} mobileMediaQuery={mobileMediaQuery} className={imgClassName} alt={alt} />
               {renderOverlay ? renderOverlay(image) : null}
             </div>
           ))}
@@ -160,10 +185,11 @@ export function ImageCarousel({
   // funcionan igual en los dos casos sin duplicar el listener, y el touch burbujea normal desde la
   // imagen hasta el <a> para el click.
   const img = (
-    <img
+    <CarouselImg
       key={slide}
+      image={current}
+      mobileMediaQuery={mobileMediaQuery}
       className={slideClassName}
-      src={productImageSrc(current.imageUrl)!}
       alt={alt}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}

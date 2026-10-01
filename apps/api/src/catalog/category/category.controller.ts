@@ -115,6 +115,25 @@ export class CategoryController {
     return this.categories.setCarouselImageTitulos(id, imageId, dto.titulo1 ?? null, dto.titulo2 ?? null);
   }
 
+  // Variante de esta misma imagen para pantallas chicas — ver CarouselImageService.setMobileImage.
+  @Post(":id/carousel-images/:imageId/mobile-image")
+  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
+  setCarouselImageMobile(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.categories.setCarouselImageMobile(id, imageId, file);
+  }
+
+  @Delete(":id/carousel-images/:imageId/mobile-image")
+  removeCarouselImageMobile(@Param("id", ParseUUIDPipe) id: string, @Param("imageId", ParseUUIDPipe) imageId: string) {
+    return this.categories.removeCarouselImageMobile(id, imageId);
+  }
+
   // Hero de /categoria/[id] (panorámico) — carrusel independiente del de arriba, compartido con
   // todas las subcategorías de esta raíz.
   @Get(":id/hero-carousel-images")

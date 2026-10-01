@@ -13,8 +13,14 @@ import {
   moveHeroCarouselImage,
   moveWeeklyCollectionBannerCarouselImage,
   removeCategoryCarouselImage,
+  removeCategoryCarouselImageMobile,
   removeHeroCarouselImage,
+  removeHeroCarouselImageMobile,
   removeWeeklyCollectionBannerCarouselImage,
+  removeWeeklyCollectionBannerCarouselImageMobile,
+  setCategoryCarouselImageMobile,
+  setHeroCarouselImageMobile,
+  setWeeklyCollectionBannerCarouselImageMobile,
   updateCategoryCarouselImageTitulos,
   updateCategoryCarouselImageUrl,
   updateHeroCarouselImageUrl,
@@ -106,6 +112,36 @@ export default function GridImagenesPage() {
     }
   }
 
+  async function handleSetMobileImage(slotKey: string, kind: SlotKind, categoryId: string | null, imageId: string, file: File) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (kind === "site-hero") await setHeroCarouselImageMobile(imageId, file);
+      else if (kind === "weekly-collection-banner") await setWeeklyCollectionBannerCarouselImageMobile(imageId, file);
+      else await setCategoryCarouselImageMobile(categoryId!, imageId, file);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleRemoveMobileImage(slotKey: string, kind: SlotKind, categoryId: string | null, imageId: string) {
+    setBusySlot(slotKey);
+    setError("");
+    try {
+      if (kind === "site-hero") await removeHeroCarouselImageMobile(imageId);
+      else if (kind === "weekly-collection-banner") await removeWeeklyCollectionBannerCarouselImageMobile(imageId);
+      else await removeCategoryCarouselImageMobile(categoryId!, imageId);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
   async function handleSetCarouselImageUrl(
     slotKey: string,
     kind: SlotKind,
@@ -159,8 +195,9 @@ export default function GridImagenesPage() {
       images: heroImages,
       hint:
         "Se muestra 1 sola imagen a pantalla completa por vez — si hay más de una, rotan solas. Cada imagen puede " +
-        "llevar su propio link de redirección. Recomendado: 2400×816px o más, panorámica (relación ~2.94:1), por " +
-        "cada imagen.",
+        "llevar su propio link de redirección. PC: 2400×816px o más, panorámica (relación ~2.94:1). Mobile " +
+        "(opcional, usa la de PC si no se carga): 1200×900px o más, más compacta (relación 4:3) — el marco cambia " +
+        "de forma en pantallas chicas para aprovechar mejor el alto.",
     },
     {
       key: "weekly-collection-banner",
@@ -170,8 +207,9 @@ export default function GridImagenesPage() {
       images: weeklyCollectionBannerImages,
       hint:
         "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), arriba de las " +
-        "últimas 5 tarjetas de la marca elegida en Marcas — ocupa todo el ancho de esa fila de tarjetas, 332px de " +
-        "alto fijo. Recomendado: 2000×492px o más, panorámica (relación ~4:1), por cada imagen del carrusel.",
+        "últimas 5 tarjetas de la marca elegida en Marcas — ocupa todo el ancho de esa fila de tarjetas. PC: " +
+        "2000×492px o más, panorámica (relación ~4:1), 332px de alto fijo. Mobile (opcional, usa la de PC si no " +
+        "se carga): 1000×750px o más, más compacta (relación 4:3) — el marco cambia de forma en pantallas chicas.",
     },
     ...rootCategories.map((cat) => ({
       key: `${cat.id}-feature`,
@@ -182,9 +220,10 @@ export default function GridImagenesPage() {
       hint:
         "Se muestran 3 imágenes lado a lado (recorte vertical) con título superpuesto arriba de cada una " +
         "(Título 1/Título 2) — si no cargás Título 2, se usa el nombre de la categoría. Toda la tarjeta es " +
-        "clickeable: va al link propio de la imagen si tiene, si no a la categoría. Recomendado: 850×1050px o " +
-        "más (relación 4:5) por cada imagen — se recorta para llenar el cuadro (object-fit: cover), dejá lugar " +
-        "arriba para el texto.",
+        "clickeable: va al link propio de la imagen si tiene, si no a la categoría. En mobile se muestra 1 sola a " +
+        "la vez (mismo recorte 4:5, no cambia de forma). PC: 850×1050px o más (relación 4:5). Mobile (opcional, " +
+        "usa la de PC si no se carga): 680×850px o más (misma relación 4:5), por si querés otro recorte/foco para " +
+        "la vista de 1 sola columna.",
     })),
   ];
 
@@ -207,6 +246,8 @@ export default function GridImagenesPage() {
               onRemove={(imageId) => handleRemoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId)}
               onMove={(imageId, direction) => handleMoveCarouselImage(slot.key, slot.kind, slot.categoryId, imageId, direction)}
               onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
+              onSetMobileImage={(imageId, file) => handleSetMobileImage(slot.key, slot.kind, slot.categoryId, imageId, file)}
+              onRemoveMobileImage={(imageId) => handleRemoveMobileImage(slot.key, slot.kind, slot.categoryId, imageId)}
               onSetTitulos={
                 slot.kind === "feature"
                   ? (imageId, titulo1, titulo2) =>
@@ -230,6 +271,8 @@ function CarouselSlotEditor({
   onRemove,
   onMove,
   onSetUrl,
+  onSetMobileImage,
+  onRemoveMobileImage,
   onSetTitulos,
 }: {
   title: string;
@@ -240,6 +283,8 @@ function CarouselSlotEditor({
   onRemove: (imageId: string) => void;
   onMove: (imageId: string, direction: "up" | "down") => void;
   onSetUrl: (imageId: string, url: string | null) => void;
+  onSetMobileImage: (imageId: string, file: File) => void;
+  onRemoveMobileImage: (imageId: string) => void;
   // Solo lo pasa el slot "feature" (Producto destacado) — el resto de los carruseles no tiene título
   // superpuesto, así que el bloque de inputs de abajo queda oculto para ellos.
   onSetTitulos?: (imageId: string, titulo1: string | null, titulo2: string | null) => void;
@@ -251,16 +296,34 @@ function CarouselSlotEditor({
         {hint}
       </p>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 12 }}>
         {images.length === 0 && (
           <p className="cell-muted" style={{ fontSize: 12.5, margin: 0 }}>
             Sin imágenes todavía.
           </p>
         )}
         {images.map((image, index) => (
-          <div key={image.id} style={{ width: onSetTitulos ? 160 : 140 }}>
-            <div className="image-uploader" style={{ marginBottom: 6 }}>
-              <img src={imgSrc(image.imageUrl)!} alt={`${title} ${index + 1}`} />
+          <div key={image.id} style={{ width: onSetTitulos ? 220 : 200 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="cell-muted" style={{ fontSize: 9.5, margin: "0 0 3px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  PC
+                </p>
+                <div className="image-uploader" style={{ padding: 6, justifyContent: "center" }}>
+                  <img src={imgSrc(image.imageUrl)!} alt={`${title} ${index + 1} (PC)`} />
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="cell-muted" style={{ fontSize: 9.5, margin: "0 0 3px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Mobile
+                </p>
+                <MobileImageCell
+                  image={image}
+                  busy={busy}
+                  onSet={(file) => onSetMobileImage(image.id, file)}
+                  onRemove={() => onRemoveMobileImage(image.id)}
+                />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
               <button
@@ -328,6 +391,75 @@ function CarouselSlotEditor({
         </p>
       )}
     </div>
+  );
+}
+
+/** Columna "Mobile" de una imagen del grid — si no tiene variante mobile cargada todavía, muestra un
+ * placeholder clickeable ("Usa la de PC") que al clickear abre el selector de archivo; si ya tiene
+ * una, la previsualiza con una "×" chica para sacarla (vuelve a usar la de PC) y un link "Cambiar"
+ * debajo para reemplazarla. */
+function MobileImageCell({
+  image,
+  busy,
+  onSet,
+  onRemove,
+}: {
+  image: CarouselImage;
+  busy: boolean;
+  onSet: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const inputId = `mobile-image-${image.id}`;
+
+  return (
+    <>
+      {image.mobileImageUrl ? (
+        <div className="image-uploader" style={{ padding: 6, justifyContent: "center", position: "relative" }}>
+          <img src={imgSrc(image.mobileImageUrl)!} alt="Variante mobile" />
+          <button
+            type="button"
+            className="action-btn danger"
+            disabled={busy}
+            onClick={onRemove}
+            aria-label="Quitar imagen mobile"
+            title="Quitar imagen mobile (vuelve a usar la de PC)"
+            style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, padding: 0, fontSize: 11, lineHeight: 1, borderRadius: "50%" }}
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          className="image-uploader-placeholder"
+          title="Usa la de PC — click para subir una propia"
+          style={{ cursor: busy ? "default" : "pointer", fontSize: 9, lineHeight: 1.25, padding: 4, textAlign: "center" }}
+        >
+          Usa la de PC
+        </label>
+      )}
+      <input
+        id={inputId}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        disabled={busy}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onSet(file);
+          e.target.value = "";
+        }}
+        style={{ display: "none" }}
+      />
+      {image.mobileImageUrl && (
+        <label
+          htmlFor={inputId}
+          className="link-button"
+          style={{ display: "block", fontSize: 9.5, marginTop: 3, textAlign: "center", cursor: busy ? "default" : "pointer" }}
+        >
+          Cambiar
+        </label>
+      )}
+    </>
   );
 }
 

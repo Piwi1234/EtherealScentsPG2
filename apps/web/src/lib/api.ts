@@ -277,6 +277,14 @@ export function updateHeroCarouselImageUrl(imageId: string, url: string | null) 
   return apiPatch<void>(`/settings/landing-images/hero-carousel/${imageId}/url`, { url });
 }
 
+export function setHeroCarouselImageMobile(imageId: string, file: File) {
+  return apiUpload<CarouselImage>(`/settings/landing-images/hero-carousel/${imageId}/mobile-image`, file);
+}
+
+export function removeHeroCarouselImageMobile(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/hero-carousel/${imageId}/mobile-image`);
+}
+
 export function getMarcasHeroCarouselImages() {
   return apiGet<CarouselImage[]>("/settings/landing-images/marcas-hero-carousel");
 }
@@ -337,6 +345,14 @@ export function updateWeeklyCollectionBannerCarouselImageUrl(imageId: string, ur
   return apiPatch<void>(`/settings/landing-images/weekly-collection-carousel/${imageId}/url`, { url });
 }
 
+export function setWeeklyCollectionBannerCarouselImageMobile(imageId: string, file: File) {
+  return apiUpload<CarouselImage>(`/settings/landing-images/weekly-collection-carousel/${imageId}/mobile-image`, file);
+}
+
+export function removeWeeklyCollectionBannerCarouselImageMobile(imageId: string) {
+  return apiDelete<void>(`/settings/landing-images/weekly-collection-carousel/${imageId}/mobile-image`);
+}
+
 /** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del panel
  * de gestión (una sola marca a la vez). */
 export function getWeeklyCollectionBrand() {
@@ -365,6 +381,14 @@ export function moveCategoryCarouselImage(categoryId: string, imageId: string, d
 
 export function updateCategoryCarouselImageUrl(categoryId: string, imageId: string, url: string | null) {
   return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/url`, { url });
+}
+
+export function setCategoryCarouselImageMobile(categoryId: string, imageId: string, file: File) {
+  return apiUpload<CarouselImage>(`/categories/${categoryId}/carousel-images/${imageId}/mobile-image`, file);
+}
+
+export function removeCategoryCarouselImageMobile(categoryId: string, imageId: string) {
+  return apiDelete<void>(`/categories/${categoryId}/carousel-images/${imageId}/mobile-image`);
 }
 
 /** Texto superpuesto del bloque "Producto destacado" del home (solo aplica a este carrusel). */

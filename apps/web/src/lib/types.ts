@@ -2,6 +2,8 @@ export type CarouselImage = {
   id: string;
   categoryId: string | null;
   imageUrl: string;
+  // Variante opcional para pantallas chicas — null usa `imageUrl` también en mobile.
+  mobileImageUrl: string | null;
   // Link opcional al que redirige la imagen en el sitio público al hacer click — null la deja
   // decorativa (sin click).
   url: string | null;
@@ -82,6 +84,11 @@ export type AttributeVariantMode = "NONE" | "MULTI_VALUE" | "PRICED_VARIANT";
  * sueltos, comprados por lote como cualquier otra variante y vendidos a través de sus
  * PresentacionVenta (subvariantes con precio propio, ej. decants de 5/10/30 ml). */
 export type UnidadVariante = "PZA" | "ML";
+
+/** Control de catálogo de una variante (ver ProductVariant.estado). PREVENTA no cuenta como agotado
+ * (ver `isSoldOut`) pero queda afuera de "Descuentos"/"Ofertas Flash" del home aunque tenga
+ * descuento o temporizador cargado — tiene su propio filtro "Preventa" ahí. */
+export type EstadoVariante = "DISPONIBLE" | "NO_DISPONIBLE" | "PREVENTA";
 
 export type AttributeOption = {
   id: string;
@@ -165,8 +172,8 @@ export type ProductVariant = {
   /** Imagen propia de esta variante — solo aplica a unidad=PZA. Si es null, los listados caen al
    * imageUrl del producto. */
   imageUrl: string | null;
-  /** Control de catálogo — todavía no lo consume ningún flujo automático. */
-  disponible: boolean;
+  /** Control de catálogo — DISPONIBLE/NO_DISPONIBLE/PREVENTA (ver EstadoVariante). */
+  estado: EstadoVariante;
   // Instante UTC hasta el que ESTA variante aparece en "Ofertas Flash". Null = sin temporizador.
   ofertaFlashHasta: string | null;
   // Calculado en vivo por el backend: true si ESTA variante tiene stock disponible (física -

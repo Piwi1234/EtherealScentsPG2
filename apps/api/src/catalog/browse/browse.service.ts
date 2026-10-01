@@ -64,11 +64,12 @@ function finalizeProduct(product: RawProduct, exchangeRate: number) {
  * que TS angoste el tipo ahí sin ninguna forma práctica de evitarlo (ni separando genéricos, ni
  * anotando el retorno, ni evitando la desestructuración — se probaron las tres). */
 function cheapestFinalPriceBs(item: unknown): number {
-  const typed = item as { finalPriceBs: number; variants: { finalPriceBs: number; disponible: boolean }[] };
+  const typed = item as { finalPriceBs: number; variants: { finalPriceBs: number; estado: string }[] };
   if (typed.variants.length === 0) {
     return typed.finalPriceBs;
   }
-  const available = typed.variants.filter((v) => v.disponible);
+  // PREVENTA cuenta como disponible acá (se puede reservar): solo NO_DISPONIBLE queda afuera.
+  const available = typed.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
   const pool = available.length > 0 ? available : typed.variants;
   return pool.reduce((min, v) => Math.min(min, v.finalPriceBs), pool[0].finalPriceBs);
 }
@@ -88,11 +89,16 @@ export interface FindCatalogProductsQuery {
   attr?: Record<string, string>;
   /** "true": solo productos con descuento (descuento propio, o el de alguna de sus variantes con
    * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
-   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). */
+   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). Excluye productos
+   * en Preventa (ver `onlyPreventa`) aunque tengan descuento cargado. */
   onlyDiscounted?: string;
   /** "true": solo productos con un temporizador de "Ofertas Flash" todavía vigente
-   * (ofertaFlashHasta en el futuro). */
+   * (ofertaFlashHasta en el futuro). Excluye productos en Preventa aunque tengan temporizador
+   * cargado — ver `onlyPreventa`. */
   onlyFlash?: string;
+  /** "true": solo productos con alguna variante en estado PREVENTA — mutuamente excluyente con
+   * `onlyDiscounted`/`onlyFlash` en el bloque "Descuento y Ofertas" del home (ver EstadoVariante). */
+  onlyPreventa?: string;
   /** "true": solo productos con stock disponible (física - reservada > 0) en alguna variante,
    * incluidas las de precio propio. Nunca informa cantidades, solo disponibilidad. */
   onlyInStock?: string;
@@ -157,6 +163,9 @@ export class CatalogBrowseService {
       andConditions.push({
         OR: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } }],
       });
+      // Un producto en Preventa no entra acá aunque tenga descuento cargado — tiene su propio
+      // filtro aparte (ver onlyPreventa, más abajo).
+      andConditions.push({ variants: { none: { estado: "PREVENTA" } } });
     }
 
     if (query.onlyFlash === "true") {
@@ -165,6 +174,12 @@ export class CatalogBrowseService {
       andConditions.push({
         OR: [{ ofertaFlashHasta: { gt: new Date() } }, { variants: { some: { ofertaFlashHasta: { gt: new Date() } } } }],
       });
+      // Mismo criterio que onlyDiscounted: Preventa queda afuera aunque tenga temporizador vigente.
+      andConditions.push({ variants: { none: { estado: "PREVENTA" } } });
+    }
+
+    if (query.onlyPreventa === "true") {
+      andConditions.push({ variants: { some: { estado: "PREVENTA" } } });
     }
 
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
@@ -301,7 +316,7 @@ export class CatalogBrowseService {
               utility: true,
               minPriceBs: true,
               discountBs: true,
-              disponible: true,
+              estado: true,
               stock: { select: { cantidadFisica: true, cantidadReservada: true } },
             },
           },
@@ -326,7 +341,7 @@ export class CatalogBrowseService {
       const candidates =
         product.variants.length > 0
           ? (() => {
-              const available = product.variants.filter((v) => v.disponible);
+              const available = product.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
               return available.length > 0 ? available : product.variants;
             })()
           : [product];

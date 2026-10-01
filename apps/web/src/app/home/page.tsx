@@ -33,17 +33,25 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+// "Descuentos" es el modo por default de siempre; "flash" se auto-selecciona al montar si hay
+// ofertas flash vigentes (ver el efecto más abajo). "preventa" solo se activa a mano, clickeando su
+// pill — nunca es el modo inicial aunque haya productos en preventa.
+type OffersMode = "flash" | "discount" | "preventa";
+
 export default function HomePage() {
   // --- Datos: empresa (nombre para textos propios), categorías reales y productos del catálogo público ---
   const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [flashOnly, setFlashOnly] = useState(false);
+  const [offersMode, setOffersMode] = useState<OffersMode>("discount");
   // null = todavía no se sabe si hay ofertas flash vigentes (se está consultando al montar). Hasta
   // que se resuelva, el pill "Ofertas Flash" queda oculto y el fetch de productos de abajo espera —
   // así arranca directo en el filtro correcto sin parpadeo.
   const [hasFlashOffers, setHasFlashOffers] = useState<boolean | null>(null);
+  // Mismo criterio que hasFlashOffers, pero el pill "Preventa" nunca se auto-selecciona (ver
+  // OffersMode) — solo controla si el pill se muestra o no.
+  const [hasPreventaProducts, setHasPreventaProducts] = useState<boolean | null>(null);
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
@@ -80,15 +88,20 @@ export default function HomePage() {
       .then((page) => {
         const has = page.total > 0;
         setHasFlashOffers(has);
-        setFlashOnly(has);
+        if (has) setOffersMode("flash");
       })
       .catch(() => setHasFlashOffers(false));
+
+    // El pill "Preventa" solo se muestra si hay algo que filtrar — nunca se auto-selecciona.
+    apiGet<Page<Product>>("/catalog/products?onlyPreventa=true&pageSize=1")
+      .then((page) => setHasPreventaProducts(page.total > 0))
+      .catch(() => setHasPreventaProducts(false));
   }, []);
 
-  // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento (por fecha de última
-  // modificación) de la categoría elegida, de 5 en 5. Modo (1ra fila) y categoría (2da fila) se
-  // combinan siempre — "Ofertas Flash" ya no es exclusivo de todas las categorías juntas, también se
-  // puede acotar a una.
+  // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento/flash/preventa (por fecha
+  // de última modificación) de la categoría elegida, de 5 en 5. Modo (1ra fila) y categoría (2da
+  // fila) se combinan siempre — ninguno de los tres modos es exclusivo de todas las categorías
+  // juntas, también se pueden acotar a una.
   useEffect(() => {
     // Esperar a saber si hay ofertas flash (ver arriba) y a que se resuelva la categoría por defecto
     // (ver el efecto de arriba) antes de disparar el fetch real — si no, arrancaría sin categoría y a
@@ -96,7 +109,8 @@ export default function HomePage() {
     if (hasFlashOffers === null || !categoryFilter) return;
 
     const params = new URLSearchParams();
-    if (flashOnly) params.set("onlyFlash", "true");
+    if (offersMode === "flash") params.set("onlyFlash", "true");
+    else if (offersMode === "preventa") params.set("onlyPreventa", "true");
     else params.set("onlyDiscounted", "true");
     params.set("categoryId", categoryFilter);
     params.set("pageSize", "40");
@@ -107,7 +121,7 @@ export default function HomePage() {
         setOffersSlide(0);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [categoryFilter, flashOnly, hasFlashOffers]);
+  }, [categoryFilter, offersMode, hasFlashOffers]);
 
   // En mobile pagina de a 2 productos en vez de 5 (ver el useEffect de matchMedia más abajo).
   const offersSlideSize = isMobile ? OFFERS_SLIDE_SIZE_MOBILE : OFFERS_SLIDE_SIZE;
@@ -268,14 +282,16 @@ export default function HomePage() {
           <h2 className="landing-section-title">Descuento y Ofertas</h2>
           <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
 
-          {/* 1ra fila: modo (Ofertas Flash = temporizador vigente / Descuentos = precio rebajado) —
-              independiente de la categoría, que se elige aparte en la 2da fila de acá abajo. */}
+          {/* 1ra fila: modo (Ofertas Flash = temporizador vigente / Descuentos = precio rebajado /
+              Preventa = variantes en preventa, excluidas de las otras dos aunque tengan descuento o
+              temporizador — ver onlyPreventa en browse.service.ts) — independiente de la categoría,
+              que se elige aparte en la 2da fila de acá abajo. */}
           <div className="landing-filter-pills landing-filter-pills--row1">
             {hasFlashOffers && (
               <button
                 type="button"
-                className={`landing-pill landing-pill-flash${flashOnly ? " landing-pill-flash-active" : ""}`}
-                onClick={() => setFlashOnly(true)}
+                className={`landing-pill landing-pill-flash${offersMode === "flash" ? " landing-pill-flash-active" : ""}`}
+                onClick={() => setOffersMode("flash")}
               >
                 Ofertas Flash
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -288,15 +304,23 @@ export default function HomePage() {
             )}
             <button
               type="button"
-              className={`landing-pill${!flashOnly ? " landing-pill-active" : ""}`}
-              onClick={() => setFlashOnly(false)}
+              className={`landing-pill${offersMode === "discount" ? " landing-pill-active" : ""}`}
+              onClick={() => setOffersMode("discount")}
             >
               Descuentos
             </button>
+            {hasPreventaProducts && (
+              <button
+                type="button"
+                className={`landing-pill${offersMode === "preventa" ? " landing-pill-active" : ""}`}
+                onClick={() => setOffersMode("preventa")}
+              >
+                Preventa
+              </button>
+            )}
           </div>
 
-          {/* 2da fila: categoría — se aplica dentro del modo elegido arriba (Ofertas Flash o
-              Descuentos), no lo reemplaza. */}
+          {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. */}
           <div className="landing-filter-pills">
             {rootCategories.map((cat) => (
               <button
@@ -314,7 +338,9 @@ export default function HomePage() {
           {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
           {productsPage && productsPage.items.length === 0 && (
             <div className="landing-offers-empty">
-              <p className="landing-offers-empty-text">No hay productos en oferta por el momento.</p>
+              <p className="landing-offers-empty-text">
+                {offersMode === "preventa" ? "No hay productos en preventa por el momento." : "No hay productos en oferta por el momento."}
+              </p>
               <a
                 className="landing-offers-empty-link"
                 href={contacto?.canalOfertasUrl ?? "#"}
@@ -442,6 +468,7 @@ export default function HomePage() {
                     imgClassName="landing-feature-visual-image"
                     autoplayMs={FEATURE_AUTOPLAY_MS}
                     visibleCount={isMobile ? 1 : 3}
+                    mobileMediaQuery={MOBILE_BREAKPOINT}
                     renderOverlay={(image) => (
                       <div className="landing-feature-overlay">
                         <div className="landing-feature-overlay-text">

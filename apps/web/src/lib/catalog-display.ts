@@ -43,7 +43,8 @@ export function displayPrice(
   product: Product,
 ): { bs: number; usd: number; fromPrice: boolean; variant: ProductVariant | null; discountBs: number } {
   if (product.variants.length > 0) {
-    const available = product.variants.filter((v) => v.disponible);
+    // PREVENTA cuenta como disponible acá (se puede reservar): solo NO_DISPONIBLE queda afuera.
+    const available = product.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
     const pool = available.length > 0 ? available : product.variants;
     const cheapest = pool.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), pool[0]);
     return {
@@ -110,10 +111,19 @@ export function cardFlashUntil(product: Product): string | null {
 }
 
 /** true si TODAS las variantes del producto están marcadas no disponibles — en ese caso la tarjeta
- * reemplaza el precio por el badge "Agotado" (y oculta el botón de agregar al carrito). Un producto
- * sin variantes (no debería pasar en la práctica, ver `ensureDefaultVariant`) no se considera agotado. */
+ * reemplaza el precio por el badge "Agotado" (y oculta el botón de agregar al carrito). PREVENTA no
+ * cuenta como agotada (se puede reservar). Un producto sin variantes (no debería pasar en la
+ * práctica, ver `ensureDefaultVariant`) no se considera agotado. */
 export function isSoldOut(product: Product): boolean {
-  return product.variants.length > 0 && product.variants.every((v) => !v.disponible);
+  return product.variants.length > 0 && product.variants.every((v) => v.estado === "NO_DISPONIBLE");
+}
+
+/** true si alguna variante del producto está en Preventa — ver EstadoVariante. Mismo criterio que
+ * `hasDiscount`/`hasActiveFlash`: alcanza con una sola variante, no hace falta que sea la que se
+ * esté mostrando por precio. Mismo criterio que el filtro `onlyPreventa` del backend
+ * (browse.service.ts). */
+export function isPreventa(product: Product): boolean {
+  return product.variants.some((v) => v.estado === "PREVENTA");
 }
 
 export type AttributeDetail = { key: string; nombre: string; valor: string; orden: number };
