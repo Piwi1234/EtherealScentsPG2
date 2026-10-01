@@ -109,6 +109,7 @@ export default function AttributesPage() {
   const [type, setType] = useState<AttributeType>("TEXT");
   const [variantMode, setVariantMode] = useState<AttributeVariantMode>("NONE");
   const [isFilterable, setIsFilterable] = useState(false);
+  const [ordenFiltro, setOrdenFiltro] = useState(0);
   const [isRequired, setIsRequired] = useState(false);
   const [showInProductList, setShowInProductList] = useState(false);
   const [mostrarEnProforma, setMostrarEnProforma] = useState(false);
@@ -183,6 +184,7 @@ export default function AttributesPage() {
     setType("TEXT");
     setVariantMode("NONE");
     setIsFilterable(false);
+    setOrdenFiltro(0);
     setIsRequired(false);
     setShowInProductList(false);
     setMostrarEnProforma(false);
@@ -201,6 +203,7 @@ export default function AttributesPage() {
     setType(attr.type);
     setVariantMode(attr.variantMode);
     setIsFilterable(attr.isFilterable);
+    setOrdenFiltro(attr.ordenFiltro);
     setIsRequired(attr.isRequired);
     setShowInProductList(attr.showInProductList);
     setMostrarEnProforma(attr.mostrarEnProforma);
@@ -247,6 +250,7 @@ export default function AttributesPage() {
         await apiPatch(`/attributes/${editing.id}`, {
           name,
           isFilterable,
+          ordenFiltro,
           isRequired,
           showInProductList,
           mostrarEnProforma,
@@ -266,6 +270,7 @@ export default function AttributesPage() {
           name,
           type,
           isFilterable,
+          ordenFiltro,
           isRequired,
           showInProductList,
           mostrarEnProforma,
@@ -454,6 +459,22 @@ export default function AttributesPage() {
               <p style={{ fontSize: 12, color: "var(--muted)", margin: "-6px 0 0" }}>
                 No aplica: este atributo ya se elige como variante con precio propio, no como filtro lateral.
               </p>
+            )}
+            {isFilterable && !isPricedVariant && (
+              <div>
+                <label>Posición en el filtro lateral</label>
+                <input
+                  className="field"
+                  type="number"
+                  min={0}
+                  value={ordenFiltro}
+                  onChange={(e) => setOrdenFiltro(parseInt(e.target.value, 10) || 0)}
+                  style={{ width: 100 }}
+                />
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>
+                  Menor número aparece primero, antes que los demás atributos filtrables de esta categoría.
+                </p>
+              </div>
             )}
             <label className="checkbox-row">
               <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} />

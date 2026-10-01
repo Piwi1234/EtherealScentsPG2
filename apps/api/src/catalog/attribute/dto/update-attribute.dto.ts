@@ -14,6 +14,7 @@ export class UpdateAttributeDto extends PartialType(
   PickType(CreateAttributeDto, [
     "name",
     "isFilterable",
+    "ordenFiltro",
     "isRequired",
     "showInProductList",
     "mostrarEnProforma",

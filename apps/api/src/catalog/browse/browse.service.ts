@@ -246,9 +246,12 @@ export class CatalogBrowseService {
    */
   async getFiltersForCategory(categoryId: string) {
     const attributes = await this.attributes.listForCategory(categoryId, true);
-    return attributes.filter(
-      (attribute) => attribute.isFilterable && attribute.variantMode !== AttributeVariantMode.PRICED_VARIANT,
-    );
+    // listForCategory ordena alfabético (lo usa también la tabla del admin) — acá, para el filtro
+    // público, se reordena aparte por `ordenFiltro` (menor primero, nombre como desempate) sin tocar
+    // ese orden del admin.
+    return attributes
+      .filter((attribute) => attribute.isFilterable && attribute.variantMode !== AttributeVariantMode.PRICED_VARIANT)
+      .sort((a, b) => a.ordenFiltro - b.ordenFiltro || a.name.localeCompare(b.name));
   }
 
   /**

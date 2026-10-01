@@ -340,6 +340,10 @@ model Attribute {
   name              String
   type              AttributeType
   isFilterable      Boolean              @default(false) @map("is_filterable")
+  // Posición en el filtro lateral de categoría (/categoria/[slug]) cuando isFilterable está activo —
+  // menor primero, igual criterio que Category.orden. Independiente de `orden` (proforma) y
+  // `ordenTarjeta` (tarjeta de producto): cada contexto se ordena por su propio campo.
+  ordenFiltro       Int                  @default(0) @map("orden_filtro")
   isRequired        Boolean              @default(false) @map("is_required")
   // Si se muestra como columna extra en la tabla de Productos del panel (además de las de siempre).
   showInProductList Boolean              @default(false) @map("show_in_product_list")

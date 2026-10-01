@@ -44,6 +44,15 @@ export class CreateAttributeDto {
   @IsBoolean()
   isFilterable?: boolean;
 
+  @ApiPropertyOptional({
+    default: 0,
+    description: "Posición entre los atributos filtrables en el filtro lateral de categoría (menor primero). Solo aplica si isFilterable.",
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ordenFiltro?: number;
+
   @ApiPropertyOptional({ default: false })
   @IsOptional()
   @IsBoolean()

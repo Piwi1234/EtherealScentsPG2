@@ -68,6 +68,7 @@ export class AttributeService {
           name: dto.name,
           type: dto.type,
           isFilterable: dto.isFilterable ?? false,
+          ordenFiltro: dto.ordenFiltro ?? 0,
           isRequired: dto.isRequired ?? false,
           showInProductList: dto.showInProductList ?? false,
           mostrarEnProforma: dto.mostrarEnProforma ?? false,
