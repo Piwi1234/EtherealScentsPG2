@@ -49,9 +49,6 @@ export default function HomePage() {
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
   const [isMobile, setIsMobile] = useState(false);
-  const [heroSlide, setHeroSlide] = useState(0);
-  const [heroAutoKey, setHeroAutoKey] = useState(0);
-  const [heroDirection, setHeroDirection] = useState<1 | -1>(1);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
     weeklyCollectionBannerImages: CarouselImage[];
@@ -162,31 +159,10 @@ export default function HomePage() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // Hero: una sola imagen a pantalla completa por vez (antes eran 3 banners lado a lado) — mismo
-  // mecanismo de dirección/autoplay que el resto de los carruseles del home.
+  // Hero: una sola imagen a pantalla completa por vez (antes eran 3 banners lado a lado) — ahora usa
+  // el mismo ImageCarousel compartido del resto del sitio (flechas en los costados + autoplay +
+  // swipe táctil en mobile, en vez de reimplementar todo ese mecanismo acá).
   const heroImages = landingImages?.heroImages ?? [];
-  const heroWindow = useMemo(
-    () => (heroImages.length > 0 ? [heroImages[heroSlide % heroImages.length]] : []),
-    [heroImages, heroSlide],
-  );
-
-  useEffect(() => {
-    if (heroImages.length <= 1) return;
-    const timer = setInterval(() => {
-      setHeroDirection(1);
-      setHeroSlide((s) => (s + 1) % heroImages.length);
-    }, HERO_AUTOPLAY_MS);
-    return () => clearInterval(timer);
-  }, [heroImages.length, heroAutoKey]);
-
-  function goToHeroSlide(index: number, dir?: 1 | -1) {
-    const total = heroImages.length;
-    if (total === 0) return;
-    const nextSlide = ((index % total) + total) % total;
-    setHeroDirection(dir ?? (nextSlide >= heroSlide ? 1 : -1));
-    setHeroSlide(nextSlide);
-    setHeroAutoKey((k) => k + 1);
-  }
 
   const brandName = empresa?.nombre ?? "Ethereal Scents";
 
@@ -195,47 +171,10 @@ export default function HomePage() {
       <LandingNavbar variant="dark" overlay={false} />
 
       {/* ============ 2. Hero: una imagen a pantalla completa ============ */}
-      {heroWindow.length > 0 && (
+      {heroImages.length > 0 && (
         <section className="landing-hero-banners">
-          <div style={{ position: "relative" }}>
-            <div
-              className={`landing-hero-banner-grid${
-                heroDirection === 1 ? " landing-hero-banner-grid--next" : " landing-hero-banner-grid--prev"
-              }`}
-              key={heroSlide}
-            >
-              {heroWindow.map((image) => {
-                const content = (
-                  <img className="landing-hero-banner-image" src={productImageSrc(image.imageUrl)!} alt="" />
-                );
-                return image.url ? (
-                  <a
-                    key={image.id}
-                    className="landing-hero-banner-card"
-                    href={image.url}
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div key={image.id} className="landing-hero-banner-card">
-                    {content}
-                  </div>
-                );
-              })}
-            </div>
-            {heroImages.length > 1 && (
-              <div className="landing-image-carousel-dots">
-                {heroImages.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`landing-image-carousel-dot${i === heroSlide ? " landing-image-carousel-dot--active" : ""}`}
-                    aria-label={`Ir al banner ${i + 1}`}
-                    onClick={() => goToHeroSlide(i)}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="landing-hero-banner-frame">
+            <ImageCarousel images={heroImages} alt="" imgClassName="landing-hero-banner-image" autoplayMs={HERO_AUTOPLAY_MS} />
           </div>
         </section>
       )}
