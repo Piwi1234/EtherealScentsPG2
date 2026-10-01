@@ -2995,6 +2995,7 @@ a {
 .landing-navbar-mobile-body {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 20px 28px;
   display: flex;
   flex-direction: column;
