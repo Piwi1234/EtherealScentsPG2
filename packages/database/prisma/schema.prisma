@@ -183,6 +183,18 @@ enum UnidadVariante {
   @@map("unidad_variante")
 }
 
+/// Control de catálogo de una ProductVariant (ver ProductVariant.estado). DISPONIBLE/NO_DISPONIBLE
+/// reemplazan al booleano `disponible` de antes; PREVENTA es nuevo — el producto se puede seguir
+/// mostrando (no cuenta como agotado) pero queda afuera de "Descuentos"/"Ofertas Flash" del home
+/// aunque tenga descuento o temporizador cargado, y entra en su propio filtro "Preventa" ahí.
+enum EstadoVariante {
+  DISPONIBLE
+  NO_DISPONIBLE
+  PREVENTA
+
+  @@map("estado_variante")
+}
+
 /// Fila única de configuración global del sistema (id fijo "default"). Por ahora solo guarda el
 /// tipo de cambio $ -> Bs usado para calcular los precios en bolívares de los productos.
 model SystemSetting {
@@ -494,9 +506,12 @@ model ProductVariant {
   // listados caen al Product.imageUrl genérico.
   imageUrl String? @map("image_url")
 
-  // Control de catálogo (todavía no lo consume ningún flujo automático — punto de extensión para
-  // filtrar el catálogo público más adelante). Aplica a cualquier variante, PZA o ML.
-  disponible Boolean @default(true)
+  // Control de catálogo — DISPONIBLE/NO_DISPONIBLE y, desde acá, PREVENTA (ver doc-comment de
+  // EstadoVariante). El catálogo público lo consume para el badge "Agotado"/precio (isSoldOut,
+  // displayPrice en catalog-display.ts) y el home para separar "Descuentos"/"Ofertas Flash" de
+  // "Preventa" (ver onlyDiscounted/onlyFlash/onlyPreventa en browse.service.ts). Aplica a cualquier
+  // variante, PZA o ML.
+  estado EstadoVariante @default(DISPONIBLE)
 
   // Mismo criterio que Product.ofertaFlashHasta, pero para productos con variantes con precio
   // propio: cada variante tiene su propio temporizador (ej. "50 ML" en oferta flash y "100 ML" no).

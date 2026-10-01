@@ -71,7 +71,11 @@ export function ProductoDetailClient({ product, categories }: { product: Product
   const image = productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl ?? null);
   const priceBs = selectedVariant ? selectedVariant.finalPriceBs : product.finalPriceBs;
   const discountBs = Number(selectedVariant ? selectedVariant.discountBs : product.discountBs);
-  const disponible = selectedVariant ? selectedVariant.disponible : true;
+  const estado = selectedVariant ? selectedVariant.estado : "DISPONIBLE";
+  // PREVENTA cuenta como disponible para comprar/mostrar precio (ver isSoldOut en catalog-display.ts):
+  // solo NO_DISPONIBLE oculta el precio y el botón de agregar al carrito.
+  const disponible = estado !== "NO_DISPONIBLE";
+  const preventa = estado === "PREVENTA";
   const enStock = selectedVariant ? selectedVariant.hasStock : product.hasStock;
   const codigo = product.variants.length > 1 && selectedVariant ? selectedVariant.variantCode : product.productCode;
   const detalles = getAllAttributeDetails(product);
@@ -150,7 +154,7 @@ export function ProductoDetailClient({ product, categories }: { product: Product
                   {group.options.map((option) => {
                     const isActive = selectedVariant?.options.some((o) => o.optionValueId === option.optionValueId) ?? false;
                     const optionVariant = findVariantForOption(group.attributeId, option.optionValueId);
-                    const isUnavailable = optionVariant ? !optionVariant.disponible : false;
+                    const isUnavailable = optionVariant ? optionVariant.estado === "NO_DISPONIBLE" : false;
                     return (
                       <button
                         type="button"
@@ -177,8 +181,16 @@ export function ProductoDetailClient({ product, categories }: { product: Product
               )
             )}
 
-            <p className={`landing-product-detail-availability${disponible ? " landing-product-detail-availability--yes" : " landing-product-detail-availability--no"}`}>
-              {disponible ? (enStock ? "En Stock" : "Disponible") : "No disponible"}
+            <p
+              className={`landing-product-detail-availability${
+                preventa
+                  ? " landing-product-detail-availability--preventa"
+                  : disponible
+                    ? " landing-product-detail-availability--yes"
+                    : " landing-product-detail-availability--no"
+              }`}
+            >
+              {preventa ? "Preventa" : disponible ? (enStock ? "En Stock" : "Disponible") : "No disponible"}
             </p>
 
             {disponible && (

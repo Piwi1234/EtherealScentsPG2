@@ -22,6 +22,7 @@ import type {
   AttributeVariantMode,
   Brand,
   Category,
+  EstadoVariante,
   Page,
   Product,
   ProductImportReport,
@@ -267,9 +268,9 @@ export default function ProductsPage() {
   /** Control de catálogo de la variante representativa de la fila (la misma que ya se usa para
    * mostrar precio) — para granularidad por variante en productos con precio propio, se edita desde
    * el formulario de producto, no acá. */
-  async function handleUpdateDisponible(productId: string, variantId: string, disponible: boolean) {
+  async function handleUpdateEstado(productId: string, variantId: string, estado: EstadoVariante) {
     try {
-      await apiPatch(`/products/${productId}/variants/${variantId}`, { disponible });
+      await apiPatch(`/products/${productId}/variants/${variantId}`, { estado });
       loadProducts();
     } catch (e) {
       alert(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -625,13 +626,14 @@ export default function ProductsPage() {
                         {selectedVariant ? (
                           <select
                             className="field"
-                            value={selectedVariant.disponible ? "1" : "0"}
+                            value={selectedVariant.estado}
                             onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleUpdateDisponible(product.id, selectedVariant.id, e.target.value === "1")}
+                            onChange={(e) => handleUpdateEstado(product.id, selectedVariant.id, e.target.value as EstadoVariante)}
                             style={{ width: 130 }}
                           >
-                            <option value="1">Disponible</option>
-                            <option value="0">No disponible</option>
+                            <option value="DISPONIBLE">Disponible</option>
+                            <option value="NO_DISPONIBLE">No disponible</option>
+                            <option value="PREVENTA">Preventa</option>
                           </select>
                         ) : (
                           <span className="cell-muted">—</span>

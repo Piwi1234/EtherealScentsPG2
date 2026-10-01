@@ -3,7 +3,16 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
-import { cardFlashUntil, cardImageUrl, displayPrice, formatPriceBs, hasDiscount, isSoldOut, productImageSrc } from "../../lib/catalog-display";
+import {
+  cardFlashUntil,
+  cardImageUrl,
+  displayPrice,
+  formatPriceBs,
+  hasDiscount,
+  isPreventa,
+  isSoldOut,
+  productImageSrc,
+} from "../../lib/catalog-display";
 import type { Product } from "../../lib/types";
 import { formatAtributosTarjeta, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
@@ -26,6 +35,7 @@ export function ProductCard({
   const image = productImageSrc(cardImageUrl(product, variant));
   const atributos = formatAtributosTarjeta(product.attributeValues, product.variantOptionValues);
   const soldOut = isSoldOut(product);
+  const preventa = isPreventa(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
   const flashUntil = cardFlashUntil(product);
 
@@ -63,7 +73,11 @@ export function ProductCard({
             Oferta
           </span>
         )}
-        {product.hasStock && <span className="landing-product-instock-badge">En Stock</span>}
+        {preventa ? (
+          <span className="landing-product-preventa-badge">Preventa</span>
+        ) : (
+          product.hasStock && <span className="landing-product-instock-badge">En Stock</span>
+        )}
         {!soldOut && (
           <button type="button" className="landing-product-add-btn" aria-label="Agregar al carrito" onClick={handleAdd}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

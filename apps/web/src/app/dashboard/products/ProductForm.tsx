@@ -19,6 +19,7 @@ import type {
   Attribute,
   Brand,
   Category,
+  EstadoVariante,
   ExchangeRateResponse,
   PresentacionVenta,
   Product,
@@ -464,11 +465,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     }
   }
 
-  async function handleUpdateVariantDisponible(variantId: string, disponible: boolean) {
+  async function handleUpdateVariantEstado(variantId: string, estado: EstadoVariante) {
     if (!currentProduct) return;
     setVariantRowError((prev) => ({ ...prev, [variantId]: "" }));
     try {
-      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variants/${variantId}`, { disponible });
+      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variants/${variantId}`, { estado });
       setCurrentProduct(updated);
     } catch (e) {
       setVariantRowError((prev) => ({
@@ -950,12 +951,13 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                   <td>
                                     <select
                                       className="field"
-                                      value={variant.disponible ? "1" : "0"}
-                                      onChange={(e) => handleUpdateVariantDisponible(variant.id, e.target.value === "1")}
+                                      value={variant.estado}
+                                      onChange={(e) => handleUpdateVariantEstado(variant.id, e.target.value as EstadoVariante)}
                                       style={{ width: 130 }}
                                     >
-                                      <option value="1">Disponible</option>
-                                      <option value="0">No disponible</option>
+                                      <option value="DISPONIBLE">Disponible</option>
+                                      <option value="NO_DISPONIBLE">No disponible</option>
+                                      <option value="PREVENTA">Preventa</option>
                                     </select>
                                   </td>
                                   <td>{variant.variantCode}</td>
@@ -1264,11 +1266,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           <label>Disponible</label>
                           <select
                             className="field"
-                            value={currentProduct.variants[0].disponible ? "1" : "0"}
-                            onChange={(e) => handleUpdateVariantDisponible(currentProduct.variants[0].id, e.target.value === "1")}
+                            value={currentProduct.variants[0].estado}
+                            onChange={(e) => handleUpdateVariantEstado(currentProduct.variants[0].id, e.target.value as EstadoVariante)}
                           >
-                            <option value="1">Disponible</option>
-                            <option value="0">No disponible</option>
+                            <option value="DISPONIBLE">Disponible</option>
+                            <option value="NO_DISPONIBLE">No disponible</option>
+                            <option value="PREVENTA">Preventa</option>
                           </select>
                         </div>
                       )}
