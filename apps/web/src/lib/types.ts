@@ -96,6 +96,10 @@ export type AttributeOption = {
   value: string;
   /** Color hex (ej. "#c9a96e") del botón de esta opción en el formulario de producto. */
   color: string | null;
+  /** Curaduría manual para el buscador "¿Qué te gusta oler?" del home (ver ScentFinder en
+   * home/page.tsx) — independiente de isFilterable/ordenFiltro de Attribute. */
+  destacadoHome: boolean;
+  ordenDestacado: number;
 };
 
 export type Attribute = {

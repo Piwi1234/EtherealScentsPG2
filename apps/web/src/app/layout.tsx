@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Manrope } from "next/font/google";
+import { Inter, Manrope, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { CartRoot } from "../components/landing/CartRoot";
 import { API_ORIGIN, getCasaMatrizLogo } from "../lib/api";
@@ -14,6 +14,9 @@ import { API_ORIGIN, getCasaMatrizLogo } from "../lib/api";
 // grandes tipo display, igual que el .text--display de Clarkson.
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-inter" });
 const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-manrope" });
+// Serif itálica elegante — solo para el título de "Encuentra tu aroma ideal" (ScentFinder, home),
+// a pedido puntual de ese título nomás. El resto del sitio sigue con Manrope (ver más arriba).
+const playfairDisplay = Playfair_Display({ subsets: ["latin"], weight: ["600"], style: ["italic"], variable: "--font-playfair-display" });
 
 const SITE_TITLE = "Ethereal Scents";
 const SITE_DESCRIPTION = "Perfumes y vapes originales — catálogo, ofertas y cotización directa.";
@@ -52,7 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${manrope.variable}`}>
+    <html lang="es" className={`${inter.variable} ${manrope.variable} ${playfairDisplay.variable}`}>
       <body>
         <CartRoot>{children}</CartRoot>
       </body>

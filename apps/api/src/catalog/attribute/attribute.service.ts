@@ -234,7 +234,15 @@ export class AttributeService {
     }
     this.assertPlainSelectAttribute(attribute);
     try {
-      return await this.prisma.attributeOption.create({ data: { attributeId, value: dto.value, color: dto.color } });
+      return await this.prisma.attributeOption.create({
+        data: {
+          attributeId,
+          value: dto.value,
+          color: dto.color,
+          destacadoHome: dto.destacadoHome,
+          ordenDestacado: dto.ordenDestacado,
+        },
+      });
     } catch (error) {
       rethrowPrismaError(error, "Opción de atributo");
     }
@@ -247,7 +255,7 @@ export class AttributeService {
     try {
       return await this.prisma.attributeOption.update({
         where: { id: optionId },
-        data: { value: dto.value, color: dto.color },
+        data: { value: dto.value, color: dto.color, destacadoHome: dto.destacadoHome, ordenDestacado: dto.ordenDestacado },
       });
     } catch (error) {
       rethrowPrismaError(error, "Opción de atributo");
