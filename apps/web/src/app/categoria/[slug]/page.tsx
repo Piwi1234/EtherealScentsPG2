@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
@@ -62,6 +62,12 @@ export default function CategoriaPage() {
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
   const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
   const priceDropdownRef = useRef<HTMLDivElement>(null);
+  const pricePanelRef = useRef<HTMLDivElement>(null);
+  // El panel tiene ancho fijo (260px) y anclaje left:0 por CSS — en mobile el botón "Precio" puede
+  // caer cerca del borde derecho del toolbar (el orden de los controles varía con el wrap), y ahí
+  // el panel se salía de la pantalla sin forma de ver el slider completo ni el botón "Filtrar". Se
+  // calcula en JS cuánto desplazarlo hacia la izquierda para que siempre quede dentro del viewport.
+  const [pricePanelShift, setPricePanelShift] = useState(0);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<Record<string, string[]>>({});
@@ -291,6 +297,31 @@ export default function CategoriaPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [priceDropdownOpen]);
 
+  // Mantiene el panel de precio dentro de la pantalla — layout effect (corre antes de pintar, sin
+  // el parpadeo de un useEffect normal) que mide cuánto se pasa del borde derecho del viewport y lo
+  // corrige con un translateX hacia la izquierda. Se recalcula también al rotar/cambiar el tamaño
+  // de la ventana mientras sigue abierto.
+  useLayoutEffect(() => {
+    if (!priceDropdownOpen) {
+      setPricePanelShift(0);
+      return;
+    }
+    function recalc() {
+      const panel = pricePanelRef.current;
+      if (!panel) return;
+      const margin = 12;
+      panel.style.transform = "";
+      const rect = panel.getBoundingClientRect();
+      const overflowRight = rect.right - (window.innerWidth - margin);
+      let shift = overflowRight > 0 ? -overflowRight : 0;
+      if (rect.left + shift < margin) shift = margin - rect.left;
+      setPricePanelShift(shift);
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, [priceDropdownOpen]);
+
   function clearAllFilters() {
     setSubCategoryFilter("");
     setDiscountOnly(false);
@@ -462,7 +493,11 @@ export default function CategoriaPage() {
                   </button>
 
                   {priceDropdownOpen && (
-                    <div className="landing-price-dropdown-panel">
+                    <div
+                      className="landing-price-dropdown-panel"
+                      ref={pricePanelRef}
+                      style={pricePanelShift ? { transform: `translateX(${pricePanelShift}px)` } : undefined}
+                    >
                       <div className="landing-price-slider">
                         <div className="landing-price-slider-track">
                           <div
