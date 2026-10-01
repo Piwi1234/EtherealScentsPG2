@@ -394,6 +394,12 @@ model AttributeOption {
   value       String
   // Color hex (ej. "#c9a96e") para el botón de esta opción en el formulario de producto. Opcional.
   color       String?
+  // Curaduría manual para el buscador "¿Qué te gusta oler?" del home (bloque de Acordes destacados,
+  // ver ScentFinder en home/page.tsx) — no tiene nada que ver con `isFilterable`/`ordenFiltro` de
+  // Attribute (esos son del sidebar de filtros de /categoria). Solo tiene sentido en atributos
+  // allowMultiple (hoy, en la práctica, Acordes); el resto lo deja en false.
+  destacadoHome  Boolean @default(false) @map("destacado_home")
+  ordenDestacado Int     @default(0) @map("orden_destacado")
 
   productValues ProductAttributeValue[]
 

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
-import type { Brand, CarouselImage, Category, ContactoInfo, Page, Product } from "../../lib/types";
+import { brandLinkHref } from "../../lib/catalog-display";
+import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -19,6 +19,9 @@ const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
 const BRANDS_SLIDE_SIZE = 8;
 const BRANDS_AUTOPLAY_MS = 10000;
+// Ciclan por posición dentro de la fila (no por marca) — solo para que la pared de nombres no se
+// vea plana, como en la referencia.
+const BRAND_CARD_COLORS = ["#4a3f3a", "#39507a", "#8a6a1f", "#5c4a8a", "#7a3f45", "#2f4a63", "#3d6b52", "#8a4a2f"];
 const HERO_AUTOPLAY_MS = 10000;
 // Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el carrusel de ofertas
 // pagina de a 2 (en vez de 5). El hero ya muestra 1 sola imagen a cualquier ancho (ver heroWindow).
@@ -67,6 +70,9 @@ export default function HomePage() {
   const [contacto, setContacto] = useState<ContactoInfo | null>(null);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
+  // "Encuentra tu aroma ideal" (ScentFinder, acá abajo) es específico de Perfumes — Acordes/Concentración
+  // no existen para las demás categorías raíz.
+  const perfumesCategory = rootCategories.find((cat) => cat.slug === "perfumes") ?? null;
 
   // Arranca en la primera categoría (según su orden real, ver category.service.ts) apenas cargan —
   // antes había un pill "Todas" que se sacó a pedido, ahora el filtro de categoría de este bloque
@@ -442,11 +448,16 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* ================= 3c. Explora Nuestras Marcas ================= */}
+      <BrandsShowcase rootCategories={rootCategories} brands={brands} />
+
+      {/* ================= 3d. Encuentra tu aroma ideal ================= */}
+      {perfumesCategory && (
+        <ScentFinder category={perfumesCategory} subcategories={categories.filter((c) => c.parentId === perfumesCategory.id)} />
+      )}
+
       {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
       {rootCategories.map((cat, i) => {
-        // Marcas asignadas a alguna subcategoría de esta categoría raíz (una marca nunca se
-        // asigna directo a una raíz — ver BrandsPage/assertCategoriesExist).
-        const categoryBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === cat.id));
         // Fondo negro (Black Steel) para el primer bloque, papel para el siguiente, y así alterna —
         // .landing-feature-block--dark/--light ajustan el color de letras/tema para cada caso.
         const isDark = i % 2 === 0;
@@ -490,13 +501,6 @@ export default function HomePage() {
                   className="landing-feature-visual landing-feature-visual--fallback"
                   style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
                 />
-              )}
-
-              {categoryBrands.length > 0 && (
-                <div className="landing-brands-block">
-                  <p className="landing-eyebrow landing-brands-eyebrow">Explora Nuestras Marcas</p>
-                  <BrandsCarousel brands={categoryBrands} rootCategory={cat} />
-                </div>
               )}
             </div>
           </section>
@@ -549,8 +553,62 @@ export default function HomePage() {
   );
 }
 
-/** Carrusel de logos de marca de una categoría raíz (sus subcategorías) — mismo mecanismo que el
- * carrusel de "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
+/** Bloque "Explora Nuestras Marcas" del home, debajo de "Colección de la semana" — antes era un
+ * carrusel de logos repetido dentro de cada bloque de "Producto destacado" (uno por categoría raíz,
+ * ver sección 4 más abajo); se sacó de ahí por redundante y se unificó acá en un solo bloque con
+ * pestañas para alternar de categoría, en vez de mostrar las tres a la vez. */
+function BrandsShowcase({ rootCategories, brands }: { rootCategories: Category[]; brands: Brand[] }) {
+  // Solo categorías con alguna marca asignada a una subcategoría suya — una marca nunca se asigna
+  // directo a una raíz (ver BrandsPage/assertCategoriesExist).
+  const categoriesWithBrands = rootCategories.filter((cat) =>
+    brands.some((b) => b.categories.some((bc) => bc.category.parentId === cat.id)),
+  );
+  const [activeCategoryId, setActiveCategoryId] = useState("");
+
+  useEffect(() => {
+    if (activeCategoryId || categoriesWithBrands.length === 0) return;
+    setActiveCategoryId(categoriesWithBrands[0].id);
+  }, [categoriesWithBrands, activeCategoryId]);
+
+  const activeCategory = categoriesWithBrands.find((c) => c.id === activeCategoryId) ?? null;
+  if (!activeCategory) return null;
+
+  const activeBrands = brands.filter((b) => b.categories.some((bc) => bc.category.parentId === activeCategory.id));
+
+  return (
+    <section className="landing-section">
+      <div className="landing-container">
+        <div className="landing-brands-showcase-header">
+          <div>
+            <p className="landing-eyebrow">Explora Nuestras Marcas</p>
+            <h2 className="landing-section-title">Más de 100 marcas</h2>
+          </div>
+          {categoriesWithBrands.length > 1 && (
+            <div className="landing-brands-tabs">
+              {categoriesWithBrands.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`landing-brands-tab${cat.id === activeCategory.id ? " landing-brands-tab--active" : ""}`}
+                  onClick={() => setActiveCategoryId(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* `key` fuerza a remontar el carrusel al cambiar de pestaña — así slide/autoplay arrancan
+            de cero en vez de arrastrar la posición de la categoría anterior. */}
+        <BrandsCarousel key={activeCategory.id} brands={activeBrands} rootCategory={activeCategory} />
+      </div>
+    </section>
+  );
+}
+
+/** Carrusel de nombres de marca de una categoría raíz — mismo mecanismo que el carrusel de
+ * "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
 function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategory: { id: string; slug: string } }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
@@ -590,13 +648,11 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
       </button>
 
       <div className={`landing-brand-grid${direction === 1 ? " landing-brand-grid--next" : " landing-brand-grid--prev"}`} key={slide}>
-        {chunks[slide].map((brand) => (
-          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id} title={brand.name}>
-            {brand.logoUrl ? (
-              <img className="landing-brand-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
-            ) : (
-              <div className="landing-brand-logo-placeholder">{brand.name.slice(0, 1)}</div>
-            )}
+        {chunks[slide].map((brand, i) => (
+          <Link href={brandLinkHref(rootCategory, brand)} className="landing-brand-card" key={brand.id}>
+            <span className="landing-brand-card-name" style={{ color: BRAND_CARD_COLORS[i % BRAND_CARD_COLORS.length] }}>
+              {brand.name}
+            </span>
           </Link>
         ))}
       </div>
@@ -611,5 +667,188 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
         ›
       </button>
     </div>
+  );
+}
+
+type PriceBand = { label: string; min: number; max: number };
+
+/** Negro o blanco según qué tan clara es la variante — así el pill de un acorde elegido (ver
+ * ScentFinder) se puede rellenar con su propio color guardado en vez de un navy genérico, sin que
+ * el texto se vuelva ilegible en los acordes de color claro (ej. "Atalcado", "Cítrico"). Fórmula
+ * YIQ estándar (percepción de brillo), no luminancia relativa WCAG completa — alcanza para este uso. */
+function getContrastTextColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 150 ? "#1a2234" : "#ffffff";
+}
+
+/** "Encuentra tu aroma ideal" — prefiltrado rápido de Perfumes antes de llegar a /categoria: elegís UN
+ * acorde (de los marcados "Destacado" en Configuración → Atributos → Acordes, ver
+ * handleOptionDestacadoChange en dashboard/attributes/page.tsx) + opcionalmente Subcategoría,
+ * Género/Concentración (cualquier atributo filtrable de una sola opción que tenga la categoría, sin
+ * hardcodear sus nombres) y un rango de precio, y "Ver {acorde}" arma la URL de /categoria/perfumes
+ * con esos mismos filtros ya aplicados (mismo formato subcategoria=id / attr[id]=valor que ya
+ * entiende esa página). No incluye Presentación (talle) a propósito — ver conversación: ese
+ * atributo es "con precio propio" (cada talle es una variante con su propio precio) y el motor de
+ * filtros actual no lo soporta como filtro de catálogo. */
+function ScentFinder({ category, subcategories }: { category: Category; subcategories: Category[] }) {
+  const [attributes, setAttributes] = useState<Attribute[] | null>(null);
+  const [maxPriceBs, setMaxPriceBs] = useState(0);
+  const [selectedAcordeId, setSelectedAcordeId] = useState("");
+  const [selectedSubcategoriaId, setSelectedSubcategoriaId] = useState("");
+  const [selectedByAttribute, setSelectedByAttribute] = useState<Record<string, string>>({});
+  const [selectedBandIndex, setSelectedBandIndex] = useState("");
+
+  useEffect(() => {
+    apiGet<Attribute[]>(`/catalog/categories/${category.id}/filters`).then(setAttributes).catch(() => {});
+    apiGet<CategoryAggregates>(`/catalog/categories/${category.id}/aggregates`)
+      .then((agg) => setMaxPriceBs(agg.maxPriceBs))
+      .catch(() => {});
+  }, [category.id]);
+
+  // El atributo de acordes es el único allowMultiple de la categoría — no hace falta buscarlo por
+  // nombre (ver doc de arriba).
+  const acordesAttribute = attributes?.find((a) => a.allowMultiple) ?? null;
+  const destacados = useMemo(
+    () => [...(acordesAttribute?.options ?? [])].filter((o) => o.destacadoHome).sort((a, b) => a.ordenDestacado - b.ordenDestacado),
+    [acordesAttribute],
+  );
+  // Género, Concentración, o cualquier otro filtro de una sola opción que la categoría tenga —
+  // tampoco hardcodeado por nombre, así el widget no se rompe si se renombra o agrega uno nuevo.
+  const dropdownAttributes = attributes?.filter((a) => a.type === "SELECT" && a.variantMode === "NONE" && !a.allowMultiple) ?? [];
+
+  useEffect(() => {
+    if (selectedAcordeId || destacados.length === 0) return;
+    setSelectedAcordeId(destacados[0].id);
+  }, [destacados, selectedAcordeId]);
+
+  const priceBands = useMemo<PriceBand[]>(() => {
+    if (maxPriceBs <= 0) return [];
+    const round = (n: number) => Math.max(50, Math.round(n / 50) * 50);
+    const q1 = round(maxPriceBs * 0.25);
+    const q2 = round(maxPriceBs * 0.5);
+    const q3 = round(maxPriceBs * 0.75);
+    return [
+      { label: `Hasta Bs ${q1}`, min: 0, max: q1 },
+      { label: `Bs ${q1} – Bs ${q2}`, min: q1, max: q2 },
+      { label: `Bs ${q2} – Bs ${q3}`, min: q2, max: q3 },
+      { label: `Más de Bs ${q3}`, min: q3, max: 10_000_000 },
+    ];
+  }, [maxPriceBs]);
+
+  if (!acordesAttribute || destacados.length === 0) return null;
+
+  const selectedAcorde = destacados.find((o) => o.id === selectedAcordeId) ?? destacados[0];
+
+  const params = new URLSearchParams();
+  params.set(`attr[${acordesAttribute.id}]`, selectedAcorde.id);
+  // "subcategoria" (no attr[...]) porque así es como /categoria/[slug] ya lo lee — mismo param que
+  // usan el navbar y el logo de marca del home, no uno nuevo.
+  if (selectedSubcategoriaId) params.set("subcategoria", selectedSubcategoriaId);
+  for (const attr of dropdownAttributes) {
+    const value = selectedByAttribute[attr.id];
+    if (value) params.set(`attr[${attr.id}]`, value);
+  }
+  // Number("") es 0 (no NaN) — sin este chequeo, "Cualquiera" (sin elegir nada) indexaba la
+  // primera banda real y terminaba filtrando "Hasta Bs 200" igual.
+  const band = selectedBandIndex !== "" ? priceBands[Number(selectedBandIndex)] : undefined;
+  if (band) {
+    params.set("minPriceBs", String(band.min));
+    params.set("maxPriceBs", String(band.max));
+  }
+  const href = `/categoria/${category.slug}?${params.toString()}`;
+
+  return (
+    <section className="landing-section">
+      <div className="landing-container">
+        <div className="landing-scent-finder-card">
+          <div className="landing-scent-finder-header">
+            <div>
+              <p className="landing-eyebrow">Encontrá tu aroma</p>
+              <h2 className="landing-section-title landing-scent-finder-title">Encuentra tu aroma ideal</h2>
+            </div>
+            <p className="landing-scent-finder-lead">Filtrá por familia olfativa, género y concentración</p>
+          </div>
+
+          <div className="landing-scent-finder-pills">
+            {destacados.map((option) => {
+              const isActive = option.id === selectedAcorde.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`landing-scent-finder-pill${isActive ? " landing-scent-finder-pill--active" : ""}`}
+                  onClick={() => setSelectedAcordeId(option.id)}
+                  style={
+                    isActive && option.color
+                      ? { background: option.color, borderColor: option.color, color: getContrastTextColor(option.color) }
+                      : undefined
+                  }
+                >
+                  {option.color && <span className="landing-filter-swatch" style={{ background: option.color }} />}
+                  {option.value}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="landing-scent-finder-fields">
+            {subcategories.length > 0 && (
+              <label className="landing-scent-finder-field">
+                Subcategoría
+                <select
+                  className="landing-select"
+                  value={selectedSubcategoriaId}
+                  onChange={(e) => setSelectedSubcategoriaId(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {subcategories.map((sub) => (
+                    <option value={sub.id} key={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {dropdownAttributes.map((attr) => (
+              <label className="landing-scent-finder-field" key={attr.id}>
+                {attr.name}
+                <select
+                  className="landing-select"
+                  value={selectedByAttribute[attr.id] ?? ""}
+                  onChange={(e) => setSelectedByAttribute((prev) => ({ ...prev, [attr.id]: e.target.value }))}
+                >
+                  <option value="">Todos</option>
+                  {attr.options.map((option) => (
+                    <option value={option.id} key={option.id}>
+                      {option.value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <label className="landing-scent-finder-field">
+              Precio (Bs)
+              <select className="landing-select" value={selectedBandIndex} onChange={(e) => setSelectedBandIndex(e.target.value)}>
+                <option value="">Cualquiera</option>
+                {priceBands.map((b, i) => (
+                  <option value={i} key={b.label}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="landing-scent-finder-footer">
+            <Link href={href} className="landing-btn landing-btn-primary">
+              Ver {selectedAcorde.value.toLowerCase()}
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

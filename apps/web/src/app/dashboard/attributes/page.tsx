@@ -333,6 +333,48 @@ export default function AttributesPage() {
     }
   }
 
+  /** Curaduría del buscador "¿Qué te gusta oler?" del home (solo Acordes, hoy) — qué opciones
+   * aparecen como pill ahí y en qué orden. Ver ScentFinder en home/page.tsx. */
+  async function handleOptionDestacadoChange(option: AttributeOption, destacadoHome: boolean) {
+    if (!optionsFor) return;
+    setOptionError("");
+    try {
+      await apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, { value: option.value, color: option.color ?? undefined, destacadoHome });
+      loadAllSections();
+    } catch (e) {
+      setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Intercambia ordenDestacado con la vecina en esa dirección (entre las marcadas destacadas nomás)
+   * — mismo criterio de "swap con la vecina" que ya usa Grid Imágenes para reordenar carruseles,
+   * solo que acá se resuelve en 2 PATCH desde el cliente en vez de un endpoint de mover aparte. */
+  async function handleMoveDestacado(option: AttributeOption, direction: "up" | "down") {
+    if (!optionsFor) return;
+    const destacados = [...optionsFor.options].filter((o) => o.destacadoHome).sort((a, b) => a.ordenDestacado - b.ordenDestacado);
+    const index = destacados.findIndex((o) => o.id === option.id);
+    const neighbor = destacados[direction === "up" ? index - 1 : index + 1];
+    if (!neighbor) return;
+    setOptionError("");
+    try {
+      await Promise.all([
+        apiPatch(`/attributes/${optionsFor.id}/options/${option.id}`, {
+          value: option.value,
+          color: option.color ?? undefined,
+          ordenDestacado: neighbor.ordenDestacado,
+        }),
+        apiPatch(`/attributes/${optionsFor.id}/options/${neighbor.id}`, {
+          value: neighbor.value,
+          color: neighbor.color ?? undefined,
+          ordenDestacado: option.ordenDestacado,
+        }),
+      ]);
+      loadAllSections();
+    } catch (e) {
+      setOptionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function handleDeleteOption(option: AttributeOption) {
     if (!optionsFor || !confirm(`¿Eliminar la opción "${option.value}"?`)) return;
     try {
@@ -683,16 +725,42 @@ export default function AttributesPage() {
       {optionsFor && (
         <Modal title={`Opciones de "${optionsFor.name}"`} onClose={() => setOptionsFor(null)}>
           <div className="form-grid">
+            {optionsFor.allowMultiple && (
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 4px" }}>
+                "Destacado" = aparece como pill en el buscador "¿Qué te gusta oler?" del home (solo tiene sentido en
+                Acordes) — las flechas reordenan entre las destacadas nomás.
+              </p>
+            )}
             {optionsFor.options.map((option) => (
               <div key={option.id} className="option-row">
                 {optionsFor.allowMultiple && (
-                  <input
-                    type="color"
-                    className="color-swatch-input"
-                    value={option.color ?? DEFAULT_OPTION_COLOR}
-                    onChange={(e) => handleOptionColorChange(option, e.target.value)}
-                    title="Color del botón"
-                  />
+                  <>
+                    <input
+                      type="color"
+                      className="color-swatch-input"
+                      value={option.color ?? DEFAULT_OPTION_COLOR}
+                      onChange={(e) => handleOptionColorChange(option, e.target.value)}
+                      title="Color del botón"
+                    />
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, whiteSpace: "nowrap" }}>
+                      <input
+                        type="checkbox"
+                        checked={option.destacadoHome}
+                        onChange={(e) => handleOptionDestacadoChange(option, e.target.checked)}
+                      />
+                      Destacado
+                    </label>
+                    {option.destacadoHome && (
+                      <span style={{ display: "flex", gap: 2 }}>
+                        <button type="button" className="action-btn" onClick={() => handleMoveDestacado(option, "up")} title="Mover antes">
+                          ↑
+                        </button>
+                        <button type="button" className="action-btn" onClick={() => handleMoveDestacado(option, "down")} title="Mover después">
+                          ↓
+                        </button>
+                      </span>
+                    )}
+                  </>
                 )}
                 <span style={{ flex: 1 }}>{option.value}</span>
                 <button type="button" className="link-button" onClick={() => handleEditOption(option)}>Editar</button>

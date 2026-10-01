@@ -4873,20 +4873,53 @@ a {
   color: #080706;
 }
 
-/* --- "Explora nuestras marcas": carrusel de logos debajo de cada bloque de categoría destacada --- */
+/* --- "Explora Nuestras Marcas": bloque del home debajo de "Colección de la semana", con pestañas
+   para alternar de categoría — antes era un carrusel de logos repetido dentro de cada bloque de
+   "Producto destacado" (uno por categoría), se unificó acá en uno solo (ver BrandsShowcase). --- */
 
-.landing-brands-block {
-  margin-top: 64px;
-  text-align: center;
+.landing-brands-showcase-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 32px;
 }
 
-.landing-brands-eyebrow {
-  display: block;
-  text-align: center;
-  /* Base .landing-eyebrow es 12px — 50% más grande. Es la única etiqueta de este bloque (sin
-     título abajo), así que también lleva más aire antes del carrusel. */
-  font-size: 18px;
-  margin-bottom: 32px;
+.landing-brands-showcase-header .landing-eyebrow,
+.landing-brands-showcase-header .landing-section-title {
+  margin-bottom: 0;
+}
+
+.landing-brands-showcase-header .landing-eyebrow {
+  margin-bottom: 10px;
+}
+
+.landing-brands-tabs {
+  display: flex;
+  gap: 28px;
+}
+
+.landing-brands-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--lp-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-brands-tab:hover {
+  color: var(--lp-text);
+}
+
+.landing-brands-tab--active {
+  color: var(--lp-text);
+  font-weight: 700;
+  border-bottom-color: var(--lp-text);
 }
 
 /* Transición direccional (como fairplay.com.bo): el grupo de marcas entra deslizando desde la
@@ -4924,41 +4957,174 @@ a {
   animation: landing-brands-slide-prev 0.5s ease-out;
 }
 
-/* Diseño de tarjeta copiado de pontocom.com (.home-marcas figure/img): borde fino gris, sin fondo
-   ni levantado al pasar el mouse — el único hover es el logo, que pasa de atenuado a opaco. */
+/* Caja rellena con el nombre de la marca en vez de su logo — a diferencia del resto de carruseles
+   de este archivo, acá no hace falta tener el logo cargado para que la tarjeta se vea completa.
+   Blanca (--lp-surface) a propósito: la sección en sí ya queda en el gris "paper" por default (ver
+   BrandsShowcase, sección sin --alt para alternar con el blanco de "Colección de la semana" de
+   arriba) — con la tarjeta en ese mismo gris no se notaba la caja. */
 .landing-brand-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 12px;
-  background: transparent;
-  border: 1.5px solid #e8e8e8;
-  border-radius: 12px;
+  min-height: 108px;
+  padding: 16px 14px;
+  background: var(--lp-surface);
+  border-radius: 16px;
+  text-align: center;
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.landing-brand-logo {
-  max-width: 100%;
-  max-height: 90px;
-  object-fit: contain;
-  opacity: 0.5;
-  transition: opacity 0.4s ease;
+.landing-brand-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(26, 26, 46, 0.1);
 }
 
-.landing-brand-card:hover .landing-brand-logo {
-  opacity: 1;
-}
-
-.landing-brand-logo-placeholder {
+.landing-brand-card-name {
   font-family: var(--lp-font-display);
-  font-size: 20px;
-  color: var(--lp-muted);
-  opacity: 0.5;
-  transition: opacity 0.4s ease;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.3;
 }
 
-.landing-brand-card:hover .landing-brand-logo-placeholder {
-  opacity: 1;
+/* --- "¿Qué te gusta oler?": prefiltrado rápido de Perfumes del home, debajo de "Explora Nuestras
+   Marcas" — ver ScentFinder en home/page.tsx. Tarjeta blanca con sombra, suelta sobre el fondo gris
+   de siempre, para que se note como un bloque interactivo aparte. */
+.landing-scent-finder-card {
+  background: var(--lp-surface);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 20px 48px rgba(26, 26, 46, 0.08);
+}
+
+.landing-scent-finder-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.landing-scent-finder-header .landing-eyebrow {
+  margin-bottom: 10px;
+}
+
+.landing-scent-finder-header .landing-section-title {
+  margin-bottom: 0;
+}
+
+/* Única excepción de tipografía del sitio público (que por lo demás usa Manrope para todo, ver
+   .landing-page h1/h2/h3 arriba) — a pedido puntual, solo este título. ".landing-page" en el
+   selector a propósito: sin ese empujón de especificidad, pierde contra ".landing-page h1,h2,h3"
+   (una clase + un elemento le gana a una sola clase) y queda en Manrope igual. */
+.landing-page .landing-scent-finder-title {
+  font-family: var(--font-playfair-display), Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.landing-scent-finder-lead {
+  font-size: 14px;
+  color: var(--lp-muted);
+  margin: 0;
+}
+
+.landing-scent-finder-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.landing-scent-finder-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lp-border);
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.landing-scent-finder-pill:hover {
+  border-color: var(--lp-text);
+}
+
+.landing-scent-finder-pill--active {
+  background: var(--es-navy-700, #1c3561);
+  border-color: var(--es-navy-700, #1c3561);
+  color: #ffffff;
+}
+
+.landing-scent-finder-pill .landing-filter-swatch {
+  width: 16px;
+  height: 16px;
+}
+
+.landing-scent-finder-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.landing-scent-finder-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-text);
+}
+
+.landing-scent-finder-field .landing-select {
+  width: 100%;
+}
+
+.landing-scent-finder-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .landing-scent-finder-card {
+    padding: 24px 20px;
+  }
+
+  /* Scroll horizontal con snap en vez de amontonar los 6 pills en varias filas — mismo ancho que
+     tendrían en desktop, el usuario desliza. Sangra hasta el borde de la tarjeta (mismo padding que
+     .landing-scent-finder-card de acá arriba) para que el último pill asome cortado como pista de
+     que hay más. */
+  .landing-scent-finder-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -20px 28px;
+    padding: 0 20px 4px;
+  }
+
+  .landing-scent-finder-pill {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+
+  .landing-scent-finder-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-scent-finder-footer .landing-btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* --- Página /marcas: explorar marcas por categoría raíz --- */
@@ -6080,17 +6246,6 @@ a {
 
   .landing-product-page .landing-breadcrumb-bar {
     padding-top: 100px;
-  }
-
-  /* Mismo breakpoint que pontocom.com para su carrusel de marcas: logo más chico y un poco menos
-     atenuado por default (las pantallas chicas no tienen hover). */
-  .landing-brand-logo,
-  .landing-brand-logo-placeholder {
-    opacity: 0.6;
-  }
-
-  .landing-brand-logo {
-    max-height: 60px;
   }
 
   /* En mobile "Producto destacado" pasa a mostrar 1 sola imagen (visibleCount=1, ver isMobile en

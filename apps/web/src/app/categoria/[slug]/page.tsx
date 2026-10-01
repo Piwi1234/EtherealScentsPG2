@@ -90,17 +90,34 @@ export default function CategoriaPage() {
   useEffect(() => {
     // "?descuento=true" (desplegable de ¡¡OFERTAS!! del navbar), "?subcategoria=" + "?marca="
     // (logo de marca del carrusel "Explora Nuestras Marcas" del home) arrancan sus filtros ya
-    // marcados.
+    // marcados. "?attr[id]=valor1,valor2" + "?minPriceBs="/"?maxPriceBs=" (mismo formato que arma
+    // toggleAttributeValue/applyPriceFilter acá abajo) los arma el buscador "¿Qué te gusta oler?"
+    // del home (ver ScentFinder en home/page.tsx).
     const searchParams = new URLSearchParams(window.location.search);
     const subcategoriaFromQuery = searchParams.get("subcategoria") ?? "";
     const marcaFromQuery = searchParams.get("marca");
+    const attrFiltersFromQuery: Record<string, string[]> = {};
+    for (const [key, value] of searchParams.entries()) {
+      const match = key.match(/^attr\[(.+)\]$/);
+      if (match) attrFiltersFromQuery[match[1]] = value.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+    const minPriceFromQuery = searchParams.get("minPriceBs");
+    const maxPriceFromQuery = searchParams.get("maxPriceBs");
     setSubCategoryFilter(subcategoriaFromQuery);
     setDiscountOnly(searchParams.get("descuento") === "true");
     setPriceRange(null);
-    setPriceApplied(null);
+    // El slider en sí (priceRange) arranca en su rango completo de siempre apenas se resuelva
+    // priceBoundsMax (ver el efecto de abajo) — esto solo precarga el filtro YA aplicado, para que
+    // el fetch de productos salga filtrado desde el primer render sin esperar a que alguien mueva
+    // el slider a mano.
+    setPriceApplied(
+      minPriceFromQuery !== null || maxPriceFromQuery !== null
+        ? [Number(minPriceFromQuery ?? 0), Number(maxPriceFromQuery ?? 10_000_000)]
+        : null,
+    );
     setBrandFilters(marcaFromQuery ? [marcaFromQuery] : []);
     setSortBy("relevancia");
-    setAttributeFilters({});
+    setAttributeFilters(attrFiltersFromQuery);
     setPageNumber(1);
     setFiltersDrawerOpen(false);
     setNotFound(false);
