@@ -6002,9 +6002,12 @@ a {
      ancho de pantalla a todo lo que cuelga de .landing-container (navbar, tarjetas de producto,
      íconos de confianza, títulos de sección, etc. — ver el comentario en .landing-navbar-inner, que
      depende a propósito de este mismo padding compartido). Lo bajamos a un margen mínimo para que
-     el contenido aproveche el ancho real del teléfono. */
+     el contenido aproveche el ancho real del teléfono. padding-left/right puntual (no el shorthand
+     "padding: 0 16px") a propósito: .landing-navbar-inner comparte esta misma clase, y el shorthand
+     también pisaba su padding-top/bottom propio (14px) dejando el logo pegado al borde superior. */
   .landing-container {
-    padding: 0 16px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   /* 2 filas de 2 íconos (en vez de 1 fila de 4, o un wrap desparejo) — mismo breakpoint que usa el
@@ -6045,6 +6048,13 @@ a {
     display: grid;
     grid-template-columns: auto 1fr auto;
     column-gap: 12px;
+    /* Más aire arriba del logo que en escritorio — los 14px base lo dejaban pegado al borde
+       superior de la pantalla. (Sin env(safe-area-inset-top): sumarlo acá infla este padding mucho
+       más de lo esperado en iPhones con notch/isla dinámica, y páginas con navbar fixed —
+       producto/buscar, ver .landing-product-page .landing-breadcrumb-bar — ya tienen su propio
+       padding-top ajustado a mano a la altura actual del navbar; no vale la pena el riesgo por un
+       pedido que solo buscaba más aire, no soporte de notch.) */
+    padding-top: 20px;
   }
 
   .landing-navbar-brand {
