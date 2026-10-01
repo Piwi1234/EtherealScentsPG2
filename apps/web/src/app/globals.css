@@ -6828,6 +6828,13 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     border: 0;
   }
 
+  /* Precio al final de la barra en vez de primero — se reordena solo acá (flex `order`), no en el
+     JSX: el drawer mobile comparte el mismo FilterGroups y ahí sigue yendo primero, como acceso
+     rápido. Identificado por contenido (.landing-price-slider), ya que no tiene clase propia. */
+  .landing-filters-sidebar .landing-filter-group:has(.landing-price-slider) {
+    order: 1;
+  }
+
   .landing-filters-sidebar .landing-filter-group-title {
     display: flex;
     align-items: center;
