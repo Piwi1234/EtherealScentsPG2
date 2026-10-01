@@ -2931,7 +2931,12 @@ a {
   position: fixed;
   inset: 0;
   background: rgba(17, 17, 20, 0.55);
-  z-index: 70;
+  /* Más alto que .landing-navbar (z-index:100) a propósito: overlay+drawer son hermanos del
+     <header> (ver el comentario en LandingNavbar.tsx sobre el bug de backdrop-filter en iOS), así
+     que ahora SÍ compiten en z-index directamente contra el navbar fijo — sin esto, el navbar
+     quedaba pintado encima y tapaba la fila de encabezado propia del drawer (logo + botón de
+     cerrar). */
+  z-index: 150;
   animation: landing-navbar-mobile-fade-in 0.2s ease;
 }
 
@@ -2940,7 +2945,7 @@ a {
   top: 0;
   left: 0;
   bottom: 0;
-  z-index: 71;
+  z-index: 151;
   width: min(84vw, 320px);
   display: flex;
   flex-direction: column;
@@ -3023,6 +3028,15 @@ a {
   font-size: 14.5px;
   font-weight: 600;
   color: #1a1a2e;
+}
+
+/* El "Marcas" suelto (sin chevron ni fila propia) reusa esta misma clase pero cuelga directo de
+   .landing-navbar-mobile-body (flex EN COLUMNA) en vez de .landing-navbar-mobile-row (flex en fila)
+   — ahí flex:1 significa "crecer verticalmente" en vez de "ocupar el ancho que sobra junto al
+   chevron", así que terminaba estirándose para ocupar todo el alto libre del drawer. El selector de
+   hijo directo apunta solo a ese caso suelto, sin tocar los que sí van dentro de una fila. */
+.landing-navbar-mobile-body > .landing-navbar-mobile-link {
+  flex: none;
 }
 
 .landing-navbar-mobile-link--ofertas {
