@@ -3114,53 +3114,18 @@ a {
 
 /* --- Hero --- */
 
-/* --- Hero: carrusel de 3 banners lado a lado (idea "triple banner" de agatres.co), cada uno con
-   su propio link opcional (ver Grid Imágenes) — reemplaza al hero anterior de imagen única +
-   título/CTA superpuesto. */
+/* --- Hero: una imagen a pantalla completa por vez, con flechas a los costados en desktop y swipe
+   táctil en mobile (ver ImageCarousel, el mismo carrusel reutilizable que usan el hero de
+   categoría/marcas y "Producto destacado" — el hero ya no reimplementa su propio slide/dots/flechas
+   a mano como antes, cuando mostraba 3 banners lado a lado). Cada imagen puede llevar su propio
+   link opcional (ver Grid Imágenes). */
 .landing-hero-banners {
   padding: 0;
-  /* La grilla arranca corrida un ancho de columna durante la transición (ver keyframes abajo) —
-     esto recorta ese excedente para que nunca se vea un borde en blanco mientras desliza. */
   overflow: hidden;
 }
 
-/* Slide "de verdad" (sin fade): la grilla (ahora de 1 sola columna, una imagen a pantalla completa
-   por vez — antes eran 3 lado a lado) arranca corrida el 100% de su propio ancho y anima hasta su
-   posición final, igual al de agatres.co, sin tener que mantener un track de DOM persistente. */
-@keyframes landing-hero-banners-slide-next {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes landing-hero-banners-slide-prev {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.landing-hero-banner-grid {
-  display: grid;
-  grid-template-columns: repeat(1, 1fr);
-}
-
-.landing-hero-banner-grid--next {
-  animation: landing-hero-banners-slide-next 0.5s ease-out;
-}
-
-.landing-hero-banner-grid--prev {
-  animation: landing-hero-banners-slide-prev 0.5s ease-out;
-}
-
-.landing-hero-banner-card {
+.landing-hero-banner-frame {
   position: relative;
-  display: block;
   /* Antes eran 3 columnas de 3:3.4 lado a lado (alto total = ancho_pantalla/3 * 3.4/3 =
      ancho_pantalla * 0.3778). Ahora es 1 sola imagen a todo el ancho — para que el alto total baje
      un 10% respecto a ese alto de antes (0.3778 * 0.9 = 0.34 * ancho_pantalla), el ratio queda
@@ -3177,8 +3142,17 @@ a {
   transition: transform 0.4s ease;
 }
 
-.landing-hero-banner-card:hover .landing-hero-banner-image {
+.landing-hero-banner-frame:hover .landing-hero-banner-image {
   transform: scale(1.04);
+}
+
+/* Las flechas desaparecen en mobile a propósito (ahí se navega con swipe, ver handleTouchStart/End
+   en ImageCarousel) — scoped solo al hero: el resto de los carruseles del sitio (categoría/marcas,
+   "Producto destacado") siguen mostrando sus flechas en cualquier tamaño de pantalla. */
+@media (max-width: 768px) {
+  .landing-hero-banner-frame .landing-image-carousel-arrow {
+    display: none;
+  }
 }
 
 /* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
@@ -3213,9 +3187,9 @@ a {
 }
 
 /* Modo `visibleCount` > 1 de ImageCarousel (varias imágenes lado a lado, ventana deslizante que
-   avanza de a una — ver el Hero para la misma idea aplicada a mano). El corrimiento inicial de la
-   grilla es de un ancho de columna exacto (--landing-carousel-shift, seteado inline según cuántas
-   columnas haya) para que el track se vea continuo, igual que landing-hero-banners-slide-*. */
+   avanza de a una). El corrimiento inicial de la grilla es de un ancho de columna exacto
+   (--landing-carousel-shift, seteado inline según cuántas columnas haya) para que el track se vea
+   continuo. */
 .landing-image-carousel-grid {
   display: grid;
   grid-template-columns: repeat(var(--landing-carousel-columns, 3), 1fr);
@@ -6668,7 +6642,7 @@ a {
 .landing-navbar-search-input { background: rgba(255, 255, 255, 0.08); }
 .landing-navbar-ofertas { color: var(--es-gold) !important; }   /* reemplaza el rojo */
 .landing-footer,
-.landing-hero-banner-card { background: var(--es-navy-900); }
+.landing-hero-banner-frame { background: var(--es-navy-900); }
 .landing-footer-social a:hover { color: var(--es-gold); border-color: var(--es-gold); }
 
 /* .landing-btn.landing-btn-primary (2 clases) a propósito: ".landing-page a { color: inherit }"

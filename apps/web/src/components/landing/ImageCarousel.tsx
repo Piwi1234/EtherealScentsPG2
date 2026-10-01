@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { productImageSrc } from "../../lib/catalog-display";
 import type { CarouselImage } from "../../lib/types";
 
@@ -67,6 +67,25 @@ export function ImageCarousel({
     setAutoKey((k) => k + 1);
   }
 
+  // Swipe táctil (mobile) — se guarda solo el X inicial en touchstart y se compara contra el X final
+  // en touchend (sin tocar touchmove/preventDefault), así un swipe horizontal navega el carrusel sin
+  // pelearse con el scroll vertical nativo de la página.
+  const touchStartXRef = useRef<number | null>(null);
+  const SWIPE_THRESHOLD_PX = 40;
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartXRef.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const startX = touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (startX === null) return;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    if (deltaX <= -SWIPE_THRESHOLD_PX) goTo(slide + 1, 1);
+    else if (deltaX >= SWIPE_THRESHOLD_PX) goTo(slide - 1, -1);
+  }
+
   if (images.length === 0) return null;
 
   const hasNav = images.length > shown;
@@ -86,6 +105,8 @@ export function ImageCarousel({
             } as React.CSSProperties
           }
           key={slide}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {visible.map((image) => (
             <div key={image.id} className="landing-image-carousel-grid-item">
@@ -135,7 +156,19 @@ export function ImageCarousel({
   const slideClassName = `${imgClassName} ${direction === 1 ? "landing-image-carousel-slide-next" : "landing-image-carousel-slide-prev"}`;
   const href = current.url;
   const overlay = renderOverlay ? renderOverlay(current) : null;
-  const img = <img key={slide} className={slideClassName} src={productImageSrc(current.imageUrl)!} alt={alt} />;
+  // Los handlers de swipe van en el <img> (no en el <a> que lo envuelve cuando hay link): así
+  // funcionan igual en los dos casos sin duplicar el listener, y el touch burbujea normal desde la
+  // imagen hasta el <a> para el click.
+  const img = (
+    <img
+      key={slide}
+      className={slideClassName}
+      src={productImageSrc(current.imageUrl)!}
+      alt={alt}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    />
+  );
 
   return (
     <>
