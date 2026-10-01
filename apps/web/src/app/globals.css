@@ -5977,6 +5977,15 @@ a {
 
 /* Navbar mobile: colapsa links + acciones secundarias a una hamburguesa */
 @media (max-width: 768px) {
+  /* Los 75px de cada lado tienen sentido en escritorio, pero en mobile le comen casi el 40% del
+     ancho de pantalla a todo lo que cuelga de .landing-container (navbar, tarjetas de producto,
+     íconos de confianza, títulos de sección, etc. — ver el comentario en .landing-navbar-inner, que
+     depende a propósito de este mismo padding compartido). Lo bajamos a un margen mínimo para que
+     el contenido aproveche el ancho real del teléfono. */
+  .landing-container {
+    padding: 0 16px;
+  }
+
   /* 2 filas de 2 íconos (en vez de 1 fila de 4, o un wrap desparejo) — mismo breakpoint que usa el
      resto del home para pasar a mobile (ver MOBILE_BREAKPOINT en home/page.tsx). */
   .landing-trust-bar-grid {
