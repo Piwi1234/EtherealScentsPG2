@@ -4195,14 +4195,13 @@ a {
   margin-top: auto;
 }
 
-/* --- Tema oscuro de la tarjeta en sí (fondo, texto, placeholder a rayas) — ver comentario del
-   bloque .landing-section--offers-dark de arriba sobre el alcance de este scoping. --- */
-.landing-product-grid--carousel .landing-product-card {
-  background: #1a1a1f;
-  border-color: rgba(245, 244, 240, 0.12);
-}
-
-.landing-product-grid--carousel .landing-product-card:hover {
+/* --- Tema oscuro de la tarjeta en sí (texto, placeholder a rayas) — ver comentario del bloque
+   .landing-section--offers-dark de arriba sobre el alcance de este scoping. Sin fondo/borde propio
+   a propósito: desde que la tarjeta separó la imagen en su propia caja (.landing-product-image-wrap)
+   y dejó el texto suelto (ver .landing-product-card en la sección clara, más abajo), ya no hay nada
+   que pintar atrás del texto — antes esto era un rectángulo gris casi negro que no pegaba con el
+   navy de la sección (#1a1a1f vs. --es-navy-900), quedaba como una caja aparte flotando encima. */
+.landing-product-grid--carousel .landing-product-card:hover .landing-product-image-wrap {
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
 }
 
