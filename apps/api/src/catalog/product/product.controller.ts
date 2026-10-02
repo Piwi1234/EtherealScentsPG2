@@ -11,15 +11,17 @@ import {
   Query,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { ProductService } from "./product.service";
 import { ProductImportService } from "./product-import.service";
 import { ProductVariantImportService } from "./product-variant-import.service";
+import { ProductImageImportService } from "./product-image-import.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
@@ -28,6 +30,7 @@ import { productImageMulterOptions } from "./product-image.multer";
 import { productVariantImageMulterOptions } from "./product-variant-image.multer";
 import { productImportMulterOptions } from "./product-import.multer";
 import { productVariantImportMulterOptions } from "./product-variant-import.multer";
+import { productImageImportMulterOptions } from "./product-image-import.multer";
 
 @ApiTags("products")
 @Controller("products")
@@ -36,6 +39,7 @@ export class ProductController {
     private readonly products: ProductService,
     private readonly productImport: ProductImportService,
     private readonly productVariantImport: ProductVariantImportService,
+    private readonly productImageImport: ProductImageImportService,
   ) {}
 
   @Get()
@@ -106,6 +110,15 @@ export class ProductController {
       throw new BadRequestException("Archivo inválido: debe ser un Excel (.xlsx) de hasta 5MB.");
     }
     return this.productVariantImport.importFromFile(file.buffer);
+  }
+
+  @Post("import-images")
+  @UseInterceptors(FilesInterceptor("files", 300, productImageImportMulterOptions))
+  importImages(@UploadedFiles() files?: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException("Debe adjuntar al menos una imagen (JPEG, PNG, WEBP o GIF de hasta 5MB).");
+    }
+    return this.productImageImport.importFromFiles(files);
   }
 
   @Get(":id")

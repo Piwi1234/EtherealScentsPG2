@@ -13,6 +13,7 @@ import {
   downloadProductsImportTemplate,
   downloadProductVariantsImportTemplate,
   getProductsStockSummary,
+  importProductImagesFromFiles,
   importProductsFromFile,
   importProductVariantsFromFile,
 } from "../../../lib/api";
@@ -25,6 +26,7 @@ import type {
   EstadoVariante,
   Page,
   Product,
+  ProductImageImportReport,
   ProductImportReport,
   ProductVariant,
   ProductVariantImportReport,
@@ -99,6 +101,10 @@ export default function ProductsPage() {
   const [downloadingVariantTemplate, setDownloadingVariantTemplate] = useState(false);
   const [importVariantReport, setImportVariantReport] = useState<ProductVariantImportReport | null>(null);
   const [importVariantReportError, setImportVariantReportError] = useState("");
+  const importImagesInputRef = useRef<HTMLInputElement>(null);
+  const [importingImages, setImportingImages] = useState(false);
+  const [importImagesReport, setImportImagesReport] = useState<ProductImageImportReport | null>(null);
+  const [importImagesReportError, setImportImagesReportError] = useState("");
   // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
   // de la tabla. Es puramente de vista: no se guarda en el backend.
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
@@ -220,6 +226,21 @@ export default function ProductsPage() {
       setImportVariantReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setImportingVariants(false);
+    }
+  }
+
+  async function handleImportImageFiles(files: File[]) {
+    setImportingImages(true);
+    setImportImagesReportError("");
+    setImportImagesReport(null);
+    try {
+      const report = await importProductImagesFromFiles(files);
+      setImportImagesReport(report);
+      if (report.updated > 0) loadProducts();
+    } catch (e) {
+      setImportImagesReportError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setImportingImages(false);
     }
   }
 
@@ -431,6 +452,26 @@ export default function ProductsPage() {
               if (file) handleImportVariantFile(file);
             }}
           />
+          <button
+            type="button"
+            className="action-btn"
+            onClick={() => importImagesInputRef.current?.click()}
+            disabled={importingImages}
+          >
+            {importingImages ? "Importando..." : "Importar imágenes"}
+          </button>
+          <input
+            ref={importImagesInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length > 0) handleImportImageFiles(files);
+            }}
+          />
           <Link href="/dashboard/products/new" className="btn-cta">
             <span className="btn-cta-icon">+</span> Nuevo producto
           </Link>
@@ -438,6 +479,7 @@ export default function ProductsPage() {
       </div>
       {importReportError && <p className="error-text">{importReportError}</p>}
       {importVariantReportError && <p className="error-text">{importVariantReportError}</p>}
+      {importImagesReportError && <p className="error-text">{importImagesReportError}</p>}
       {flashMessage && (
         <div className="success-banner">
           <span>{flashMessage}</span>
@@ -716,6 +758,47 @@ export default function ProductsPage() {
           )}
           <div className="form-actions">
             <button type="button" className="button" onClick={() => setImportVariantReport(null)}>
+              Cerrar
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {importImagesReport && (
+        <Modal title="Resultado de la importación de imágenes" onClose={() => setImportImagesReport(null)}>
+          <p>
+            {importImagesReport.updated} de {importImagesReport.total} imagen
+            {importImagesReport.total === 1 ? "" : "es"} actualizada{importImagesReport.updated === 1 ? "" : "s"}.
+          </p>
+          {importImagesReport.unmatched.length > 0 && (
+            <>
+              <p className="error-text">
+                No se encontró ningún producto con estos códigos — el nombre de archivo (sin extensión) debe ser
+                exactamente el código del producto:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {importImagesReport.unmatched.map((u, i) => (
+                  <li key={i}>
+                    {u.fileName} (código: {u.code})
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {importImagesReport.errors.length > 0 && (
+            <>
+              <p className="error-text">Errores:</p>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {importImagesReport.errors.map((err, i) => (
+                  <li key={i}>
+                    {err.fileName}: {err.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="form-actions">
+            <button type="button" className="button" onClick={() => setImportImagesReport(null)}>
               Cerrar
             </button>
           </div>

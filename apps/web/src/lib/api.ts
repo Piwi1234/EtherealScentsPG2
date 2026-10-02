@@ -31,6 +31,7 @@ import type {
   PresentacionVenta,
   PresentacionVentaInput,
   Product,
+  ProductImageImportReport,
   ProductImportReport,
   ProductVariantImportReport,
   Proforma,
@@ -180,6 +181,12 @@ export function apiUpload<T>(path: string, file: File): Promise<T> {
   const formData = new FormData();
   formData.append("file", file);
   // Sin Content-Type manual: el browser arma el boundary multipart correcto.
+  return apiRequest<T>(path, { method: "POST", body: formData });
+}
+
+export function apiUploadMultiple<T>(path: string, files: File[]): Promise<T> {
+  const formData = new FormData();
+  for (const file of files) formData.append("files", file);
   return apiRequest<T>(path, { method: "POST", body: formData });
 }
 
@@ -585,6 +592,10 @@ export function downloadProductVariantsImportTemplate() {
 
 export function importProductVariantsFromFile(file: File) {
   return apiUpload<ProductVariantImportReport>("/products/import-variants", file);
+}
+
+export function importProductImagesFromFiles(files: File[]) {
+  return apiUploadMultiple<ProductImageImportReport>("/products/import-images", files);
 }
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de

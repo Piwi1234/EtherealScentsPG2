@@ -71,6 +71,13 @@ export type ProductVariantImportReport = {
   errors: { row: number; message: string }[];
 };
 
+export type ProductImageImportReport = {
+  total: number;
+  updated: number;
+  unmatched: { fileName: string; code: string }[];
+  errors: { fileName: string; message: string }[];
+};
+
 export type AttributeType = "TEXT" | "NUMBER" | "BOOLEAN" | "SELECT";
 
 /**
