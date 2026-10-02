@@ -7,6 +7,7 @@ import { displayPrice, flashUntilFor, getAllAttributeDetails, productImageSrc } 
 import type { Category, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
+import { ProductCard } from "../../../components/landing/ProductCard";
 import { formatCartAtributos } from "../../../components/proformas/AtributosVisibles";
 import { CartIcon } from "../../../components/landing/CartWidget";
 import { FlashCountdown } from "../../../components/landing/FlashCountdown";
@@ -16,7 +17,15 @@ type VariantGroup = { attributeId: string; attributeName: string; options: { opt
 /** Parte interactiva de la página de producto (selector de variante, cantidad, carrito) — el
  * producto ya viene resuelto del servidor (ver page.tsx, que hace notFound() si no existe), así
  * que acá no hay fetch ni estados de carga/404. */
-export function ProductoDetailClient({ product, categories }: { product: Product; categories: Category[] }) {
+export function ProductoDetailClient({
+  product,
+  categories,
+  relatedProducts,
+}: {
+  product: Product;
+  categories: Category[];
+  relatedProducts: Product[];
+}) {
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     () => displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null,
@@ -258,6 +267,20 @@ export function ProductoDetailClient({ product, categories }: { product: Product
           </div>
         </div>
       </section>
+
+      {relatedProducts.length > 0 && (
+        <section className="landing-section landing-related-products">
+          <div className="landing-container">
+            <p className="landing-eyebrow">Seguí explorando</p>
+            <h2 className="landing-section-title">También te puede gustar</h2>
+            <div className="landing-product-grid">
+              {relatedProducts.map((related) => (
+                <ProductCard product={related} key={related.id} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <LandingFooter />
     </div>

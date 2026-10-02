@@ -2420,6 +2420,12 @@ a {
   margin: 0 0 40px;
 }
 
+/* "También te puede gustar" (página de producto): sin landing-section-lead debajo del título, la
+   grilla quedaba pegada a los 14px de margin-bottom de .landing-section-title — se ve comprimido. */
+.landing-related-products .landing-section-title {
+  margin-bottom: 32px;
+}
+
 .landing-btn {
   display: inline-flex;
   align-items: center;
