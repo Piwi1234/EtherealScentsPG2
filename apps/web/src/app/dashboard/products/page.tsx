@@ -404,7 +404,7 @@ export default function ProductsPage() {
         <h1 style={{ margin: 0, fontSize: 20 }}>Productos</h1>
         <div style={{ display: "flex", gap: 10 }}>
           <button type="button" className="action-btn" onClick={handleExport} disabled={exporting}>
-            {exporting ? "Exportando..." : "Exportar (Código + Nombre)"}
+            {exporting ? "Exportando..." : "Exportar (Código, Marca, Nombre, Atributos)"}
           </button>
           <button type="button" className="action-btn" onClick={handleDownloadImportTemplate} disabled={downloadingTemplate}>
             {downloadingTemplate ? "Descargando..." : "Descargar plantilla"}

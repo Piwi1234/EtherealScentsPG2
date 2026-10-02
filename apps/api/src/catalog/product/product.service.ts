@@ -320,9 +320,63 @@ export class ProductService {
         name: true,
         brand: { select: { name: true } },
         category: { select: { name: true, parent: { select: { name: true } } } },
+        attributeValues: { include: { attribute: true, option: true } },
+        variantOptionValues: { include: { attribute: true } },
       },
       orderBy: { name: "asc" },
     });
+
+    // Mismo criterio que getAllAttributeDetails del frontend (ver catalog-display.ts): de
+    // attributeValues entran los atributos "normales" (variantMode NONE); de variantOptionValues
+    // solo los MULTI_VALUE (ej. Acordes — puede tener varios valores por producto, se concatenan
+    // con ", "). Los PRICED_VARIANT (ej. Tamaño: cada valor es una variante con su propio precio)
+    // quedan afuera a propósito — no son "atributos" sueltos del producto, ya se definen como sus
+    // propias variantes (con su propio precio/stock), no tiene sentido repetirlos acá.
+    const rows: { codigo: string; marca: string; nombre: string; categoria: string; atributos: Map<string, string> }[] = [];
+    // nombre de atributo -> `orden` (campo del propio Attribute) — define en qué posición cae su
+    // columna; distintas categorías pueden no compartir ningún atributo entre sí, así que no hay un
+    // único orden "correcto" posible, este es sencillamente el que ya usa el panel para listarlos.
+    const columnOrder = new Map<string, number>();
+
+    for (const product of products) {
+      const atributos = new Map<string, string>();
+
+      for (const pv of product.attributeValues) {
+        const valor = pv.option
+          ? pv.option.value
+          : pv.valueText !== null
+            ? pv.valueText
+            : pv.valueNumber !== null
+              ? pv.valueNumber.toString()
+              : pv.valueBoolean !== null
+                ? pv.valueBoolean
+                  ? "Sí"
+                  : "No"
+                : "";
+        const existing = atributos.get(pv.attribute.name);
+        atributos.set(pv.attribute.name, existing ? `${existing}, ${valor}` : valor);
+        if (!columnOrder.has(pv.attribute.name)) columnOrder.set(pv.attribute.name, pv.attribute.orden);
+      }
+
+      for (const v of product.variantOptionValues) {
+        if (v.attribute.variantMode !== AttributeVariantMode.MULTI_VALUE) continue;
+        const existing = atributos.get(v.attribute.name);
+        atributos.set(v.attribute.name, existing ? `${existing}, ${v.value}` : v.value);
+        if (!columnOrder.has(v.attribute.name)) columnOrder.set(v.attribute.name, v.attribute.orden);
+      }
+
+      rows.push({
+        codigo: product.productCode,
+        marca: product.brand?.name ?? "",
+        nombre: product.name,
+        categoria: product.category.parent ? `${product.category.parent.name} > ${product.category.name}` : product.category.name,
+        atributos,
+      });
+    }
+
+    const attributeNames = Array.from(columnOrder.keys()).sort(
+      (a, b) => columnOrder.get(a)! - columnOrder.get(b)! || a.localeCompare(b),
+    );
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Ethereal Scents";
@@ -331,21 +385,28 @@ export class ProductService {
     const sheet = wb.addWorksheet("Productos");
     sheet.columns = [
       { header: "Código de producto", key: "codigo", width: 20 },
-      { header: "Nombre", key: "nombre", width: 45 },
       { header: "Marca", key: "marca", width: 22 },
+      { header: "Nombre", key: "nombre", width: 45 },
       { header: "Categoría", key: "categoria", width: 30 },
+      // Claves sintéticas (attr_0, attr_1...) en vez del nombre del atributo tal cual: evita que un
+      // atributo coincida por casualidad con una de las claves de arriba (ej. uno llamado "Nombre").
+      ...attributeNames.map((name, i) => ({ header: name, key: `attr_${i}`, width: 22 })),
     ];
     sheet.getRow(1).font = { bold: true };
     sheet.getRow(1).eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E6F7" } }));
     sheet.views = [{ state: "frozen", ySplit: 1 }];
 
-    for (const product of products) {
-      sheet.addRow({
-        codigo: product.productCode,
-        nombre: product.name,
-        marca: product.brand?.name ?? "",
-        categoria: product.category.parent ? `${product.category.parent.name} > ${product.category.name}` : product.category.name,
+    for (const row of rows) {
+      const rowData: Record<string, string> = {
+        codigo: row.codigo,
+        marca: row.marca,
+        nombre: row.nombre,
+        categoria: row.categoria,
+      };
+      attributeNames.forEach((name, i) => {
+        rowData[`attr_${i}`] = row.atributos.get(name) ?? "";
       });
+      sheet.addRow(rowData);
     }
 
     return Buffer.from(await wb.xlsx.writeBuffer());
