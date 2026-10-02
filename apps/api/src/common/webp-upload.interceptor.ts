@@ -1,13 +1,7 @@
-import { basename, dirname, extname, join, relative, sep } from "node:path";
-import { unlink } from "node:fs/promises";
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
 import type { Request } from "express";
 import type { Observable } from "rxjs";
-import sharp from "sharp";
-import { UPLOADS_ROOT } from "./uploads-root";
-import { uploadFileToR2 } from "./r2-storage";
-
-const CONVERTIBLE_MIME_TYPES = /^image\/(png|jpeg)$/;
+import { convertAndUploadToR2 } from "./webp-upload";
 
 /**
  * Corre después de FileInterceptor (que ya guardó el archivo original en disco vía diskStorage, ver
@@ -20,9 +14,8 @@ const CONVERTIBLE_MIME_TYPES = /^image\/(png|jpeg)$/;
  * nombre de archivo, y cada service armaba "/uploads/<carpeta>/" + filename a mano) — así los
  * services solo necesitan guardar `file.filename` tal cual como imageUrl/logoUrl.
  *
- * GIF queda afuera de la conversión a propósito (podría ser animado; WebP animado es otro problema
- * aparte, no resuelto acá) y WebP no necesita conversión. Si la conversión falla por algún motivo
- * (archivo corrupto, etc.), se sube el original tal cual en vez de romper la subida entera.
+ * La lógica de conversión+subida vive en convertAndUploadToR2 (webp-upload.ts) para poder llamarla
+ * también fuera de un interceptor (ej. import masivo de imágenes por código).
  */
 @Injectable()
 export class WebpUploadInterceptor implements NestInterceptor {
@@ -31,32 +24,7 @@ export class WebpUploadInterceptor implements NestInterceptor {
     const file = request.file as Express.Multer.File | undefined;
 
     if (file?.path) {
-      let finalPath = file.path;
-      let contentType = file.mimetype;
-
-      if (CONVERTIBLE_MIME_TYPES.test(file.mimetype)) {
-        const newFilename = `${basename(file.filename, extname(file.filename))}.webp`;
-        const newPath = join(dirname(file.path), newFilename);
-
-        try {
-          await sharp(file.path).webp({ quality: 82 }).toFile(newPath);
-          await unlink(file.path).catch(() => {});
-          file.filename = newFilename;
-          finalPath = newPath;
-          contentType = "image/webp";
-        } catch {
-          // Conversión fallida: seguir con el archivo original en vez de tirar abajo la subida.
-        }
-      }
-
-      try {
-        // Ej. "products/abc123-1699999999999.webp" — misma carpeta que ya elegía cada *.multer.ts
-        // vía su *_DIR (join(UPLOADS_ROOT, "products")), ahora reusada como prefix del key en R2.
-        const key = relative(UPLOADS_ROOT, finalPath).split(sep).join("/");
-        file.filename = await uploadFileToR2(finalPath, key, contentType);
-      } finally {
-        await unlink(finalPath).catch(() => {});
-      }
+      await convertAndUploadToR2(file);
     }
 
     return next.handle();

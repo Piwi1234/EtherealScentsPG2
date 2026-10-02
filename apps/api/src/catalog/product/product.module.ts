@@ -6,13 +6,14 @@ import { ProductController } from "./product.controller";
 import { ProductService } from "./product.service";
 import { ProductImportService } from "./product-import.service";
 import { ProductVariantImportService } from "./product-variant-import.service";
+import { ProductImageImportService } from "./product-image-import.service";
 import { PresentacionVentaController } from "./presentacion-venta.controller";
 import { PresentacionVentaService } from "./presentacion-venta.service";
 
 @Module({
   imports: [CategoryModule, AttributeModule, SettingsModule],
   controllers: [ProductController, PresentacionVentaController],
-  providers: [ProductService, ProductImportService, ProductVariantImportService, PresentacionVentaService],
+  providers: [ProductService, ProductImportService, ProductVariantImportService, ProductImageImportService, PresentacionVentaService],
   exports: [ProductService],
 })
 export class ProductModule {}
