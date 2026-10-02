@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
-import type { Category, Product } from "../../../lib/types";
+import type { Category, Page, Product } from "../../../lib/types";
 import { ProductoDetailClient } from "./ProductoDetailClient";
 
 /**
@@ -23,5 +23,13 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
   const categories = await apiGet<Category[]>("/categories").catch(() => [] as Category[]);
 
-  return <ProductoDetailClient product={product} categories={categories} />;
+  // "También te puede gustar": los últimos 4 productos agregados de la misma marca, sin contar este.
+  // Se pide uno de más (pageSize 5) para poder descartar el actual y aun así completar 4.
+  const relatedProducts = product.brand
+    ? await apiGet<Page<Product>>(`/catalog/products?brandId=${product.brand.id}&pageSize=5`)
+        .then((page) => page.items.filter((p) => p.id !== product.id).slice(0, 4))
+        .catch(() => [] as Product[])
+    : [];
+
+  return <ProductoDetailClient product={product} categories={categories} relatedProducts={relatedProducts} />;
 }
