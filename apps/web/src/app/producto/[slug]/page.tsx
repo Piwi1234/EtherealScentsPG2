@@ -1,7 +1,54 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
+import { displayPrice, formatPriceBs, productImageSrc } from "../../../lib/catalog-display";
 import type { Category, Page, Product } from "../../../lib/types";
+import { SITE_ORIGIN, SITE_TITLE } from "../../layout";
 import { ProductoDetailClient } from "./ProductoDetailClient";
+
+async function getProductBySlug(slug: string): Promise<Product | null> {
+  try {
+    return await apiGet<Product>(`/catalog/products/slug/${slug}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+// Antes compartía el título/descripción/imagen genéricos del layout raíz — compartir el link de un
+// producto puntual por WhatsApp mostraba siempre "Ethereal Scents" + el logo, nunca ese producto.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+  if (!product) return {};
+
+  const title = `${product.name}${product.brand ? ` — ${product.brand.name}` : ""}`;
+  const { bs, fromPrice } = displayPrice(product);
+  const description = `${fromPrice ? "Desde " : ""}Bs ${formatPriceBs(bs)} — comprá ${product.name} original en ${SITE_TITLE}.`;
+  // Sin foto propia, cae al logo genérico en vez de no mandar ninguna imagen (WhatsApp prefiere
+  // mostrar algo, aunque sea el logo, a no mostrar preview).
+  const image = productImageSrc(product.imageUrl) ?? `${SITE_ORIGIN}/og-default.png`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      siteName: SITE_TITLE,
+      locale: "es",
+      type: "website",
+      url: `${SITE_ORIGIN}/producto/${product.slug}`,
+      images: [{ url: image }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
 
 /**
  * Server Component a propósito (antes era "use client" con fetch en useEffect): así el producto
@@ -13,13 +60,8 @@ import { ProductoDetailClient } from "./ProductoDetailClient";
 export default async function ProductoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  let product: Product;
-  try {
-    product = await apiGet<Product>(`/catalog/products/slug/${slug}`);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  }
+  const product = await getProductBySlug(slug);
+  if (!product) notFound();
 
   const categories = await apiGet<Category[]>("/categories").catch(() => [] as Category[]);
 
