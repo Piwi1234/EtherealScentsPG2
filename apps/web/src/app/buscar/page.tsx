@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiGet } from "../../lib/api";
 import type { Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
@@ -38,9 +39,19 @@ export default function BuscarPage() {
 
   return (
     <div className="landing-page">
-      <LandingNavbar variant="dark" />
+      <LandingNavbar variant="dark" overlay={false} />
 
-      <section className="landing-category-banner">
+      <div className="landing-breadcrumb-bar">
+        <div className="landing-container">
+          <p className="landing-breadcrumb">
+            <Link href="/home">Inicio</Link>
+            <span>/</span>
+            <span className="landing-breadcrumb-current">Resultados de búsqueda</span>
+          </p>
+        </div>
+      </div>
+
+      <section className="landing-category-header">
         <div className="landing-container">
           <h1>Resultados de búsqueda</h1>
           <p className="landing-category-lead">
@@ -49,7 +60,7 @@ export default function BuscarPage() {
         </div>
       </section>
 
-      <section className="landing-section">
+      <section className="landing-section landing-section--category">
         <div className="landing-container">
           {error && <p className="error-text">{error}</p>}
           {!productsPage && !error && <p className="landing-empty-note">Buscando...</p>}
