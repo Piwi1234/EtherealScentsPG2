@@ -6339,6 +6339,24 @@ a {
     font-size: 26px;
   }
 
+  /* .landing-section (arriba, mismo breakpoint) resetea el padding de TODAS las secciones a 56px
+     con el shorthand "padding: 56px 0" — como pisa el padding-top por igual, de paso tapaba el
+     padding-top:24px reducido que .landing-section--category trae para esta sección puntual (ver
+     ese selector, más arriba del archivo), volviendo a dejar un hueco grande entre el subtítulo de
+     la categoría y la barra de Filtros/Ordenar. Reafirmarlo acá, después, gana por orden en la
+     cascada. */
+  .landing-section--category {
+    padding-top: 24px;
+  }
+
+  /* El <p> no trae su margin de user-agent reseteado a 0 en ningún lado general — a 15px de
+     font-size (ver .landing-category-lead) eso son otros 15px de margin-top/bottom sumándose al
+     hueco de arriba. Scoped a este header puntual (no al de /buscar, landing-category-banner, que
+     sigue usando el margin default a propósito). */
+  .landing-category-header .landing-category-lead {
+    margin: 0;
+  }
+
   /* 2 tarjetas por línea en vez de 1 (a diferencia del resto de las grillas de esta media query,
      que sí colapsan a una columna) — a este ancho ya viene así desde los 900px, esto solo evita
      que colapse más abajo de acá. */
