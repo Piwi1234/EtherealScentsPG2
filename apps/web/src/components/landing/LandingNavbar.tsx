@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
@@ -124,8 +124,22 @@ export function LandingNavbar({
     }
   }
 
+  // Con el drawer mobile abierto, el click de "Nosotros"/"Contacto" dispara este scroll ANTES de
+  // que corra el cleanup del efecto de arriba (position:fixed) — ese cleanup restaura el scroll a
+  // donde estaba al abrir el drawer, deshaciendo el scrollIntoView de acá sin avisar (se sentía
+  // como si el botón no hiciera nada). Con el drawer abierto, se guarda el destino en vez de
+  // scrollear ya mismo, y se resuelve recién cuando `mobileMenuOpen` pasa a false (ver el efecto de
+  // abajo, declarado después del de position:fixed a propósito — los cleanups de un mismo commit
+  // corren en orden de declaración antes que los efectos nuevos, así este corre después de ese
+  // restore).
+  const pendingSectionIdRef = useRef<string | null>(null);
+
   function goToSection(id: string) {
-    setMobileMenuOpen(false);
+    if (mobileMenuOpen) {
+      pendingSectionIdRef.current = id;
+      setMobileMenuOpen(false);
+      return;
+    }
     const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -133,6 +147,19 @@ export function LandingNavbar({
       router.push(`/home#${id}`);
     }
   }
+
+  useEffect(() => {
+    if (mobileMenuOpen) return;
+    const id = pendingSectionIdRef.current;
+    if (!id) return;
+    pendingSectionIdRef.current = null;
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      router.push(`/home#${id}`);
+    }
+  }, [mobileMenuOpen, router]);
 
   // Busca mientras se tipea (debounce 300ms) — pide 1 de más que el límite visible para saber si
   // hace falta el botón "Ver más..." sin depender de `total` (que puede no venir del todo afinado).
