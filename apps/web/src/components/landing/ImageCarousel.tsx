@@ -45,7 +45,7 @@ export function ImageCarousel({
   autoplayMs,
   renderOverlay,
   visibleCount = 1,
-  mobileMediaQuery = "(max-width: 900px)",
+  mobileMediaQuery = "(max-width: 1000px)",
 }: {
   images: CarouselImage[];
   alt: string;
@@ -54,7 +54,9 @@ export function ImageCarousel({
   renderOverlay?: (image: CarouselImage) => ReactNode;
   visibleCount?: number;
   /** A partir de qué media query se usa `mobileImageUrl` (si la imagen la tiene cargada) en vez de
-   * la de desktop — 900px por default, el breakpoint general del sitio. */
+   * la de desktop — 1000px por default (cubre una ventana a "media pantalla" en monitores comunes,
+   * no solo el ancho real de un celular), para que el recorte panorámico no se estire de más antes
+   * de pasar al encuadre mobile. */
   mobileMediaQuery?: string;
 }) {
   const [slide, setSlide] = useState(0);

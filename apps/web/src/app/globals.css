@@ -3165,10 +3165,17 @@ a {
    variante mobile (ver CarouselImage.mobileImageUrl y CarouselImg en ImageCarousel.tsx) puede tener
    el sujeto centrado en vez de recortado a los costados, en lugar de solo achicarse manteniendo el
    mismo recorte panorámico de siempre. Mismo breakpoint que usa ImageCarousel para elegir esa
-   variante (900px, ver mobileMediaQuery). */
-@media (max-width: 900px) {
+   variante (1000px, ver mobileMediaQuery) — cubre también una ventana a "media pantalla" en
+   monitores comunes, no solo el ancho real de un celular. `object-fit: contain` como red de
+   seguridad para cuando esa categoría no tiene variante mobile cargada: nunca se recorta, aunque
+   pueda dejar franjas a los costados si la proporción no calza.*/
+@media (max-width: 1000px) {
   .landing-hero-banner-frame {
     aspect-ratio: 4 / 3;
+  }
+
+  .landing-hero-banner-image {
+    object-fit: contain;
   }
 }
 
@@ -4266,8 +4273,9 @@ a {
 
 /* En mobile pasa de alto fijo panorámico a un marco más compacto (mismo criterio que el Hero, ver
    .landing-hero-banner-frame) — deja lugar a la variante mobile de la imagen (ver
-   CarouselImage.mobileImageUrl), con el sujeto centrado en vez de recortado a los costados. */
-@media (max-width: 900px) {
+   CarouselImage.mobileImageUrl), con el sujeto centrado en vez de recortado a los costados. Mismo
+   breakpoint ampliado que el Hero (1000px). */
+@media (max-width: 1000px) {
   .landing-weekly-collection-banner {
     height: auto;
     aspect-ratio: 4 / 3;
@@ -4278,6 +4286,14 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Red de seguridad sin variante mobile cargada (ver .landing-hero-banner-image) — después de la
+   regla base de arriba, que si no, gana por orden en la cascada pese al media query. */
+@media (max-width: 1000px) {
+  .landing-weekly-collection-banner-image {
+    object-fit: contain;
+  }
 }
 
 .landing-weekly-collection-banner .landing-image-carousel-arrow {
@@ -4778,6 +4794,16 @@ a {
   aspect-ratio: 4 / 5;
   border-radius: 16px;
   background: #171426;
+}
+
+/* Red de seguridad para cuando la categoría no tiene variante mobile cargada (igual criterio que el
+   Hero/Colección de la semana, ver más arriba) — por debajo de "media pantalla" nunca se recorta,
+   aunque pueda dejar franjas si la proporción no calza. No toca el breakpoint de 3→1 columna de
+   `visibleCount` (ver home/page.tsx), que sigue atado al breakpoint real del navbar (768px). */
+@media (max-width: 1000px) {
+  .landing-feature-visual-image {
+    object-fit: contain;
+  }
 }
 
 .landing-feature-visual--fallback {
