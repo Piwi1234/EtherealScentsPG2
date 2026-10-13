@@ -2862,6 +2862,19 @@ a {
   text-overflow: ellipsis;
 }
 
+/* Tercera fila, debajo de nombre/atributos — mismo tratamiento (mayúsculas + letter-spacing) que
+   .landing-product-brand en la tarjeta de producto, pero más chico para la caja angosta del dropdown. */
+.landing-navbar-search-result-brand {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245, 244, 240, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .landing-navbar-search-more {
   padding: 11px 14px;
   border: none;
@@ -3114,7 +3127,8 @@ a {
 #nosotros,
 #contacto,
 #product-grid,
-#search-results-grid {
+#search-results-grid,
+#category-filters-top {
   scroll-margin-top: 88px;
 }
 
@@ -3165,10 +3179,17 @@ a {
    variante mobile (ver CarouselImage.mobileImageUrl y CarouselImg en ImageCarousel.tsx) puede tener
    el sujeto centrado en vez de recortado a los costados, en lugar de solo achicarse manteniendo el
    mismo recorte panorámico de siempre. Mismo breakpoint que usa ImageCarousel para elegir esa
-   variante (900px, ver mobileMediaQuery). */
-@media (max-width: 900px) {
+   variante (1000px, ver mobileMediaQuery) — cubre también una ventana a "media pantalla" en
+   monitores comunes, no solo el ancho real de un celular. `object-fit: contain` como red de
+   seguridad para cuando esa categoría no tiene variante mobile cargada: nunca se recorta, aunque
+   pueda dejar franjas a los costados si la proporción no calza.*/
+@media (max-width: 1000px) {
   .landing-hero-banner-frame {
     aspect-ratio: 4 / 3;
+  }
+
+  .landing-hero-banner-image {
+    object-fit: contain;
   }
 }
 
@@ -4266,8 +4287,9 @@ a {
 
 /* En mobile pasa de alto fijo panorámico a un marco más compacto (mismo criterio que el Hero, ver
    .landing-hero-banner-frame) — deja lugar a la variante mobile de la imagen (ver
-   CarouselImage.mobileImageUrl), con el sujeto centrado en vez de recortado a los costados. */
-@media (max-width: 900px) {
+   CarouselImage.mobileImageUrl), con el sujeto centrado en vez de recortado a los costados. Mismo
+   breakpoint ampliado que el Hero (1000px). */
+@media (max-width: 1000px) {
   .landing-weekly-collection-banner {
     height: auto;
     aspect-ratio: 4 / 3;
@@ -4278,6 +4300,14 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Red de seguridad sin variante mobile cargada (ver .landing-hero-banner-image) — después de la
+   regla base de arriba, que si no, gana por orden en la cascada pese al media query. */
+@media (max-width: 1000px) {
+  .landing-weekly-collection-banner-image {
+    object-fit: contain;
+  }
 }
 
 .landing-weekly-collection-banner .landing-image-carousel-arrow {
@@ -4778,6 +4808,16 @@ a {
   aspect-ratio: 4 / 5;
   border-radius: 16px;
   background: #171426;
+}
+
+/* Red de seguridad para cuando la categoría no tiene variante mobile cargada (igual criterio que el
+   Hero/Colección de la semana, ver más arriba) — por debajo de "media pantalla" nunca se recorta,
+   aunque pueda dejar franjas si la proporción no calza. No toca el breakpoint de 3→1 columna de
+   `visibleCount` (ver home/page.tsx), que sigue atado al breakpoint real del navbar (768px). */
+@media (max-width: 1000px) {
+  .landing-feature-visual-image {
+    object-fit: contain;
+  }
 }
 
 .landing-feature-visual--fallback {
@@ -6175,14 +6215,22 @@ a {
     padding-top: 20px;
   }
 
+  /* grid-row:1 explícito en los tres (acá, en .landing-navbar-actions y en
+     .landing-navbar-search-toggle más abajo): sin esto, el auto-placement de grid empuja a
+     .landing-navbar-actions (columna 1) a una segunda fila fantasma, porque en el DOM aparece
+     DESPUÉS de .landing-navbar-brand (columna 2) — el cursor de ubicación automática no retrocede a
+     una columna anterior dentro de la misma fila. Eso dejaba el logo solo arriba y la hamburguesa/
+     lupa en una fila propia debajo, desperdiciando alto en vez de compartir una sola fila. */
   .landing-navbar-brand {
     grid-column: 2;
+    grid-row: 1;
     justify-self: center;
     flex: none;
   }
 
   .landing-navbar-actions {
     grid-column: 1;
+    grid-row: 1;
     justify-self: start;
     flex: none;
   }
@@ -6234,6 +6282,7 @@ a {
   .landing-navbar-search-toggle {
     display: flex;
     grid-column: 3;
+    grid-row: 1;
     justify-self: end;
     align-items: center;
     justify-content: center;
@@ -6302,6 +6351,24 @@ a {
 
   .landing-category-header h1 {
     font-size: 26px;
+  }
+
+  /* .landing-section (arriba, mismo breakpoint) resetea el padding de TODAS las secciones a 56px
+     con el shorthand "padding: 56px 0" — como pisa el padding-top por igual, de paso tapaba el
+     padding-top:24px reducido que .landing-section--category trae para esta sección puntual (ver
+     ese selector, más arriba del archivo), volviendo a dejar un hueco grande entre el subtítulo de
+     la categoría y la barra de Filtros/Ordenar. Reafirmarlo acá, después, gana por orden en la
+     cascada. */
+  .landing-section--category {
+    padding-top: 24px;
+  }
+
+  /* El <p> no trae su margin de user-agent reseteado a 0 en ningún lado general — a 15px de
+     font-size (ver .landing-category-lead) eso son otros 15px de margin-top/bottom sumándose al
+     hueco de arriba. Scoped a este header puntual (no al de /buscar, landing-category-banner, que
+     sigue usando el margin default a propósito). */
+  .landing-category-header .landing-category-lead {
+    margin: 0;
   }
 
   /* 2 tarjetas por línea en vez de 1 (a diferencia del resto de las grillas de esta media query,
