@@ -266,6 +266,7 @@ export function LandingNavbar({
                       <span className="landing-navbar-search-result-info">
                         <span className="landing-navbar-search-result-name">{product.name}</span>
                         {atributos && <span className="landing-navbar-search-result-attrs">{atributos}</span>}
+                        {product.brand && <span className="landing-navbar-search-result-brand">{product.brand.name}</span>}
                       </span>
                     </Link>
                   );
