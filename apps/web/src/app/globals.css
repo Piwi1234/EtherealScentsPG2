@@ -3127,7 +3127,8 @@ a {
 #nosotros,
 #contacto,
 #product-grid,
-#search-results-grid {
+#search-results-grid,
+#category-filters-top {
   scroll-margin-top: 88px;
 }
 

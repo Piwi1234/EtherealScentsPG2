@@ -463,7 +463,7 @@ export default function CategoriaPage() {
       </section>
 
       <section className="landing-section landing-section--category">
-        <div className="landing-container landing-category-layout">
+        <div className="landing-container landing-category-layout" id="category-filters-top">
           {hasSidebarContent && (
             <aside className="landing-filters-sidebar">
               <div className="landing-filters-sidebar-header">
@@ -548,7 +548,7 @@ export default function CategoriaPage() {
                       disabled={pageNumber <= 1}
                       onClick={() => {
                         setPageNumber((p) => p - 1);
-                        document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
                       ← Anterior
@@ -562,7 +562,7 @@ export default function CategoriaPage() {
                       disabled={pageNumber >= totalPages}
                       onClick={() => {
                         setPageNumber((p) => p + 1);
-                        document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
                       Siguiente →
