@@ -17,7 +17,7 @@ function scrollToId(id: string) {
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
-const BRANDS_SLIDE_SIZE = 8;
+const BRANDS_SLIDE_SIZE = 7;
 const BRANDS_AUTOPLAY_MS = 10000;
 // Ciclan por posición dentro de la fila (no por marca) — solo para que la pared de nombres no se
 // vea plana, como en la referencia.

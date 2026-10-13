@@ -606,7 +606,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   );
 
   return (
-    <div className="card" style={{ maxWidth: "85%", margin: "0 auto" }}>
+    <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>{editing ? "Editar producto" : "Nuevo producto"}</h1>
         <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
