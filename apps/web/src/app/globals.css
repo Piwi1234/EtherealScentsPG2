@@ -6201,14 +6201,22 @@ a {
     padding-top: 20px;
   }
 
+  /* grid-row:1 explícito en los tres (acá, en .landing-navbar-actions y en
+     .landing-navbar-search-toggle más abajo): sin esto, el auto-placement de grid empuja a
+     .landing-navbar-actions (columna 1) a una segunda fila fantasma, porque en el DOM aparece
+     DESPUÉS de .landing-navbar-brand (columna 2) — el cursor de ubicación automática no retrocede a
+     una columna anterior dentro de la misma fila. Eso dejaba el logo solo arriba y la hamburguesa/
+     lupa en una fila propia debajo, desperdiciando alto en vez de compartir una sola fila. */
   .landing-navbar-brand {
     grid-column: 2;
+    grid-row: 1;
     justify-self: center;
     flex: none;
   }
 
   .landing-navbar-actions {
     grid-column: 1;
+    grid-row: 1;
     justify-self: start;
     flex: none;
   }
@@ -6260,6 +6268,7 @@ a {
   .landing-navbar-search-toggle {
     display: flex;
     grid-column: 3;
+    grid-row: 1;
     justify-self: end;
     align-items: center;
     justify-content: center;
