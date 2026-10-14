@@ -14,7 +14,7 @@ import {
   getPresentaciones,
   updatePresentacion,
 } from "../../../lib/api";
-import { consumeFlashMessage, setFlashMessage } from "../../../lib/flash";
+import { consumeFlashMessage, getProductsListQuery, setFlashMessage } from "../../../lib/flash";
 import type {
   Attribute,
   Brand,
@@ -361,7 +361,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       if (usesVariants && !editing) {
         router.push(`/dashboard/products/${saved.id}/edit`);
       } else {
-        router.push("/dashboard/products");
+        // URL explícita (no router.back()): la navegación post-guardado necesita un destino fijo
+        // para que el remount dispare el mensaje de éxito y recargue la lista con el cambio recién
+        // hecho — ver getProductsListQuery/setProductsListQuery en lib/flash.ts.
+        const listQuery = getProductsListQuery();
+        router.push(listQuery ? `/dashboard/products?${listQuery}` : "/dashboard/products");
       }
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -609,7 +613,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>{editing ? "Editar producto" : "Nuevo producto"}</h1>
-        <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
+        {/* router.back() en vez de push: vuelve a la entrada de historial del listado tal como había
+            quedado (filtros, página) en vez de a la URL "en blanco" — ver el sync a la URL en
+            dashboard/products/page.tsx. */}
+        <button type="button" className="link-button" onClick={() => router.back()}>
           Volver
         </button>
       </div>
@@ -1353,7 +1360,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
         {formError && <p className="error-text">{formError}</p>}
         <div className="form-actions">
-          <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
+          <button type="button" className="link-button" onClick={() => router.back()}>
             Cancelar
           </button>
           <button type="submit" className="button" disabled={submitting}>

@@ -22,7 +22,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="card">
         <p className="error-text">{error}</p>
-        <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
+        <button type="button" className="link-button" onClick={() => router.back()}>
           Volver
         </button>
       </div>

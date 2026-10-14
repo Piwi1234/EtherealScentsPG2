@@ -1,8 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
+import { RealIpThrottlerGuard } from "../../common/guards/real-ip-throttler.guard";
 import { Public } from "../auth/decorators/public.decorator";
 import { RefreshTokenDto } from "../auth/dto/refresh-token.dto";
 import { ClienteAuthService } from "./cliente-auth.service";
@@ -24,7 +25,7 @@ import type { AuthenticatedCliente } from "./strategies/cliente-jwt.strategy";
 export class ClienteAuthController {
   constructor(private readonly clienteAuth: ClienteAuthService) {}
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(RealIpThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
@@ -35,7 +36,7 @@ export class ClienteAuthController {
     return this.clienteAuth.register(dto);
   }
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(RealIpThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
@@ -46,7 +47,7 @@ export class ClienteAuthController {
     return this.clienteAuth.login(dto.email, dto.password);
   }
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(RealIpThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post("forgot-password")
   @HttpCode(HttpStatus.OK)
@@ -57,7 +58,7 @@ export class ClienteAuthController {
     return { message: "Si el email existe, te enviamos un link para restablecer la contraseña." };
   }
 
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(RealIpThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)

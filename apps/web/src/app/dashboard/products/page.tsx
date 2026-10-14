@@ -17,7 +17,7 @@ import {
   importProductsFromFile,
   importProductVariantsFromFile,
 } from "../../../lib/api";
-import { consumeFlashMessage } from "../../../lib/flash";
+import { consumeFlashMessage, setProductsListQuery } from "../../../lib/flash";
 import type {
   AttributeType,
   AttributeVariantMode,
@@ -83,6 +83,10 @@ export default function ProductsPage() {
   const [offerFilter, setOfferFilter] = useState<"" | "discount" | "flash">("");
   const [productCodeInput, setProductCodeInput] = useState("");
   const [debouncedProductCode, setDebouncedProductCode] = useState("");
+  // true recién después de leer los filtros iniciales desde la URL (ver el efecto más abajo) —
+  // evita que el efecto que sincroniza los filtros A la URL corra una vez de más, con los filtros
+  // todavía en blanco, y borre justo lo que se acaba de leer.
+  const [hydratedFromUrl, setHydratedFromUrl] = useState(false);
   const [page, setPage] = useState<Page<Product> | null>(null);
   // /catalog/products (público) no trae cantidades de stock — se piden aparte, autenticado, y se
   // mergean acá por id (ver getProductsStockSummary).
@@ -109,6 +113,19 @@ export default function ProductsPage() {
   // de la tabla. Es puramente de vista: no se guarda en el backend.
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
+
+  // Preview de la imagen de un producto al centro de la pantalla — se abre con un click en la
+  // miniatura de la tabla, nada más que la URL ya resuelta (ver productImageSrc).
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!previewImageUrl) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPreviewImageUrl(null);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewImageUrl]);
 
   const rootCategoryOptions = categories.filter((cat) => cat.parentId === null);
   const subCategoryOptions = categories.filter((cat) => cat.parentId === rootCategoryFilter);
@@ -165,6 +182,59 @@ export default function ProductsPage() {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
   }, []);
+
+  // Los filtros vivían solo en memoria (useState) — al entrar a editar un producto y volver, el
+  // remount releía la URL (que nunca se había actualizado) y los perdía todos. Esto lee el estado
+  // inicial desde la URL una sola vez al montar (ver el efecto de más abajo, que hace el camino
+  // inverso: mantiene la URL sincronizada con los filtros activos).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRootCategoryFilter(params.get("categoryId") ?? "");
+    setSubCategoryFilter(params.get("subcategoryId") ?? "");
+    setBrandFilter(params.get("brandId") ?? "");
+    const searchFromUrl = params.get("search") ?? "";
+    setSearchInput(searchFromUrl);
+    setDebouncedSearch(searchFromUrl);
+    const offerFromUrl = params.get("oferta");
+    setOfferFilter(offerFromUrl === "discount" || offerFromUrl === "flash" ? offerFromUrl : "");
+    const productCodeFromUrl = params.get("productCode") ?? "";
+    setProductCodeInput(productCodeFromUrl);
+    setDebouncedProductCode(productCodeFromUrl);
+    setHydratedFromUrl(true);
+  }, []);
+
+  // Mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial
+  // propio) — así "Volver"/"Cancelar" desde Nuevo/Editar producto (router.back()) restauran esta
+  // página tal como había quedado. No incluye pageNumber a propósito: volver arranca en la página 1
+  // de esos mismos filtros, no en la página puntual (mismo criterio que /categoria/[slug]).
+  useEffect(() => {
+    if (!hydratedFromUrl) return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (key: string, value: string | null) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("categoryId", rootCategoryFilter || null);
+    setOrDelete("subcategoryId", subCategoryFilter || null);
+    setOrDelete("brandId", brandFilter || null);
+    setOrDelete("search", debouncedSearch.trim() || null);
+    setOrDelete("oferta", offerFilter || null);
+    setOrDelete("productCode", debouncedProductCode.trim() || null);
+    const query = params.toString();
+    router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
+    // Para que "Guardar" en Nuevo/Editar producto pueda volver a estos mismos filtros (ver
+    // ProductForm.tsx) sin depender de router.back()/el historial.
+    setProductsListQuery(query);
+  }, [
+    hydratedFromUrl,
+    rootCategoryFilter,
+    subCategoryFilter,
+    brandFilter,
+    debouncedSearch,
+    offerFilter,
+    debouncedProductCode,
+    router,
+  ]);
 
   async function handleExport() {
     setExporting(true);
@@ -295,9 +365,10 @@ export default function ProductsPage() {
   }
 
   // Doble click en la fila abre editar, salvo que el doble click haya sido sobre un control
-  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar).
+  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar, o la
+  // miniatura de imagen, que tiene su propio click para la preview).
   function handleRowDoubleClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
-    if ((e.target as HTMLElement).closest("select, button, a, input")) return;
+    if ((e.target as HTMLElement).closest("select, button, a, input, img")) return;
     router.push(`/dashboard/products/${product.id}/edit`);
   }
 
@@ -616,7 +687,15 @@ export default function ProductsPage() {
                           <img
                             src={productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl)!}
                             alt={product.name}
-                            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                            onClick={() => setPreviewImageUrl(productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl))}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              border: "1px solid var(--line)",
+                              cursor: "zoom-in",
+                            }}
                           />
                         ) : (
                           <span className="cell-muted">—</span>
@@ -803,6 +882,20 @@ export default function ProductsPage() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {previewImageUrl && (
+        <div className="image-lightbox-overlay" onClick={() => setPreviewImageUrl(null)}>
+          <button
+            type="button"
+            className="image-lightbox-close"
+            aria-label="Cerrar"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            ×
+          </button>
+          <img className="image-lightbox-img" src={previewImageUrl} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
       )}
     </div>
   );
