@@ -5532,6 +5532,18 @@ a {
   border-radius: 16px;
 }
 
+/* En desktop grande la columna de imagen crece más allá de los 613px "de siempre" (643px a partir
+   de los ~1650px de ancho, tope del .landing-container) — frena ahí y la centra en su columna en vez
+   de seguir agrandándose. 1440px porque es justo donde el tamaño natural ya da 613px, así que no
+   salta: por debajo de eso no cambia nada. */
+@media (min-width: 1440px) {
+  .landing-product-detail-image,
+  .landing-product-detail-image-placeholder {
+    max-width: 613px;
+    margin: 0 auto;
+  }
+}
+
 .landing-product-detail-note {
   font-size: 12px;
   color: var(--lp-muted);
@@ -5797,8 +5809,8 @@ a {
 
 .landing-product-detail-brand-logo {
   display: block;
-  max-height: 130px;
-  max-width: 520px;
+  max-height: 156px; /* 130px + 20% */
+  max-width: 624px; /* 520px + 20% */
   object-fit: contain;
   margin: 0 auto 12px;
 }
