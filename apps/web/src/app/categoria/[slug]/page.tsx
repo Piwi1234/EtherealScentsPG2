@@ -721,7 +721,23 @@ function FilterGroups({
   onToggleBrand,
 }: FilterGroupsProps) {
   return (
-    <div className="landing-filter-groups-box">
+    <div
+      className="landing-filter-groups-box"
+      onMouseOver={(e) => {
+        // En desktop, cada .landing-filter-group abre su desplegable por :hover o :focus-within (ver
+        // la media query de 901px en globals.css). Si se tildó un checkbox con el mouse, el foco
+        // queda adentro — al pasar a OTRO filtro sin que ese foco se mueva, :focus-within lo seguía
+        // manteniendo abierto aunque el mouse ya esté en otro lado, superpuesto al que se está
+        // hovereando ahora (el bug reportado). Al entrar a un grupo, si hay foco activo dentro de
+        // OTRO grupo, se lo saca — así ese otro se cierra en vez de quedar pegado.
+        const group = (e.target as HTMLElement).closest(".landing-filter-group");
+        if (!group) return;
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active !== document.body && !group.contains(active)) {
+          active.blur();
+        }
+      }}
+    >
       {priceBoundsMax > 0 && priceRange && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Precio</p>
