@@ -14,7 +14,7 @@ import {
   getPresentaciones,
   updatePresentacion,
 } from "../../../lib/api";
-import { consumeFlashMessage, setFlashMessage } from "../../../lib/flash";
+import { consumeFlashMessage, getProductsListQuery, setFlashMessage } from "../../../lib/flash";
 import type {
   Attribute,
   Brand,
@@ -361,7 +361,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       if (usesVariants && !editing) {
         router.push(`/dashboard/products/${saved.id}/edit`);
       } else {
-        router.push("/dashboard/products");
+        // URL explícita (no router.back()): la navegación post-guardado necesita un destino fijo
+        // para que el remount dispare el mensaje de éxito y recargue la lista con el cambio recién
+        // hecho — ver getProductsListQuery/setProductsListQuery en lib/flash.ts.
+        const listQuery = getProductsListQuery();
+        router.push(listQuery ? `/dashboard/products?${listQuery}` : "/dashboard/products");
       }
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));

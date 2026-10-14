@@ -17,7 +17,7 @@ import {
   importProductsFromFile,
   importProductVariantsFromFile,
 } from "../../../lib/api";
-import { consumeFlashMessage } from "../../../lib/flash";
+import { consumeFlashMessage, setProductsListQuery } from "../../../lib/flash";
 import type {
   AttributeType,
   AttributeVariantMode,
@@ -226,6 +226,9 @@ export default function ProductsPage() {
     setOrDelete("productCode", debouncedProductCode.trim() || null);
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
+    // Para que "Guardar" en Nuevo/Editar producto pueda volver a estos mismos filtros (ver
+    // ProductForm.tsx) sin depender de router.back()/el historial.
+    setProductsListQuery(query);
   }, [
     hydratedFromUrl,
     rootCategoryFilter,
