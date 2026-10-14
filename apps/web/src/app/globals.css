@@ -5809,8 +5809,8 @@ a {
 
 .landing-product-detail-brand-logo {
   display: block;
-  max-height: 130px;
-  max-width: 520px;
+  max-height: 156px; /* 130px + 20% */
+  max-width: 624px; /* 520px + 20% */
   object-fit: contain;
   margin: 0 auto 12px;
 }
