@@ -4683,19 +4683,20 @@ a {
   justify-content: center;
   gap: 8px;
   border: 0;
-  /* Mismo color que .landing-navbar--dark (ver la paleta "Ethereal Scents" al final del archivo,
-     que pisa el #111114 original de la sección del navbar con esto), para que combine. */
-  background: var(--es-navy-900);
-  color: #ffffff;
+  /* Dorado al revelarse (hover de la tarjeta) con letras del color del navbar; al pasar el mouse
+     por la franja misma se invierte: fondo del navbar, letras blancas. */
+  background: var(--es-gold);
+  color: var(--es-navy-900);
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .landing-product-cart-add:hover {
-  background: #000000;
+  background: var(--es-navy-900);
+  color: #ffffff;
 }
 
 /* Icono de "Agregar al carrito"/"Ver opciones" — oculto en desktop (ahí la franja entera lleva el
@@ -4715,6 +4716,13 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
+  /* Mismo criterio que .landing-product-cart-add: dorado de base, navbar al pasar el mouse por la
+     franja — los hijos (botones +/-, número) siguen ese mismo cambio más abajo. */
+  background: var(--es-gold);
+  transition: background 0.15s ease;
+}
+
+.landing-product-cart-qty:hover {
   background: var(--es-navy-900);
 }
 
@@ -4727,13 +4735,22 @@ a {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  background: rgba(13, 26, 48, 0.16);
+  color: var(--es-navy-900);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .landing-product-cart-qty-btn:hover {
+  background: rgba(13, 26, 48, 0.3);
+}
+
+.landing-product-cart-qty:hover .landing-product-cart-qty-btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.landing-product-cart-qty:hover .landing-product-cart-qty-btn:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -4745,10 +4762,15 @@ a {
 .landing-product-cart-qty-num {
   font-size: 13.5px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--es-navy-900);
   min-width: 18px;
   text-align: center;
   animation: landing-product-cart-qty-pop 0.25s ease;
+  transition: color 0.15s ease;
+}
+
+.landing-product-cart-qty:hover .landing-product-cart-qty-num {
+  color: #ffffff;
 }
 
 @keyframes landing-product-cart-qty-pop {
@@ -4781,9 +4803,13 @@ a {
     width: 112px;
   }
 
+  /* En touch no hay hover para separar "revelado" de "mouse encima" — se queda fija en el color del
+     navbar (como ya estaba), en vez del dorado de desktop (ver la base de estas clases, más arriba). */
   .landing-product-cart-add {
     padding: 0;
     gap: 0;
+    background: var(--es-navy-900);
+    color: #ffffff;
   }
 
   .landing-product-cart-add-text {
@@ -4796,11 +4822,18 @@ a {
 
   .landing-product-cart-qty {
     padding: 0 8px;
+    background: var(--es-navy-900);
   }
 
   .landing-product-cart-qty-btn {
     width: 22px;
     height: 22px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+  }
+
+  .landing-product-cart-qty-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
   }
 
   .landing-product-cart-qty-btn svg {
@@ -4809,6 +4842,7 @@ a {
   }
 
   .landing-product-cart-qty-num {
+    color: #ffffff;
     font-size: 12.5px;
     min-width: 16px;
   }
