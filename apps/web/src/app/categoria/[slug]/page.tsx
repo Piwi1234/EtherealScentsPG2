@@ -201,9 +201,10 @@ export default function CategoriaPage() {
       params.set("minPriceBs", String(priceApplied[0]));
       params.set("maxPriceBs", String(priceApplied[1]));
     }
-    // "relevancia" y "recientes" son el mismo orden por defecto del backend (createdAt desc) — no
-    // hace falta mandar el parámetro para esos dos.
-    if (sortBy === "precio-asc" || sortBy === "precio-desc" || sortBy === "nombre-asc") {
+    // "recientes" es el orden por defecto del backend (createdAt desc) — no hace falta mandar el
+    // parámetro para ese. "relevancia" sí se manda: ordena por total histórico vendido (ver
+    // getSoldQuantitiesByProduct en browse.service.ts), no es lo mismo que el default.
+    if (sortBy !== "recientes") {
       params.set("sortBy", sortBy);
     }
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
