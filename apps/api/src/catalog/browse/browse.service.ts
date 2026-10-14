@@ -106,8 +106,9 @@ export interface FindCatalogProductsQuery {
   minPriceBs?: string;
   maxPriceBs?: string;
   /** "actualizados" (última modificación, usado por el carrusel de ofertas del home), "nombre-asc",
-   * "precio-asc"/"precio-desc". Cualquier otro valor (u omitido) es el orden por defecto, más
-   * reciente creado primero. */
+   * "precio-asc"/"precio-desc", "relevancia" (total histórico vendido, de mayor a menor — ver
+   * getSoldQuantitiesByProduct). Cualquier otro valor (u omitido, ej. "recientes") es el orden por
+   * defecto, más reciente creado primero. */
   sortBy?: string;
 }
 
@@ -195,12 +196,17 @@ export class CatalogBrowseService {
     const minPriceBs = query.minPriceBs !== undefined && query.minPriceBs !== "" ? Number(query.minPriceBs) : undefined;
     const maxPriceBs = query.maxPriceBs !== undefined && query.maxPriceBs !== "" ? Number(query.maxPriceBs) : undefined;
     const isPriceSort = query.sortBy === "precio-asc" || query.sortBy === "precio-desc";
+    const isRelevanciaSort = query.sortBy === "relevancia";
 
-    if (query.onlyInStock === "true" || minPriceBs !== undefined || maxPriceBs !== undefined || isPriceSort) {
+    if (query.onlyInStock === "true" || minPriceBs !== undefined || maxPriceBs !== undefined || isPriceSort || isRelevanciaSort) {
       // Ni "física - reservada > 0" ni el precio final (calculado en vivo a partir de la categoría y
-      // el tipo de cambio, no una columna) se pueden expresar en un where/orderBy de Prisma — así que
-      // acá se trae todo lo que matchea el resto de filtros y se filtra/ordena/pagina en memoria.
-      const all = await this.prisma.product.findMany({ where, orderBy, include: includeDetails });
+      // el tipo de cambio, no una columna) ni el total histórico vendido (agregado aparte, ver
+      // getSoldQuantitiesByProduct) se pueden expresar en un where/orderBy de Prisma — así que acá se
+      // trae todo lo que matchea el resto de filtros y se filtra/ordena/pagina en memoria.
+      const [all, soldByProduct] = await Promise.all([
+        this.prisma.product.findMany({ where, orderBy, include: includeDetails }),
+        isRelevanciaSort ? this.getSoldQuantitiesByProduct() : Promise.resolve(null),
+      ]);
       let finalized = all.map((item) => finalizeProduct(item, exchangeRate));
 
       if (query.onlyInStock === "true") {
@@ -219,6 +225,12 @@ export class CatalogBrowseService {
             : cheapestFinalPriceBs(b) - cheapestFinalPriceBs(a),
         );
       }
+      if (soldByProduct) {
+        // Array.sort es estable: entre productos con el mismo total vendido (típicamente 0, sin
+        // ninguna venta completada todavía) se mantiene el orden del fetch original (createdAt
+        // desc) — los más nuevos quedan primero dentro de ese empate, en vez de un orden arbitrario.
+        finalized.sort((a, b) => (soldByProduct.get(b.id) ?? 0) - (soldByProduct.get(a.id) ?? 0));
+      }
 
       const pageItems = finalized.slice(skip, skip + take);
       return { items: pageItems, total: finalized.length, page, pageSize };
@@ -230,6 +242,36 @@ export class CatalogBrowseService {
     ]);
 
     return { items: items.map((item) => finalizeProduct(item, exchangeRate)), total, page, pageSize };
+  }
+
+  /** Total histórico de unidades vendidas por producto ("Relevancia" del catálogo público) — solo
+   * ventas COMPLETADA, nunca BORRADOR/APROBADA/ANULADA (una proforma aprobada todavía puede
+   * anularse, y una completada es la única terminal que representa una venta real). Prisma no puede
+   * agrupar ProformaDetalle por el productId de su variante (es un campo de ProductVariant, no de
+   * ProformaDetalle) en un solo groupBy, así que se arma en dos pasos: sumar cantidad por variante,
+   * y después mapear cada variante a su producto. */
+  private async getSoldQuantitiesByProduct(): Promise<Map<string, number>> {
+    const sumsByVariant = await this.prisma.proformaDetalle.groupBy({
+      by: ["varianteId"],
+      where: { proforma: { tipo: "VENTA", estado: "COMPLETADA" } },
+      _sum: { cantidad: true },
+    });
+    if (sumsByVariant.length === 0) return new Map();
+
+    const variants = await this.prisma.productVariant.findMany({
+      where: { id: { in: sumsByVariant.map((s) => s.varianteId) } },
+      select: { id: true, productId: true },
+    });
+    const productIdByVariant = new Map(variants.map((v) => [v.id, v.productId]));
+
+    const totals = new Map<string, number>();
+    for (const sum of sumsByVariant) {
+      const productId = productIdByVariant.get(sum.varianteId);
+      if (!productId) continue;
+      const cantidad = sum._sum.cantidad ?? 0;
+      totals.set(productId, (totals.get(productId) ?? 0) + cantidad);
+    }
+    return totals;
   }
 
   /** Detalle público de un producto (página de producto del catálogo). */
