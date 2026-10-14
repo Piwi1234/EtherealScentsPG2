@@ -609,7 +609,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>{editing ? "Editar producto" : "Nuevo producto"}</h1>
-        <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
+        {/* router.back() en vez de push: vuelve a la entrada de historial del listado tal como había
+            quedado (filtros, página) en vez de a la URL "en blanco" — ver el sync a la URL en
+            dashboard/products/page.tsx. */}
+        <button type="button" className="link-button" onClick={() => router.back()}>
           Volver
         </button>
       </div>
@@ -1353,7 +1356,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
         {formError && <p className="error-text">{formError}</p>}
         <div className="form-actions">
-          <button type="button" className="link-button" onClick={() => router.push("/dashboard/products")}>
+          <button type="button" className="link-button" onClick={() => router.back()}>
             Cancelar
           </button>
           <button type="submit" className="button" disabled={submitting}>

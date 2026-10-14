@@ -87,6 +87,10 @@ export default function ProductsPage() {
   const [offerFilter, setOfferFilter] = useState<"" | "discount" | "flash">("");
   const [productCodeInput, setProductCodeInput] = useState("");
   const [debouncedProductCode, setDebouncedProductCode] = useState("");
+  // true recién después de leer los filtros iniciales desde la URL (ver el efecto más abajo) —
+  // evita que el efecto que sincroniza los filtros A la URL corra una vez de más, con los filtros
+  // todavía en blanco, y borre justo lo que se acaba de leer.
+  const [hydratedFromUrl, setHydratedFromUrl] = useState(false);
   const [page, setPage] = useState<Page<Product> | null>(null);
   // /catalog/products (público) no trae cantidades de stock — se piden aparte, autenticado, y se
   // mergean acá por id (ver getProductsStockSummary).
@@ -182,6 +186,56 @@ export default function ProductsPage() {
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
     apiGet<Brand[]>("/brands").then(setBrands).catch(() => {});
   }, []);
+
+  // Los filtros vivían solo en memoria (useState) — al entrar a editar un producto y volver, el
+  // remount releía la URL (que nunca se había actualizado) y los perdía todos. Esto lee el estado
+  // inicial desde la URL una sola vez al montar (ver el efecto de más abajo, que hace el camino
+  // inverso: mantiene la URL sincronizada con los filtros activos).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRootCategoryFilter(params.get("categoryId") ?? "");
+    setSubCategoryFilter(params.get("subcategoryId") ?? "");
+    setBrandFilter(params.get("brandId") ?? "");
+    const searchFromUrl = params.get("search") ?? "";
+    setSearchInput(searchFromUrl);
+    setDebouncedSearch(searchFromUrl);
+    const offerFromUrl = params.get("oferta");
+    setOfferFilter(offerFromUrl === "discount" || offerFromUrl === "flash" ? offerFromUrl : "");
+    const productCodeFromUrl = params.get("productCode") ?? "";
+    setProductCodeInput(productCodeFromUrl);
+    setDebouncedProductCode(productCodeFromUrl);
+    setHydratedFromUrl(true);
+  }, []);
+
+  // Mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial
+  // propio) — así "Volver"/"Cancelar" desde Nuevo/Editar producto (router.back()) restauran esta
+  // página tal como había quedado. No incluye pageNumber a propósito: volver arranca en la página 1
+  // de esos mismos filtros, no en la página puntual (mismo criterio que /categoria/[slug]).
+  useEffect(() => {
+    if (!hydratedFromUrl) return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (key: string, value: string | null) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("categoryId", rootCategoryFilter || null);
+    setOrDelete("subcategoryId", subCategoryFilter || null);
+    setOrDelete("brandId", brandFilter || null);
+    setOrDelete("search", debouncedSearch.trim() || null);
+    setOrDelete("oferta", offerFilter || null);
+    setOrDelete("productCode", debouncedProductCode.trim() || null);
+    const query = params.toString();
+    router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
+  }, [
+    hydratedFromUrl,
+    rootCategoryFilter,
+    subCategoryFilter,
+    brandFilter,
+    debouncedSearch,
+    offerFilter,
+    debouncedProductCode,
+    router,
+  ]);
 
   async function handleExport() {
     setExporting(true);
