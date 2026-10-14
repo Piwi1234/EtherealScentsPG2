@@ -384,12 +384,13 @@ export default function CategoriaPage() {
     if (sub) activeFilterChips.push({ key: `sub-${sub.id}`, label: sub.name, onRemove: () => selectSubcategory(sub.id) });
   }
   for (const brandId of brandFilters) {
+    // Mismo criterio que el chip de subcategoría de arriba: aggregates.brands (de donde sale el
+    // nombre) tarda un toque en cargar — sin este guard, mientras tanto el chip mostraba el uuid
+    // crudo de brandId en vez de no aparecer todavía.
     const brand = brandsWithCounts.find((b) => b.id === brandId);
-    activeFilterChips.push({
-      key: `brand-${brandId}`,
-      label: brand?.name ?? brandId,
-      onRemove: () => toggleBrand(brandId),
-    });
+    if (brand) {
+      activeFilterChips.push({ key: `brand-${brandId}`, label: brand.name, onRemove: () => toggleBrand(brandId) });
+    }
   }
   if (inStockOnly) activeFilterChips.push({ key: "stock", label: "En Stock", onRemove: toggleInStockOnly });
   if (discountOnly) activeFilterChips.push({ key: "discount", label: "Con Descuento", onRemove: toggleDiscountOnly });
