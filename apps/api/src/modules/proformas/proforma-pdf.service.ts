@@ -10,6 +10,21 @@ const NAVY = "#1B3A6B";
 const MUTED = "#6B7280";
 const LINE = "#E2E5EA";
 
+// Paleta "Ethereal Scents" (ver apps/web/src/app/globals.css, --es-*) — solo para el diseño nuevo de
+// proformas de VENTA (drawHeaderVenta y el resto de los métodos *Venta más abajo). COMPRA sigue con
+// el diseño clásico de siempre (constantes de arriba), sin tocar: no se entrega a un cliente final,
+// es un documento interno para el proveedor.
+const ES_NAVY_900 = "#0D1A30";
+const ES_NAVY_700 = "#1C3561";
+const ES_GOLD = "#C9A96E";
+const ES_GOLD_INK = "#86672F";
+const ES_MUTED = "#5F6778";
+const ES_LINE = "#DDE2EB";
+const ES_SALE = "#B8412F";
+const VALIDEZ_PROFORMA = "1 día";
+const DISCLAIMER_ENTREGA =
+  "LOS RETRASOS DE ENTREGA PODRÍAN VARIAR EN CASO DE BLOQUEOS, TEMAS CLIMÁTICOS O MOTIVOS AJENOS A NUESTRA EMPRESA.";
+
 // Media carta horizontal (8.5 x 5.5 in = 612 x 396 pt) — más chico que A4, por eso los márgenes y
 // tamaños de fuente de acá son más ajustados que un documento tamaño carta/A4 normal.
 const PAGE_SIZE: [number, number] = [612, 396];
@@ -104,11 +119,19 @@ export class ProformaPdfService {
     doc.on("data", (chunk) => chunks.push(chunk));
     const done = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
 
-    this.drawHeader(doc, proforma, titulo);
-    this.drawInfoBlock(doc, proforma, esVenta);
-    const subtotal = this.drawTable(doc, proforma, esVenta, prefix);
-    this.drawTotales(doc, proforma, esVenta, prefix, subtotal);
-    this.drawFooter(doc, proforma);
+    if (esVenta) {
+      this.drawHeaderVenta(doc, proforma, titulo);
+      this.drawInfoBlockVenta(doc, proforma);
+      const subtotal = this.drawTableVenta(doc, proforma, prefix);
+      this.drawTotalesVenta(doc, proforma, prefix, subtotal);
+      this.drawFooterVenta(doc);
+    } else {
+      this.drawHeader(doc, proforma, titulo);
+      this.drawInfoBlock(doc, proforma, esVenta);
+      const subtotal = this.drawTable(doc, proforma, esVenta, prefix);
+      this.drawTotales(doc, proforma, esVenta, prefix, subtotal);
+      this.drawFooter(doc, proforma);
+    }
 
     doc.end();
     return done;
@@ -337,6 +360,229 @@ export class ProformaPdfService {
           y + 5,
           { width: doc.page.width - PAGE_MARGIN * 2, align: "center" },
         );
+      doc.fillColor("#000000");
+    }
+  }
+
+  // ===========================================================================================
+  // Diseño "Minimalista" (opción D, aprobada) — solo VENTA, ver el comentario de ES_NAVY_900 y
+  // compañía más arriba. Encabezado centrado (logo, filete dorado, título, N°/fecha), info de
+  // cliente acotada a ciudad+teléfono (sin dirección ni datos de la empresa — en su lugar, la
+  // validez fija de la proforma), tabla con filete en vez de banda de color, totales sin fondo, y
+  // pie con el disclaimer de envío en vez de "Creado por"/fecha (el paginado sí se mantiene).
+  // ===========================================================================================
+
+  private drawHeaderVenta(doc: PDFKit.PDFDocument, proforma: Proforma, titulo: string) {
+    const pageWidth = doc.page.width;
+    let y = 16;
+
+    const logoFilename = proforma.empresa.logoUrl?.split("/").pop();
+    const logoPath = logoFilename ? join(EMPRESA_LOGOS_DIR, logoFilename) : undefined;
+    const logoWidth = 76;
+    const logoHeight = 19;
+    if (logoPath && existsSync(logoPath)) {
+      try {
+        doc.image(logoPath, (pageWidth - logoWidth) / 2, y, { width: logoWidth, height: logoHeight, fit: [logoWidth, logoHeight] });
+      } catch {
+        // Best-effort: si el archivo no es una imagen válida, seguimos sin logo.
+      }
+    }
+    y += logoHeight + 7;
+
+    const ruleWidth = 26;
+    doc
+      .moveTo((pageWidth - ruleWidth) / 2, y)
+      .lineTo((pageWidth + ruleWidth) / 2, y)
+      .strokeColor(ES_GOLD)
+      .lineWidth(1.3)
+      .stroke();
+    y += 9;
+
+    doc.font("Roboto-Bold").fontSize(11).fillColor(ES_NAVY_900);
+    doc.text(titulo.toUpperCase(), 0, y, { width: pageWidth, align: "center", characterSpacing: 1 });
+    y += 13;
+
+    doc.font("Roboto").fontSize(7).fillColor(ES_MUTED);
+    doc.text(`N.° ${proforma.codigo}  ·  ${formatDate(proforma.fecha)}`, 0, y, { width: pageWidth, align: "center" });
+    y += 12;
+
+    doc.moveTo(PAGE_MARGIN, y).lineTo(pageWidth - PAGE_MARGIN, y).strokeColor(ES_LINE).lineWidth(0.75).stroke();
+    y += 10;
+
+    doc.fillColor("#000000");
+    doc.y = y;
+  }
+
+  /** Cliente acotado a ciudad de entrega + teléfono (sin dirección ni email) — la segunda columna
+   * ya no es "datos de la empresa", es la validez fija de la proforma (ver VALIDEZ_PROFORMA). */
+  private drawInfoBlockVenta(doc: PDFKit.PDFDocument, proforma: Proforma) {
+    const y = doc.y;
+    const colWidth = (doc.page.width - PAGE_MARGIN * 2 - 16) / 2;
+    const leftX = PAGE_MARGIN;
+    const rightX = PAGE_MARGIN + colWidth + 16;
+
+    doc.font("Roboto-Bold").fontSize(6.5).fillColor(ES_GOLD_INK);
+    doc.text("CLIENTE", leftX, y, { characterSpacing: 0.5 });
+    doc.text("VALIDEZ DE LA PROFORMA", rightX, y, { width: colWidth, characterSpacing: 0.5 });
+
+    const cliente = proforma.cliente;
+    const ciudad = proforma.ciudadEntrega?.nombre;
+    const nombreYCiudad = [cliente?.nombre ?? "—", ciudad].filter(Boolean).join(" — ");
+
+    doc.font("Roboto").fontSize(7.5).fillColor("#000000");
+    let ly = y + 10;
+    doc.text(nombreYCiudad, leftX, ly, { width: colWidth });
+    ly += 10.5;
+    if (cliente?.telefono) {
+      doc.text(`Teléfono: ${cliente.telefono}`, leftX, ly, { width: colWidth });
+      ly += 10.5;
+    }
+
+    doc.text(VALIDEZ_PROFORMA, rightX, y + 10, { width: colWidth });
+
+    const bottom = ly + 6;
+    doc.moveTo(PAGE_MARGIN, bottom).lineTo(doc.page.width - PAGE_MARGIN, bottom).strokeColor(ES_LINE).lineWidth(0.75).stroke();
+    doc.fillColor("#000000");
+    doc.y = bottom + 10;
+  }
+
+  /** Mismo criterio de paginación que drawTable (nunca corta una fila a la mitad) — solo cambia el
+   * estilo: filete navy bajo el encabezado en vez de banda de color, filas separadas por hairlines. */
+  private drawTableVenta(doc: PDFKit.PDFDocument, proforma: Proforma, prefix: string): number {
+    const left = PAGE_MARGIN;
+    const width = doc.page.width - PAGE_MARGIN * 2;
+    const colMarca = width * 0.16;
+    const colConcepto = width * 0.36;
+    const colCantidad = width * 0.12;
+    const colPrecio = width * 0.16;
+    const colTotal = width * 0.2;
+
+    const drawTableHeader = (y: number) => {
+      doc.font("Roboto-Bold").fontSize(6).fillColor(ES_NAVY_900);
+      doc.text("MARCA", left, y, { width: colMarca });
+      doc.text("CONCEPTO", left + colMarca, y, { width: colConcepto });
+      doc.text("CANT.", left + colMarca + colConcepto, y, { width: colCantidad, align: "center" });
+      doc.text("PRECIO", left + colMarca + colConcepto + colCantidad, y, { width: colPrecio, align: "right" });
+      doc.text("TOTAL", left + colMarca + colConcepto + colCantidad + colPrecio, y, { width: colTotal, align: "right" });
+      const headerBottom = y + 9;
+      doc.moveTo(left, headerBottom).lineTo(left + width, headerBottom).strokeColor(ES_NAVY_900).lineWidth(1).stroke();
+      doc.fillColor("#000000");
+      return headerBottom + 6;
+    };
+
+    let y = drawTableHeader(doc.y);
+    let subtotal = 0;
+
+    for (const detalle of proforma.detalles) {
+      const concepto = conceptoLabel(detalle);
+      const marca = detalle.variante.product.brand?.name ?? "—";
+      const precioUnitario = Number(detalle.precioUnitario ?? 0);
+      const total = Number(detalle.subtotal);
+      subtotal += total;
+
+      doc.fontSize(7.5).font("Roboto");
+      const rowHeight = Math.max(17, doc.heightOfString(concepto, { width: colConcepto }) + 9);
+
+      if (y + rowHeight > CONTENT_BOTTOM) {
+        doc.addPage();
+        y = drawTableHeader(PAGE_MARGIN);
+      }
+
+      doc.font("Roboto").fillColor(ES_MUTED).text(marca, left, y + 3, { width: colMarca });
+      doc.fillColor("#000000").text(concepto, left + colMarca, y + 3, { width: colConcepto });
+      doc.text(String(detalle.cantidad), left + colMarca + colConcepto, y + 3, { width: colCantidad, align: "center" });
+      doc.text(money(precioUnitario, prefix), left + colMarca + colConcepto + colCantidad, y + 3, { width: colPrecio, align: "right" });
+      doc.font("Roboto-Bold").text(money(total, prefix), left + colMarca + colConcepto + colCantidad + colPrecio, y + 3, {
+        width: colTotal,
+        align: "right",
+      });
+
+      y += rowHeight;
+      doc.moveTo(left, y).lineTo(left + width, y).strokeColor(ES_LINE).lineWidth(0.5).stroke();
+    }
+
+    doc.fillColor("#000000");
+    doc.y = y + 10;
+    return subtotal;
+  }
+
+  private drawTotalesVenta(doc: PDFKit.PDFDocument, proforma: Proforma, prefix: string, subtotal: number) {
+    const boxWidth = 165;
+    const left = doc.page.width - PAGE_MARGIN - boxWidth;
+    const valueWidth = 70;
+    const labelWidth = boxWidth - valueWidth;
+
+    const descuento = Number(proforma.descuentoGeneral ?? 0);
+    const total = subtotal - descuento;
+    const porcentaje = Number(proforma.adelantoPorcentaje ?? 0);
+    const tieneSaldoPendiente = Boolean(proforma.cuentaPorCobrar && proforma.cuentaPorCobrar.estado === "PENDIENTE");
+
+    const blockHeight =
+      11 /* subtotal */ +
+      (descuento > 0 ? 11 : 0) +
+      9 /* filete + aire */ +
+      16 /* total */ +
+      (porcentaje > 0 ? 22 : 0) +
+      (tieneSaldoPendiente ? 11 : 0);
+
+    let y = doc.y;
+    if (y + blockHeight > CONTENT_BOTTOM) {
+      doc.addPage();
+      y = PAGE_MARGIN;
+    }
+
+    const line = (label: string, value: string, color: string) => {
+      doc.font("Roboto").fontSize(7.5).fillColor(color);
+      doc.text(label, left, y, { width: labelWidth });
+      doc.text(value, left + labelWidth, y, { width: valueWidth, align: "right" });
+      y += 11;
+    };
+
+    line("Subtotal", money(subtotal, prefix), ES_MUTED);
+    if (descuento > 0) line("Descuento general", `-${money(descuento, prefix)}`, ES_SALE);
+
+    doc.moveTo(left, y + 2).lineTo(left + boxWidth, y + 2).strokeColor(ES_NAVY_900).lineWidth(1).stroke();
+    y += 7;
+
+    doc.font("Roboto-Bold").fontSize(10.5).fillColor(ES_NAVY_900);
+    doc.text("Total", left, y, { width: labelWidth });
+    doc.text(money(total, prefix), left + labelWidth, y, { width: valueWidth, align: "right" });
+    y += 16;
+
+    if (porcentaje > 0) {
+      const montoAdelanto = total * (porcentaje / 100);
+      line(`Adelanto (${porcentaje}%)`, money(montoAdelanto, prefix), ES_MUTED);
+      doc.font("Roboto-Bold").fontSize(7.5).fillColor(ES_NAVY_900);
+      doc.text("Saldo", left, y, { width: labelWidth });
+      doc.text(money(total - montoAdelanto, prefix), left + labelWidth, y, { width: valueWidth, align: "right" });
+      y += 11;
+    }
+
+    if (tieneSaldoPendiente) {
+      line("Saldo pendiente por cobrar", money(Number(proforma.cuentaPorCobrar!.montoAdeudado), prefix), ES_MUTED);
+    }
+
+    doc.fillColor("#000000");
+    doc.y = y + 8;
+  }
+
+  /** Sin "Creado por"/fecha de generación (a pedido) — el paginado se mantiene. En su lugar, el
+   * disclaimer de posibles retrasos de envío, igual en todas las páginas. */
+  private drawFooterVenta(doc: PDFKit.PDFDocument) {
+    const pageRange = doc.bufferedPageRange();
+    for (let i = 0; i < pageRange.count; i++) {
+      doc.switchToPage(pageRange.start + i);
+      // Mismo motivo que en drawFooter: evita que pdfkit agregue una página en blanco de más.
+      doc.page.margins.bottom = 0;
+      const width = doc.page.width - PAGE_MARGIN * 2;
+      const lineY = doc.page.height - 32;
+
+      doc.moveTo(PAGE_MARGIN, lineY).lineTo(doc.page.width - PAGE_MARGIN, lineY).strokeColor(ES_LINE).lineWidth(0.5).stroke();
+
+      doc.fontSize(6).font("Roboto").fillColor(ES_MUTED);
+      doc.text(DISCLAIMER_ENTREGA, PAGE_MARGIN, lineY + 5, { width, align: "center" });
+      doc.text(`Página ${i + 1} de ${pageRange.count}`, PAGE_MARGIN, lineY + 16, { width, align: "center" });
+
       doc.fillColor("#000000");
     }
   }
