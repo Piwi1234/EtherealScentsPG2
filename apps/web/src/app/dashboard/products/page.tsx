@@ -87,6 +87,8 @@ export default function ProductsPage() {
   const [offerFilter, setOfferFilter] = useState<"" | "discount" | "flash">("");
   const [productCodeInput, setProductCodeInput] = useState("");
   const [debouncedProductCode, setDebouncedProductCode] = useState("");
+  // "" = Recientes (orden por defecto del backend, más nuevo primero).
+  const [sortFilter, setSortFilter] = useState<"" | "nombre-asc" | "nombre-desc">("");
   // true recién después de leer los filtros iniciales desde la URL (ver el efecto más abajo) —
   // evita que el efecto que sincroniza los filtros A la URL corra una vez de más, con los filtros
   // todavía en blanco, y borre justo lo que se acaba de leer.
@@ -159,6 +161,18 @@ export default function ProductsPage() {
     setBrandFilter("");
   }
 
+  function handleClearFilters() {
+    setRootCategoryFilter("");
+    setSubCategoryFilter("");
+    setBrandFilter("");
+    setSearchInput("");
+    setDebouncedSearch("");
+    setOfferFilter("");
+    setProductCodeInput("");
+    setDebouncedProductCode("");
+    setSortFilter("");
+  }
+
   function loadProducts() {
     if (!hasAnyFilter) {
       setPage(null);
@@ -171,6 +185,7 @@ export default function ProductsPage() {
     if (offerFilter === "discount") params.set("onlyDiscounted", "true");
     else if (offerFilter === "flash") params.set("onlyFlash", "true");
     if (debouncedProductCode.trim()) params.set("productCode", debouncedProductCode.trim());
+    if (sortFilter) params.set("sortBy", sortFilter);
     params.set("page", String(pageNumber));
     params.set("pageSize", String(PAGE_SIZE));
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
@@ -204,6 +219,8 @@ export default function ProductsPage() {
     const productCodeFromUrl = params.get("productCode") ?? "";
     setProductCodeInput(productCodeFromUrl);
     setDebouncedProductCode(productCodeFromUrl);
+    const sortFromUrl = params.get("sortBy");
+    setSortFilter(sortFromUrl === "nombre-asc" || sortFromUrl === "nombre-desc" ? sortFromUrl : "");
     setHydratedFromUrl(true);
   }, []);
 
@@ -224,6 +241,7 @@ export default function ProductsPage() {
     setOrDelete("search", debouncedSearch.trim() || null);
     setOrDelete("oferta", offerFilter || null);
     setOrDelete("productCode", debouncedProductCode.trim() || null);
+    setOrDelete("sortBy", sortFilter || null);
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
     // Para que "Guardar" en Nuevo/Editar producto pueda volver a estos mismos filtros (ver
@@ -237,6 +255,7 @@ export default function ProductsPage() {
     debouncedSearch,
     offerFilter,
     debouncedProductCode,
+    sortFilter,
     router,
   ]);
 
@@ -342,9 +361,17 @@ export default function ProductsPage() {
   // página que ya no existe para el nuevo resultado).
   useEffect(() => {
     setPageNumber(1);
-  }, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode]);
+  }, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode, sortFilter]);
 
-  useEffect(loadProducts, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode, pageNumber]);
+  useEffect(loadProducts, [
+    effectiveCategoryFilter,
+    brandFilter,
+    debouncedSearch,
+    offerFilter,
+    debouncedProductCode,
+    sortFilter,
+    pageNumber,
+  ]);
 
   async function handleDelete(product: Product) {
     if (!confirm(`¿Eliminar el producto "${product.name}"?`)) return;
@@ -655,6 +682,21 @@ export default function ProductsPage() {
             disabled={!effectiveCategoryFilter}
           />
         </div>
+        <div className="filter-field" style={{ minWidth: 160 }}>
+          <label className="filter-label">Ordenar por</label>
+          <select className="field" value={sortFilter} onChange={(e) => setSortFilter(e.target.value as typeof sortFilter)}>
+            <option value="">Recientes</option>
+            <option value="nombre-asc">A-Z</option>
+            <option value="nombre-desc">Z-A</option>
+          </select>
+        </div>
+        {hasAnyFilter && (
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button type="button" className="action-btn" onClick={handleClearFilters}>
+              Limpiar filtros
+            </button>
+          </div>
+        )}
       </div>
 
       {!hasAnyFilter && (

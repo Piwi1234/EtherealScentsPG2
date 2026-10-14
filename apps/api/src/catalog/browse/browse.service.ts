@@ -108,7 +108,8 @@ export interface FindCatalogProductsQuery {
   minPriceBs?: string;
   maxPriceBs?: string;
   /** "actualizados" (última modificación, usado por el carrusel de ofertas del home), "nombre-asc",
-   * "precio-asc"/"precio-desc", "relevancia" (total histórico vendido, de mayor a menor — ver
+   * "nombre-desc" (usado por el desplegable de orden de Gestión → Productos), "precio-asc"/
+   * "precio-desc", "relevancia" (total histórico vendido, de mayor a menor — ver
    * getSoldQuantitiesByProduct). Cualquier otro valor (u omitido, ej. "recientes") es el orden por
    * defecto, más reciente creado primero. */
   sortBy?: string;
@@ -206,7 +207,9 @@ export class CatalogBrowseService {
         ? { updatedAt: "desc" }
         : query.sortBy === "nombre-asc"
           ? { name: "asc" }
-          : { createdAt: "desc" };
+          : query.sortBy === "nombre-desc"
+            ? { name: "desc" }
+            : { createdAt: "desc" };
 
     const exchangeRate = await this.settings.getExchangeRate();
 
