@@ -29,6 +29,47 @@ export function formatPriceBs(value: number): string {
   return Math.round(value).toLocaleString("es-BO");
 }
 
+/** "discount"/"flash"/"preventa" — los 3 modos del carrusel de "Descuento y Ofertas" del home (ver
+ * OffersMode en home/page.tsx). Pasado a `displayPrice`, hace que la tarjeta muestre la variante que
+ * realmente calificó para esa sección, no la más barata a secas. */
+export type OfferContext = "discount" | "flash" | "preventa";
+
+/** true si ESTA variante puntual es la que hace que el producto entre en esa sección — mismo
+ * criterio que hasDiscount/hasActiveFlash/isPreventa (que solo contestan si/no a nivel producto),
+ * pero variante por variante. La auto-provista (isDefault) nunca tiene su propio discountBs/
+ * ofertaFlashHasta sincronizado (queda congelado al crearse) — para esa, el dato real vive en el
+ * producto, igual que en flashUntilFor/hasDiscount. */
+export function variantMatchesContext(product: Product, variant: ProductVariant, context: OfferContext): boolean {
+  if (context === "preventa") return variant.estado === "PREVENTA";
+  // Una variante en Preventa tiene su propia sección (ver más arriba) — aunque tenga descuento o
+  // temporizador cargado, no cuenta para "discount"/"flash" (mismo criterio que el backend, ver
+  // onlyDiscounted/onlyFlash en browse.service.ts).
+  if (variant.estado === "PREVENTA") return false;
+  if (context === "discount") {
+    return variant.isDefault ? Number(product.discountBs) > 0 : Number(variant.discountBs) > 0;
+  }
+  const until = variant.isDefault ? product.ofertaFlashHasta : variant.ofertaFlashHasta;
+  return until !== null && new Date(until).getTime() > Date.now();
+}
+
+/** Una entrada por CADA variante que calificó para esta sección (no una por producto, a diferencia
+ * de `displayPrice`) — así el carrusel de "Descuento y Ofertas" del home puede mostrar una tarjeta
+ * por cada variante con descuento/flash/preventa, en vez de una sola por producto que esconde al
+ * resto. NO_DISPONIBLE queda afuera siempre (ni para Preventa tiene sentido mostrarla). */
+export function offerVariantEntries(
+  products: Product[],
+  context: OfferContext,
+): { product: Product; variant: ProductVariant }[] {
+  const entries: { product: Product; variant: ProductVariant }[] = [];
+  for (const product of products) {
+    for (const variant of product.variants) {
+      if (variant.estado === "NO_DISPONIBLE") continue;
+      if (variantMatchesContext(product, variant, context)) entries.push({ product, variant });
+    }
+  }
+  return entries;
+}
+
 /**
  * Si el producto tiene variantes con precio propio, se muestra "Desde" el precio más bajo entre
  * ellas — devuelve también esa variante (`variant`), para poder usar su imagen propia si tiene
@@ -38,14 +79,25 @@ export function formatPriceBs(value: number): string {
  * tarjeta no muestra el precio de algo que no se puede comprar) — recién si TODAS están marcadas no
  * disponibles (ver `isSoldOut`, que reemplaza el precio por el badge "Agotado") se cae a la más
  * barata en general, nada más para tener una variante representativa (imagen) que mostrar.
+ *
+ * `context`: acota el pool a solo las variantes que calificaron para esa sección (ej. las que
+ * tienen descuento propio) antes de elegir la más barata entre ESAS — así la tarjeta de "Descuento y
+ * Ofertas" no termina mostrando el precio de una variante sin descuento solo por ser más barata que
+ * la que sí lo tiene. Si ninguna variante matchea (no debería pasar si el producto ya se filtró por
+ * ese criterio), cae al pool normal sin acotar.
  */
 export function displayPrice(
   product: Product,
+  context?: OfferContext,
 ): { bs: number; usd: number; fromPrice: boolean; variant: ProductVariant | null; discountBs: number } {
   if (product.variants.length > 0) {
     // PREVENTA cuenta como disponible acá (se puede reservar): solo NO_DISPONIBLE queda afuera.
     const available = product.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
-    const pool = available.length > 0 ? available : product.variants;
+    let pool = available.length > 0 ? available : product.variants;
+    if (context) {
+      const matching = pool.filter((v) => variantMatchesContext(product, v, context));
+      if (matching.length > 0) pool = matching;
+    }
     const cheapest = pool.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), pool[0]);
     return {
       bs: cheapest.finalPriceBs,

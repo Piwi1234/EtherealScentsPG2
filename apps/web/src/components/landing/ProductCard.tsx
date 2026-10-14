@@ -7,13 +7,15 @@ import {
   cardFlashUntil,
   cardImageUrl,
   displayPrice,
+  flashUntilFor,
   formatPriceBs,
   hasDiscount,
   isPreventa,
   isSoldOut,
   productImageSrc,
+  type OfferContext,
 } from "../../lib/catalog-display";
-import type { Product } from "../../lib/types";
+import type { Product, ProductVariant } from "../../lib/types";
 import { formatAtributosTarjeta, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
 
@@ -24,20 +26,47 @@ export function ProductCard({
   product,
   className = "",
   flashVariant = "pill",
+  context,
+  forcedVariant,
 }: {
   product: Product;
   className?: string;
   /** "boxes": casilleros HH/MM/SS — usado por el carrusel de "Descuento y Ofertas" del home. */
   flashVariant?: "pill" | "boxes";
+  /** Carrusel de "Descuento y Ofertas" del home: qué modo está activo ahora mismo. La tarjeta
+   * entonces muestra precio/imagen de la variante que calificó para ese modo (ver displayPrice) y
+   * lleva esa variante como query al link del producto, para que la página de detalle la abra
+   * preseleccionada en vez de la más barata a secas. */
+  context?: OfferContext;
+  /** Si viene, la tarjeta representa ESTA variante puntual (precio, imagen, atributos, badges) en
+   * vez de que ProductCard resuelva sola cuál mostrar — usado cuando un producto tiene más de una
+   * variante calificando para `context` (ver offerVariantEntries): ahí sale una tarjeta por cada
+   * una, no una sola por producto. */
+  forcedVariant?: ProductVariant;
 }) {
   const { addItem } = useCart();
-  const { bs, fromPrice, variant, discountBs } = displayPrice(product);
+  const { bs, fromPrice, variant, discountBs } = forcedVariant
+    ? {
+        bs: forcedVariant.finalPriceBs,
+        fromPrice: false,
+        variant: forcedVariant,
+        discountBs: Number(forcedVariant.discountBs),
+      }
+    : displayPrice(product, context);
   const image = productImageSrc(cardImageUrl(product, variant));
-  const atributos = formatAtributosTarjeta(product.attributeValues, product.variantOptionValues);
+  // Con forcedVariant, solo el valor de ESA variante (ej. "200 ML") — si no, dos tarjetas del mismo
+  // producto se verían con el mismo texto ("100 ML, 200 ML" las dos), que es lo que muestra
+  // formatAtributosTarjeta por default (todos los tamaños disponibles, pensado para una sola
+  // tarjeta por producto).
+  const atributos = forcedVariant
+    ? formatCartAtributos(product.attributeValues, product.variantOptionValues, forcedVariant.options)
+    : formatAtributosTarjeta(product.attributeValues, product.variantOptionValues);
   const soldOut = isSoldOut(product);
-  const preventa = isPreventa(product);
+  const preventa = forcedVariant ? forcedVariant.estado === "PREVENTA" : isPreventa(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
-  const flashUntil = cardFlashUntil(product);
+  const flashUntil = forcedVariant ? flashUntilFor(product, forcedVariant) : cardFlashUntil(product);
+  const hasOffer = forcedVariant ? discountBs > 0 : hasDiscount(product);
+  const inStock = forcedVariant ? forcedVariant.hasStock : product.hasStock;
 
   function handleAdd(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -55,15 +84,17 @@ export function ProductCard({
     });
   }
 
+  const href = context && variant ? `/producto/${product.slug}?variante=${variant.id}` : `/producto/${product.slug}`;
+
   return (
-    <Link href={`/producto/${product.slug}`} className={`landing-product-card${className ? ` ${className}` : ""}`}>
+    <Link href={href} className={`landing-product-card${className ? ` ${className}` : ""}`}>
       <div className="landing-product-image-wrap">
         {image ? (
           <img className="landing-product-image" src={image} alt={product.name} />
         ) : (
           <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
         )}
-        {hasDiscount(product) && (
+        {hasOffer && (
           <span className="landing-product-offer-badge">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
@@ -76,7 +107,7 @@ export function ProductCard({
         {preventa ? (
           <span className="landing-product-preventa-badge">Preventa</span>
         ) : (
-          product.hasStock && <span className="landing-product-instock-badge">En Stock</span>
+          inStock && <span className="landing-product-instock-badge">En Stock</span>
         )}
         {!soldOut && (
           <button type="button" className="landing-product-add-btn" aria-label="Agregar al carrito" onClick={handleAdd}>

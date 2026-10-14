@@ -89,12 +89,14 @@ export interface FindCatalogProductsQuery {
   attr?: Record<string, string>;
   /** "true": solo productos con descuento (descuento propio, o el de alguna de sus variantes con
    * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
-   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). Excluye productos
-   * en Preventa (ver `onlyPreventa`) aunque tengan descuento cargado. */
+   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). La exclusión de
+   * Preventa (ver `onlyPreventa`) es por variante: si la variante con el descuento específicamente
+   * está en Preventa no cuenta acá, pero una variante hermana disponible con descuento propio sí
+   * sigue calificando aunque otra variante del mismo producto esté en Preventa. */
   onlyDiscounted?: string;
   /** "true": solo productos con un temporizador de "Ofertas Flash" todavía vigente
-   * (ofertaFlashHasta en el futuro). Excluye productos en Preventa aunque tengan temporizador
-   * cargado — ver `onlyPreventa`. */
+   * (ofertaFlashHasta en el futuro). Mismo criterio de exclusión por variante que `onlyDiscounted`
+   * — ver `onlyPreventa`. */
   onlyFlash?: string;
   /** "true": solo productos con alguna variante en estado PREVENTA — mutuamente excluyente con
    * `onlyDiscounted`/`onlyFlash` en el bloque "Descuento y Ofertas" del home (ver EstadoVariante). */
@@ -161,22 +163,37 @@ export class CatalogBrowseService {
     }
 
     if (query.onlyDiscounted === "true") {
+      // La exclusión de Preventa es por variante, no por producto: una variante en Preventa con
+      // descuento no cuenta (tiene su propio filtro aparte, ver onlyPreventa), pero si otra variante
+      // del mismo producto SÍ está disponible/no-disponible-por-stock y tiene descuento propio, el
+      // producto entra igual (y displayPrice en el frontend elige esa variante, no la de Preventa).
       andConditions.push({
-        OR: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } }],
+        OR: [
+          { AND: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: true, estado: { not: "PREVENTA" } } } }] },
+          { variants: { some: { isDefault: false, discountBs: { gt: 0 }, estado: { not: "PREVENTA" } } } },
+        ],
       });
-      // Un producto en Preventa no entra acá aunque tenga descuento cargado — tiene su propio
-      // filtro aparte (ver onlyPreventa, más abajo).
-      andConditions.push({ variants: { none: { estado: "PREVENTA" } } });
     }
 
     if (query.onlyFlash === "true") {
       // El producto entra si el temporizador está en el producto (catálogo simple) o en alguna de
-      // sus variantes con precio propio (ver ofertaFlashHasta en Product y ProductVariant).
+      // sus variantes con precio propio (ver ofertaFlashHasta en Product y ProductVariant). Mismo
+      // criterio de exclusión por variante que onlyDiscounted (ver comentario arriba).
       andConditions.push({
-        OR: [{ ofertaFlashHasta: { gt: new Date() } }, { variants: { some: { ofertaFlashHasta: { gt: new Date() } } } }],
+        OR: [
+          {
+            AND: [
+              { ofertaFlashHasta: { gt: new Date() } },
+              { variants: { some: { isDefault: true, estado: { not: "PREVENTA" } } } },
+            ],
+          },
+          {
+            variants: {
+              some: { isDefault: false, ofertaFlashHasta: { gt: new Date() }, estado: { not: "PREVENTA" } },
+            },
+          },
+        ],
       });
-      // Mismo criterio que onlyDiscounted: Preventa queda afuera aunque tenga temporizador vigente.
-      andConditions.push({ variants: { none: { estado: "PREVENTA" } } });
     }
 
     if (query.onlyPreventa === "true") {
