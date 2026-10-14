@@ -40,7 +40,10 @@ export function ClienteSearchSelect({
   const matches = query.trim()
     ? clientes.filter((c) => {
         const q = query.trim().toLowerCase();
-        return c.nombre.toLowerCase().includes(q) || c.numeroDocumento.toLowerCase().includes(q);
+        // numeroDocumento es opcional en la base (String?) — algunos clientes se crean sin uno
+        // cargado todavía, y sin este chequeo el .toLowerCase() de abajo tira una excepción no
+        // atajada que rompe toda la página en cuanto se escribe algo acá.
+        return c.nombre.toLowerCase().includes(q) || (c.numeroDocumento?.toLowerCase().includes(q) ?? false);
       })
     : clientes;
 
