@@ -4138,6 +4138,38 @@ a {
   pointer-events: none;
 }
 
+/* Números de página clickeables entre Anterior/Siguiente (estilo Google, ver /categoria) — ventana
+   deslizante de a lo sumo 8 (ver PAGINATION_WINDOW), sin "...": siempre números contiguos. */
+.landing-pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.landing-pagination-number {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--lp-muted);
+  cursor: pointer;
+}
+
+.landing-pagination-number:hover {
+  background: var(--lp-border);
+  color: var(--lp-text);
+}
+
+.landing-pagination-number--active {
+  font-weight: 700;
+  color: var(--lp-text);
+  cursor: default;
+  pointer-events: none;
+}
+
 /* --- Carrusel de "Descuento y Ofertas" (home): 4 tarjetas de producto + 1 banner de imágenes --- */
 
 .landing-carousel {
@@ -4323,9 +4355,12 @@ a {
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  /* La mitad del alto que tenía como panel lateral (664px) — ahora que ocupa el ancho completo de
-     las tarjetas de abajo en vez de una columna angosta, no necesita ser tan alto. */
-  height: 332px;
+  /* aspect-ratio en vez de height fijo (332px antes) — con un alto fijo, al achicar la ventana en
+     desktop el ancho del marco baja pero el alto no, así que object-fit:cover recortaba cada vez más
+     de los costados hasta "perder" la imagen. Mismo criterio que .landing-hero-banner-frame: escala
+     proporcional al ancho. 4:1 da ~337px de alto en el ancho máximo del container (1350px), casi
+     idéntico a los 332px de antes — mismo tamaño de siempre, ahora fluido. */
+  aspect-ratio: 4 / 1;
 }
 
 /* En mobile pasa de alto fijo panorámico a un marco más compacto (mismo criterio que el Hero, ver
@@ -4489,16 +4524,11 @@ a {
   flex-direction: column;
   height: 100%;
   gap: 14px;
-  transition: transform 0.15s ease;
   /* Los ítems de grid tienen min-width:auto por default — sin esto, un nombre de producto largo
      (ver .landing-product-name, que lo trunca con ellipsis) evitaba que la columna se achicara a su
      parte justa del grid, aunque el ellipsis ya estuviera puesto: esa tarjeta quedaba más ancha (y
      con la imagen más alta, por el aspect-ratio) que el resto de la fila. */
   min-width: 0;
-}
-
-.landing-product-card:hover {
-  transform: translateY(-4px);
 }
 
 .landing-product-image-wrap {
@@ -4523,6 +4553,18 @@ a {
   aspect-ratio: 25 / 23;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+/* Acercamiento liviano de la imagen al pasar el mouse por la tarjeta — reemplaza el "pop" de toda la
+   tarjeta (antes .landing-product-card:hover trasladaba la tarjeta entera) por una animación acotada
+   a la imagen, mismo criterio que .landing-hero-banner-image. .landing-product-image-wrap ya tiene
+   overflow:hidden, así que el zoom no se sale del marco. */
+.landing-product-image {
+  transition: transform 0.4s ease;
+}
+
+.landing-product-card:hover .landing-product-image {
+  transform: scale(1.04);
 }
 
 /* Badge "Oferta": sobrepuesto arriba a la izquierda de la imagen, para productos (o alguna de sus
@@ -4601,54 +4643,175 @@ a {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
-/* Botón circular "agregar al carrito" — sobrepuesto en la esquina inferior derecha de la imagen de
-   la tarjeta, para no interferir con el badge "Oferta" (arriba a la izquierda). Oculto para productos
+/* Franja "agregar al carrito" que sube desde abajo de la imagen (adaptada de un prototipo del
+   cliente) — pegada al borde inferior de .landing-product-image-wrap, que ya tiene overflow:hidden
+   y position:relative (la esconde mientras está abajo, mismo truco que el prototipo). Se convierte en
+   un selector de cantidad (+/− o tacho si qty=1, ver ProductCard) apenas el producto entra al
+   carrito, y ese selector se queda visible aunque el mouse se vaya (--active). Oculta para productos
    agotados (ver `isSoldOut` en ProductCard). */
-.landing-product-add-btn {
+.landing-product-cart-control {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1.5px solid #d8d3ce;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #8a8178;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transform: translateY(0);
+  transition: transform 0.25s ease;
 }
 
 /* Solo se oculta hasta el hover en dispositivos con mouse de verdad — en touch (sin hover) queda
-   siempre visible, si no no habría forma de agregar al carrito desde la tarjeta. */
+   siempre visible, si no no habría forma de agregar al carrito desde la tarjeta (mismo criterio que
+   el botón circular de antes). */
 @media (hover: hover) and (pointer: fine) {
-  .landing-product-add-btn {
-    opacity: 0;
-    pointer-events: none;
+  .landing-product-cart-control {
+    transform: translateY(100%);
   }
 
-  .landing-product-card:hover .landing-product-add-btn {
-    opacity: 1;
-    pointer-events: auto;
+  .landing-product-card:hover .landing-product-cart-control,
+  .landing-product-cart-control--active {
+    transform: translateY(0);
   }
 }
 
-/* Al pasar el mouse sobre el botón mismo (no solo la tarjeta): vuelve a la forma base, roja. */
-.landing-product-add-btn:hover {
-  background: #d81f26;
+.landing-product-cart-add {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  /* Mismo color que .landing-navbar--dark (ver la paleta "Ethereal Scents" al final del archivo,
+     que pisa el #111114 original de la sección del navbar con esto), para que combine. */
+  background: var(--es-navy-900);
   color: #ffffff;
-  border-color: #d81f26;
-  transform: scale(1.08);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.landing-product-add-btn svg {
-  width: 18px;
-  height: 18px;
+.landing-product-cart-add:hover {
+  background: #000000;
+}
+
+/* Icono de "Agregar al carrito"/"Ver opciones" — oculto en desktop (ahí la franja entera lleva el
+   texto), se muestra en mobile en vez del texto (ver el media query de más abajo, mismo ícono que
+   CartIcon de CartWidget.tsx pero inline, para no acoplar este componente a ese). */
+.landing-product-cart-mobile-icon {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.landing-product-cart-qty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: var(--es-navy-900);
+}
+
+.landing-product-cart-qty-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.landing-product-cart-qty-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.landing-product-cart-qty-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.landing-product-cart-qty-num {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 18px;
+  text-align: center;
+  animation: landing-product-cart-qty-pop 0.25s ease;
+}
+
+@keyframes landing-product-cart-qty-pop {
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+/* Mobile/touch (o desktop angosto, mismo criterio que el prototipo del cliente): la franja completa
+   no entra bien ni hace falta el hover para descubrirla — pasa a un ícono circular fijo apoyado en
+   la esquina inferior derecha de la imagen, que se despliega hacia la izquierda (ancho, no alto)
+   recién al tocarlo y agregar algo. "Ver opciones" (sin qty que mostrar) se queda siempre como el
+   círculo cerrado — tocar cualquier parte de la tarjeta ya navega, por el <Link> que la envuelve. */
+@media (hover: none), (max-width: 768px) {
+  .landing-product-cart-control {
+    left: auto;
+    right: 10px;
+    bottom: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--es-navy-900);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: none;
+    transition: width 0.3s ease;
+  }
+
+  .landing-product-cart-control--active {
+    width: 112px;
+  }
+
+  .landing-product-cart-add {
+    padding: 0;
+    gap: 0;
+  }
+
+  .landing-product-cart-add-text {
+    display: none;
+  }
+
+  .landing-product-cart-mobile-icon {
+    display: block;
+  }
+
+  .landing-product-cart-qty {
+    padding: 0 8px;
+  }
+
+  .landing-product-cart-qty-btn {
+    width: 22px;
+    height: 22px;
+  }
+
+  .landing-product-cart-qty-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .landing-product-cart-qty-num {
+    font-size: 12.5px;
+    min-width: 16px;
+  }
 }
 
 .landing-product-body {
@@ -5460,6 +5623,36 @@ a {
   margin-bottom: 16px;
 }
 
+/* Catálogo/Contacto/Información: desplegables en mobile para no ocupar tanto alto (ver
+   LandingFooter.tsx), siempre expandidos en desktop — el botón y el chevron no tienen efecto visual
+   ahí, todo lo que importa vive dentro del media query de abajo. */
+.landing-footer-col-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 16px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.landing-footer-col-toggle .landing-footer-col-title {
+  margin-bottom: 0;
+}
+
+.landing-footer-col-chevron {
+  display: none;
+}
+
+.landing-footer-col--mobile-only {
+  display: none;
+}
+
 .landing-footer-col a,
 .landing-footer-col p {
   display: block;
@@ -6134,8 +6327,22 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  /* Carrusel horizontal con snap en vez de ir bajando a menos columnas (y más filas) a medida que
+     se achica la ventana — mismo criterio que .landing-scent-finder-pills. Una sola fila, se desliza;
+     vale tanto para este rango intermedio como para mobile, no hay otro breakpoint más abajo que la
+     toque. */
   .landing-product-grid--weekly {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: unset;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .landing-product-grid--weekly .landing-product-card {
+    flex: 0 0 200px;
+    scroll-snap-align: start;
   }
 }
 
@@ -6172,10 +6379,6 @@ a {
   }
 
   .landing-product-grid--carousel {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -6447,12 +6650,6 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* 2 tarjetas por línea en vez de 1 — a este ancho ya viene así desde los 900px, esto solo evita
-     que colapse más abajo de acá (mismo criterio que .landing-product-grid arriba). */
-  .landing-product-grid--weekly {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .landing-brand-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -6473,6 +6670,63 @@ a {
 
   .landing-footer-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Catálogo/Contacto/Información pasan a desplegables acá — es donde más pesa el "demasiado
+     espacio" (todo en una sola columna larga, uno debajo del otro). Arriba de este ancho (2
+     columnas o más) se quedan siempre expandidos, como siempre. */
+  .landing-footer-col--mobile-only {
+    display: block;
+  }
+
+  /* Gap chico en vez de los 40px de siempre (pensados para columnas lado a lado, no una lista
+     apilada) — el borde + padding de cada .landing-footer-col-toggle ya separa una fila de la
+     siguiente, no hace falta tanto aire extra encima. */
+  .landing-footer-grid {
+    gap: 4px;
+  }
+
+  .landing-footer-col-toggle {
+    cursor: pointer;
+    padding: 10px 0;
+    margin: 0;
+    border-top: 1px solid rgba(245, 244, 240, 0.12);
+  }
+
+  .landing-footer-col-toggle .landing-footer-col-title {
+    margin-bottom: 0;
+  }
+
+  .landing-footer-col-chevron {
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: rgba(245, 244, 240, 0.5);
+    transition: transform 0.2s ease;
+  }
+
+  .landing-footer-col-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* max-height en vez de display:none/block: así el despliegue se anima en vez de aparecer de
+     golpe. 200px alcanza de sobra para el contenido más largo (Contacto, hasta 2 teléfonos + email
+     + ciudad) sin que la animación se sienta más lenta de lo necesario en las secciones cortas. */
+  .landing-footer-col-content {
+    max-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+    transition: max-height 0.25s ease, padding-bottom 0.25s ease;
+  }
+
+  .landing-footer-col-content--open {
+    max-height: 200px;
+    padding-bottom: 8px;
+  }
+
+  .landing-footer-bottom-privacy {
+    display: none;
   }
 }
 
@@ -6560,6 +6814,111 @@ a {
   }
   to {
     opacity: 0;
+  }
+}
+
+/* Banner de cookies (ver CookieConsent.tsx) — franja inferior, NO bloqueante: se puede seguir
+   navegando con esto visible. Solo variables --es-* (ver el comentario del componente: este banner
+   es hermano de {children} en CartRoot.tsx, fuera de cualquier .landing-page, así que las --lp-*
+   le saldrían indefinidas). z-index por encima del FAB del carrito (300) a propósito — mientras esté
+   visible, tapa esa esquina; se va apenas se elige Aceptar/Rechazar. */
+.landing-cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 400;
+  background: var(--es-navy-900);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
+  padding: 18px 24px;
+  animation: landing-cookie-banner-in 0.3s ease;
+}
+
+@keyframes landing-cookie-banner-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.landing-cookie-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.landing-cookie-banner-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.landing-cookie-banner-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.landing-cookie-banner-link {
+  color: var(--es-gold);
+  text-decoration: underline;
+}
+
+.landing-cookie-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.landing-cookie-banner-btn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-cookie-banner-btn--outline {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.landing-cookie-banner-btn--outline:hover {
+  border-color: #ffffff;
+}
+
+.landing-cookie-banner-btn--solid {
+  background: var(--es-gold);
+  border: 1.5px solid var(--es-gold);
+  color: var(--es-navy-900);
+}
+
+.landing-cookie-banner-btn--solid:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 640px) {
+  .landing-cookie-banner-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-cookie-banner-actions {
+    justify-content: stretch;
+  }
+
+  .landing-cookie-banner-btn {
+    flex: 1;
   }
 }
 

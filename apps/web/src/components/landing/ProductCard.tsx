@@ -44,7 +44,7 @@ export function ProductCard({
    * una, no una sola por producto. */
   forcedVariant?: ProductVariant;
 }) {
-  const { addItem } = useCart();
+  const { addItem, removeItem, setQty, items } = useCart();
   const { bs, fromPrice, variant, discountBs } = forcedVariant
     ? {
         bs: forcedVariant.finalPriceBs,
@@ -68,11 +68,23 @@ export function ProductCard({
   const hasOffer = forcedVariant ? discountBs > 0 : hasDiscount(product);
   const inStock = forcedVariant ? forcedVariant.hasStock : product.hasStock;
 
+  // Misma key que usa CartItem para acumular cantidad (ver cart-context.tsx) — de acá sale cuánto ya
+  // hay en el carrito de ESTA variante puntual, para decidir si la franja de abajo muestra "Agregar
+  // al carrito" o el selector +/-.
+  const cartKey = `${product.id}:${variant?.id ?? "base"}`;
+  const qtyInCart = items.find((i) => i.key === cartKey)?.qty ?? 0;
+  // Con más de una variante (sea cual sea su disponibilidad — incluso si alguna está NO_DISPONIBLE y
+  // otras no) no hay una sola variante obvia para agregar directo: la franja muestra "Ver opciones"
+  // en vez de "Agregar al carrito"/+-, y lleva a la ficha del producto a elegir. forcedVariant queda
+  // afuera a propósito: esa tarjeta ya representa una variante puntual (ver el comentario de la prop,
+  // más arriba), no hay nada que "elegir".
+  const showVerOpciones = !forcedVariant && product.variants.length > 1;
+
   function handleAdd(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     e.stopPropagation();
     addItem({
-      key: `${product.id}:${variant?.id ?? "base"}`,
+      key: cartKey,
       productId: product.id,
       productSlug: product.slug,
       variantId: variant?.id ?? null,
@@ -82,6 +94,13 @@ export function ProductCard({
       imageUrl: image,
       unitPriceBs: bs,
     });
+  }
+
+  function handleDecrement(e: MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (qtyInCart <= 1) removeItem(cartKey);
+    else setQty(cartKey, qtyInCart - 1);
   }
 
   const href = context && variant ? `/producto/${product.slug}?variante=${variant.id}` : `/producto/${product.slug}`;
@@ -109,15 +128,77 @@ export function ProductCard({
         ) : (
           inStock && <span className="landing-product-instock-badge">En Stock</span>
         )}
-        {!soldOut && (
-          <button type="button" className="landing-product-add-btn" aria-label="Agregar al carrito" onClick={handleAdd}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="9" cy="21" r="1.3" />
-              <circle cx="18" cy="21" r="1.3" />
-              <path d="M2.5 3h2.4l2.2 12.2a2.2 2.2 0 0 0 2.2 1.8h7.9a2.2 2.2 0 0 0 2.2-1.8L21 7H6.2" />
-              <path d="M15 8h4M17 6v4" />
-            </svg>
-          </button>
+        {!soldOut && showVerOpciones && (
+          <div className="landing-product-cart-control">
+            <span className="landing-product-cart-add">
+              <svg
+                className="landing-product-cart-mobile-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+              </svg>
+              <span className="landing-product-cart-add-text">Ver opciones</span>
+            </span>
+          </div>
+        )}
+        {!soldOut && !showVerOpciones && (
+          <div
+            className={`landing-product-cart-control${qtyInCart > 0 ? " landing-product-cart-control--active" : ""}`}
+          >
+            {qtyInCart === 0 ? (
+              <button type="button" className="landing-product-cart-add" onClick={handleAdd}>
+                <svg
+                  className="landing-product-cart-mobile-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 2h2l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L22 6H6" />
+                  <circle cx="9" cy="21" r="1.4" fill="currentColor" stroke="none" />
+                  <circle cx="19" cy="21" r="1.4" fill="currentColor" stroke="none" />
+                </svg>
+                <span className="landing-product-cart-add-text">Agregar al carrito</span>
+              </button>
+            ) : (
+              <div className="landing-product-cart-qty">
+                <button
+                  type="button"
+                  className="landing-product-cart-qty-btn"
+                  aria-label={qtyInCart > 1 ? "Quitar uno" : "Quitar del carrito"}
+                  onClick={handleDecrement}
+                >
+                  {qtyInCart > 1 ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+                    </svg>
+                  )}
+                </button>
+                <span className="landing-product-cart-qty-num" key={qtyInCart}>
+                  {qtyInCart}
+                </span>
+                <button type="button" className="landing-product-cart-qty-btn" aria-label="Agregar uno" onClick={handleAdd}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <div className="landing-product-body">

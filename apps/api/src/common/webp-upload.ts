@@ -2,7 +2,7 @@ import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { unlink } from "node:fs/promises";
 import sharp from "sharp";
 import { UPLOADS_ROOT } from "./uploads-root";
-import { uploadFileToR2 } from "./r2-storage";
+import { r2Configured, uploadFileToR2 } from "./r2-storage";
 
 const CONVERTIBLE_MIME_TYPES = /^image\/(png|jpeg)$/;
 
@@ -31,8 +31,16 @@ export async function convertAndUploadToR2(file: Express.Multer.File): Promise<s
     }
   }
 
+  const key = relative(UPLOADS_ROOT, finalPath).split(sep).join("/");
+
+  if (!r2Configured()) {
+    // Dev local sin credenciales de R2: se queda en el volumen local en vez de fallar — servido por
+    // /uploads (ver app.useStaticAssets en main.ts), mismo esquema de antes de la migración a R2.
+    file.filename = `/uploads/${key}`;
+    return file.filename;
+  }
+
   try {
-    const key = relative(UPLOADS_ROOT, finalPath).split(sep).join("/");
     file.filename = await uploadFileToR2(finalPath, key, contentType);
     return file.filename;
   } finally {

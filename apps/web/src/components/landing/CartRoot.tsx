@@ -3,8 +3,10 @@
 import { usePathname } from "next/navigation";
 import { CartProvider } from "../../lib/cart-context";
 import { CartWidget } from "./CartWidget";
+import { CookieConsent } from "./CookieConsent";
 
-// El FAB/drawer del carrito es solo del sitio público — el panel de gestión (/dashboard) no lo usa.
+// El FAB/drawer del carrito y el modal de cookies son solo del sitio público — el panel de gestión
+// (/dashboard) no los usa.
 export function CartRoot({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard") ?? false;
@@ -12,7 +14,12 @@ export function CartRoot({ children }: { children: React.ReactNode }) {
   return (
     <CartProvider>
       {children}
-      {!isDashboard && <CartWidget />}
+      {!isDashboard && (
+        <>
+          <CartWidget />
+          <CookieConsent />
+        </>
+      )}
     </CartProvider>
   );
 }

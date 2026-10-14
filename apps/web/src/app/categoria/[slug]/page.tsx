@@ -22,6 +22,18 @@ const CARDS_PER_PAGE = 16;
 // seleccionados (no con cualquiera).
 const MAX_ALLOW_MULTIPLE_FILTER_VALUES = 4;
 
+// Paginado estilo Google: números de página clickeables entre Anterior/Siguiente, ventana deslizante
+// de a lo sumo PAGINATION_WINDOW páginas contiguas (sin "...", a diferencia del Google real).
+const PAGINATION_WINDOW = 8;
+
+function getPageWindow(current: number, total: number): number[] {
+  if (total <= PAGINATION_WINDOW) return Array.from({ length: total }, (_, i) => i + 1);
+  let start = Math.max(1, current - Math.floor(PAGINATION_WINDOW / 2));
+  const end = Math.min(total, start + PAGINATION_WINDOW - 1);
+  start = Math.max(1, end - PAGINATION_WINDOW + 1);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
+
 export default function CategoriaPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
@@ -592,9 +604,22 @@ export default function CategoriaPage() {
                     >
                       ← Anterior
                     </button>
-                    <span className="landing-pagination-info">
-                      Página {pageNumber} de {totalPages}
-                    </span>
+                    <div className="landing-pagination-numbers">
+                      {getPageWindow(pageNumber, totalPages).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`landing-pagination-number${p === pageNumber ? " landing-pagination-number--active" : ""}`}
+                          disabled={p === pageNumber}
+                          onClick={() => {
+                            setPageNumber(p);
+                            document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       className="landing-btn landing-btn-outline-dark"
