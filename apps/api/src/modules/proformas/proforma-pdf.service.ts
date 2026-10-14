@@ -57,34 +57,38 @@ function formatDate(value: Date | string): string {
 }
 
 /** Mismo criterio que AtributosVisibles.tsx (frontend): junta attributeValues (NONE) +
- * variantOptionValues (MULTI_VALUE), solo mostrarEnProforma=true, ordenados por `orden`. */
+ * variantOptionValues (MULTI_VALUE), solo mostrarEnProforma=true, ordenados por `orden` — pero acá
+ * solo el valor, sin el nombre del atributo (a pedido, ver conceptoLabel). */
 function atributosHeredadosLabel(product: Detalle["variante"]["product"]): string {
-  const porAtributo = new Map<string, { orden: number; nombre: string; valor: string }>();
+  const porAtributo = new Map<string, { orden: number; valor: string }>();
 
   for (const pv of product.attributeValues) {
     if (!pv.attribute.mostrarEnProforma) continue;
     const valor = pv.option ? pv.option.value : pv.valueText ?? pv.valueNumber ?? (pv.valueBoolean ? "Sí" : pv.valueBoolean === false ? "No" : "—");
-    porAtributo.set(pv.attributeId, { orden: pv.attribute.orden, nombre: pv.attribute.name, valor: String(valor) });
+    porAtributo.set(pv.attributeId, { orden: pv.attribute.orden, valor: String(valor) });
   }
   for (const v of product.variantOptionValues) {
     if (!v.attribute.mostrarEnProforma || v.attribute.variantMode !== "MULTI_VALUE") continue;
     const existing = porAtributo.get(v.attributeId);
     if (existing) existing.valor = `${existing.valor}, ${v.value}`;
-    else porAtributo.set(v.attributeId, { orden: v.attribute.orden, nombre: v.attribute.name, valor: v.value });
+    else porAtributo.set(v.attributeId, { orden: v.attribute.orden, valor: v.value });
   }
 
   return Array.from(porAtributo.values())
     .sort((a, b) => a.orden - b.orden)
-    .map((a) => `${a.nombre}: ${a.valor}`)
+    .map((a) => a.valor)
     .join(", ");
 }
 
+/** "Producto - valor, valor" — sin el nombre del atributo (ej. "AMBER OUD AQUA DUBAI - 200 ML,
+ * Extrait de Parfum" en vez de "AMBER OUD AQUA DUBAI (Tamaño: 200 ML, Concentracion: Extrait de
+ * Parfum)"), igual para Venta y Compra. */
 function conceptoLabel(detalle: Detalle): string {
   const variante = detalle.variante;
-  const propias = variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
+  const propias = variante.options.map((o) => o.optionValue.value);
   const heredados = atributosHeredadosLabel(variante.product);
   const partes = [...propias, ...(heredados ? [heredados] : [])];
-  return partes.length > 0 ? `${variante.product.name} (${partes.join(", ")})` : variante.product.name;
+  return partes.length > 0 ? `${variante.product.name} - ${partes.join(", ")}` : variante.product.name;
 }
 
 /**
