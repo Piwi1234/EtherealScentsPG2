@@ -21,6 +21,10 @@ async function bootstrap() {
   mkdirSync(join(UPLOADS_ROOT, "redes-sociales"), { recursive: true });
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Detrás de Cloudflare + el proxy de Railway: sin esto, `req.ip` (y por lo tanto el tracker de
+  // IP de ThrottlerGuard, ver RealIpThrottlerGuard) resuelve siempre a la IP del proxy en vez de
+  // la del visitante real, dejando el límite de login/registro compartido entre todos los usuarios.
+  app.set("trust proxy", 1);
   app.useStaticAssets(UPLOADS_ROOT, { prefix: "/uploads" });
   // Express 5 cambió el parser de query por defecto a "simple" (querystring nativo), que no
   // entiende notación de corchetes. La volvemos a "extended" (qs) para poder recibir filtros
