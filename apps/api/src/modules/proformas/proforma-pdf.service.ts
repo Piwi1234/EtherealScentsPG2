@@ -52,6 +52,12 @@ const FONTS_DIR = join(process.cwd(), "assets", "fonts");
 const FONT_REGULAR = join(FONTS_DIR, "Roboto-Regular.ttf");
 const FONT_BOLD = join(FONTS_DIR, "Roboto-Medium.ttf");
 
+// El diseño de venta (drawHeaderVenta) va sobre fondo blanco con el logo centrado — el logoUrl que
+// cada empresa carga en Gestión suele ser la versión blanca (pensada para el header oscuro del
+// sitio público/panel), que ahí se ve invisible. Por eso usa siempre este archivo fijo (versión
+// negra) en vez de proforma.empresa.logoUrl, sin importar qué empresa sea.
+const VENTA_LOGO_PATH = join(process.cwd(), "assets", "logos", "ethereal-scents-black.png");
+
 type Proforma = Awaited<ReturnType<ProformasService["findOne"]>>;
 type Detalle = Proforma["detalles"][number];
 
@@ -376,13 +382,11 @@ export class ProformaPdfService {
     const pageWidth = doc.page.width;
     let y = 16;
 
-    const logoFilename = proforma.empresa.logoUrl?.split("/").pop();
-    const logoPath = logoFilename ? join(EMPRESA_LOGOS_DIR, logoFilename) : undefined;
     const logoWidth = 76;
     const logoHeight = 19;
-    if (logoPath && existsSync(logoPath)) {
+    if (existsSync(VENTA_LOGO_PATH)) {
       try {
-        doc.image(logoPath, (pageWidth - logoWidth) / 2, y, { width: logoWidth, height: logoHeight, fit: [logoWidth, logoHeight] });
+        doc.image(VENTA_LOGO_PATH, (pageWidth - logoWidth) / 2, y, { width: logoWidth, height: logoHeight, fit: [logoWidth, logoHeight] });
       } catch {
         // Best-effort: si el archivo no es una imagen válida, seguimos sin logo.
       }
