@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
 import { getAttributeFilterOptions } from "../../../lib/catalog-display";
 import type { Attribute, Category, CategoryAggregates, Page, Product } from "../../../lib/types";
@@ -24,6 +24,7 @@ const MAX_ALLOW_MULTIPLE_FILTER_VALUES = 4;
 
 export default function CategoriaPage() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -96,6 +97,7 @@ export default function CategoriaPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const subcategoriaFromQuery = searchParams.get("subcategoria") ?? "";
     const marcaFromQuery = searchParams.get("marca");
+    const marcasFromQuery = marcaFromQuery ? marcaFromQuery.split(",").map((v) => v.trim()).filter(Boolean) : [];
     const attrFiltersFromQuery: Record<string, string[]> = {};
     for (const [key, value] of searchParams.entries()) {
       const match = key.match(/^attr\[(.+)\]$/);
@@ -105,6 +107,8 @@ export default function CategoriaPage() {
     const maxPriceFromQuery = searchParams.get("maxPriceBs");
     setSubCategoryFilter(subcategoriaFromQuery);
     setDiscountOnly(searchParams.get("descuento") === "true");
+    setFlashOnly(searchParams.get("flash") === "true");
+    setInStockOnly(searchParams.get("stock") === "true");
     setPriceRange(null);
     // El slider en sí (priceRange) arranca en su rango completo de siempre apenas se resuelva
     // priceBoundsMax (ver el efecto de abajo) — esto solo precarga el filtro YA aplicado, para que
@@ -115,7 +119,7 @@ export default function CategoriaPage() {
         ? [Number(minPriceFromQuery ?? 0), Number(maxPriceFromQuery ?? 10_000_000)]
         : null,
     );
-    setBrandFilters(marcaFromQuery ? [marcaFromQuery] : []);
+    setBrandFilters(marcasFromQuery);
     setSortBy("relevancia");
     setAttributeFilters(attrFiltersFromQuery);
     setPageNumber(1);
@@ -217,6 +221,39 @@ export default function CategoriaPage() {
     sortBy,
     pageNumber,
   ]);
+
+  // Los filtros viven solo en memoria (useState) — nunca se reflejaban en la URL del navegador. Si
+  // alguien tocaba un filtro acá y después entraba al detalle de un producto, el botón "Atrás" volvía
+  // a esta misma entrada de historial, pero con la URL tal cual estaba ANTES de tocar nada: sin
+  // filtros. El remount volvía a leer la URL (ver el efecto de arriba) y los perdía todos. Este efecto
+  // mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial propio)
+  // para que esa vuelta atrás restaure la página tal como había quedado. No incluye pageNumber a
+  // propósito — volver arranca en la página 1 de esos mismos filtros, no en la página puntual.
+  useEffect(() => {
+    if (!category) return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (key: string, value: string | null) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("subcategoria", subCategoryFilter || null);
+    setOrDelete("marca", brandFilters.length > 0 ? brandFilters.join(",") : null);
+    setOrDelete("descuento", discountOnly ? "true" : null);
+    setOrDelete("flash", flashOnly ? "true" : null);
+    setOrDelete("stock", inStockOnly ? "true" : null);
+    setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
+    setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
+    // Saca del query string los "attr[...]" existentes antes de reescribir los activos — si no, uno
+    // que se desmarcó del todo (sin valores) quedaría pegado ahí para siempre.
+    for (const key of Array.from(params.keys())) {
+      if (/^attr\[.+\]$/.test(key)) params.delete(key);
+    }
+    for (const [attributeId, values] of Object.entries(attributeFilters)) {
+      if (values.length > 0) params.set(`attr[${attributeId}]`, values.join(","));
+    }
+    const query = params.toString();
+    router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
+  }, [category, subCategoryFilter, brandFilters, discountOnly, flashOnly, inStockOnly, priceApplied, attributeFilters, router]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría, ya calculado
   // por el backend (ver getCategoryAggregates) sobre el total real, no sobre una muestra.
