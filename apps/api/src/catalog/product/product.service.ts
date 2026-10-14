@@ -287,6 +287,7 @@ export class ProductService {
             OR: [
               { name: { contains: query.search, mode: "insensitive" } },
               { productCode: { contains: query.search, mode: "insensitive" } },
+              { brand: { name: { contains: query.search, mode: "insensitive" } } },
             ],
           }
         : {}),

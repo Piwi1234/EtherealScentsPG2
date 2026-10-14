@@ -340,7 +340,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Nombre o código"
+            placeholder="Nombre, código o marca"
           />
         </div>
         {tipo === "VENTA" && (
