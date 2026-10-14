@@ -21,14 +21,19 @@ export function ProductoDetailClient({
   product,
   categories,
   relatedProducts,
+  initialVariantId,
 }: {
   product: Product;
   categories: Category[];
   relatedProducts: Product[];
+  /** Viene de ?variante= en la URL (ver page.tsx) — la tarjeta de "Descuento y Ofertas" del home ya
+   * la validó/resolvió contra el producto real. Si no vino ninguna (o no matchea), se cae al default
+   * de siempre: la variante más barata disponible. */
+  initialVariantId: string | null;
 }) {
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    () => displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null,
+    () => initialVariantId ?? displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null,
   );
   const [qty, setQty] = useState(1);
 
@@ -132,9 +137,6 @@ export function ProductoDetailClient({
                   Oferta
                 </span>
               )}
-              {disponible && flashUntil && (
-                <FlashCountdown until={flashUntil} variant="boxes" className="landing-product-detail-flash" />
-              )}
             </div>
             <p className="landing-product-detail-note">
               Las imágenes son referenciales — el color o la presentación pueden variar según el lote de fabricación.
@@ -194,13 +196,19 @@ export function ProductoDetailClient({
               className={`landing-product-detail-availability${
                 preventa
                   ? " landing-product-detail-availability--preventa"
-                  : disponible
-                    ? " landing-product-detail-availability--yes"
-                    : " landing-product-detail-availability--no"
+                  : !disponible
+                    ? " landing-product-detail-availability--no"
+                    : enStock
+                      ? " landing-product-detail-availability--yes"
+                      : " landing-product-detail-availability--pedido"
               }`}
             >
-              {preventa ? "Preventa" : disponible ? (enStock ? "En Stock" : "Disponible") : "No disponible"}
+              {preventa ? "Preventa" : !disponible ? "No disponible" : enStock ? "En Stock" : "Disponible para pedido"}
             </p>
+
+            {disponible && flashUntil && (
+              <FlashCountdown until={flashUntil} variant="boxes" className="landing-product-detail-flash-below" />
+            )}
 
             {disponible && (
               <div className="landing-product-detail-add-row">

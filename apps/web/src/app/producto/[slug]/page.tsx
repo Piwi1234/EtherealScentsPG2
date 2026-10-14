@@ -57,11 +57,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  * queda en el HTML inicial para que Google lo vea sin tener que ejecutar el JS. El selector de
  * variante/carrito sigue siendo interactivo — ver ProductoDetailClient.
  */
-export default async function ProductoPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProductoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ variante?: string }>;
+}) {
   const { slug } = await params;
+  const { variante } = await searchParams;
 
   const product = await getProductBySlug(slug);
   if (!product) notFound();
+
+  // Viene de una tarjeta de "Descuento y Ofertas" del home (ver ProductCard) — esa variante puntual
+  // es la que calificó para esa sección (descuento/flash/preventa activo), no necesariamente la más
+  // barata que el selector de abajo elegiría por default. Se valida contra las variantes reales del
+  // producto antes de usarla, para no confiar a ciegas en un query param armado a mano.
+  const initialVariantId = variante && product.variants.some((v) => v.id === variante) ? variante : null;
 
   const categories = await apiGet<Category[]>("/categories").catch(() => [] as Category[]);
 
@@ -73,5 +86,12 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
         .catch(() => [] as Product[])
     : [];
 
-  return <ProductoDetailClient product={product} categories={categories} relatedProducts={relatedProducts} />;
+  return (
+    <ProductoDetailClient
+      product={product}
+      categories={categories}
+      relatedProducts={relatedProducts}
+      initialVariantId={initialVariantId}
+    />
+  );
 }

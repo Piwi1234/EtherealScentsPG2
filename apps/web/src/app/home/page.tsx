@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
-import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
 import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -181,10 +181,13 @@ export default function HomePage() {
 
   // En mobile pagina de a 2 productos en vez de 5 (ver el useEffect de matchMedia más abajo).
   const offersSlideSize = isMobile ? OFFERS_SLIDE_SIZE_MOBILE : OFFERS_SLIDE_SIZE;
-  const offersChunks = useMemo(
-    () => chunk(productsPage?.items ?? [], offersSlideSize),
-    [productsPage, offersSlideSize],
+  // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
+  // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
+  const offerEntries = useMemo(
+    () => offerVariantEntries(productsPage?.items ?? [], offersMode),
+    [productsPage, offersMode],
   );
+  const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
 
   // "Colección de la semana": los últimos 5 productos creados de la marca elegida en Marcas del
   // panel de gestión — bloque oculto si no hay ninguna marca elegida. Sin sortBy: el mismo orden por
@@ -426,8 +429,14 @@ export default function HomePage() {
                 }`}
               >
 
-                {offersChunks[offersSlide].map((product) => (
-                  <ProductCard product={product} flashVariant="boxes" key={`${offersSlide}-${product.id}`} />
+                {offersChunks[offersSlide].map(({ product, variant }) => (
+                  <ProductCard
+                    product={product}
+                    forcedVariant={variant}
+                    flashVariant="boxes"
+                    context={offersMode}
+                    key={`${offersSlide}-${product.id}-${variant.id}`}
+                  />
                 ))}
               </div>
 
