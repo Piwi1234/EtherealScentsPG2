@@ -114,6 +114,19 @@ export default function ProductsPage() {
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
 
+  // Preview de la imagen de un producto al centro de la pantalla — se abre con un click en la
+  // miniatura de la tabla, nada más que la URL ya resuelta (ver productImageSrc).
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!previewImageUrl) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPreviewImageUrl(null);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewImageUrl]);
+
   const rootCategoryOptions = categories.filter((cat) => cat.parentId === null);
   const subCategoryOptions = categories.filter((cat) => cat.parentId === rootCategoryFilter);
   const effectiveCategoryFilter = subCategoryFilter || rootCategoryFilter;
@@ -299,9 +312,10 @@ export default function ProductsPage() {
   }
 
   // Doble click en la fila abre editar, salvo que el doble click haya sido sobre un control
-  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar).
+  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar, o la
+  // miniatura de imagen, que tiene su propio click para la preview).
   function handleRowDoubleClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
-    if ((e.target as HTMLElement).closest("select, button, a, input")) return;
+    if ((e.target as HTMLElement).closest("select, button, a, input, img")) return;
     router.push(`/dashboard/products/${product.id}/edit`);
   }
 
@@ -635,7 +649,15 @@ export default function ProductsPage() {
                           <img
                             src={productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl)!}
                             alt={product.name}
-                            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                            onClick={() => setPreviewImageUrl(productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl))}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              border: "1px solid var(--line)",
+                              cursor: "zoom-in",
+                            }}
                           />
                         ) : (
                           <span className="cell-muted">—</span>
@@ -822,6 +844,20 @@ export default function ProductsPage() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {previewImageUrl && (
+        <div className="image-lightbox-overlay" onClick={() => setPreviewImageUrl(null)}>
+          <button
+            type="button"
+            className="image-lightbox-close"
+            aria-label="Cerrar"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            ×
+          </button>
+          <img className="image-lightbox-img" src={previewImageUrl} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
       )}
     </div>
   );
