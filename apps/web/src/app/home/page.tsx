@@ -104,6 +104,56 @@ export default function HomePage() {
       .catch(() => setHasPreventaProducts(false));
   }, []);
 
+  // Esta página arma la mayoría de su contenido con fetches async (categorías, marcas, etc.) — el
+  // loop de "Producto destacado" por categoría es el que más alto agrega, y ni bien se monta el
+  // componente todavía no existe. Dos problemas vienen de ahí, los dos resueltos esperando a que el
+  // alto de la página deje de cambiar (layout ya estable) antes de tocar el scroll a mano — genérico
+  // a propósito, así no hay que listar cada fetch de la página acá:
+  //
+  // 1. Con un hash en la URL (ej. desde "Nosotros"/"Contacto" del navbar en otra página — ver
+  //    goToSection en LandingNavbar, que hace router.push("/home#id") cuando la sección no existe en
+  //    la página actual), el navegador intenta scrollear al id apenas pinta la página, con el salto
+  //    corto — y a medida que los bloques de arriba se van agregando, todo se corre hacia abajo sin
+  //    que el scroll se reacomode, dejando a la vista lo que haya quedado en esa altura (ej.
+  //    "Colección de la semana").
+  //
+  // 2. Sin hash (ej. volviendo con el botón "Atrás" del navegador después de entrar a Marcas o
+  //    Productos desde acá): el navegador intenta restaurar el scroll donde estaba antes de salir,
+  //    pero en ese momento la página recién montada es mucho más corta que su alto final (todavía sin
+  //    los fetches resueltos) — la restauración queda pegada contra el fondo de esa página corta, y
+  //    como el browser no vuelve a intentarlo más tarde, se queda ahí aunque la página siga creciendo.
+  //    Se fuerza a mano de vuelta al tope una vez que el layout ya está estable, para no quedar
+  //    pegado al final en vez de mostrar el hero.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+
+    let lastHeight = -1;
+    let stableChecks = 0;
+    const start = Date.now();
+
+    const interval = setInterval(() => {
+      const height = document.body.scrollHeight;
+      if (height === lastHeight) {
+        stableChecks += 1;
+      } else {
+        stableChecks = 0;
+        lastHeight = height;
+      }
+      // 2 chequeos seguidos (300ms) sin cambios de alto, o un tope de 5s por si algo nunca termina
+      // de asentarse — lo que pase primero.
+      if (stableChecks >= 2 || Date.now() - start > 5000) {
+        clearInterval(interval);
+        if (hash) {
+          document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo(0, 0);
+        }
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento/flash/preventa (por fecha
   // de última modificación) de la categoría elegida, de 5 en 5. Modo (1ra fila) y categoría (2da
   // fila) se combinan siempre — ninguno de los tres modos es exclusivo de todas las categorías
