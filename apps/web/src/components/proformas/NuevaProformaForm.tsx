@@ -82,24 +82,29 @@ export function NuevaProformaForm({
 
   return (
     <form className="form-grid" onSubmit={handleSubmit}>
-      <div>
-        <label>Empresa</label>
-        <EmpresaSelector options={empresas} value={empresaId} onChange={setEmpresaId} />
+      {/* Grid propia (no la de .form-grid, que es de una sola columna y la usan otros 17
+          formularios del panel): acá sí conviene repartir los campos en el ancho disponible en vez
+          de apilarlos, ya que la tarjeta ahora ocupa todo el ancho del panel. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
+        <div>
+          <label>Empresa</label>
+          <EmpresaSelector options={empresas} value={empresaId} onChange={setEmpresaId} />
+        </div>
+
+        {tipo === "VENTA" && (
+          <div>
+            <label>Cliente</label>
+            <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
+          </div>
+        )}
+
+        {tipo === "COMPRA" && (
+          <div>
+            <label>Proveedor</label>
+            <ProveedorSelector options={proveedores} value={proveedorId} onChange={handleProveedorChange} />
+          </div>
+        )}
       </div>
-
-      {tipo === "VENTA" && (
-        <div>
-          <label>Cliente</label>
-          <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
-        </div>
-      )}
-
-      {tipo === "COMPRA" && (
-        <div>
-          <label>Proveedor</label>
-          <ProveedorSelector options={proveedores} value={proveedorId} onChange={handleProveedorChange} />
-        </div>
-      )}
 
       {error && <p className="error-text">{error}</p>}
 

@@ -28,7 +28,7 @@ export default async function NuevaProformaPage({
   }
 
   return (
-    <div className="card" style={{ maxWidth: 560, margin: "0 auto" }}>
+    <div className="card">
       <h1 style={{ margin: "0 0 4px", fontSize: 20 }}>
         Nueva proforma de {tipo === "VENTA" ? "venta" : "compra"}
       </h1>

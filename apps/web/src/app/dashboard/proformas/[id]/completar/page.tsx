@@ -29,7 +29,7 @@ export default async function CompletarVentaPage({ params }: { params: Promise<{
   }
 
   return (
-    <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
+    <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Completar proforma de venta</h1>
         <Link href={`/dashboard/proformas/${id}`} className="link-button">
