@@ -1,5 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { UPLOADS_ROOT } from "./uploads-root";
 
 // Utilidad standalone (sin DI), mismo criterio que uploads-root.ts: lee todo de process.env directo
 // en vez de un ConfigService inyectado, así se puede usar tanto desde servicios como desde
@@ -30,6 +32,19 @@ function getPublicUrlBase(): string {
   return (process.env.R2_PUBLIC_URL ?? "").replace(/\/+$/, "");
 }
 
+/** Sin esto configurado (dev local, sin pisar el bucket de producción con archivos de prueba) las
+ * subidas caen de vuelta al volumen local servido por /uploads (ver convertAndUploadToR2/deleteFromR2
+ * y app.useStaticAssets en main.ts) — mismo esquema de antes de la migración a R2. */
+export function r2Configured(): boolean {
+  return Boolean(
+    process.env.R2_ACCOUNT_ID &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET &&
+      process.env.R2_PUBLIC_URL,
+  );
+}
+
 /**
  * Sube un archivo ya escrito en disco (staging transitorio de multer/WebpUploadInterceptor — el
  * volumen local de Railway dejó de ser el storage final, ver ese interceptor) a R2 bajo `key` y
@@ -49,6 +64,13 @@ export async function uploadFileToR2(localPath: string, key: string, contentType
  * sin backfillear) sin que cada caller tenga que distinguir el caso.
  */
 export async function deleteFromR2(imageUrl: string): Promise<void> {
+  if (!r2Configured()) {
+    // Mismo fallback que convertAndUploadToR2: sin R2 configurado, la imagen vive en el volumen
+    // local bajo /uploads — borrar ahí en vez de llamar a R2 con credenciales inexistentes.
+    if (!imageUrl.startsWith("/uploads/")) return;
+    await unlink(join(UPLOADS_ROOT, imageUrl.slice("/uploads/".length))).catch(() => {});
+    return;
+  }
   const prefix = `${getPublicUrlBase()}/`;
   if (!imageUrl.startsWith(prefix)) return;
   const key = imageUrl.slice(prefix.length);
