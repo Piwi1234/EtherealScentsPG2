@@ -4683,6 +4683,8 @@ a {
   justify-content: center;
   gap: 8px;
   border: 0;
+  /* Mismo color que .landing-navbar--dark (ver la paleta "Ethereal Scents" al final del archivo,
+     que pisa el #111114 original de la sección del navbar con esto), para que combine. */
   background: var(--es-navy-900);
   color: #ffffff;
   font-size: 12.5px;
@@ -5619,6 +5621,36 @@ a {
   text-transform: uppercase;
   color: rgba(245, 244, 240, 0.5);
   margin-bottom: 16px;
+}
+
+/* Catálogo/Contacto/Información: desplegables en mobile para no ocupar tanto alto (ver
+   LandingFooter.tsx), siempre expandidos en desktop — el botón y el chevron no tienen efecto visual
+   ahí, todo lo que importa vive dentro del media query de abajo. */
+.landing-footer-col-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 16px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.landing-footer-col-toggle .landing-footer-col-title {
+  margin-bottom: 0;
+}
+
+.landing-footer-col-chevron {
+  display: none;
+}
+
+.landing-footer-col--mobile-only {
+  display: none;
 }
 
 .landing-footer-col a,
@@ -6638,6 +6670,63 @@ a {
 
   .landing-footer-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Catálogo/Contacto/Información pasan a desplegables acá — es donde más pesa el "demasiado
+     espacio" (todo en una sola columna larga, uno debajo del otro). Arriba de este ancho (2
+     columnas o más) se quedan siempre expandidos, como siempre. */
+  .landing-footer-col--mobile-only {
+    display: block;
+  }
+
+  /* Gap chico en vez de los 40px de siempre (pensados para columnas lado a lado, no una lista
+     apilada) — el borde + padding de cada .landing-footer-col-toggle ya separa una fila de la
+     siguiente, no hace falta tanto aire extra encima. */
+  .landing-footer-grid {
+    gap: 4px;
+  }
+
+  .landing-footer-col-toggle {
+    cursor: pointer;
+    padding: 10px 0;
+    margin: 0;
+    border-top: 1px solid rgba(245, 244, 240, 0.12);
+  }
+
+  .landing-footer-col-toggle .landing-footer-col-title {
+    margin-bottom: 0;
+  }
+
+  .landing-footer-col-chevron {
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: rgba(245, 244, 240, 0.5);
+    transition: transform 0.2s ease;
+  }
+
+  .landing-footer-col-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* max-height en vez de display:none/block: así el despliegue se anima en vez de aparecer de
+     golpe. 200px alcanza de sobra para el contenido más largo (Contacto, hasta 2 teléfonos + email
+     + ciudad) sin que la animación se sienta más lenta de lo necesario en las secciones cortas. */
+  .landing-footer-col-content {
+    max-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+    transition: max-height 0.25s ease, padding-bottom 0.25s ease;
+  }
+
+  .landing-footer-col-content--open {
+    max-height: 200px;
+    padding-bottom: 8px;
+  }
+
+  .landing-footer-bottom-privacy {
+    display: none;
   }
 }
 
