@@ -4323,9 +4323,12 @@ a {
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  /* La mitad del alto que tenía como panel lateral (664px) — ahora que ocupa el ancho completo de
-     las tarjetas de abajo en vez de una columna angosta, no necesita ser tan alto. */
-  height: 332px;
+  /* aspect-ratio en vez de height fijo (332px antes) — con un alto fijo, al achicar la ventana en
+     desktop el ancho del marco baja pero el alto no, así que object-fit:cover recortaba cada vez más
+     de los costados hasta "perder" la imagen. Mismo criterio que .landing-hero-banner-frame: escala
+     proporcional al ancho. 4:1 da ~337px de alto en el ancho máximo del container (1350px), casi
+     idéntico a los 332px de antes — mismo tamaño de siempre, ahora fluido. */
+  aspect-ratio: 4 / 1;
 }
 
 /* En mobile pasa de alto fijo panorámico a un marco más compacto (mismo criterio que el Hero, ver
