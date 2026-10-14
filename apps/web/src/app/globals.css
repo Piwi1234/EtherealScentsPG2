@@ -6728,6 +6728,111 @@ a {
   }
 }
 
+/* Banner de cookies (ver CookieConsent.tsx) — franja inferior, NO bloqueante: se puede seguir
+   navegando con esto visible. Solo variables --es-* (ver el comentario del componente: este banner
+   es hermano de {children} en CartRoot.tsx, fuera de cualquier .landing-page, así que las --lp-*
+   le saldrían indefinidas). z-index por encima del FAB del carrito (300) a propósito — mientras esté
+   visible, tapa esa esquina; se va apenas se elige Aceptar/Rechazar. */
+.landing-cookie-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 400;
+  background: var(--es-navy-900);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
+  padding: 18px 24px;
+  animation: landing-cookie-banner-in 0.3s ease;
+}
+
+@keyframes landing-cookie-banner-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.landing-cookie-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.landing-cookie-banner-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.landing-cookie-banner-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.landing-cookie-banner-link {
+  color: var(--es-gold);
+  text-decoration: underline;
+}
+
+.landing-cookie-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.landing-cookie-banner-btn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.landing-cookie-banner-btn--outline {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.landing-cookie-banner-btn--outline:hover {
+  border-color: #ffffff;
+}
+
+.landing-cookie-banner-btn--solid {
+  background: var(--es-gold);
+  border: 1.5px solid var(--es-gold);
+  color: var(--es-navy-900);
+}
+
+.landing-cookie-banner-btn--solid:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 640px) {
+  .landing-cookie-banner-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-cookie-banner-actions {
+    justify-content: stretch;
+  }
+
+  .landing-cookie-banner-btn {
+    flex: 1;
+  }
+}
+
 .landing-cart-drawer {
   position: fixed;
   top: 0;
