@@ -4138,6 +4138,38 @@ a {
   pointer-events: none;
 }
 
+/* Números de página clickeables entre Anterior/Siguiente (estilo Google, ver /categoria) — ventana
+   deslizante de a lo sumo 8 (ver PAGINATION_WINDOW), sin "...": siempre números contiguos. */
+.landing-pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.landing-pagination-number {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--lp-muted);
+  cursor: pointer;
+}
+
+.landing-pagination-number:hover {
+  background: var(--lp-border);
+  color: var(--lp-text);
+}
+
+.landing-pagination-number--active {
+  font-weight: 700;
+  color: var(--lp-text);
+  cursor: default;
+  pointer-events: none;
+}
+
 /* --- Carrusel de "Descuento y Ofertas" (home): 4 tarjetas de producto + 1 banner de imágenes --- */
 
 .landing-carousel {
