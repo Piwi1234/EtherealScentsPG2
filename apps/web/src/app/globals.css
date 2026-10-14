@@ -6137,8 +6137,22 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  /* Carrusel horizontal con snap en vez de ir bajando a menos columnas (y más filas) a medida que
+     se achica la ventana — mismo criterio que .landing-scent-finder-pills. Una sola fila, se desliza;
+     vale tanto para este rango intermedio como para mobile, no hay otro breakpoint más abajo que la
+     toque. */
   .landing-product-grid--weekly {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: unset;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .landing-product-grid--weekly .landing-product-card {
+    flex: 0 0 200px;
+    scroll-snap-align: start;
   }
 }
 
@@ -6175,10 +6189,6 @@ a {
   }
 
   .landing-product-grid--carousel {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -6447,12 +6457,6 @@ a {
   }
 
   .landing-product-grid--carousel {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* 2 tarjetas por línea en vez de 1 — a este ancho ya viene así desde los 900px, esto solo evita
-     que colapse más abajo de acá (mismo criterio que .landing-product-grid arriba). */
-  .landing-product-grid--weekly {
     grid-template-columns: repeat(2, 1fr);
   }
 
