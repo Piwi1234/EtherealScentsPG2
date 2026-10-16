@@ -2236,7 +2236,9 @@ a {
 }
 
 .landing-section {
-  padding: 84px 0;
+  /* Antes 84px, después 48px — a pedido, para que haga falta menos scroll entre bloques del home
+     (ver también .landing-feature-block y .landing-trust-bar, mismo criterio). */
+  padding: 36px 0;
 }
 
 .landing-section-alt {
@@ -2391,7 +2393,7 @@ a {
 /* --- Barra de confianza: 4 íconos (originales / envío / pago / asesoría), entre el Hero y
    "Descuento y Ofertas" --- */
 .landing-trust-bar {
-  padding: 28px 0;
+  padding: 14px 0;
   background: var(--lp-surface);
   border-bottom: 1px solid var(--lp-border);
 }
@@ -4349,6 +4351,12 @@ a {
   gap: 24px;
 }
 
+/* Nombre de marca siempre en mayúsculas acá — a pedido, scoped (no .landing-section-title a secas,
+   que comparten otros títulos de sección que no deben cambiar). */
+.landing-weekly-collection-title {
+  text-transform: uppercase;
+}
+
 .landing-weekly-collection-banner {
   position: relative;
   border-radius: 16px;
@@ -5132,7 +5140,8 @@ a {
    entre bloques ya funciona como separador visual y no hace falta la línea decorativa que había
    antes. */
 .landing-feature-block {
-  padding: 84px 0;
+  /* Antes 84px, después 48px — mismo criterio que .landing-section. */
+  padding: 36px 0;
 }
 
 .landing-feature-block--dark {
@@ -6627,7 +6636,11 @@ a {
 
 @media (max-width: 560px) {
   .landing-section {
-    padding: 56px 0;
+    padding: 24px 0;
+  }
+
+  .landing-feature-block {
+    padding: 24px 0;
   }
 
   .landing-image-carousel-grid {
@@ -6654,8 +6667,8 @@ a {
     font-size: 26px;
   }
 
-  /* .landing-section (arriba, mismo breakpoint) resetea el padding de TODAS las secciones a 56px
-     con el shorthand "padding: 56px 0" — como pisa el padding-top por igual, de paso tapaba el
+  /* .landing-section (arriba, mismo breakpoint) resetea el padding de TODAS las secciones con el
+     shorthand "padding: 24px 0" — como pisa el padding-top por igual, de paso tapaba el
      padding-top:24px reducido que .landing-section--category trae para esta sección puntual (ver
      ese selector, más arriba del archivo), volviendo a dejar un hueco grande entre el subtítulo de
      la categoría y la barra de Filtros/Ordenar. Reafirmarlo acá, después, gana por orden en la
