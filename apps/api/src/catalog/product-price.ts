@@ -37,16 +37,16 @@ export function computeCatalogPrice(
   );
 }
 
-/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 10 más cercano (ej. 147 → 150). */
-function roundUpToTen(value: number): number {
-  return Math.ceil(value / 10) * 10;
+/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 5 más cercano (ej. 147 → 150, 143 → 145). */
+function roundUpToFive(value: number): number {
+  return Math.ceil(value / 5) * 5;
 }
 
 /**
  * Precios en bolívares, a partir del precio $ ya calculado:
  * - Precio May Bs = precio $ * tipo de cambio del sistema, sin redondear (precio real).
  * - Precio Final Bs = (Precio May Bs + Add May $ * tipo de cambio) - Descuento, redondeado hacia
- *   arriba a un múltiplo de 10 (esa sí es intencional: es el precio de venta que se le muestra al
+ *   arriba a un múltiplo de 5 (esa sí es intencional: es el precio de venta que se le muestra al
  *   cliente).
  * "Add May" (bs.minPriceBs — el nombre del campo no cambió, solo su significado) se carga a mano EN
  * DÓLARES y se convierte acá al tipo de cambio del sistema antes de sumarlo al Precio May Bs, igual
@@ -55,7 +55,7 @@ function roundUpToTen(value: number): number {
  */
 export function computeBsPrices(priceUsd: number, bs: BsPriceFields, exchangeRate: number) {
   const wholesalePriceBs = priceUsd * exchangeRate;
-  const finalPriceBs = roundUpToTen(wholesalePriceBs + toNumber(bs.minPriceBs) * exchangeRate - toNumber(bs.discountBs));
+  const finalPriceBs = roundUpToFive(wholesalePriceBs + toNumber(bs.minPriceBs) * exchangeRate - toNumber(bs.discountBs));
   return { wholesalePriceBs, finalPriceBs };
 }
 

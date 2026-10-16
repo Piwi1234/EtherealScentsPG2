@@ -472,7 +472,9 @@ export default function HomePage() {
         <section className="landing-section landing-section-alt">
           <div className="landing-container">
             <p className="landing-eyebrow">Colección de la semana</p>
-            <h2 className="landing-section-title">{landingImages.weeklyCollectionBrand.name}</h2>
+            <h2 className="landing-section-title landing-weekly-collection-title">
+              {landingImages.weeklyCollectionBrand.name}
+            </h2>
             <p className="landing-section-lead">
               Lo último de {landingImages.weeklyCollectionBrand.name}, recién llegado a nuestro catálogo.
             </p>

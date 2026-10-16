@@ -35,9 +35,9 @@ function productImageSrc(imageUrl: string | null): string | null {
   return imageUrl.startsWith("http") ? imageUrl : `${API_ORIGIN}${imageUrl}`;
 }
 
-/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 10 más cercano. Misma regla que el backend. */
-function roundUpToTen(value: number): number {
-  return Math.ceil(value / 10) * 10;
+/** Precio Final Bs siempre se redondea hacia arriba al múltiplo de 5 más cercano. Misma regla que el backend. */
+function roundUpToFive(value: number): number {
+  return Math.ceil(value / 5) * 5;
 }
 
 // Oferta Flash: el admin siempre carga la hora en GMT-4 (la zona horaria de la tienda), sin importar
@@ -596,7 +596,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   // Precio May Bs = Precio $ * tipo de cambio; Precio Final Bs = (Precio May Bs + Add May $ * tipo de
   // cambio) - Descuento. Mismas fórmulas que el backend (Add May se carga en $, Descuento en Bs).
   const wholesaleBsPreview = pricePreview * exchangeRate;
-  const finalBsPreview = roundUpToTen(wholesaleBsPreview + Number(minPriceBs || 0) * exchangeRate - Number(discountBs || 0));
+  const finalBsPreview = roundUpToFive(wholesaleBsPreview + Number(minPriceBs || 0) * exchangeRate - Number(discountBs || 0));
 
   const variantPricePreview =
     Number(variantForm.purchasePrice || 0) +
@@ -605,7 +605,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     securityCostPreview +
     Number(variantForm.utility || 0);
   const variantWholesaleBsPreview = variantPricePreview * exchangeRate;
-  const variantFinalBsPreview = roundUpToTen(
+  const variantFinalBsPreview = roundUpToFive(
     variantWholesaleBsPreview + Number(variantForm.minPriceBs || 0) * exchangeRate - Number(variantForm.discountBs || 0),
   );
 
