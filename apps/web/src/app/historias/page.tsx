@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getHistorias } from "../../lib/api";
-import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc } from "../../lib/historia-display";
-import type { HistoriaCategoria, HistoriaResumen } from "../../lib/types";
+import { getHistoriaDestacada, getHistorias } from "../../lib/api";
+import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
+import type { HistoriaCategoria, HistoriaDetalle, HistoriaResumen } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 
@@ -12,6 +12,11 @@ const CATEGORIAS: HistoriaCategoria[] = ["CASAS", "PERFUMISTAS", "INGREDIENTES",
 
 export default function HistoriasPage() {
   const [historias, setHistorias] = useState<HistoriaResumen[] | null>(null);
+  // Independiente del filtro/búsqueda de abajo a propósito: es siempre la misma (la marcada a mano
+  // en Gestión, o la más reciente publicada si no hay ninguna marcada) — antes tomaba el primer
+  // resultado FILTRADO, así que al elegir una categoría sin esa historia en el tope, la tarjeta
+  // "Destacada" desaparecía aunque sí hubiera una destacada real.
+  const [destacada, setDestacada] = useState<HistoriaDetalle | null>(null);
   const [error, setError] = useState("");
   const [categoria, setCategoria] = useState<HistoriaCategoria | "">("");
   const [search, setSearch] = useState("");
@@ -20,6 +25,9 @@ export default function HistoriasPage() {
     getHistorias()
       .then(setHistorias)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getHistoriaDestacada()
+      .then(setDestacada)
+      .catch(() => {});
   }, []);
 
   const filtered = useMemo(() => {
@@ -32,8 +40,8 @@ export default function HistoriasPage() {
     });
   }, [historias, categoria, search]);
 
-  const destacada = filtered[0] ?? null;
-  const resto = destacada ? filtered.slice(1) : [];
+  // La destacada no se repite en la grilla de abajo si el filtro actual también la incluye.
+  const resto = filtered.filter((h) => h.id !== destacada?.id);
 
   return (
     <div className="landing-page">
@@ -61,7 +69,7 @@ export default function HistoriasPage() {
       {destacada && (
         <section className="landing-section" style={{ paddingBottom: 0 }}>
           <div className="landing-container">
-            <div className="landing-historia-split">
+            <div className="landing-historia-split landing-historia-destacada">
               <div className="landing-historia-split-text">
                 <div className="landing-historia-eyebrow" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span
@@ -85,7 +93,17 @@ export default function HistoriasPage() {
                   {destacada.bloques[0]?.texto1 || destacada.titulo}
                 </h2>
                 {destacada.bloques[0]?.texto2 && <p className="landing-historia-name">{destacada.bloques[0].texto2}</p>}
-                <Link href={`/historias/${destacada.slug}`} className="landing-btn landing-btn-primary" style={{ width: "fit-content" }}>
+                {destacada.bloques[0]?.texto3 && <p className="landing-historia-tagline">{destacada.bloques[0].texto3}</p>}
+                {historiaParagraphs(destacada.bloques[0]?.texto4 ?? null).slice(0, 1).map((p, i) => (
+                  <div className="landing-historia-body" key={i}>
+                    <p>{renderHistoriaInline(p)}</p>
+                  </div>
+                ))}
+                <Link
+                  href={`/historias/${destacada.slug}`}
+                  className="landing-btn landing-btn-primary"
+                  style={{ width: "fit-content", marginTop: 8 }}
+                >
                   Leer la historia
                 </Link>
               </div>

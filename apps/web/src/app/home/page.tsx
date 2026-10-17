@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
 import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
@@ -59,7 +59,18 @@ export default function HomePage() {
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
-  const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
+  // Transición en curso del carrusel de "Descuento y Ofertas" (cinta deslizante, mismo mecanismo que
+  // ImageCarousel — ver goToOffersSlide/finishOffersTransition más abajo). null = en reposo.
+  const [offersAnim, setOffersAnim] = useState<{ target: number; dir: 1 | -1 } | null>(null);
+  const offersCurrentRef = useRef(0);
+  const offersAnimatingRef = useRef(false);
+  // Alto medido del bloque (en vez de dejarlo en "auto"): al cambiar de página el contenido real
+  // puede variar unos px (ej. countdown de flash presente en una tanda de tarjetas y no en la otra),
+  // y sin esto el bloque saltaba de un alto a otro de golpe en el instante en que cambiaba — ahora se
+  // mide con scrollHeight después de cada cambio de contenido y se transiciona por CSS (ver
+  // .landing-offers-carousel-frame).
+  const offersFrameRef = useRef<HTMLDivElement>(null);
+  const [offersHeight, setOffersHeight] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
@@ -179,7 +190,10 @@ export default function HomePage() {
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then((page) => {
         setProductsPage(page);
+        offersCurrentRef.current = 0;
+        offersAnimatingRef.current = false;
         setOffersSlide(0);
+        setOffersAnim(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, offersMode, hasFlashOffers]);
@@ -229,18 +243,52 @@ export default function HomePage() {
   useEffect(() => {
     if (offersChunks.length <= 1) return;
     const timer = setInterval(() => {
-      setOffersDirection(1);
-      setOffersSlide((s) => (s + 1) % offersChunks.length);
+      if (offersAnimatingRef.current) return;
+      goToOffersSlide(offersCurrentRef.current + 1, 1);
     }, OFFERS_AUTOPLAY_MS);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offersChunks.length, offersAutoKey]);
 
   function goToOffersSlide(index: number, dir: 1 | -1) {
     const total = offersChunks.length;
-    if (total === 0) return;
-    setOffersDirection(dir);
-    setOffersSlide(((index % total) + total) % total);
+    if (total === 0 || offersAnimatingRef.current) return;
+    const from = offersCurrentRef.current;
+    const target = ((index % total) + total) % total;
+    if (target === from) return;
+    offersAnimatingRef.current = true;
+    setOffersAnim({ target, dir });
     setOffersAutoKey((k) => k + 1);
+  }
+
+  function finishOffersTransition(target: number) {
+    offersCurrentRef.current = target;
+    offersAnimatingRef.current = false;
+    setOffersSlide(target);
+    setOffersAnim(null);
+  }
+
+  useLayoutEffect(() => {
+    const el = offersFrameRef.current;
+    if (!el) return;
+    setOffersHeight(el.scrollHeight);
+  }, [offersChunks, offersSlide, offersAnim, isMobile]);
+
+  function renderOffersWindow(index: number) {
+    const chunk = offersChunks[index] ?? [];
+    return (
+      <div className="landing-product-grid landing-product-grid--carousel">
+        {chunk.map(({ product, variant }) => (
+          <ProductCard
+            product={product}
+            forcedVariant={variant}
+            flashVariant="boxes"
+            context={offersMode}
+            key={`${product.id}-${variant.id}`}
+          />
+        ))}
+      </div>
+    );
   }
 
   // En mobile el hero muestra 1 sola imagen por vez (en vez de 3 lado a lado) y el carrusel de
@@ -429,20 +477,28 @@ export default function HomePage() {
               </button>
 
               <div
-                className={`landing-product-grid landing-product-grid--carousel${
-                  offersDirection === 1 ? " landing-product-grid--carousel-next" : " landing-product-grid--carousel-prev"
-                }`}
+                className="landing-offers-carousel-frame"
+                ref={offersFrameRef}
+                style={offersHeight != null ? { height: offersHeight } : undefined}
               >
-
-                {offersChunks[offersSlide].map(({ product, variant }) => (
-                  <ProductCard
-                    product={product}
-                    forcedVariant={variant}
-                    flashVariant="boxes"
-                    context={offersMode}
-                    key={`${offersSlide}-${product.id}-${variant.id}`}
-                  />
-                ))}
+                {offersAnim ? (
+                  <div
+                    key={`${offersAnim.target}-${offersAnim.dir}`}
+                    className={`landing-offers-track landing-image-carousel-track--${
+                      offersAnim.dir === 1 ? "next" : "prev"
+                    }`}
+                    onAnimationEnd={() => finishOffersTransition(offersAnim.target)}
+                  >
+                    <div className="landing-offers-pane">
+                      {renderOffersWindow(offersAnim.dir === 1 ? offersSlide : offersAnim.target)}
+                    </div>
+                    <div className="landing-offers-pane">
+                      {renderOffersWindow(offersAnim.dir === 1 ? offersAnim.target : offersSlide)}
+                    </div>
+                  </div>
+                ) : (
+                  renderOffersWindow(offersSlide)
+                )}
               </div>
 
               <button
