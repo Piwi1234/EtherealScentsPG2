@@ -632,6 +632,18 @@ export function clearHistoriaDestacada() {
   return apiDelete<void>("/historias/destacada");
 }
 
+export function setHistoriaHomeImage(historiaId: string, file: File) {
+  return apiUpload<HistoriaDetalle>(`/historias/${historiaId}/home-image`, file);
+}
+
+export function setHistoriaHomeMobileImage(historiaId: string, file: File) {
+  return apiUpload<HistoriaDetalle>(`/historias/${historiaId}/home-mobile-image`, file);
+}
+
+export function removeHistoriaHomeMobileImage(historiaId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/home-mobile-image`);
+}
+
 export type HistoriaBloqueTextos = Partial<{ texto1: string; texto2: string; texto3: string; texto4: string }>;
 
 export function addHistoriaBloque(historiaId: string, data: HistoriaBloqueTextos = {}) {

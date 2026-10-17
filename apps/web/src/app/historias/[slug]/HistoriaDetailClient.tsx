@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../../lib/historia-display";
+import { HISTORIA_CATEGORIA_LABELS, HistoriaBloqueImage, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../../lib/historia-display";
 import type { HistoriaDetalle, HistoriaResumen } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
@@ -79,9 +79,12 @@ export function HistoriaDetailClient({
               </div>
             </div>
             <div className="landing-historia-split-image-wrap">
-              {historiaImageSrc(portada?.imageUrl ?? null) && (
-                <img className="landing-historia-split-image" src={historiaImageSrc(portada?.imageUrl ?? null)!} alt={title} />
-              )}
+              <HistoriaBloqueImage
+                imageUrl={portada?.imageUrl ?? null}
+                mobileImageUrl={portada?.mobileImageUrl ?? null}
+                alt={title}
+                className="landing-historia-split-image"
+              />
               <div className="landing-historia-split-fade" />
             </div>
           </div>
@@ -129,9 +132,12 @@ export function HistoriaDetailClient({
                 </div>
               </div>
               <div className="landing-historia-split-image-wrap">
-                {historiaImageSrc(cap.imageUrl) && (
-                  <img className="landing-historia-split-image" src={historiaImageSrc(cap.imageUrl)!} alt={cap.texto1 ?? ""} />
-                )}
+                <HistoriaBloqueImage
+                  imageUrl={cap.imageUrl}
+                  mobileImageUrl={cap.mobileImageUrl}
+                  alt={cap.texto1 ?? ""}
+                  className="landing-historia-split-image"
+                />
                 <div className="landing-historia-split-fade" />
               </div>
             </div>

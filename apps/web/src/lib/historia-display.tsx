@@ -31,3 +31,31 @@ export function renderHistoriaInline(texto: string): ReactNode {
   const parts = texto.split(/\*\*(.+?)\*\*/g);
   return parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : <Fragment key={i}>{part}</Fragment>));
 }
+
+/** <img> normal, o <picture> con la variante mobile (si está cargada) debajo de 900px — mismo
+ * breakpoint en el que .landing-historia-split pasa de fila a columna (ver globals.css). Sin
+ * mobileImageUrl, siempre la de desktop. */
+export function HistoriaBloqueImage({
+  imageUrl,
+  mobileImageUrl,
+  alt,
+  className,
+}: {
+  imageUrl: string | null;
+  mobileImageUrl: string | null;
+  alt: string;
+  className: string;
+}) {
+  const src = historiaImageSrc(imageUrl);
+  if (!src) return null;
+
+  const mobileSrc = historiaImageSrc(mobileImageUrl);
+  if (!mobileSrc) return <img className={className} src={src} alt={alt} />;
+
+  return (
+    <picture>
+      <source media="(max-width: 900px)" srcSet={mobileSrc} />
+      <img className={className} src={src} alt={alt} />
+    </picture>
+  );
+}

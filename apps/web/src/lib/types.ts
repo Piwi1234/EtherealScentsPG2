@@ -99,6 +99,9 @@ export type HistoriaSugerenciaAttributeOption = {
 
 export type HistoriaDetalle = HistoriaResumen & {
   relacionadas: { historiaB: HistoriaResumen }[];
+  // Imagen propia del bloque "Última historia" del home — null usa la de la portada (bloques[0]).
+  homeImageUrl: string | null;
+  homeMobileImageUrl: string | null;
   sugerenciaTipo: HistoriaSugerenciaTipo | null;
   // CASA/INGREDIENTE solo traen el id elegido (marca/acorde) — los productos se resuelven en vivo
   // contra /catalog/products del lado del cliente, ver HistoriaDetailClient. PERFUMES trae los ids

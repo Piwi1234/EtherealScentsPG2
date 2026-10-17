@@ -171,13 +171,15 @@ export class HistoriaService {
       rethrowPrismaError(error, "Historia");
     }
 
-    // Best-effort: borra las imágenes de sus bloques para no acumular huérfanos en R2.
-    await Promise.all(
-      historia.bloques.flatMap((b) => [
+    // Best-effort: borra las imágenes de sus bloques y la del home para no acumular huérfanos en R2.
+    await Promise.all([
+      ...historia.bloques.flatMap((b) => [
         b.imageUrl ? deleteFromR2(b.imageUrl).catch(() => {}) : null,
         b.mobileImageUrl ? deleteFromR2(b.mobileImageUrl).catch(() => {}) : null,
       ]),
-    );
+      historia.homeImageUrl ? deleteFromR2(historia.homeImageUrl).catch(() => {}) : null,
+      historia.homeMobileImageUrl ? deleteFromR2(historia.homeMobileImageUrl).catch(() => {}) : null,
+    ]);
   }
 
   /** Intercambia el `orden` con la historia vecina — no-op si ya está en la punta. */
@@ -429,5 +431,46 @@ export class HistoriaService {
         data: { orden: current.orden },
       }),
     ]);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Imagen propia del bloque "Última historia" del home — ver doc de homeImageUrl en el schema.
+  // ---------------------------------------------------------------------------------------------
+
+  async setHomeImage(historiaId: string, file: Express.Multer.File) {
+    const existing = await this.findOne(historiaId);
+    // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
+    const updated = await this.prisma.historia.update({
+      where: { id: historiaId },
+      data: { homeImageUrl: file.filename },
+      include: detailInclude,
+    });
+
+    if (existing.homeImageUrl) await deleteFromR2(existing.homeImageUrl).catch(() => {});
+    return updated;
+  }
+
+  async setHomeMobileImage(historiaId: string, file: Express.Multer.File) {
+    const existing = await this.findOne(historiaId);
+    const updated = await this.prisma.historia.update({
+      where: { id: historiaId },
+      data: { homeMobileImageUrl: file.filename },
+      include: detailInclude,
+    });
+
+    if (existing.homeMobileImageUrl) await deleteFromR2(existing.homeMobileImageUrl).catch(() => {});
+    return updated;
+  }
+
+  async removeHomeMobileImage(historiaId: string) {
+    const existing = await this.findOne(historiaId);
+    const updated = await this.prisma.historia.update({
+      where: { id: historiaId },
+      data: { homeMobileImageUrl: null },
+      include: detailInclude,
+    });
+
+    if (existing.homeMobileImageUrl) await deleteFromR2(existing.homeMobileImageUrl).catch(() => {});
+    return updated;
   }
 }

@@ -4565,6 +4565,14 @@ a {
     min-height: 0;
   }
 
+  /* El bloque del home fija `height` (no solo min-height, ver más abajo) para que texto e imagen
+     queden parejos en desktop — sin resetearlo acá, esa misma altura fija (pensada para el layout
+     en fila) se le quedaría pegada al apilarse en columna, recortando el contenido en vez de dejarlo
+     crecer. */
+  .landing-historia-promo {
+    height: auto;
+  }
+
   .landing-historia-split-text,
   .landing-historia-split--reverse .landing-historia-split-text {
     padding: 0 0 24px;
@@ -4648,8 +4656,19 @@ a {
 
 /* --- Promo del home ("Última historia") --- */
 
+/* Alto fijo (no solo mínimo): con min-height a secas, una imagen más alta que ancha (ej. una
+   captura tipo revista, tal cual se carga, sin recortar) empuja el alto de toda la fila hacia
+   arriba según SU proporción — el texto, centrado dentro de esa fila ahora más alta, termina
+   viéndose descentrado respecto a la imagen en vez de parejo con ella. Con alto fijo, la fila
+   siempre mide lo mismo y la imagen se recorta (object-fit: cover) a esa altura sin importar su
+   proporción original. */
+/* Sin margin:auto, al ser más angosto que .landing-container, el bloque quedaba pegado al borde
+   izquierdo (flujo normal) con todo el espacio sobrante amontonado a la derecha — centrado, el
+   margen que sobra queda parejo a los dos lados. */
 .landing-historia-promo {
   max-width: 980px;
+  height: 460px;
+  margin: 0 auto;
 }
 
 .landing-historia-promo .landing-historia-title {

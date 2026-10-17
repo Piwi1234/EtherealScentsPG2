@@ -525,7 +525,14 @@ export default function HomePage() {
       {/* ================= 3d-2. Última historia ================= */}
       {historiaDestacada && (() => {
         const portada = historiaDestacada.bloques.find((b) => b.orden === 0) ?? historiaDestacada.bloques[0];
-        const imgUrl = historiaImageSrc(portada?.imageUrl ?? null);
+        // La imagen propia del home gana si está cargada (ver HistoriaHomeImageEditor); si no, cae a
+        // la de la portada, como antes de ese campo. La variante mobile sigue el mismo criterio —
+        // ojo que si hay imagen de home pero no mobile propia, NO cae a la mobile de la portada (es
+        // un recorte pensado para ese otro bloque, no para este).
+        const imgUrl = historiaImageSrc(historiaDestacada.homeImageUrl ?? portada?.imageUrl ?? null);
+        const mobileImgUrl = historiaImageSrc(
+          historiaDestacada.homeMobileImageUrl ?? (historiaDestacada.homeImageUrl ? null : (portada?.mobileImageUrl ?? null)),
+        );
         const paragraphs = historiaParagraphs(portada?.texto4 ?? null);
         return (
           <section className="landing-section">
@@ -557,7 +564,15 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="landing-historia-split-image-wrap">
-                  {imgUrl && <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />}
+                  {imgUrl &&
+                    (mobileImgUrl ? (
+                      <picture>
+                        <source media="(max-width: 900px)" srcSet={mobileImgUrl} />
+                        <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />
+                      </picture>
+                    ) : (
+                      <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />
+                    ))}
                   <div className="landing-historia-split-fade" />
                 </div>
               </div>

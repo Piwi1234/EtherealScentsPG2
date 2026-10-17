@@ -15,6 +15,7 @@ import {
 } from "../../../../../lib/api";
 import type { HistoriaCategoria, HistoriaDetalle, HistoriaResumen } from "../../../../../lib/types";
 import { HistoriaBloqueEditor } from "../../HistoriaBloqueEditor";
+import { HistoriaHomeImageEditor } from "../../HistoriaHomeImageEditor";
 import { HistoriaSugerenciaEditor } from "../../HistoriaSugerenciaEditor";
 
 const CATEGORIAS: { value: HistoriaCategoria; label: string }[] = [
@@ -237,6 +238,8 @@ function HistoriaEditor({ historia, onChanged }: { historia: HistoriaDetalle; on
           />
         )}
       </div>
+
+      <HistoriaHomeImageEditor historia={historia} onChanged={onChanged} />
 
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>

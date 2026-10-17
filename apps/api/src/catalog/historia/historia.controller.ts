@@ -91,6 +91,33 @@ export class HistoriaController {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // Imagen propia del bloque "Última historia" del home
+  // ---------------------------------------------------------------------------------------------
+
+  @Post(":id/home-image")
+  @UseInterceptors(FileInterceptor("file", historiaBloqueImageMulterOptions), WebpUploadInterceptor)
+  setHomeImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.historias.setHomeImage(id, file);
+  }
+
+  @Post(":id/home-mobile-image")
+  @UseInterceptors(FileInterceptor("file", historiaBloqueImageMulterOptions), WebpUploadInterceptor)
+  setHomeMobileImage(@Param("id", ParseUUIDPipe) id: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.historias.setHomeMobileImage(id, file);
+  }
+
+  @Delete(":id/home-mobile-image")
+  removeHomeMobileImage(@Param("id", ParseUUIDPipe) id: string) {
+    return this.historias.removeHomeMobileImage(id);
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // Bloques
   // ---------------------------------------------------------------------------------------------
 

@@ -1179,6 +1179,13 @@ model Historia {
   // vecino (ver HistoriaService.move), mismo criterio que Category.orden/CarouselImage.orden.
   orden     Int      @default(0)
 
+  // Imagen propia del bloque "Última historia" del home — ese recorte (panorámico, ~980x460) es muy
+  // distinto al de la portada en /historias/[slug] (angosto y alto, según el texto), así que
+  // reusar la imagen de la portada ahí se veía mal en uno de los dos lugares. Null = cae a la
+  // imagen de la portada (bloques[0]), como antes de este campo.
+  homeImageUrl       String? @map("home_image_url")
+  homeMobileImageUrl String? @map("home_mobile_image_url")
+
   categorias HistoriaCategoriaTag[]
   bloques    HistoriaBloque[]
 
