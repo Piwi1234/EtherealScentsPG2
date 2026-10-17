@@ -4508,13 +4508,13 @@ a {
 /* Ancho 100% del wrap (no un píxel fijo) con los cortes del degradé en %, no en px — la imagen (ver
    más abajo) es angosta y de ancho variable según su proporción real, así que un difuminado a medida
    fija quedaba posicionado mal apenas cambiaba de historia: unas veces corto (se notaba el salto
-   entre el degradé y la imagen) y otras de más (tapando marfil donde no hacía falta). Repitiendo el
-   marfil hasta el 30% y recién ahí empezando a transparentarse, la franja plana de marfil (a la
-   izquierda de la imagen) queda indistinguible del fondo real, y el tramo que se desvanece cae sobre
-   el borde de la imagen la mayoría de las veces. */
+   entre el degradé y la imagen) y otras de más (tapando marfil donde no hacía falta). Más leve que al
+   principio: antes el marfil arrancaba 100% opaco y se mantenía así hasta el 30% (una franja sólida,
+   se notaba como una pared) — ahora arranca ya traslúcido (85%) y empieza a transparentarse de
+   entrada, un velo en vez de un bloque. */
 .landing-historia-destacada .landing-historia-split-fade {
   width: 100%;
-  background: linear-gradient(to right, #f8f3e7 0%, #f8f3e7 30%, rgba(248, 243, 231, 0) 60%);
+  background: linear-gradient(to right, rgba(248, 243, 231, 0.85) 0%, rgba(248, 243, 231, 0) 55%);
 }
 
 /* Las imágenes de portada son más altas que anchas (sugerido 1200×1400, ver HistoriaBloqueEditor) —
