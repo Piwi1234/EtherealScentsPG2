@@ -395,19 +395,21 @@ export default function ProductsPage() {
     }
   }
 
-  // Doble click en la fila abre editar, salvo que el doble click haya sido sobre un control
-  // interactivo de la celda (el desplegable de variante, los botones de Editar/Eliminar, o la
-  // miniatura de imagen, que tiene su propio click para la preview).
-  function handleRowDoubleClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
+  // Un click en la fila abre editar, salvo que el click haya sido sobre un control interactivo de
+  // la celda (el desplegable de variante, los botones de Editar/Eliminar, o la miniatura de imagen,
+  // que tiene su propio click para la preview).
+  function handleRowClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
     if ((e.target as HTMLElement).closest("select, button, a, input, img")) return;
     router.push(`/dashboard/products/${product.id}/edit`);
   }
 
   // Columnas extra: atributos marcados "Mostrar en tabla de productos", solo los que
-  // efectivamente aparecen en los productos listados (evita columnas vacías de otras categorías).
+  // efectivamente aparecen en los productos pasados (evita columnas vacías de otras categorías).
   // Agrupadas por nombre (ver comentario de ExtraColumn) — así "Tamaño" de dos subcategorías
-  // distintas comparte una sola columna en vez de aparecer duplicada.
-  const extraAttributeColumns: ExtraColumn[] = (() => {
+  // distintas comparte una sola columna en vez de aparecer duplicada. Factoreada aparte (antes era
+  // un solo cálculo sobre TODA la página) para poder aplicarla por separado a cada grupo de
+  // productGroups, ver más abajo.
+  function computeExtraColumns(products: Product[]): ExtraColumn[] {
     const map = new Map<string, ExtraColumn>();
     function addAttribute(
       attributeId: string,
@@ -427,13 +429,55 @@ export default function ProductsPage() {
         });
       }
     }
-    for (const product of page?.items ?? []) {
+    for (const product of products) {
       for (const pv of product.attributeValues) addAttribute(pv.attributeId, pv.attribute);
       // Atributos con variante (MULTI_VALUE/PRICED_VARIANT): sus valores propios del producto viven
       // en variantOptionValues, no en attributeValues.
       for (const v of product.variantOptionValues) addAttribute(v.attributeId, v.attribute);
     }
     return Array.from(map.values());
+  }
+
+  // Si los resultados filtrados mezclan categorías (ej. una búsqueda por texto sin categoría elegida
+  // puede traer tanto Perfumes como otra raíz, o incluso dos subcategorías distintas de la MISMA
+  // raíz con sus propios atributos propios), agruparlos evita que las columnas de atributos de una
+  // se mezclen con las de la otra — antes se armaba una sola tabla con la UNIÓN de columnas de TODOS
+  // los productos filtrados, y una categoría sin cierto atributo mostraba "—" en esa columna en vez
+  // de no tenerla directamente. Se agrupa por la categoría EXACTA del producto (product.category,
+  // la hoja real, ya la trae cada producto) y no solo por raíz — dos subcategorías de una misma raíz
+  // pueden tener atributos distintos entre sí. Con un solo grupo (el caso normal, con categoría ya
+  // filtrada) no cambia nada visualmente — ver el render más abajo, que solo muestra el encabezado
+  // de categoría cuando hay más de un grupo.
+  function resolveRootCategory(categoryId: string): Category | undefined {
+    let current = categories.find((c) => c.id === categoryId);
+    while (current?.parentId) {
+      current = categories.find((c) => c.id === current!.parentId);
+    }
+    return current;
+  }
+
+  // "Raíz · Subcategoría" cuando la categoría tiene padre (para no confundir, ej., "Hombre" de
+  // Perfumes con "Hombre" de otra raíz si ambas existieran) — solo el nombre cuando es una raíz.
+  function categoryGroupLabel(category: Category): string {
+    const root = resolveRootCategory(category.id);
+    if (root && root.id !== category.id) return `${root.name} · ${category.name}`;
+    return category.name;
+  }
+
+  const productGroups: { key: string; category: Category; label: string; products: Product[]; columns: ExtraColumn[] }[] = (() => {
+    const map = new Map<string, { category: Category; products: Product[] }>();
+    for (const product of page?.items ?? []) {
+      const key = product.categoryId;
+      const existing = map.get(key);
+      if (existing) existing.products.push(product);
+      else map.set(key, { category: product.category, products: [product] });
+    }
+    return Array.from(map.entries()).map(([key, g]) => ({
+      key,
+      ...g,
+      label: categoryGroupLabel(g.category),
+      columns: computeExtraColumns(g.products),
+    }));
   })();
 
   const totalPages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
@@ -706,114 +750,128 @@ export default function ProductsPage() {
       {hasAnyFilter && page && page.items.length === 0 && <p>No hay productos con esos filtros.</p>}
       {page && page.items.length > 0 && (
         <>
-          <div className="table-scroll">
-            <table className="table table-minimal products-table">
-              <thead>
-                <tr>
-                  <th>Stock</th>
-                  <th>Imagen</th>
-                  <th>Marca</th>
-                  <th style={{ minWidth: 260 }}>Nombre</th>
-                  {extraAttributeColumns.map((column) => (
-                    <th key={column.key}>{column.name}</th>
-                  ))}
-                  <th className="num compra-col">Compra $</th>
-                  <th className="num">Utilidad $</th>
-                  <th className="num">Precio $</th>
-                  <th className="num col-group-start may-bs-col">May Bs</th>
-                  <th className="num">Add May $</th>
-                  <th className="num">Desc. Bs</th>
-                  <th className="num final-bs-col">Final Bs</th>
-                  <th>Disponible</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.items.map((product) => {
-                  const selectedVariant = getSelectedVariant(product);
-                  // Product y ProductVariant comparten la misma forma para estos campos de precio,
-                  // así que alcanza con elegir la fuente (variante seleccionada o producto base) una vez.
-                  const priceSource = selectedVariant ?? product;
-                  const variantCount = product.variants.length;
-                  return (
-                    <tr key={product.id} onDoubleClick={(e) => handleRowDoubleClick(e, product)} style={{ cursor: "pointer" }}>
-                      <td>
-                        <StockCell
-                          disponible={stockByProduct[product.id]?.disponible ?? 0}
-                          reservado={stockByProduct[product.id]?.reservado ?? 0}
-                        />
-                      </td>
-                      <td>
-                        {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
-                          <img
-                            src={productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl)!}
-                            alt={product.name}
-                            onClick={() => setPreviewImageUrl(productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl))}
-                            style={{
-                              width: 36,
-                              height: 36,
-                              objectFit: "cover",
-                              borderRadius: 6,
-                              border: "1px solid var(--line)",
-                              cursor: "zoom-in",
-                            }}
-                          />
-                        ) : (
-                          <span className="cell-muted">—</span>
-                        )}
-                      </td>
-                      <td className="cell-muted">{product.brand?.name ?? "—"}</td>
-                      <td className="cell-primary">{product.name}</td>
-                      {extraAttributeColumns.map((column) => (
-                        <td key={column.key}>{renderAttributeCell(product, column)}</td>
+          {productGroups.map((group) => (
+            <div key={group.key} style={{ marginBottom: 24 }}>
+              {/* Encabezado de categoría solo cuando hay más de un grupo — con un único grupo (el
+                  caso normal, con categoría ya filtrada) se ve exactamente igual que antes. */}
+              {productGroups.length > 1 && (
+                <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
+                  {group.label}
+                  <span className="cell-muted" style={{ fontWeight: 400, marginLeft: 6 }}>
+                    ({group.products.length})
+                  </span>
+                </h3>
+              )}
+              <div className="table-scroll">
+                <table className="table table-minimal products-table">
+                  <thead>
+                    <tr>
+                      <th>Stock</th>
+                      <th>Imagen</th>
+                      <th>Marca</th>
+                      <th style={{ minWidth: 260 }}>Nombre</th>
+                      {group.columns.map((column) => (
+                        <th key={column.key}>{column.name}</th>
                       ))}
-                      <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
-                      <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
-                      <td className="num">
-                        <span className="unit">$</span>{priceSource.price.toFixed(2)}
-                        {variantCount > 1 && <span className="cell-muted" style={{ fontSize: 12, marginLeft: 4 }}>(de {variantCount})</span>}
-                      </td>
-                      <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
-                      <td className="num">
-                        {priceSource.minPriceBs !== null ? (
-                          <><span className="unit">$</span>{priceSource.minPriceBs}</>
-                        ) : (
-                          <span className="cell-muted">—</span>
-                        )}
-                      </td>
-                      <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
-                      <td className="num cell-primary final-bs-col">
-                        <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
-                      </td>
-                      <td>
-                        {selectedVariant ? (
-                          <select
-                            className="field"
-                            value={selectedVariant.estado}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleUpdateEstado(product.id, selectedVariant.id, e.target.value as EstadoVariante)}
-                            style={{ width: 130 }}
-                          >
-                            <option value="DISPONIBLE">Disponible</option>
-                            <option value="NO_DISPONIBLE">No disponible</option>
-                            <option value="PREVENTA">Preventa</option>
-                          </select>
-                        ) : (
-                          <span className="cell-muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="row-actions">
-                          <Link href={`/dashboard/products/${product.id}/edit`} className="action-btn">Editar</Link>
-                          <button type="button" className="action-btn danger" onClick={() => handleDelete(product)}>Eliminar</button>
-                        </div>
-                      </td>
+                      <th className="num compra-col">Compra $</th>
+                      <th className="num">Utilidad $</th>
+                      <th className="num">Precio $</th>
+                      <th className="num col-group-start may-bs-col">May Bs</th>
+                      <th className="num">Add May $</th>
+                      <th className="num">Desc. Bs</th>
+                      <th className="num final-bs-col">Final Bs</th>
+                      <th>Disponible</th>
+                      <th></th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {group.products.map((product) => {
+                      const selectedVariant = getSelectedVariant(product);
+                      // Product y ProductVariant comparten la misma forma para estos campos de precio,
+                      // así que alcanza con elegir la fuente (variante seleccionada o producto base) una vez.
+                      const priceSource = selectedVariant ?? product;
+                      const variantCount = product.variants.length;
+                      return (
+                        <tr key={product.id} onClick={(e) => handleRowClick(e, product)} style={{ cursor: "pointer" }}>
+                          <td>
+                            <StockCell
+                              disponible={stockByProduct[product.id]?.disponible ?? 0}
+                              reservado={stockByProduct[product.id]?.reservado ?? 0}
+                            />
+                          </td>
+                          <td>
+                            {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
+                              <img
+                                src={productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl)!}
+                                alt={product.name}
+                                onClick={() => setPreviewImageUrl(productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl))}
+                                style={{
+                                  width: 36,
+                                  height: 36,
+                                  objectFit: "cover",
+                                  borderRadius: 6,
+                                  border: "1px solid var(--line)",
+                                  cursor: "zoom-in",
+                                }}
+                              />
+                            ) : (
+                              <span className="cell-muted">—</span>
+                            )}
+                          </td>
+                          <td className="cell-muted">{product.brand?.name ?? "—"}</td>
+                          <td className="cell-primary">{product.name}</td>
+                          {group.columns.map((column) => (
+                            <td key={column.key}>{renderAttributeCell(product, column)}</td>
+                          ))}
+                          <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
+                          <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
+                          <td className="num">
+                            <span className="unit">$</span>{priceSource.price.toFixed(2)}
+                            {variantCount > 1 && <span className="cell-muted" style={{ fontSize: 12, marginLeft: 4 }}>(de {variantCount})</span>}
+                          </td>
+                          <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
+                          <td className="num">
+                            {priceSource.minPriceBs !== null ? (
+                              <><span className="unit">$</span>{priceSource.minPriceBs}</>
+                            ) : (
+                              <span className="cell-muted">—</span>
+                            )}
+                          </td>
+                          <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
+                          <td className="num cell-primary final-bs-col">
+                            <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                          </td>
+                          <td>
+                            {selectedVariant ? (
+                              <select
+                                className="field"
+                                value={selectedVariant.estado}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => handleUpdateEstado(product.id, selectedVariant.id, e.target.value as EstadoVariante)}
+                                style={{ width: 130 }}
+                              >
+                                <option value="DISPONIBLE">Disponible</option>
+                                <option value="NO_DISPONIBLE">No disponible</option>
+                                <option value="PREVENTA">Preventa</option>
+                              </select>
+                            ) : (
+                              <span className="cell-muted">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <Link href={`/dashboard/products/${product.id}/edit`} className="action-btn">Editar</Link>
+                              <button type="button" className="action-btn danger" onClick={() => handleDelete(product)}>Eliminar</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
           <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 0 }}>
             {page.total} producto{page.total === 1 ? "" : "s"} en total.
           </p>
