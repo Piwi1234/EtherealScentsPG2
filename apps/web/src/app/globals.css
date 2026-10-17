@@ -4628,18 +4628,36 @@ a {
   justify-content: flex-end;
 }
 
+/* position:static a propósito — pisa el position:absolute de la base (ver .landing-historia-split-
+   image más abajo), que acá rompería el recorte "85% del alto, pegada a la derecha": con la imagen
+   fuera del flujo, .landing-historia-destacada .landing-historia-split-image-wrap (flex +
+   justify-content:flex-end) no tendría qué alinear. */
 .landing-historia-destacada .landing-historia-split-image {
+  position: static;
+  inset: auto;
   width: auto;
   max-width: 100%;
   height: 100%;
 }
 
+/* flex-start (no center) a propósito: en la portada y los capítulos del detalle, cuya fila no tiene
+   un alto fijo (a diferencia de .landing-historia-promo/-destacada, que sí lo centran — ver más
+   abajo), centrar el texto hacía que, apenas la fila terminaba un poco más alta que el texto (el
+   mínimo de 460px, o un capítulo con poco texto al lado de una imagen alta), el texto apareciera
+   corrido hacia abajo con un hueco en blanco arriba, como si hubiera espacio de más entre un
+   capítulo y el siguiente. Arrancando siempre pegado arriba (debajo del padding) ese hueco
+   desaparece sin importar cuánto texto tenga cada capítulo. */
 .landing-historia-split-text {
   flex: 1.05;
   min-width: 0;
   padding: 48px 48px 48px 0;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+}
+
+.landing-historia-promo .landing-historia-split-text,
+.landing-historia-destacada .landing-historia-split-text {
   justify-content: center;
 }
 
@@ -4653,8 +4671,20 @@ a {
   position: relative;
 }
 
+/* position:absolute (no estática en el flujo normal) a propósito: con height:100% nomás, la imagen
+   no tiene de dónde sacar un alto definido (el wrap no tiene uno propio), así que termina usando su
+   propia proporción intrínseca para calcular uno — una imagen vertical "infla" el alto de TODA la
+   fila (bien por encima del min-height:460px de .landing-historia-split) mucho más de lo que el
+   texto necesita, y como .landing-historia-split-text centra su contenido (justify-content:center),
+   ese texto termina viéndose mucho más abajo de lo normal, como si hubiera un hueco en blanco antes
+   del capítulo (mismo motivo por el que .landing-historia-promo/-destacada necesitaron un alto fijo
+   aparte). Con la imagen sacada del flujo, ella sola no puede influir en el alto de la fila — ese
+   alto sale solo del texto (o el piso de 460px), con la imagen ya recortada por object-fit:cover
+   estirándose para llenar lo que haga falta, prediciblemente. */
 .landing-historia-split-image {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -4968,8 +4998,13 @@ a {
   margin-right: 6px;
 }
 
+/* Sin padding vertical a propósito — a pedido, para que la imagen/texto de un capítulo toquen
+   directo el borde del siguiente (o el de la barra "En esta historia" arriba del primero) en vez
+   de dejar 72px de aire de más a cada lado. El propio alto mínimo de la fila (.landing-historia-
+   split, 460px) y el padding interno del texto (.landing-historia-split-text, 48px) ya le dan
+   suficiente respiro al contenido. */
 .landing-historia-chapter {
-  padding: 72px 0;
+  padding: 0;
 }
 
 .landing-historia-related {
