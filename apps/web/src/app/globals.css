@@ -4484,6 +4484,395 @@ a {
   text-align: center;
 }
 
+/* --- Historias: bloque promocional del home ("Última historia"), listado /historias y detalle
+   /historias/[slug]. Paleta navy + dorado (--es-*), mismo criterio que el resto del sitio. El
+   patrón "bloque partido" (texto a un lado, imagen al otro ocupando el alto entero con un
+   difuminado hacia el texto) se repite en el promo del home, la portada y cada capítulo del
+   detalle — ver .landing-historia-split. */
+
+.landing-historia-split {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 460px;
+}
+
+.landing-historia-split--reverse {
+  flex-direction: row-reverse;
+}
+
+.landing-historia-split-text {
+  flex: 1.05;
+  min-width: 0;
+  padding: 48px 48px 48px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.landing-historia-split--reverse .landing-historia-split-text {
+  padding: 48px 0 48px 48px;
+}
+
+.landing-historia-split-image-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.landing-historia-split-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0 16px 16px 0;
+}
+
+.landing-historia-split--reverse .landing-historia-split-image {
+  border-radius: 16px 0 0 16px;
+}
+
+.landing-historia-split-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 130px;
+  background: linear-gradient(to right, var(--es-bg), rgba(244, 245, 248, 0));
+  pointer-events: none;
+}
+
+.landing-historia-split--reverse .landing-historia-split-fade {
+  left: auto;
+  right: 0;
+  background: linear-gradient(to left, var(--es-bg), rgba(244, 245, 248, 0));
+}
+
+/* Variante sobre fondo blanco (portada del detalle, no alterna con --lp-bg como los capítulos) —
+   el difuminado tiene que fundirse con blanco, no con --es-bg. */
+.landing-historia-split--on-surface .landing-historia-split-fade {
+  background: linear-gradient(to right, var(--es-surface), rgba(255, 255, 255, 0));
+}
+
+.landing-historia-split--on-surface.landing-historia-split--reverse .landing-historia-split-fade {
+  background: linear-gradient(to left, var(--es-surface), rgba(255, 255, 255, 0));
+}
+
+@media (max-width: 900px) {
+  .landing-historia-split,
+  .landing-historia-split--reverse {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .landing-historia-split-text,
+  .landing-historia-split--reverse .landing-historia-split-text {
+    padding: 0 0 24px;
+    order: 2;
+  }
+
+  .landing-historia-split-image-wrap {
+    order: 1;
+    aspect-ratio: 4 / 3;
+    margin-bottom: 24px;
+  }
+
+  .landing-historia-split-image,
+  .landing-historia-split--reverse .landing-historia-split-image {
+    border-radius: 16px;
+  }
+
+  .landing-historia-split-fade {
+    display: none;
+  }
+}
+
+.landing-historia-eyebrow {
+  margin: 0 0 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.landing-historia-eyebrow-label {
+  color: var(--es-navy-700);
+}
+
+.landing-historia-eyebrow-sep {
+  color: var(--es-gold);
+  margin: 0 8px;
+}
+
+.landing-historia-eyebrow-meta {
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-title {
+  margin: 0 0 12px;
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  line-height: 1.12;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-name {
+  margin: 0 0 10px;
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-tagline {
+  margin: 0 0 20px;
+  font-family: "Playfair Display", serif;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--es-muted);
+}
+
+.landing-historia-body {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--es-muted);
+}
+
+.landing-historia-body p {
+  margin: 0 0 14px;
+}
+
+.landing-historia-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Promo del home ("Última historia") --- */
+
+.landing-historia-promo {
+  max-width: 980px;
+}
+
+.landing-historia-promo .landing-historia-title {
+  font-size: 36px;
+}
+
+.landing-historia-promo-ctas {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.landing-historia-text-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--es-navy-700);
+  text-decoration: none;
+  border-bottom: 1px solid var(--es-gold);
+  padding-bottom: 2px;
+}
+
+/* --- Listado /historias --- */
+
+.landing-historia-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 32px;
+}
+
+.landing-historia-search-wrap {
+  margin-bottom: 24px;
+}
+
+.landing-historia-search {
+  width: 100%;
+  max-width: 340px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--es-line);
+  background: var(--es-surface);
+  font-size: 13px;
+  color: var(--es-muted);
+  font-family: inherit;
+}
+
+.landing-historia-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 860px) {
+  .landing-historia-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-historia-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-historia-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-card-image-wrap {
+  height: 220px;
+  border-radius: 14px;
+  background: var(--es-navy-100);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.landing-historia-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.landing-historia-card-meta {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-card-title {
+  margin: 0 0 4px;
+  font-family: "Playfair Display", serif;
+  font-size: 18px;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-card-related {
+  margin: 0;
+  font-size: 12px;
+  color: var(--es-muted);
+}
+
+/* --- Detalle /historias/[slug] --- */
+
+.landing-historia-toc {
+  background: var(--es-navy-100);
+  margin-top: 56px;
+}
+
+.landing-historia-toc-inner {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 20px 0;
+}
+
+.landing-historia-toc-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--es-navy-700);
+}
+
+.landing-historia-toc a {
+  font-size: 13px;
+  color: var(--es-text);
+  text-decoration: none;
+}
+
+.landing-historia-toc-number {
+  color: var(--es-gold-ink);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.landing-historia-chapter {
+  padding: 72px 0;
+}
+
+.landing-historia-related {
+  padding: 72px 0;
+}
+
+.landing-historia-related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 860px) {
+  .landing-historia-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-historia-related-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-related-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.landing-historia-related-category {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--es-muted);
+}
+
+.landing-historia-nav {
+  border-top: 1px solid var(--es-line);
+  padding: 32px 0;
+}
+
+.landing-historia-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.landing-historia-nav a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-nav-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-nav-title {
+  margin: 0;
+  font-family: "Playfair Display", serif;
+  font-size: 16px;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-nav-title--muted {
+  color: var(--es-muted);
+}
+
+.landing-historia-nav-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .landing-carousel-arrow {
   position: absolute;
   top: 50%;

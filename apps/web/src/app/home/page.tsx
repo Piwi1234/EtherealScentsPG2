@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
+import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
 import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
-import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, Page, Product } from "../../lib/types";
+import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
+import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -68,6 +69,9 @@ export default function HomePage() {
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [contacto, setContacto] = useState<ContactoInfo | null>(null);
+  // null tanto mientras carga como si no hay ninguna historia publicada — el bloque entero queda
+  // oculto en los dos casos (ver JSX), así que no hace falta distinguirlos.
+  const [historiaDestacada, setHistoriaDestacada] = useState<HistoriaDetalle | null>(null);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   // "Encuentra tu aroma ideal" (ScentFinder, acá abajo) es específico de Perfumes — Acordes/Concentración
@@ -88,6 +92,7 @@ export default function HomePage() {
     getBrands().then(setBrands).catch(() => {});
     getLandingImages().then(setLandingImages).catch(() => {});
     apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
+    getHistoriaDestacada().then(setHistoriaDestacada).catch(() => {});
 
     // Si hay ofertas flash vigentes, ese pill arranca seleccionado por defecto.
     apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
@@ -516,6 +521,50 @@ export default function HomePage() {
       {perfumesCategory && (
         <ScentFinder category={perfumesCategory} subcategories={categories.filter((c) => c.parentId === perfumesCategory.id)} />
       )}
+
+      {/* ================= 3d-2. Última historia ================= */}
+      {historiaDestacada && (() => {
+        const portada = historiaDestacada.bloques.find((b) => b.orden === 0) ?? historiaDestacada.bloques[0];
+        const imgUrl = historiaImageSrc(portada?.imageUrl ?? null);
+        const paragraphs = historiaParagraphs(portada?.texto4 ?? null);
+        return (
+          <section className="landing-section">
+            <div className="landing-container">
+              <div className="landing-historia-split landing-historia-promo">
+                <div className="landing-historia-split-text">
+                  <p className="landing-historia-eyebrow">
+                    <span className="landing-historia-eyebrow-label">ÚLTIMA HISTORIA</span>
+                    <span className="landing-historia-eyebrow-sep">——</span>
+                    <span className="landing-historia-eyebrow-meta">
+                      {historiaDestacada.categorias.map((c) => HISTORIA_CATEGORIA_LABELS[c.categoria]).join(" · ")}
+                    </span>
+                  </p>
+                  <h2 className="landing-historia-title">{portada?.texto1 || historiaDestacada.titulo}</h2>
+                  {portada?.texto2 && <p className="landing-historia-name">{portada.texto2}</p>}
+                  {portada?.texto3 && <p className="landing-historia-tagline">{portada.texto3}</p>}
+                  {paragraphs.length > 0 && (
+                    <div className="landing-historia-body">
+                      <p>{renderHistoriaInline(paragraphs[0])}</p>
+                    </div>
+                  )}
+                  <div className="landing-historia-promo-ctas">
+                    <Link href={`/historias/${historiaDestacada.slug}`} className="landing-btn landing-btn-primary">
+                      Leer la historia
+                    </Link>
+                    <Link href="/historias" className="landing-historia-text-link">
+                      Ver todas las historias →
+                    </Link>
+                  </div>
+                </div>
+                <div className="landing-historia-split-image-wrap">
+                  {imgUrl && <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />}
+                  <div className="landing-historia-split-fade" />
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
       {rootCategories.map((cat, i) => {
