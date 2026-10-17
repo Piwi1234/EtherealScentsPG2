@@ -2331,7 +2331,7 @@ a {
   gap: 16px;
   margin-top: 8px;
   padding: 26px 32px;
-  border-radius: 16px;
+  border-radius: 0;
   background: var(--es-bg);
   box-shadow: 0 10px 30px rgba(13, 26, 48, 0.25);
 }
@@ -2374,7 +2374,7 @@ a {
   align-items: center;
   gap: 8px;
   padding: 13px 28px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--es-gold);
   background: transparent;
   color: var(--es-gold);
@@ -2420,7 +2420,7 @@ a {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--es-navy-100);
   color: var(--es-navy-700);
 }
@@ -2477,7 +2477,7 @@ a {
   justify-content: center;
   gap: 8px;
   padding: 14px 30px;
-  border-radius: 999px;
+  border-radius: 0;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.01em;
@@ -2717,7 +2717,7 @@ a {
   gap: 20px;
   padding: 14px;
   background: #000000;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 40px 32px rgba(0, 0, 0, 0.06), 0 20px 20px rgba(0, 0, 0, 0.1), 0 8px 12px rgba(0, 0, 0, 0.14);
   opacity: 0;
   visibility: hidden;
@@ -2746,7 +2746,7 @@ a {
 
 .landing-navbar-dropdown a {
   padding: 7px 10px;
-  border-radius: 8px;
+  border-radius: 0;
   color: #898989;
   font-weight: 500;
   text-transform: none;
@@ -2805,7 +2805,7 @@ a {
 .landing-navbar-search-input {
   width: 100%;
   padding: 7px 14px 7px 34px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.1);
   color: var(--nav-fg);
@@ -2832,7 +2832,7 @@ a {
   flex-direction: column;
   background: #1a1a1d;
   border: 1px solid rgba(245, 244, 240, 0.14);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   z-index: 5;
@@ -2868,7 +2868,7 @@ a {
 .landing-navbar-search-result-image-placeholder {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 0;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -2965,7 +2965,7 @@ a {
   display: block;
   width: 100%;
   height: 2px;
-  border-radius: 2px;
+  border-radius: 0;
   background: currentColor;
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
@@ -3053,7 +3053,7 @@ a {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: #1a1a2e;
   cursor: pointer;
@@ -3240,71 +3240,66 @@ a {
 
 /* --- Carrusel de imágenes reutilizable: fondo del hero de categoría/marcas y "Producto destacado" --- */
 
-/* Transición direccional (como fairplay.com.bo): la imagen que entra se desliza desde la derecha al
-   avanzar ("next", autoplay) o desde la izquierda al retroceder ("prev") — ImageCarousel decide cuál
-   de las dos clases aplicar en cada cambio de slide (ver su prop `direction`). */
-@keyframes landing-image-slide-next {
+/* Cinta deslizante: en vez de que la imagen vieja desaparezca de golpe y solo la nueva se deslice
+   encima (como antes), durante una transición se montan las dos ventanas —la saliente y la
+   entrante— una al lado de la otra dentro de una tira del doble de ancho, y se anima el transform de
+   la tira entera. Así ambas se mueven juntas, como una cinta de carrusel real. El viewport recorta
+   ese doble ancho a lo que ocupa el marco (lo pone este componente, no quien lo usa, a diferencia de
+   .landing-image-carousel-arrow/-dots más abajo que sí dependen del position:relative externo).
+   ImageCarousel decide avanzar ("next") o retroceder ("prev") vía su prop `dir`. */
+.landing-image-carousel-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.landing-image-carousel-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+}
+
+.landing-image-carousel-pane {
+  position: relative;
+  flex: 0 0 50%;
+  min-width: 0;
+}
+
+@keyframes landing-image-carousel-track-next {
   from {
-    transform: translateX(100%);
+    transform: translateX(0%);
   }
   to {
-    transform: translateX(0);
+    transform: translateX(-50%);
   }
 }
 
-@keyframes landing-image-slide-prev {
+@keyframes landing-image-carousel-track-prev {
   from {
-    transform: translateX(-100%);
+    transform: translateX(-50%);
   }
   to {
-    transform: translateX(0);
+    transform: translateX(0%);
   }
 }
 
-.landing-image-carousel-slide-next {
-  animation: landing-image-slide-next 0.5s ease-out;
+.landing-image-carousel-track--next {
+  animation: landing-image-carousel-track-next 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 
-.landing-image-carousel-slide-prev {
-  animation: landing-image-slide-prev 0.5s ease-out;
+.landing-image-carousel-track--prev {
+  animation: landing-image-carousel-track-prev 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 
-/* Modo `visibleCount` > 1 de ImageCarousel (varias imágenes lado a lado, ventana deslizante que
-   avanza de a una). El corrimiento inicial de la grilla es de un ancho de columna exacto
-   (--landing-carousel-shift, seteado inline según cuántas columnas haya) para que el track se vea
-   continuo. */
+/* Modo `visibleCount` > 1 de ImageCarousel (varias imágenes lado a lado) — cada ventana de la cinta
+   (saliente/entrante) es una de estas grillas completa. */
 .landing-image-carousel-grid {
   display: grid;
   grid-template-columns: repeat(var(--landing-carousel-columns, 3), 1fr);
   gap: 8px;
   width: 100%;
   height: 100%;
-}
-
-@keyframes landing-image-carousel-grid-slide-next {
-  from {
-    transform: translateX(var(--landing-carousel-shift));
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes landing-image-carousel-grid-slide-prev {
-  from {
-    transform: translateX(calc(-1 * var(--landing-carousel-shift)));
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.landing-image-carousel-grid--next {
-  animation: landing-image-carousel-grid-slide-next 0.5s ease-out;
-}
-
-.landing-image-carousel-grid--prev {
-  animation: landing-image-carousel-grid-slide-prev 0.5s ease-out;
 }
 
 .landing-image-carousel-grid-item {
@@ -3372,7 +3367,7 @@ a {
   height: 7px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.55);
   cursor: pointer;
   transition: width 0.2s ease, background 0.2s ease;
@@ -3559,7 +3554,7 @@ a {
 
 .landing-select {
   padding: 9px 14px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -3585,7 +3580,7 @@ a {
   align-items: center;
   gap: 6px;
   padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -3703,7 +3698,7 @@ a {
 .landing-filter-groups-box {
   background: var(--lp-surface);
   border: 1px solid #d8d3ce;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   /* Sin esto, al ser un hijo flex de un contenedor en columna (.landing-filters-sidebar en
      escritorio, .landing-filters-drawer-body en el drawer mobile) el spec de flexbox permite
@@ -3735,7 +3730,7 @@ a {
 
 .landing-filters-sidebar .landing-filter-groups-box::-webkit-scrollbar-thumb {
   background: var(--lp-border);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .landing-filter-group {
@@ -3768,7 +3763,7 @@ a {
   gap: 10px;
   margin: 0 -8px;
   padding: 6px 8px;
-  border-radius: 7px;
+  border-radius: 0;
   font-size: 13.5px;
   color: var(--lp-muted);
   cursor: pointer;
@@ -3811,7 +3806,7 @@ a {
   flex-shrink: 0;
   margin: 0;
   border: 1.5px solid var(--lp-border);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--lp-surface);
   cursor: pointer;
   position: relative;
@@ -3849,7 +3844,7 @@ a {
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #d81f26;
   color: #ffffff;
   font-weight: 600;
@@ -3866,7 +3861,7 @@ a {
   flex: none;
   align-items: center;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #1f9d55;
   color: #ffffff;
   font-weight: 600;
@@ -3882,7 +3877,7 @@ a {
   height: 20px;
   padding: 0 6px;
   border: 1px solid var(--lp-border);
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 11px;
   color: var(--lp-muted);
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
@@ -3910,7 +3905,7 @@ a {
   width: 100%;
   padding: 8px 12px;
   margin-bottom: 8px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -3943,7 +3938,7 @@ a {
 
 .landing-filter-options-scroll::-webkit-scrollbar-thumb {
   background: var(--lp-border);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 /* --- Slider de rango de precio (dos <input type="range"> superpuestos) --- */
@@ -3962,7 +3957,7 @@ a {
   height: 4px;
   transform: translateY(-50%);
   background: var(--lp-border);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .landing-price-slider-fill {
@@ -3970,7 +3965,7 @@ a {
   top: 0;
   height: 100%;
   background: var(--lp-accent);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .landing-price-slider-input {
@@ -4073,7 +4068,7 @@ a {
 
 .landing-pill {
   padding: 9px 20px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: transparent;
   color: var(--lp-text);
@@ -4153,7 +4148,7 @@ a {
   height: 30px;
   padding: 0 4px;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   font-size: 13px;
   color: var(--lp-muted);
@@ -4189,61 +4184,27 @@ a {
   gap: 16px;
 }
 
-/* Transición al cambiar de página en el carrusel de "Descuento y Ofertas": las tarjetas entran
-   deslizando desde la derecha al avanzar ("next"/autoplay) o desde la izquierda al retroceder
-   ("prev") — home/page.tsx decide cuál de las dos clases modificadoras poner en la grilla según
-   goToOffersSlide. Desplazamiento corto + fade (en vez del slide de 100% del ancho de tarjeta que
-   había antes) y una cascada leve entre tarjetas (nth-child de abajo) — inspirado en la transición
-   del bloque "Made to Enjoy" de fragrance-nevaeh.com, que usa ese mismo combo (fade + desplazamiento
-   corto con ease-out marcado) en vez de un slide duro. */
-@keyframes landing-offers-slide-next {
-  from {
-    transform: translateX(36px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+/* Transición al cambiar de página en el carrusel de "Descuento y Ofertas": misma cinta deslizante
+   que el Hero/"Producto destacado" (reutiliza las animaciones .landing-image-carousel-track--next/
+   -prev) — home/page.tsx monta las dos páginas de tarjetas (saliente/entrante) una al lado de la
+   otra, en vez de reemplazar la grilla entera de golpe. Clases propias (no las -viewport/-track/
+   -pane de ImageCarousel) porque esas fuerzan height:100% en cadena para el recorte exacto del
+   Hero/categoría (que tienen aspect-ratio fijo) — acá, en cambio, el alto de cada página de tarjetas
+   tiene que salir de su propio contenido para poder medirlo (ver offersFrameRef/offersHeight) y
+   animarlo con transition: height. */
+.landing-offers-carousel-frame {
+  overflow: hidden;
+  transition: height 0.4s ease;
 }
 
-@keyframes landing-offers-slide-prev {
-  from {
-    transform: translateX(-36px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+.landing-offers-track {
+  display: flex;
+  width: 200%;
 }
 
-.landing-product-grid--carousel-next .landing-product-card {
-  animation: landing-offers-slide-next 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.landing-product-grid--carousel-prev .landing-product-card {
-  animation: landing-offers-slide-prev 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.landing-product-grid--carousel-next .landing-product-card:nth-child(2),
-.landing-product-grid--carousel-prev .landing-product-card:nth-child(2) {
-  animation-delay: 0.045s;
-}
-
-.landing-product-grid--carousel-next .landing-product-card:nth-child(3),
-.landing-product-grid--carousel-prev .landing-product-card:nth-child(3) {
-  animation-delay: 0.09s;
-}
-
-.landing-product-grid--carousel-next .landing-product-card:nth-child(4),
-.landing-product-grid--carousel-prev .landing-product-card:nth-child(4) {
-  animation-delay: 0.135s;
-}
-
-.landing-product-grid--carousel-next .landing-product-card:nth-child(5),
-.landing-product-grid--carousel-prev .landing-product-card:nth-child(5) {
-  animation-delay: 0.18s;
+.landing-offers-pane {
+  flex: 0 0 50%;
+  min-width: 0;
 }
 
 /* Alto fijo (no solo padding) — así el precio, que siempre va al fondo (margin-top:auto), termina
@@ -4359,7 +4320,7 @@ a {
 
 .landing-weekly-collection-banner {
   position: relative;
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
@@ -4461,6 +4422,13 @@ a {
   margin-top: auto;
 }
 
+/* Mismo criterio que .landing-flash-slot--boxes del carrusel de ofertas (ver más arriba) — alto
+   reservado a partir de lo que mide .landing-flash-countdown (variant="pill", la que usa esta
+   grilla) con su padding/texto actual. */
+.landing-product-grid--weekly .landing-flash-slot--pill {
+  min-height: 20px;
+}
+
 .landing-product-grid--weekly .landing-product-offer-badge {
   top: 8px;
   padding: 3px 8px;
@@ -4482,6 +4450,430 @@ a {
 .landing-weekly-collection-more {
   margin-top: 8px;
   text-align: center;
+}
+
+/* --- Historias: bloque promocional del home ("Última historia"), listado /historias y detalle
+   /historias/[slug]. Paleta navy + dorado (--es-*), mismo criterio que el resto del sitio. El
+   patrón "bloque partido" (texto a un lado, imagen al otro ocupando el alto entero con un
+   difuminado hacia el texto) se repite en el promo del home, la portada y cada capítulo del
+   detalle — ver .landing-historia-split. */
+
+.landing-historia-split {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 460px;
+}
+
+.landing-historia-split--reverse {
+  flex-direction: row-reverse;
+}
+
+/* Tarjeta "Destacada" de /historias — a pedido, ajustada en varias pasadas desde el min-height base
+   (460px) de .landing-historia-split, que comparten el bloque del home, la portada y los
+   capítulos del detalle (no tocado, scoped solo acá): -25% (345px), -20% (276px), +15% (317px),
+   +25% (396px), +10% (436px), +15% (501px).
+   Alto fijo (no solo mínimo) por el mismo motivo que .landing-historia-promo: con min-height a
+   secas, una imagen más alta que ancha empuja la fila más allá del mínimo según SU propia
+   proporción, y bajarlo/subirlo no se nota en nada. min-height:0 porque, al convivir las dos
+   clases en el mismo div, el min-height:460px de .landing-historia-split de arriba seguía
+   actuando como piso por encima de este height más chico — sin resetearlo acá, nunca bajaba de
+   460px sin importar el valor que pusiera. */
+.landing-historia-destacada {
+  height: 501px;
+  min-height: 0;
+}
+
+.landing-historia-split-text {
+  flex: 1.05;
+  min-width: 0;
+  padding: 48px 48px 48px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.landing-historia-split--reverse .landing-historia-split-text {
+  padding: 48px 0 48px 48px;
+}
+
+.landing-historia-split-image-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.landing-historia-split-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.landing-historia-split--reverse .landing-historia-split-image {
+  border-radius: 0;
+}
+
+.landing-historia-split-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 130px;
+  background: linear-gradient(to right, var(--es-bg), rgba(244, 245, 248, 0));
+  pointer-events: none;
+}
+
+.landing-historia-split--reverse .landing-historia-split-fade {
+  left: auto;
+  right: 0;
+  background: linear-gradient(to left, var(--es-bg), rgba(244, 245, 248, 0));
+}
+
+/* Variante sobre fondo blanco (portada del detalle, no alterna con --lp-bg como los capítulos) —
+   el difuminado tiene que fundirse con blanco, no con --es-bg. */
+.landing-historia-split--on-surface .landing-historia-split-fade {
+  background: linear-gradient(to right, var(--es-surface), rgba(255, 255, 255, 0));
+}
+
+.landing-historia-split--on-surface.landing-historia-split--reverse .landing-historia-split-fade {
+  background: linear-gradient(to left, var(--es-surface), rgba(255, 255, 255, 0));
+}
+
+@media (max-width: 900px) {
+  .landing-historia-split,
+  .landing-historia-split--reverse {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* El bloque del home fija `height` (no solo min-height, ver más abajo) para que texto e imagen
+     queden parejos en desktop — sin resetearlo acá, esa misma altura fija (pensada para el layout
+     en fila) se le quedaría pegada al apilarse en columna, recortando el contenido en vez de dejarlo
+     crecer. */
+  .landing-historia-promo,
+  .landing-historia-destacada {
+    height: auto;
+  }
+
+  .landing-historia-split-text,
+  .landing-historia-split--reverse .landing-historia-split-text {
+    padding: 0 0 24px;
+    order: 2;
+  }
+
+  .landing-historia-split-image-wrap {
+    order: 1;
+    aspect-ratio: 4 / 3;
+    margin-bottom: 24px;
+  }
+
+  .landing-historia-split-image,
+  .landing-historia-split--reverse .landing-historia-split-image {
+    border-radius: 0;
+  }
+
+  .landing-historia-split-fade {
+    display: none;
+  }
+}
+
+.landing-historia-eyebrow {
+  margin: 0 0 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.landing-historia-eyebrow-label {
+  color: var(--es-navy-700);
+}
+
+.landing-historia-eyebrow-sep {
+  color: var(--es-gold);
+  margin: 0 8px;
+}
+
+.landing-historia-eyebrow-meta {
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-title {
+  margin: 0 0 12px;
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  line-height: 1.12;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-name {
+  margin: 0 0 10px;
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-tagline {
+  margin: 0 0 20px;
+  font-family: "Playfair Display", serif;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--es-muted);
+}
+
+.landing-historia-body {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--es-muted);
+}
+
+.landing-historia-body p {
+  margin: 0 0 14px;
+}
+
+.landing-historia-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Promo del home ("Última historia") --- */
+
+/* Alto fijo (no solo mínimo): con min-height a secas, una imagen más alta que ancha (ej. una
+   captura tipo revista, tal cual se carga, sin recortar) empuja el alto de toda la fila hacia
+   arriba según SU proporción — el texto, centrado dentro de esa fila ahora más alta, termina
+   viéndose descentrado respecto a la imagen en vez de parejo con ella. Con alto fijo, la fila
+   siempre mide lo mismo y la imagen se recorta (object-fit: cover) a esa altura sin importar su
+   proporción original. */
+/* Sin margin:auto, al ser más angosto que .landing-container, el bloque quedaba pegado al borde
+   izquierdo (flujo normal) con todo el espacio sobrante amontonado a la derecha — centrado, el
+   margen que sobra queda parejo a los dos lados. */
+.landing-historia-promo {
+  max-width: 980px;
+  height: 460px;
+  margin: 0 auto;
+}
+
+.landing-historia-promo .landing-historia-title {
+  font-size: 36px;
+}
+
+.landing-historia-promo-ctas {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.landing-historia-text-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--es-navy-700);
+  text-decoration: none;
+  border-bottom: 1px solid var(--es-gold);
+  padding-bottom: 2px;
+}
+
+/* --- Listado /historias --- */
+
+.landing-historia-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 32px;
+}
+
+.landing-historia-search-wrap {
+  margin-bottom: 24px;
+}
+
+.landing-historia-search {
+  width: 100%;
+  max-width: 340px;
+  padding: 11px 16px;
+  border-radius: 0;
+  border: 1px solid var(--es-line);
+  background: var(--es-surface);
+  font-size: 13px;
+  color: var(--es-muted);
+  font-family: inherit;
+}
+
+.landing-historia-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 860px) {
+  .landing-historia-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-historia-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-historia-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-card-image-wrap {
+  height: 220px;
+  border-radius: 0;
+  background: var(--es-navy-100);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.landing-historia-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.landing-historia-card-meta {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-card-title {
+  margin: 0 0 4px;
+  font-family: "Playfair Display", serif;
+  font-size: 18px;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-card-related {
+  margin: 0;
+  font-size: 12px;
+  color: var(--es-muted);
+}
+
+/* --- Detalle /historias/[slug] --- */
+
+.landing-historia-toc {
+  background: var(--es-navy-100);
+  margin-top: 56px;
+}
+
+.landing-historia-toc-inner {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 20px 0;
+}
+
+.landing-historia-toc-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--es-navy-700);
+}
+
+.landing-historia-toc a {
+  font-size: 13px;
+  color: var(--es-text);
+  text-decoration: none;
+}
+
+.landing-historia-toc-number {
+  color: var(--es-gold-ink);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.landing-historia-chapter {
+  padding: 72px 0;
+}
+
+.landing-historia-related {
+  padding: 72px 0;
+}
+
+.landing-historia-related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 860px) {
+  .landing-historia-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing-historia-related-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-related-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.landing-historia-related-category {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--es-muted);
+}
+
+.landing-historia-nav {
+  border-top: 1px solid var(--es-line);
+  padding: 32px 0;
+}
+
+.landing-historia-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.landing-historia-nav a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-historia-nav-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--es-gold-ink);
+}
+
+.landing-historia-nav-title {
+  margin: 0;
+  font-family: "Playfair Display", serif;
+  font-size: 16px;
+  color: var(--es-navy-900);
+}
+
+.landing-historia-nav-title--muted {
+  color: var(--es-muted);
+}
+
+.landing-historia-nav-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .landing-carousel-arrow {
@@ -4543,7 +4935,7 @@ a {
   position: relative;
   flex-shrink: 0;
   background: var(--lp-surface);
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(26, 26, 46, 0.06), 0 10px 24px rgba(26, 26, 46, 0.06);
   transition: box-shadow 0.15s ease;
@@ -4595,7 +4987,7 @@ a {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: 0 4px 10px rgba(13, 26, 48, 0.3);
 }
 
@@ -4629,7 +5021,7 @@ a {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -4647,7 +5039,7 @@ a {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -4799,7 +5191,7 @@ a {
     bottom: 10px;
     width: 36px;
     height: 36px;
-    border-radius: 999px;
+    border-radius: 0;
     overflow: hidden;
     background: var(--es-navy-900);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -4892,12 +5284,8 @@ a {
   align-items: center;
   gap: 4px;
   align-self: flex-start;
-  /* Ahora va siempre después del precio (ver ProductCard) — en las tarjetas de alto fijo
-     (carrusel/colección de la semana) es el precio el que tiene margin-top:auto y empuja el par
-     entero al fondo; acá alcanza con un margen chico y fijo. */
-  margin-top: 8px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #d81f26;
   color: #ffffff;
   font-size: 10.5px;
@@ -4932,7 +5320,7 @@ a {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .landing-product-price-soldout svg {
@@ -4944,13 +5332,25 @@ a {
 /* Casilleros HH/MM/SS (variant="boxes" de FlashCountdown) — carrusel de "Descuento y Ofertas".
    Celeste mientras falten más de 3 horas, rosado oscuro por debajo de eso (ver
    URGENT_THRESHOLD_MS en FlashCountdown.tsx). */
+/* Slot de ProductCard para el countdown de oferta flash (ver comentario en ProductCard.tsx) —
+   siempre presente, tenga o no contenido adentro, para que el precio (justo antes) quede alineado
+   entre tarjetas con y sin oferta flash. Sin min-height por default (no cambia nada en los usos de
+   ProductCard que no sean el carrusel de ofertas o la colección de la semana, ver los dos scoped de
+   abajo). */
+.landing-flash-slot {
+  margin-top: 8px;
+}
+
+/* min-height a partir de lo que mide .landing-flash-box con su padding/texto actual (ver abajo); si
+   ese tamaño cambia, hay que ajustar este valor a mano. */
+.landing-product-grid--carousel .landing-flash-slot--boxes {
+  min-height: 37px;
+}
+
 .landing-flash-boxes {
   display: flex;
   gap: 6px;
   align-self: stretch;
-  /* Mismo criterio que .landing-flash-countdown de más arriba: siempre después del precio, el
-     margen que empuja al fondo en las tarjetas de alto fijo ya lo pone el precio. */
-  margin-top: 8px;
 }
 
 .landing-flash-box {
@@ -4960,7 +5360,7 @@ a {
   align-items: center;
   gap: 1px;
   padding: 4px 0 3px;
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(245, 244, 240, 0.08);
 }
 
@@ -5054,7 +5454,7 @@ a {
 
 .landing-feature-visual .landing-image-carousel-grid-item {
   aspect-ratio: 4 / 5;
-  border-radius: 16px;
+  border-radius: 0;
   background: #171426;
 }
 
@@ -5071,7 +5471,7 @@ a {
 .landing-feature-visual--fallback {
   display: flex;
   aspect-ratio: 21 / 9;
-  border-radius: 20px;
+  border-radius: 0;
 }
 
 .landing-feature-overlay {
@@ -5263,7 +5663,7 @@ a {
   min-height: 119px; /* 108px + 10% */
   padding: 16px 14px;
   background: var(--lp-surface);
-  border-radius: 16px;
+  border-radius: 0;
   text-align: center;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -5296,7 +5696,7 @@ a {
    de siempre, para que se note como un bloque interactivo aparte. */
 .landing-scent-finder-card {
   background: var(--lp-surface);
-  border-radius: 24px;
+  border-radius: 0;
   padding: 40px;
   box-shadow: 0 20px 48px rgba(26, 26, 46, 0.08);
 }
@@ -5346,7 +5746,7 @@ a {
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -5475,7 +5875,7 @@ a {
   width: 100%;
   max-width: 420px;
   padding: 11px 16px;
-  border-radius: 24px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -5566,7 +5966,7 @@ a {
   padding: 20px 14px;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  border-radius: 12px;
+  border-radius: 0;
   text-align: center;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -5780,7 +6180,7 @@ a {
   gap: 6.5px; /* 7px - 5% */
   padding: 6.5px 13.5px; /* 7px 14px - 5% */
   font-size: 14px; /* 15px - 5% */
-  border-radius: 7.5px; /* 8px - 5% */
+  border-radius: 0; /* 8px - 5% */
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.32);
 }
 
@@ -5799,7 +6199,7 @@ a {
   object-fit: contain;
   background: var(--lp-surface);
   border: 1px solid #d8d3ce;
-  border-radius: 16px;
+  border-radius: 0;
 }
 
 .landing-product-detail-image-placeholder {
@@ -5813,7 +6213,7 @@ a {
   color: var(--lp-muted);
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  border-radius: 16px;
+  border-radius: 0;
 }
 
 /* En desktop grande la columna de imagen crece más allá de los 613px "de siempre" (643px a partir
@@ -5956,7 +6356,7 @@ a {
   max-width: 420px;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 40px 36px;
 }
 
@@ -5988,7 +6388,7 @@ a {
 .landing-auth-field select {
   width: 100%;
   padding: 11px 14px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-bg);
   color: var(--lp-text);
@@ -6056,7 +6456,7 @@ a {
   gap: 10px;
   width: 100%;
   padding: 12px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -6131,7 +6531,7 @@ a {
 
 .landing-product-detail-variant-btn {
   padding: 9px 16px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1.5px solid var(--lp-border);
   background: var(--lp-surface);
   color: var(--lp-text);
@@ -6266,7 +6666,7 @@ a {
   gap: 14px;
   padding: 6px 14px;
   border: 1px solid var(--lp-border);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .landing-product-detail-qty button {
@@ -6298,7 +6698,7 @@ a {
   flex: 0 0 28%;
   padding: 13px 12px;
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   background: #d81f26;
   color: #ffffff;
   font-size: 10px;
@@ -6629,7 +7029,7 @@ a {
      ImageCarousel — es un bloque estático con su propio aspect-ratio (21/9), no debería cambiar. */
   .landing-feature-visual:not(.landing-feature-visual--fallback) {
     aspect-ratio: 4 / 5;
-    border-radius: 16px;
+    border-radius: 0;
     background: #171426;
   }
 }
@@ -6822,7 +7222,7 @@ a {
   min-width: 22px;
   height: 22px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #ffffff;
   color: #d81f26;
   font-size: 12px;
@@ -6926,7 +7326,7 @@ a {
 
 .landing-cookie-banner-btn {
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -7080,7 +7480,7 @@ a {
   width: 64px;
   height: 64px;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: 0;
   object-fit: cover;
 }
 
@@ -7138,7 +7538,7 @@ a {
   gap: 10px;
   padding: 3px 10px;
   border: 1px solid #d8d3ce;
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .landing-cart-item-qty button {
@@ -7288,7 +7688,7 @@ a {
   gap: 9px;
   width: 100%;
   padding: 13px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #25d366;
   color: #ffffff;
   font-size: 14px;
@@ -7422,7 +7822,7 @@ a {
   width: 15px;
   height: 15px;
   border: 1.5px solid #b9c1cf;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .landing-filter-checkbox:hover input[type="checkbox"] { border-color: var(--es-navy-700); }
 .landing-filter-checkbox input[type="checkbox"]:checked {
@@ -7479,7 +7879,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 @media (max-width: 900px) {
   .landing-filters-drawer {
     inset: 44px 0 0 0;               /* deja ver el encabezado arriba */
-    border-radius: 20px 20px 0 0;
+    border-radius: 0;
     box-shadow: 0 -12px 40px rgba(13, 26, 48, 0.18);
   }
   .landing-filters-drawer::before {    /* tirador */
@@ -7487,7 +7887,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     display: block;
     width: 36px;
     height: 4px;
-    border-radius: 4px;
+    border-radius: 0;
     background: var(--es-line);
     margin: 8px auto 0;
   }
@@ -7593,7 +7993,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     margin: 0 0 6px;
     padding: 0 36px 0 16px;
     border: 1px solid var(--es-line, #dde2eb);
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--es-surface, #fff);
     color: var(--es-text, #1a2234);
     font-size: 13px;
@@ -7672,11 +8072,11 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 
   /* bordes redondeados arriba y abajo del panel */
   .landing-filters-sidebar .landing-filter-group-title + * {
-    border-radius: 14px 14px 0 0;
+    border-radius: 0;
     padding-top: 10px;
   }
   .landing-filters-sidebar .landing-filter-group > :last-child {
-    border-radius: 0 0 14px 14px;
+    border-radius: 0;
     padding-bottom: 12px;
   }
 
@@ -7686,8 +8086,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     padding: 9px 16px;
     border-radius: 0;
   }
-  .landing-filters-sidebar .landing-filter-group-title + .landing-filter-checkbox { border-radius: 14px 14px 0 0; padding-top: 14px; }
-  .landing-filters-sidebar .landing-filter-group > .landing-filter-checkbox:last-child { border-radius: 0 0 14px 14px; padding-bottom: 14px; }
+  .landing-filters-sidebar .landing-filter-group-title + .landing-filter-checkbox { border-radius: 0; padding-top: 14px; }
+  .landing-filters-sidebar .landing-filter-group > .landing-filter-checkbox:last-child { border-radius: 0; padding-bottom: 14px; }
 
   /* buscador (Marca, Acordes) */
   .landing-filters-sidebar .landing-filter-group > .landing-filter-search {
@@ -7695,7 +8095,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     padding: 14px 16px 10px;
     border: 0;
     border-bottom: 1px solid var(--es-line, #dde2eb);
-    border-radius: 14px 14px 0 0;
+    border-radius: 0;
     outline: none;
   }
 
@@ -7747,7 +8147,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     align-items: center;
     gap: 6px;
     padding: 6px 6px 6px 14px;
-    border-radius: 999px;
+    border-radius: 0;
     border: 1px solid var(--es-line, #dde2eb);
     background: var(--es-surface, #fff);
     color: var(--es-text, #1a2234);

@@ -15,6 +15,7 @@ import {
   ClientsIcon,
   ContabilidadIcon,
   DashboardIcon,
+  HistoriasIcon,
   LogoutIcon,
   ProductsIcon,
   ProformasIcon,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/categories", label: "Categorías", icon: CategoriesIcon },
   { href: "/dashboard/brands", label: "Marcas", icon: BrandsIcon },
   { href: "/dashboard/products", label: "Productos", icon: ProductsIcon },
+  { href: "/dashboard/historias", label: "Historias", icon: HistoriasIcon },
 ];
 
 // Submenú acordeón de Clientes: lista plana, sin subtítulos de grupo (a diferencia de Configuración).

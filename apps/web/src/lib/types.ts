@@ -59,6 +59,58 @@ export type BrandImportReport = {
 
 export type BrandNormalizeCasePreviewRow = { id: string; oldName: string; newName: string };
 
+// --- Historias ---
+
+export type HistoriaCategoria = "CASAS" | "PERFUMISTAS" | "INGREDIENTES" | "FRAGANCIAS" | "APRENDE";
+
+export type HistoriaBloque = {
+  id: string;
+  historiaId: string;
+  orden: number;
+  texto1: string | null;
+  texto2: string | null;
+  texto3: string | null;
+  texto4: string | null;
+  imageUrl: string | null;
+  // Variante opcional para pantallas chicas — null usa `imageUrl` también en mobile.
+  mobileImageUrl: string | null;
+};
+
+// Forma resumida que devuelve el listado (solo la portada, para la miniatura) — a diferencia del
+// detalle completo (HistoriaDetalle), que trae todos los bloques.
+export type HistoriaResumen = {
+  id: string;
+  titulo: string;
+  slug: string;
+  publicada: boolean;
+  orden: number;
+  categorias: { categoria: HistoriaCategoria }[];
+  bloques: HistoriaBloque[];
+};
+
+export type HistoriaSugerenciaTipo = "CASA" | "PERFUMES" | "PERFUMISTA" | "INGREDIENTE";
+
+export type HistoriaSugerenciaAttributeOption = {
+  id: string;
+  value: string;
+  color: string | null;
+  attribute: { id: string; categoryId: string; category: { slug: string } };
+};
+
+export type HistoriaDetalle = HistoriaResumen & {
+  relacionadas: { historiaB: HistoriaResumen }[];
+  // Imagen propia del bloque "Última historia" del home — null usa la de la portada (bloques[0]).
+  homeImageUrl: string | null;
+  homeMobileImageUrl: string | null;
+  sugerenciaTipo: HistoriaSugerenciaTipo | null;
+  // CASA/INGREDIENTE solo traen el id elegido (marca/acorde) — los productos se resuelven en vivo
+  // contra /catalog/products del lado del cliente, ver HistoriaDetailClient. PERFUMES trae los ids
+  // elegidos a mano, en orden; el Product completo de cada uno también se resuelve en vivo por id.
+  sugerenciaBrand: Brand | null;
+  sugerenciaAttributeOption: HistoriaSugerenciaAttributeOption | null;
+  sugerenciaProductos: { productId: string; orden: number }[];
+};
+
 export type ProductImportReport = {
   total: number;
   created: number;

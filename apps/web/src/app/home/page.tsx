@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands, getCasaMatrizLogo, getLandingImages } from "../../lib/api";
+import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
 import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
-import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, Page, Product } from "../../lib/types";
+import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
+import type { Attribute, Brand, CarouselImage, Category, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -58,7 +59,18 @@ export default function HomePage() {
   const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
-  const [offersDirection, setOffersDirection] = useState<1 | -1>(1);
+  // Transición en curso del carrusel de "Descuento y Ofertas" (cinta deslizante, mismo mecanismo que
+  // ImageCarousel — ver goToOffersSlide/finishOffersTransition más abajo). null = en reposo.
+  const [offersAnim, setOffersAnim] = useState<{ target: number; dir: 1 | -1 } | null>(null);
+  const offersCurrentRef = useRef(0);
+  const offersAnimatingRef = useRef(false);
+  // Alto medido del bloque (en vez de dejarlo en "auto"): al cambiar de página el contenido real
+  // puede variar unos px (ej. countdown de flash presente en una tanda de tarjetas y no en la otra),
+  // y sin esto el bloque saltaba de un alto a otro de golpe en el instante en que cambiaba — ahora se
+  // mide con scrollHeight después de cada cambio de contenido y se transiciona por CSS (ver
+  // .landing-offers-carousel-frame).
+  const offersFrameRef = useRef<HTMLDivElement>(null);
+  const [offersHeight, setOffersHeight] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [landingImages, setLandingImages] = useState<{
     heroImages: CarouselImage[];
@@ -68,6 +80,9 @@ export default function HomePage() {
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [contacto, setContacto] = useState<ContactoInfo | null>(null);
+  // null tanto mientras carga como si no hay ninguna historia publicada — el bloque entero queda
+  // oculto en los dos casos (ver JSX), así que no hace falta distinguirlos.
+  const [historiaDestacada, setHistoriaDestacada] = useState<HistoriaDetalle | null>(null);
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   // "Encuentra tu aroma ideal" (ScentFinder, acá abajo) es específico de Perfumes — Acordes/Concentración
@@ -88,6 +103,7 @@ export default function HomePage() {
     getBrands().then(setBrands).catch(() => {});
     getLandingImages().then(setLandingImages).catch(() => {});
     apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
+    getHistoriaDestacada().then(setHistoriaDestacada).catch(() => {});
 
     // Si hay ofertas flash vigentes, ese pill arranca seleccionado por defecto.
     apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
@@ -174,7 +190,10 @@ export default function HomePage() {
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then((page) => {
         setProductsPage(page);
+        offersCurrentRef.current = 0;
+        offersAnimatingRef.current = false;
         setOffersSlide(0);
+        setOffersAnim(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, offersMode, hasFlashOffers]);
@@ -224,18 +243,52 @@ export default function HomePage() {
   useEffect(() => {
     if (offersChunks.length <= 1) return;
     const timer = setInterval(() => {
-      setOffersDirection(1);
-      setOffersSlide((s) => (s + 1) % offersChunks.length);
+      if (offersAnimatingRef.current) return;
+      goToOffersSlide(offersCurrentRef.current + 1, 1);
     }, OFFERS_AUTOPLAY_MS);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offersChunks.length, offersAutoKey]);
 
   function goToOffersSlide(index: number, dir: 1 | -1) {
     const total = offersChunks.length;
-    if (total === 0) return;
-    setOffersDirection(dir);
-    setOffersSlide(((index % total) + total) % total);
+    if (total === 0 || offersAnimatingRef.current) return;
+    const from = offersCurrentRef.current;
+    const target = ((index % total) + total) % total;
+    if (target === from) return;
+    offersAnimatingRef.current = true;
+    setOffersAnim({ target, dir });
     setOffersAutoKey((k) => k + 1);
+  }
+
+  function finishOffersTransition(target: number) {
+    offersCurrentRef.current = target;
+    offersAnimatingRef.current = false;
+    setOffersSlide(target);
+    setOffersAnim(null);
+  }
+
+  useLayoutEffect(() => {
+    const el = offersFrameRef.current;
+    if (!el) return;
+    setOffersHeight(el.scrollHeight);
+  }, [offersChunks, offersSlide, offersAnim, isMobile]);
+
+  function renderOffersWindow(index: number) {
+    const chunk = offersChunks[index] ?? [];
+    return (
+      <div className="landing-product-grid landing-product-grid--carousel">
+        {chunk.map(({ product, variant }) => (
+          <ProductCard
+            product={product}
+            forcedVariant={variant}
+            flashVariant="boxes"
+            context={offersMode}
+            key={`${product.id}-${variant.id}`}
+          />
+        ))}
+      </div>
+    );
   }
 
   // En mobile el hero muestra 1 sola imagen por vez (en vez de 3 lado a lado) y el carrusel de
@@ -424,20 +477,28 @@ export default function HomePage() {
               </button>
 
               <div
-                className={`landing-product-grid landing-product-grid--carousel${
-                  offersDirection === 1 ? " landing-product-grid--carousel-next" : " landing-product-grid--carousel-prev"
-                }`}
+                className="landing-offers-carousel-frame"
+                ref={offersFrameRef}
+                style={offersHeight != null ? { height: offersHeight } : undefined}
               >
-
-                {offersChunks[offersSlide].map(({ product, variant }) => (
-                  <ProductCard
-                    product={product}
-                    forcedVariant={variant}
-                    flashVariant="boxes"
-                    context={offersMode}
-                    key={`${offersSlide}-${product.id}-${variant.id}`}
-                  />
-                ))}
+                {offersAnim ? (
+                  <div
+                    key={`${offersAnim.target}-${offersAnim.dir}`}
+                    className={`landing-offers-track landing-image-carousel-track--${
+                      offersAnim.dir === 1 ? "next" : "prev"
+                    }`}
+                    onAnimationEnd={() => finishOffersTransition(offersAnim.target)}
+                  >
+                    <div className="landing-offers-pane">
+                      {renderOffersWindow(offersAnim.dir === 1 ? offersSlide : offersAnim.target)}
+                    </div>
+                    <div className="landing-offers-pane">
+                      {renderOffersWindow(offersAnim.dir === 1 ? offersAnim.target : offersSlide)}
+                    </div>
+                  </div>
+                ) : (
+                  renderOffersWindow(offersSlide)
+                )}
               </div>
 
               <button
@@ -516,6 +577,65 @@ export default function HomePage() {
       {perfumesCategory && (
         <ScentFinder category={perfumesCategory} subcategories={categories.filter((c) => c.parentId === perfumesCategory.id)} />
       )}
+
+      {/* ================= 3d-2. Última historia ================= */}
+      {historiaDestacada && (() => {
+        const portada = historiaDestacada.bloques.find((b) => b.orden === 0) ?? historiaDestacada.bloques[0];
+        // La imagen propia del home gana si está cargada (ver HistoriaHomeImageEditor); si no, cae a
+        // la de la portada, como antes de ese campo. La variante mobile sigue el mismo criterio —
+        // ojo que si hay imagen de home pero no mobile propia, NO cae a la mobile de la portada (es
+        // un recorte pensado para ese otro bloque, no para este).
+        const imgUrl = historiaImageSrc(historiaDestacada.homeImageUrl ?? portada?.imageUrl ?? null);
+        const mobileImgUrl = historiaImageSrc(
+          historiaDestacada.homeMobileImageUrl ?? (historiaDestacada.homeImageUrl ? null : (portada?.mobileImageUrl ?? null)),
+        );
+        const paragraphs = historiaParagraphs(portada?.texto4 ?? null);
+        return (
+          <section className="landing-section">
+            <div className="landing-container">
+              <div className="landing-historia-split landing-historia-promo">
+                <div className="landing-historia-split-text">
+                  <p className="landing-historia-eyebrow">
+                    <span className="landing-historia-eyebrow-label">ÚLTIMA HISTORIA</span>
+                    <span className="landing-historia-eyebrow-sep">——</span>
+                    <span className="landing-historia-eyebrow-meta">
+                      {historiaDestacada.categorias.map((c) => HISTORIA_CATEGORIA_LABELS[c.categoria]).join(" · ")}
+                    </span>
+                  </p>
+                  <h2 className="landing-historia-title">{portada?.texto1 || historiaDestacada.titulo}</h2>
+                  {portada?.texto2 && <p className="landing-historia-name">{portada.texto2}</p>}
+                  {portada?.texto3 && <p className="landing-historia-tagline">{portada.texto3}</p>}
+                  {paragraphs.length > 0 && (
+                    <div className="landing-historia-body">
+                      <p>{renderHistoriaInline(paragraphs[0])}</p>
+                    </div>
+                  )}
+                  <div className="landing-historia-promo-ctas">
+                    <Link href={`/historias/${historiaDestacada.slug}`} className="landing-btn landing-btn-primary">
+                      Leer la historia
+                    </Link>
+                    <Link href="/historias" className="landing-historia-text-link">
+                      Ver todas las historias →
+                    </Link>
+                  </div>
+                </div>
+                <div className="landing-historia-split-image-wrap">
+                  {imgUrl &&
+                    (mobileImgUrl ? (
+                      <picture>
+                        <source media="(max-width: 900px)" srcSet={mobileImgUrl} />
+                        <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />
+                      </picture>
+                    ) : (
+                      <img className="landing-historia-split-image" src={imgUrl} alt={historiaDestacada.titulo} />
+                    ))}
+                  <div className="landing-historia-split-fade" />
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
       {rootCategories.map((cat, i) => {
@@ -737,8 +857,6 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
   );
 }
 
-type PriceBand = { label: string; min: number; max: number };
-
 /** Negro o blanco según qué tan clara es la variante — así el pill de un acorde elegido (ver
  * ScentFinder) se puede rellenar con su propio color guardado en vez de un navy genérico, sin que
  * el texto se vuelva ilegible en los acordes de color claro (ej. "Atalcado", "Cítrico"). Fórmula
@@ -753,26 +871,22 @@ function getContrastTextColor(hex: string): string {
 
 /** "Encuentra tu aroma ideal" — prefiltrado rápido de Perfumes antes de llegar a /categoria: elegís UN
  * acorde (de los marcados "Destacado" en Configuración → Atributos → Acordes, ver
- * handleOptionDestacadoChange en dashboard/attributes/page.tsx) + opcionalmente Subcategoría,
+ * handleOptionDestacadoChange en dashboard/attributes/page.tsx) + opcionalmente Subcategoría y
  * Género/Concentración (cualquier atributo filtrable de una sola opción que tenga la categoría, sin
- * hardcodear sus nombres) y un rango de precio, y "Ver {acorde}" arma la URL de /categoria/perfumes
- * con esos mismos filtros ya aplicados (mismo formato subcategoria=id / attr[id]=valor que ya
- * entiende esa página). No incluye Presentación (talle) a propósito — ver conversación: ese
- * atributo es "con precio propio" (cada talle es una variante con su propio precio) y el motor de
- * filtros actual no lo soporta como filtro de catálogo. */
+ * hardcodear sus nombres), y "Ver {acorde}" arma la URL de /categoria/perfumes con esos mismos
+ * filtros ya aplicados (mismo formato subcategoria=id / attr[id]=valor que ya entiende esa página).
+ * No incluye Presentación (talle) a propósito — ver conversación: ese atributo es "con precio
+ * propio" (cada talle es una variante con su propio precio) y el motor de filtros actual no lo
+ * soporta como filtro de catálogo. Tampoco incluye precio — a pedido, se sacó el filtro de rango de
+ * precio de este bloque. */
 function ScentFinder({ category, subcategories }: { category: Category; subcategories: Category[] }) {
   const [attributes, setAttributes] = useState<Attribute[] | null>(null);
-  const [maxPriceBs, setMaxPriceBs] = useState(0);
   const [selectedAcordeId, setSelectedAcordeId] = useState("");
   const [selectedSubcategoriaId, setSelectedSubcategoriaId] = useState("");
   const [selectedByAttribute, setSelectedByAttribute] = useState<Record<string, string>>({});
-  const [selectedBandIndex, setSelectedBandIndex] = useState("");
 
   useEffect(() => {
     apiGet<Attribute[]>(`/catalog/categories/${category.id}/filters`).then(setAttributes).catch(() => {});
-    apiGet<CategoryAggregates>(`/catalog/categories/${category.id}/aggregates`)
-      .then((agg) => setMaxPriceBs(agg.maxPriceBs))
-      .catch(() => {});
   }, [category.id]);
 
   // El atributo de acordes es el único allowMultiple de la categoría — no hace falta buscarlo por
@@ -791,20 +905,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
     setSelectedAcordeId(destacados[0].id);
   }, [destacados, selectedAcordeId]);
 
-  const priceBands = useMemo<PriceBand[]>(() => {
-    if (maxPriceBs <= 0) return [];
-    const round = (n: number) => Math.max(50, Math.round(n / 50) * 50);
-    const q1 = round(maxPriceBs * 0.25);
-    const q2 = round(maxPriceBs * 0.5);
-    const q3 = round(maxPriceBs * 0.75);
-    return [
-      { label: `Hasta Bs ${q1}`, min: 0, max: q1 },
-      { label: `Bs ${q1} – Bs ${q2}`, min: q1, max: q2 },
-      { label: `Bs ${q2} – Bs ${q3}`, min: q2, max: q3 },
-      { label: `Más de Bs ${q3}`, min: q3, max: 10_000_000 },
-    ];
-  }, [maxPriceBs]);
-
   if (!acordesAttribute || destacados.length === 0) return null;
 
   const selectedAcorde = destacados.find((o) => o.id === selectedAcordeId) ?? destacados[0];
@@ -817,13 +917,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
   for (const attr of dropdownAttributes) {
     const value = selectedByAttribute[attr.id];
     if (value) params.set(`attr[${attr.id}]`, value);
-  }
-  // Number("") es 0 (no NaN) — sin este chequeo, "Cualquiera" (sin elegir nada) indexaba la
-  // primera banda real y terminaba filtrando "Hasta Bs 200" igual.
-  const band = selectedBandIndex !== "" ? priceBands[Number(selectedBandIndex)] : undefined;
-  if (band) {
-    params.set("minPriceBs", String(band.min));
-    params.set("maxPriceBs", String(band.max));
   }
   const href = `/categoria/${category.slug}?${params.toString()}`;
 
@@ -896,17 +989,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
                 </select>
               </label>
             ))}
-            <label className="landing-scent-finder-field">
-              Precio (Bs)
-              <select className="landing-select" value={selectedBandIndex} onChange={(e) => setSelectedBandIndex(e.target.value)}>
-                <option value="">Cualquiera</option>
-                {priceBands.map((b, i) => (
-                  <option value={i} key={b.label}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <div className="landing-scent-finder-footer">

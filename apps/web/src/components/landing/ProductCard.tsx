@@ -225,7 +225,15 @@ export function ProductCard({
             {fromPrice ? "Desde " : ""}Bs {formatPriceBs(bs)}
           </span>
         )}
-        {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
+        {/* Slot de alto fijo siempre presente (con o sin oferta flash) — así el precio, que va justo
+            antes, cae en el mismo lugar en toda la fila de tarjetas (carrusel de ofertas y colección
+            de la semana); antes el countdown solo ocupaba espacio cuando estaba presente, y el
+            precio de las tarjetas sin oferta flash terminaba más abajo que el de las que sí tenían.
+            Sin alto reservado por CSS fuera de esos dos lugares (ver .landing-flash-slot), así que no
+            cambia nada en los demás usos de ProductCard. */}
+        <div className={`landing-flash-slot landing-flash-slot--${flashVariant}`}>
+          {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
+        </div>
       </div>
     </Link>
   );

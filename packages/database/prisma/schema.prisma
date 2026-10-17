@@ -208,6 +208,11 @@ model SystemSetting {
   // de gestión) — null = el bloque no se muestra. Una sola marca a la vez (no hay lista).
   weeklyCollectionBrandId String? @map("weekly_collection_brand_id") @db.Uuid
   weeklyCollectionBrand   Brand?  @relation(fields: [weeklyCollectionBrandId], references: [id], onDelete: SetNull)
+  // Historia marcada a mano como destacada (se elige desde Gestión → Historias) — alimenta el bloque
+  // "Última historia" del home y la tarjeta "Destacada" de /historias. Null = ambos caen a la
+  // historia publicada más reciente (ver HistoriaService.findDestacada).
+  destacadaHistoriaId String?   @map("destacada_historia_id") @db.Uuid
+  destacadaHistoria   Historia? @relation(fields: [destacadaHistoriaId], references: [id], onDelete: SetNull)
   // Datos del módulo de contacto (footer del sitio público) — Configuración → Global → Contacto.
   // telefonos es texto libre (puede tener más de un número, uno por línea).
   telefonos String? @map("telefonos")
@@ -330,6 +335,8 @@ model Brand {
   // Nunca más de una fila apunta acá en la práctica (SystemSetting es singleton) — ver
   // weeklyCollectionBrandId.
   weeklyCollectionSettings SystemSetting[]
+  // Historias que sugieren esta marca al final ("Explora la casa") — ver Historia.sugerenciaBrandId.
+  historiasSugerencia Historia[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -402,6 +409,9 @@ model AttributeOption {
   ordenDestacado Int     @default(0) @map("orden_destacado")
 
   productValues ProductAttributeValue[]
+  // Historias que sugieren este acorde/ingrediente al final ("Explora los aromas...") — ver
+  // Historia.sugerenciaAttributeOptionId.
+  historiasSugerencia Historia[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -444,6 +454,9 @@ model Product {
   attributeValues     ProductAttributeValue[]
   variantOptionValues ProductVariantOptionValue[]
   variants            ProductVariant[]
+  // Historias que eligieron este producto a mano para su sugerencia final (sugerenciaTipo PERFUMES)
+  // — ver HistoriaSugerenciaProducto.
+  historiaSugerencias HistoriaSugerenciaProducto[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1138,4 +1151,144 @@ model CuentaPorCobrar {
 
   @@index([estado])
   @@map("cuentas_por_cobrar")
+}
+
+/// Categorías fijas para filtrar Historias (Gestión → Historias) — una historia puede marcar más de
+/// una (ej. Mizensir: CASAS + PERFUMISTAS).
+enum HistoriaCategoria {
+  CASAS
+  PERFUMISTAS
+  INGREDIENTES
+  FRAGANCIAS
+  APRENDE
+
+  @@map("historia_categoria")
+}
+
+/// Historia editorial publicable (ej. "El hombre detrás de las leyendas", sobre Mizensir) — alimenta
+/// /historias y /historias/[slug], y opcionalmente el bloque "Última historia" del home y la tarjeta
+/// "Destacada" de /historias vía SystemSetting.destacadaHistoriaId (ver ese campo).
+model Historia {
+  id        String   @id @default(uuid()) @db.Uuid
+  titulo    String
+  // Se genera desde el título al crear (slugify) — no se regenera después, mismo criterio que
+  // Product.slug, para no romper el link público si cambia el título.
+  slug      String   @unique
+  publicada Boolean  @default(false)
+  // Orden manual del listado en Gestión y de /historias — se reordena intercambiando `orden` con el
+  // vecino (ver HistoriaService.move), mismo criterio que Category.orden/CarouselImage.orden.
+  orden     Int      @default(0)
+
+  // Imagen propia del bloque "Última historia" del home — ese recorte (panorámico, ~980x460) es muy
+  // distinto al de la portada en /historias/[slug] (angosto y alto, según el texto), así que
+  // reusar la imagen de la portada ahí se veía mal en uno de los dos lugares. Null = cae a la
+  // imagen de la portada (bloques[0]), como antes de este campo.
+  homeImageUrl       String? @map("home_image_url")
+  homeMobileImageUrl String? @map("home_mobile_image_url")
+
+  categorias HistoriaCategoriaTag[]
+  bloques    HistoriaBloque[]
+
+  // Vínculo manual y recíproco: agregar B como relacionada de A crea las dos filas (A→B y B→A) — ver
+  // HistoriaService.addRelacionada. Sin ninguna, el bloque "Historias relacionadas" no se muestra.
+  relacionadas  HistoriaRelacionada[] @relation("HistoriaA")
+  relacionadaDe HistoriaRelacionada[] @relation("HistoriaB")
+
+  // Nunca más de una fila apunta acá en la práctica (SystemSetting es singleton) — ver
+  // destacadaHistoriaId.
+  destacadaEnSettings SystemSetting[]
+
+  // Sugerencia al final de la historia ("Explora la casa/fragancia/los aromas...") — como mucho una
+  // de las tres fuentes aplica según `sugerenciaTipo` (ver HistoriaSugerenciaTipo); null = sin
+  // sugerencia (siempre el caso para historias de categoría Aprende). CASA resuelve sus productos en
+  // vivo (últimos agregados de esa marca); INGREDIENTE ídem (últimos con ese acorde); PERFUMES usa la
+  // lista manual de sugerenciaProductos en vez de resolver nada.
+  sugerenciaTipo              HistoriaSugerenciaTipo? @map("sugerencia_tipo")
+  sugerenciaBrandId           String?                 @map("sugerencia_brand_id") @db.Uuid
+  sugerenciaBrand             Brand?                  @relation(fields: [sugerenciaBrandId], references: [id], onDelete: SetNull)
+  sugerenciaAttributeOptionId String?                 @map("sugerencia_attribute_option_id") @db.Uuid
+  sugerenciaAttributeOption   AttributeOption?        @relation(fields: [sugerenciaAttributeOptionId], references: [id], onDelete: SetNull)
+  sugerenciaProductos         HistoriaSugerenciaProducto[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("historias")
+}
+
+/// Qué alimenta el bloque de sugerencia al final de una historia — ver Historia.sugerenciaTipo.
+enum HistoriaSugerenciaTipo {
+  CASA
+  PERFUMES
+  // Distinto de PERFUMES solo en el copy público ("Explora sus Creaciones" en vez de "Explora la
+  // Fragancia") — comparte el mismo mecanismo de selección manual vía sugerenciaProductos.
+  PERFUMISTA
+  INGREDIENTE
+
+  @@map("historia_sugerencia_tipo")
+}
+
+/// Perfumes elegidos a mano para el bloque de sugerencia cuando sugerenciaTipo = PERFUMES — orden
+/// manual (se reordena intercambiando `orden` con el vecino, mismo criterio que el resto de las
+/// listas ordenables de Historia). Sin uso cuando sugerenciaTipo es CASA o INGREDIENTE (esos casos
+/// resuelven sus productos en vivo, no desde acá).
+model HistoriaSugerenciaProducto {
+  historiaId String   @map("historia_id") @db.Uuid
+  historia   Historia @relation(fields: [historiaId], references: [id], onDelete: Cascade)
+  productId  String   @map("product_id") @db.Uuid
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orden      Int      @default(0)
+
+  @@id([historiaId, productId])
+  @@map("historia_sugerencia_productos")
+}
+
+model HistoriaCategoriaTag {
+  historiaId String            @map("historia_id") @db.Uuid
+  historia   Historia          @relation(fields: [historiaId], references: [id], onDelete: Cascade)
+  categoria  HistoriaCategoria
+
+  @@id([historiaId, categoria])
+  @@map("historia_categorias")
+}
+
+/// Un bloque de contenido de una Historia: orden 0 es la portada (obligatoria, no se puede eliminar
+/// desde el panel); 1+ son los bloques/capítulos agregados a mano, mismos campos que la portada.
+/// texto1–texto4 los interpreta el frontend según la posición (título, nombre/marca destacada,
+/// subtítulo, cuerpo) — acá quedan genéricos a propósito, ver la maqueta de Historias.
+model HistoriaBloque {
+  id         String   @id @default(uuid()) @db.Uuid
+  historiaId String   @map("historia_id") @db.Uuid
+  historia   Historia @relation(fields: [historiaId], references: [id], onDelete: Cascade)
+  orden      Int      @default(0)
+
+  texto1 String? @db.Text
+  texto2 String? @db.Text
+  texto3 String? @db.Text
+  texto4 String? @db.Text
+
+  // Nullable: el bloque se crea solo con textos (o solo con imagen) desde el formulario de Gestión,
+  // sin obligar a cargar todo en el mismo paso. Sin imagen, el sitio público muestra un placeholder
+  // con gradiente, mismo criterio que Category sin CarouselImage.
+  imageUrl String? @map("image_url")
+  // Variante opcional para pantallas chicas — si no está cargada, el sitio público cae a `imageUrl`
+  // también en mobile, mismo criterio que CarouselImage.mobileImageUrl.
+  mobileImageUrl String? @map("mobile_image_url")
+
+  @@index([historiaId, orden])
+  @@map("historia_bloques")
+}
+
+/// Vínculo dirigido A→B entre dos historias — HistoriaService.addRelacionada siempre crea el par
+/// (A→B y B→A) para que la relación se vea recíproca, así que en la práctica cada vínculo son 2
+/// filas. Quitarlo borra las 2.
+model HistoriaRelacionada {
+  historiaAId String   @map("historia_a_id") @db.Uuid
+  historiaBId String   @map("historia_b_id") @db.Uuid
+  historiaA   Historia @relation("HistoriaA", fields: [historiaAId], references: [id], onDelete: Cascade)
+  historiaB   Historia @relation("HistoriaB", fields: [historiaBId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@id([historiaAId, historiaBId])
+  @@map("historia_relacionadas")
 }

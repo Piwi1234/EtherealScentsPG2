@@ -20,6 +20,11 @@ import type {
   EmpresaInput,
   EstadoCuentaPorCobrar,
   EstadoSeguimientoProcura,
+  HistoriaBloque,
+  HistoriaCategoria,
+  HistoriaDetalle,
+  HistoriaResumen,
+  HistoriaSugerenciaTipo,
   LoteCompraConDetalle,
   MonedaCartera,
   MovimientoCartera,
@@ -572,6 +577,128 @@ export function previewBrandsNormalizeCase() {
 
 export function applyBrandsNormalizeCase() {
   return apiPost<{ updated: number }>("/brands/normalize-case/apply", {});
+}
+
+// --- Historias ---
+
+export function getHistoriasAdmin() {
+  return apiGet<HistoriaResumen[]>("/historias/admin");
+}
+
+export function getHistorias(query: { categoria?: HistoriaCategoria; search?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.categoria) params.set("categoria", query.categoria);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiGet<HistoriaResumen[]>(`/historias${qs ? `?${qs}` : ""}`);
+}
+
+export function getHistoriaDestacada() {
+  return apiGet<HistoriaDetalle | null>("/historias/destacada");
+}
+
+export function getHistoriaBySlug(slug: string) {
+  return apiGet<HistoriaDetalle>(`/historias/slug/${slug}`);
+}
+
+export function getHistoria(id: string) {
+  return apiGet<HistoriaDetalle>(`/historias/${id}`);
+}
+
+export function createHistoria(data: { titulo: string; slug?: string; categorias: HistoriaCategoria[] }) {
+  return apiPost<HistoriaDetalle>("/historias", data);
+}
+
+export function updateHistoria(
+  id: string,
+  data: Partial<{ titulo: string; slug: string; categorias: HistoriaCategoria[]; publicada: boolean }>,
+) {
+  return apiPatch<HistoriaDetalle>(`/historias/${id}`, data);
+}
+
+export function deleteHistoria(id: string) {
+  return apiDelete<void>(`/historias/${id}`);
+}
+
+export function moveHistoria(id: string, direction: "up" | "down") {
+  return apiPatch<void>(`/historias/${id}/move`, { direction });
+}
+
+export function setHistoriaDestacada(id: string) {
+  return apiPatch<void>(`/historias/${id}/destacada`, {});
+}
+
+export function clearHistoriaDestacada() {
+  return apiDelete<void>("/historias/destacada");
+}
+
+export function setHistoriaHomeImage(historiaId: string, file: File) {
+  return apiUpload<HistoriaDetalle>(`/historias/${historiaId}/home-image`, file);
+}
+
+export function setHistoriaHomeMobileImage(historiaId: string, file: File) {
+  return apiUpload<HistoriaDetalle>(`/historias/${historiaId}/home-mobile-image`, file);
+}
+
+export function removeHistoriaHomeMobileImage(historiaId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/home-mobile-image`);
+}
+
+export type HistoriaBloqueTextos = Partial<{ texto1: string; texto2: string; texto3: string; texto4: string }>;
+
+export function addHistoriaBloque(historiaId: string, data: HistoriaBloqueTextos = {}) {
+  return apiPost<HistoriaBloque>(`/historias/${historiaId}/bloques`, data);
+}
+
+export function updateHistoriaBloque(historiaId: string, bloqueId: string, data: HistoriaBloqueTextos) {
+  return apiPatch<HistoriaBloque>(`/historias/${historiaId}/bloques/${bloqueId}`, data);
+}
+
+export function removeHistoriaBloque(historiaId: string, bloqueId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/bloques/${bloqueId}`);
+}
+
+export function moveHistoriaBloque(historiaId: string, bloqueId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/historias/${historiaId}/bloques/${bloqueId}/move`, { direction });
+}
+
+export function setHistoriaBloqueImage(historiaId: string, bloqueId: string, file: File) {
+  return apiUpload<HistoriaBloque>(`/historias/${historiaId}/bloques/${bloqueId}/image`, file);
+}
+
+export function setHistoriaBloqueMobileImage(historiaId: string, bloqueId: string, file: File) {
+  return apiUpload<HistoriaBloque>(`/historias/${historiaId}/bloques/${bloqueId}/mobile-image`, file);
+}
+
+export function removeHistoriaBloqueMobileImage(historiaId: string, bloqueId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/bloques/${bloqueId}/mobile-image`);
+}
+
+export function addHistoriaRelacionada(historiaId: string, relacionadaId: string) {
+  return apiPost<void>(`/historias/${historiaId}/relacionadas`, { relacionadaId });
+}
+
+export function removeHistoriaRelacionada(historiaId: string, relacionadaId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/relacionadas/${relacionadaId}`);
+}
+
+export function setHistoriaSugerencia(
+  historiaId: string,
+  data: { tipo: HistoriaSugerenciaTipo | null; brandId?: string | null; attributeOptionId?: string | null },
+) {
+  return apiPatch<HistoriaDetalle>(`/historias/${historiaId}/sugerencia`, data);
+}
+
+export function addHistoriaSugerenciaProducto(historiaId: string, productId: string) {
+  return apiPost<void>(`/historias/${historiaId}/sugerencia/productos`, { productId });
+}
+
+export function removeHistoriaSugerenciaProducto(historiaId: string, productId: string) {
+  return apiDelete<void>(`/historias/${historiaId}/sugerencia/productos/${productId}`);
+}
+
+export function moveHistoriaSugerenciaProducto(historiaId: string, productId: string, direction: "up" | "down") {
+  return apiPatch<void>(`/historias/${historiaId}/sugerencia/productos/${productId}/move`, { direction });
 }
 
 export function downloadProductsExport() {
