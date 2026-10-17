@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
 import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
-import type { Attribute, Brand, CarouselImage, Category, CategoryAggregates, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
+import type { Attribute, Brand, CarouselImage, Category, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -857,8 +857,6 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
   );
 }
 
-type PriceBand = { label: string; min: number; max: number };
-
 /** Negro o blanco según qué tan clara es la variante — así el pill de un acorde elegido (ver
  * ScentFinder) se puede rellenar con su propio color guardado en vez de un navy genérico, sin que
  * el texto se vuelva ilegible en los acordes de color claro (ej. "Atalcado", "Cítrico"). Fórmula
@@ -873,26 +871,22 @@ function getContrastTextColor(hex: string): string {
 
 /** "Encuentra tu aroma ideal" — prefiltrado rápido de Perfumes antes de llegar a /categoria: elegís UN
  * acorde (de los marcados "Destacado" en Configuración → Atributos → Acordes, ver
- * handleOptionDestacadoChange en dashboard/attributes/page.tsx) + opcionalmente Subcategoría,
+ * handleOptionDestacadoChange en dashboard/attributes/page.tsx) + opcionalmente Subcategoría y
  * Género/Concentración (cualquier atributo filtrable de una sola opción que tenga la categoría, sin
- * hardcodear sus nombres) y un rango de precio, y "Ver {acorde}" arma la URL de /categoria/perfumes
- * con esos mismos filtros ya aplicados (mismo formato subcategoria=id / attr[id]=valor que ya
- * entiende esa página). No incluye Presentación (talle) a propósito — ver conversación: ese
- * atributo es "con precio propio" (cada talle es una variante con su propio precio) y el motor de
- * filtros actual no lo soporta como filtro de catálogo. */
+ * hardcodear sus nombres), y "Ver {acorde}" arma la URL de /categoria/perfumes con esos mismos
+ * filtros ya aplicados (mismo formato subcategoria=id / attr[id]=valor que ya entiende esa página).
+ * No incluye Presentación (talle) a propósito — ver conversación: ese atributo es "con precio
+ * propio" (cada talle es una variante con su propio precio) y el motor de filtros actual no lo
+ * soporta como filtro de catálogo. Tampoco incluye precio — a pedido, se sacó el filtro de rango de
+ * precio de este bloque. */
 function ScentFinder({ category, subcategories }: { category: Category; subcategories: Category[] }) {
   const [attributes, setAttributes] = useState<Attribute[] | null>(null);
-  const [maxPriceBs, setMaxPriceBs] = useState(0);
   const [selectedAcordeId, setSelectedAcordeId] = useState("");
   const [selectedSubcategoriaId, setSelectedSubcategoriaId] = useState("");
   const [selectedByAttribute, setSelectedByAttribute] = useState<Record<string, string>>({});
-  const [selectedBandIndex, setSelectedBandIndex] = useState("");
 
   useEffect(() => {
     apiGet<Attribute[]>(`/catalog/categories/${category.id}/filters`).then(setAttributes).catch(() => {});
-    apiGet<CategoryAggregates>(`/catalog/categories/${category.id}/aggregates`)
-      .then((agg) => setMaxPriceBs(agg.maxPriceBs))
-      .catch(() => {});
   }, [category.id]);
 
   // El atributo de acordes es el único allowMultiple de la categoría — no hace falta buscarlo por
@@ -911,20 +905,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
     setSelectedAcordeId(destacados[0].id);
   }, [destacados, selectedAcordeId]);
 
-  const priceBands = useMemo<PriceBand[]>(() => {
-    if (maxPriceBs <= 0) return [];
-    const round = (n: number) => Math.max(50, Math.round(n / 50) * 50);
-    const q1 = round(maxPriceBs * 0.25);
-    const q2 = round(maxPriceBs * 0.5);
-    const q3 = round(maxPriceBs * 0.75);
-    return [
-      { label: `Hasta Bs ${q1}`, min: 0, max: q1 },
-      { label: `Bs ${q1} – Bs ${q2}`, min: q1, max: q2 },
-      { label: `Bs ${q2} – Bs ${q3}`, min: q2, max: q3 },
-      { label: `Más de Bs ${q3}`, min: q3, max: 10_000_000 },
-    ];
-  }, [maxPriceBs]);
-
   if (!acordesAttribute || destacados.length === 0) return null;
 
   const selectedAcorde = destacados.find((o) => o.id === selectedAcordeId) ?? destacados[0];
@@ -937,13 +917,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
   for (const attr of dropdownAttributes) {
     const value = selectedByAttribute[attr.id];
     if (value) params.set(`attr[${attr.id}]`, value);
-  }
-  // Number("") es 0 (no NaN) — sin este chequeo, "Cualquiera" (sin elegir nada) indexaba la
-  // primera banda real y terminaba filtrando "Hasta Bs 200" igual.
-  const band = selectedBandIndex !== "" ? priceBands[Number(selectedBandIndex)] : undefined;
-  if (band) {
-    params.set("minPriceBs", String(band.min));
-    params.set("maxPriceBs", String(band.max));
   }
   const href = `/categoria/${category.slug}?${params.toString()}`;
 
@@ -1016,17 +989,6 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
                 </select>
               </label>
             ))}
-            <label className="landing-scent-finder-field">
-              Precio (Bs)
-              <select className="landing-select" value={selectedBandIndex} onChange={(e) => setSelectedBandIndex(e.target.value)}>
-                <option value="">Cualquiera</option>
-                {priceBands.map((b, i) => (
-                  <option value={i} key={b.label}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <div className="landing-scent-finder-footer">
