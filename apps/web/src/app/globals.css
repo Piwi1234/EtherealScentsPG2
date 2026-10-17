@@ -6225,6 +6225,34 @@ a {
   margin-bottom: 12px;
 }
 
+/* Logo + eslogan centrados entre sí, a diferencia de las demás columnas del footer (que siguen
+   alineadas a la izquierda) — a pedido. */
+.landing-footer-brand-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Mismo logo blanco que el navbar (ver .landing-navbar-logo) — el texto de .landing-footer-brand
+   queda como respaldo si la empresa no tiene logo cargado. */
+.landing-footer-logo {
+  display: block;
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 14px;
+}
+
+/* +20% solo en desktop (36px -> 43px), a pedido — por encima de los 900px en que el footer pasa a 2
+   columnas (ver el media query de .landing-footer-grid), que es donde este layout deja de ser
+   "mobile/tablet" en el resto del footer. */
+@media (min-width: 901px) {
+  .landing-footer-logo {
+    height: 43px;
+  }
+}
+
 .landing-footer-tagline {
   font-size: 13px;
   max-width: 240px;
