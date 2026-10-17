@@ -73,6 +73,15 @@ function defaultVariantId(product: Product): string | undefined {
   return product.variants.reduce((best, v) => (v.price > best.price ? v : best), product.variants[0]).id;
 }
 
+// A pedido: el desplegable de Estado colorea su propio texto según el valor elegido — no solo el
+// de la lista desplegada (que ya toman el color de cada <option>), también el del select cerrado,
+// que si no se fija a mano queda con el color de texto por default sin importar la opción activa.
+function estadoLabelColor(estado: EstadoVariante): string {
+  if (estado === "DISPONIBLE") return "#66d17a";
+  if (estado === "NO_DISPONIBLE") return "#ff6b6b";
+  return "#ffffff";
+}
+
 const PAGE_SIZE = 15;
 
 export default function ProductsPage() {
@@ -396,12 +405,42 @@ export default function ProductsPage() {
   }
 
   // Un click en la fila abre editar, salvo que el click haya sido sobre un control interactivo de
-  // la celda (el desplegable de variante, los botones de Editar/Eliminar, o la miniatura de imagen,
-  // que tiene su propio click para la preview).
+  // la celda (el desplegable de variante, el menú de acciones, o la miniatura de imagen, que tiene
+  // su propio click para la preview).
   function handleRowClick(e: React.MouseEvent<HTMLTableRowElement>, product: Product) {
     if ((e.target as HTMLElement).closest("select, button, a, input, img")) return;
     router.push(`/dashboard/products/${product.id}/edit`);
   }
+
+  // Menú "⋯" de la fila — `position: fixed` anclado a la posición real del botón (no `absolute`
+  // dentro de la celda) para que nunca quede recortado por el overflow-x:auto de .table-scroll,
+  // pase lo que pase con el scroll horizontal o con cuán abajo esté la fila. Un solo panel
+  // compartido (no uno por fila) para no tener que preocuparse de cerrar los demás al abrir uno.
+  const [openActionsMenu, setOpenActionsMenu] = useState<{ product: Product; top: number; left: number } | null>(null);
+
+  function handleToggleActionsMenu(e: React.MouseEvent<HTMLButtonElement>, product: Product) {
+    if (openActionsMenu?.product.id === product.id) {
+      setOpenActionsMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setOpenActionsMenu({ product, top: rect.bottom + 4, left: Math.max(8, rect.right - 140) });
+  }
+
+  // La posición se calcula una sola vez al abrir — si la página scrollea (incluido el scroll
+  // horizontal de la tabla) el panel queda desalineado del botón, así que se cierra solo.
+  useEffect(() => {
+    if (!openActionsMenu) return;
+    function close() {
+      setOpenActionsMenu(null);
+    }
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [openActionsMenu]);
 
   // Columnas extra: atributos marcados "Mostrar en tabla de productos", solo los que
   // efectivamente aparecen en los productos pasados (evita columnas vacías de otras categorías).
@@ -848,20 +887,33 @@ export default function ProductsPage() {
                                 value={selectedVariant.estado}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => handleUpdateEstado(product.id, selectedVariant.id, e.target.value as EstadoVariante)}
-                                style={{ width: 130 }}
+                                style={{ width: 130, color: estadoLabelColor(selectedVariant.estado), fontWeight: 600 }}
                               >
-                                <option value="DISPONIBLE">Disponible</option>
-                                <option value="NO_DISPONIBLE">No disponible</option>
-                                <option value="PREVENTA">Preventa</option>
+                                <option value="DISPONIBLE" style={{ color: estadoLabelColor("DISPONIBLE") }}>Disponible</option>
+                                <option value="NO_DISPONIBLE" style={{ color: estadoLabelColor("NO_DISPONIBLE") }}>No disponible</option>
+                                <option value="PREVENTA" style={{ color: estadoLabelColor("PREVENTA") }}>Preventa</option>
                               </select>
                             ) : (
                               <span className="cell-muted">—</span>
                             )}
                           </td>
                           <td>
-                            <div className="row-actions">
-                              <Link href={`/dashboard/products/${product.id}/edit`} className="action-btn">Editar</Link>
-                              <button type="button" className="action-btn danger" onClick={() => handleDelete(product)}>Eliminar</button>
+                            {/* Sin link "Editar" a propósito: un click en cualquier parte de la fila ya abre
+                                editar (ver handleRowClick) — este menú queda solo para lo que no tiene su
+                                propio gesto, por ahora nada más que Eliminar. */}
+                            <div className="row-actions-menu">
+                              <button
+                                type="button"
+                                className="row-actions-trigger"
+                                aria-label="Más acciones"
+                                onClick={(e) => handleToggleActionsMenu(e, product)}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="1.8" />
+                                  <circle cx="12" cy="12" r="1.8" />
+                                  <circle cx="12" cy="19" r="1.8" />
+                                </svg>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1015,6 +1067,26 @@ export default function ProductsPage() {
           </button>
           <img className="image-lightbox-img" src={previewImageUrl} alt="" onClick={(e) => e.stopPropagation()} />
         </div>
+      )}
+
+      {openActionsMenu && (
+        <>
+          <div className="row-actions-overlay" onClick={() => setOpenActionsMenu(null)} />
+          <div className="row-actions-panel" style={{ top: openActionsMenu.top, left: openActionsMenu.left }}>
+            <button
+              type="button"
+              className="action-btn danger"
+              style={{ width: "100%", justifyContent: "flex-start" }}
+              onClick={() => {
+                const product = openActionsMenu.product;
+                setOpenActionsMenu(null);
+                handleDelete(product);
+              }}
+            >
+              Eliminar
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

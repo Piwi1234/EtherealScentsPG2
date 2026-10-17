@@ -636,6 +636,104 @@ a {
   font-size: 13px;
 }
 
+/* --- Rediseño "densidad alta + edición rápida" (a pedido, evaluado antes con 3 mockups) ---
+   Fila más baja (padding 5px en vez de los 8px de .table-minimal) y zebra striping aplicado al
+   <tr> (no al <td>) a propósito: .may-bs-col/.final-bs-col/.compra-col ya tienen su propio
+   background fijo (negro) que gana por especificidad sobre cualquier regla a nivel <td>, así que
+   pintar el zebra en la fila evita pisarlo — y de paso, al no depender de un color propio por
+   celda, las columnas fijas de abajo (Nombre/Acciones) muestran siempre el mismo tinte que el
+   resto de su fila sin importar si están tapadas por el scroll o no. */
+.products-table th,
+.products-table td {
+  padding: 5px 10px;
+}
+
+.products-table thead th {
+  font-size: 10.5px;
+}
+
+.products-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Nombre y Acciones quedan clavadas en su lugar mientras el resto de las columnas se desliza por
+   debajo al hacer scroll horizontal — con esta cantidad de columnas, sin esto perdés de vista de
+   qué producto son los precios apenas scrolleás hacia la derecha. Nombre es siempre la 4ta columna
+   (Stock, Imagen, Marca, Nombre) sin importar cuántas columnas de atributos haya después. */
+.products-table th:nth-child(4),
+.products-table td:nth-child(4) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.products-table th:last-child,
+.products-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+}
+
+/* Los desplegables de atributos/Estado se ven como texto plano hasta que se les pasa el mouse o
+   reciben foco — con una fila tan baja, 2-3 cajas de formulario siempre visibles por fila se
+   sentía más cargado que la información en sí. */
+.nocturne-theme .products-table select.field {
+  padding: 2px 6px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.nocturne-theme .products-table select.field:hover,
+.nocturne-theme .products-table select.field:focus {
+  border-color: var(--color-divider);
+  background: var(--color-bg);
+}
+
+.products-table .row-actions-menu {
+  position: relative;
+}
+
+.products-table .row-actions-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nocturne-theme .products-table .row-actions-trigger {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.nocturne-theme .products-table .row-actions-trigger:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+
+.products-table .row-actions-panel {
+  position: fixed;
+  z-index: 50;
+  min-width: 140px;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.nocturne-theme .products-table .row-actions-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.products-table .row-actions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+}
+
 .products-table .may-bs-col {
   background: rgba(0, 0, 0, 0.05);
 }
