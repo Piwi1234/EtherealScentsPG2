@@ -105,13 +105,10 @@ export default function HomePage() {
     apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
     getHistoriaDestacada().then(setHistoriaDestacada).catch(() => {});
 
-    // Si hay ofertas flash vigentes, ese pill arranca seleccionado por defecto.
+    // "Descuentos" es siempre el default (ver useState más arriba) — a pedido, ya no se auto-
+    // selecciona "Ofertas Flash" aunque haya alguna vigente; el pill solo se muestra si hay.
     apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
-      .then((page) => {
-        const has = page.total > 0;
-        setHasFlashOffers(has);
-        if (has) setOffersMode("flash");
-      })
+      .then((page) => setHasFlashOffers(page.total > 0))
       .catch(() => setHasFlashOffers(false));
 
     // El pill "Preventa" solo se muestra si hay algo que filtrar — nunca se auto-selecciona.
@@ -399,6 +396,13 @@ export default function HomePage() {
               temporizador — ver onlyPreventa en browse.service.ts) — independiente de la categoría,
               que se elige aparte en la 2da fila de acá abajo. */}
           <div className="landing-filter-pills landing-filter-pills--row1">
+            <button
+              type="button"
+              className={`landing-pill${offersMode === "discount" ? " landing-pill-active" : ""}`}
+              onClick={() => setOffersMode("discount")}
+            >
+              Descuentos
+            </button>
             {hasFlashOffers && (
               <button
                 type="button"
@@ -414,13 +418,6 @@ export default function HomePage() {
                 </svg>
               </button>
             )}
-            <button
-              type="button"
-              className={`landing-pill${offersMode === "discount" ? " landing-pill-active" : ""}`}
-              onClick={() => setOffersMode("discount")}
-            >
-              Descuentos
-            </button>
             {hasPreventaProducts && (
               <button
                 type="button"
