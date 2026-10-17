@@ -6179,9 +6179,15 @@ a {
    columna de texto, centrada, en vez del grid de 2 columnas que usaba antes con la imagen al lado. */
 
 .landing-about {
-  max-width: 640px;
+  max-width: 820px;
   margin: 0 auto;
   text-align: center;
+}
+
+/* Más aire entre el título y el texto que sigue (antes solo el margin-bottom:14px heredado de
+   .landing-section-title a secas) — a pedido. */
+.landing-about .landing-section-title {
+  margin-bottom: 28px;
 }
 
 .landing-about p {
