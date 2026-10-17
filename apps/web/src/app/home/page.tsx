@@ -11,10 +11,6 @@ import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
 import { ProductCard } from "../../components/landing/ProductCard";
 
-function scrollToId(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
@@ -689,18 +685,20 @@ export default function HomePage() {
       <section id="nosotros" className="landing-section landing-section-alt">
         <div className="landing-container landing-about">
           <div>
-            <p className="landing-eyebrow">Nuestra historia</p>
+            <p className="landing-eyebrow">Nuestra filosofía</p>
             <h2 className="landing-section-title">Sobre {brandName}</h2>
-            {/* Texto de ejemplo — reemplazar por la historia/misión real de la marca. */}
             <p>
-              Empezamos {brandName} con una idea simple: que comprar los productos que te gustan no debería
-              significar visitar cinco tiendas distintas. Seleccionamos cada marca que sumamos a nuestro catálogo
-              pensando en calidad y variedad real.
+              En {brandName} creemos que la perfumería va mucho más allá de elegir una fragancia. Cada aroma tiene
+              el poder de despertar sensaciones, evocar recuerdos y conectar con nuestra propia identidad.
             </p>
-            <p>Hoy seguimos creciendo, siempre con el mismo criterio: menos vueltas, más de lo que buscás.</p>
-            <button type="button" className="landing-btn landing-btn-outline-dark" onClick={() => scrollToId("contacto")}>
-              Conocer más
-            </button>
+            <p>
+              Por eso, buscamos transformar cada compra en una experiencia de descubrimiento, donde la atención
+              personalizada, el conocimiento y la conexión con nuestros clientes sean tan importantes como el
+              perfume que eligen.
+            </p>
+            <p>
+              <strong>Porque para nosotros, el aroma es solo el comienzo.</strong>
+            </p>
           </div>
         </div>
       </section>

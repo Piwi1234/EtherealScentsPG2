@@ -4934,9 +4934,11 @@ a {
 
 /* --- Detalle /historias/[slug] --- */
 
+/* Sin margin-top a propósito — a pedido, que quede pegada contra la portada de arriba en vez de
+   dejar un salto de color de por medio (el resto de los bloques del detalle ya se tocan entre sí,
+   solo este tenía un margen propio). */
 .landing-historia-toc {
   background: var(--es-navy-100);
-  margin-top: 56px;
 }
 
 .landing-historia-toc-inner {
@@ -6179,9 +6181,15 @@ a {
    columna de texto, centrada, en vez del grid de 2 columnas que usaba antes con la imagen al lado. */
 
 .landing-about {
-  max-width: 640px;
+  max-width: 820px;
   margin: 0 auto;
   text-align: center;
+}
+
+/* Más aire entre el título y el texto que sigue (antes solo el margin-bottom:14px heredado de
+   .landing-section-title a secas) — a pedido. */
+.landing-about .landing-section-title {
+  margin-bottom: 28px;
 }
 
 .landing-about p {
