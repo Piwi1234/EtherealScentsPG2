@@ -8,6 +8,11 @@ import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { HistoriaSugerenciaSection } from "./HistoriaSugerenciaSection";
 
+// Iría bueno importar SITE_ORIGIN de layout.tsx (como hace page.tsx, el server component de al
+// lado) pero ESTE archivo es "use client" — ese import arrastra todo layout.tsx al bundle del
+// cliente, generateMetadata (server-only) incluido, y rompe el build. Mismo valor, repetido nomás.
+const SITE_ORIGIN = "https://www.etherealscents-bo.com";
+
 function slugTitulo(historia: HistoriaResumen): string {
   return historia.bloques[0]?.texto1 || historia.titulo;
 }
@@ -27,7 +32,11 @@ export function HistoriaDetailClient({
   const capitulos = historia.bloques.filter((b) => b.orden !== 0).sort((a, b) => a.orden - b.orden);
   const relacionadas = historia.relacionadas.map((r) => r.historiaB);
 
-  const url = typeof window !== "undefined" ? window.location.href : `https://etherealscents-bo.com/historias/${historia.slug}`;
+  // Antes usaba window.location.href en el cliente (y este mismo fallback solo en el server) —
+  // daba un mismatch de hidratación apenas React comparaba el href del botón de WhatsApp entre
+  // ambos renders. La URL de esta página ya es predecible (sin query params que conservar), así
+  // que alcanza con construirla siempre igual en los dos lados.
+  const url = `${SITE_ORIGIN}/historias/${historia.slug}`;
   const title = portada?.texto1 || historia.titulo;
 
   async function handleCopyLink() {
