@@ -4479,9 +4479,61 @@ a {
    clases en el mismo div, el min-height:460px de .landing-historia-split de arriba seguía
    actuando como piso por encima de este height más chico — sin resetearlo acá, nunca bajaba de
    460px sin importar el valor que pusiera. */
+/* "Encuadrada": a pedido, esta tarjeta puntual (no el promo del home ni la portada/capítulos del
+   detalle, que siguen a sangre) lleva su propio marco — fondo marfil + overflow:hidden (recorta
+   imágenes más anchas que el wrap, ver más abajo), bordes rectos (no 20px redondeado como se probó
+   antes) para seguir el criterio del resto del sitio. El texto gana padding a la izquierda (antes 0,
+   pegado al borde del contenedor porque no había marco) y el difuminado se funde con este marfil en
+   vez del --es-bg gris de la página (ver .landing-historia-destacada .landing-historia-split-fade
+   más abajo) — si no, quedaría un salto de color visible entre el degradé y el fondo real de la
+   tarjeta. */
+/* Ancho 15% más angosto que el .landing-container que la contiene (hasta 1350px de ancho real,
+   75px de padding a cada lado) — 1350 * 0.85 ≈ 1148px. margin:auto para centrarla: sin eso, al ser
+   más angosta que el container, quedaría pegada al borde izquierdo con todo el espacio sobrante
+   amontonado a la derecha (mismo motivo que .landing-historia-promo, ver más abajo). */
 .landing-historia-destacada {
   height: 501px;
   min-height: 0;
+  max-width: 1148px;
+  margin: 0 auto;
+  background: #f8f3e7;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.landing-historia-destacada .landing-historia-split-text {
+  padding: 48px;
+}
+
+/* Ancho 100% del wrap (no un píxel fijo) con los cortes del degradé en %, no en px — la imagen (ver
+   más abajo) es angosta y de ancho variable según su proporción real, así que un difuminado a medida
+   fija quedaba posicionado mal apenas cambiaba de historia: unas veces corto (se notaba el salto
+   entre el degradé y la imagen) y otras de más (tapando marfil donde no hacía falta). Repitiendo el
+   marfil hasta el 30% y recién ahí empezando a transparentarse, la franja plana de marfil (a la
+   izquierda de la imagen) queda indistinguible del fondo real, y el tramo que se desvanece cae sobre
+   el borde de la imagen la mayoría de las veces. */
+.landing-historia-destacada .landing-historia-split-fade {
+  width: 100%;
+  background: linear-gradient(to right, #f8f3e7 0%, #f8f3e7 30%, rgba(248, 243, 231, 0) 60%);
+}
+
+/* Las imágenes de portada son más altas que anchas (sugerido 1200×1400, ver HistoriaBloqueEditor) —
+   a `object-fit: cover` llenando todo el wrap, ese formato se recorta mucho verticalmente acá porque
+   el wrap es casi cuadrado. En vez de recortar el alto, la imagen llena el alto entero del wrap
+   (toca el borde superior e inferior) y el ancho sale solo de su proporción real (width:auto, sin
+   recortarla ni estirarla) — angosta por ser vertical, así que no llega a tocar el lateral izquierdo;
+   se pega contra el borde derecho del wrap y el marfil de fondo que queda a ese costado se nota poco
+   porque ahí mismo está el difuminado. */
+.landing-historia-destacada .landing-historia-split-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.landing-historia-destacada .landing-historia-split-image {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
 }
 
 .landing-historia-split-text {
@@ -4563,10 +4615,28 @@ a {
     order: 2;
   }
 
+  /* Pisa el padding:48px parejo de desktop (ver más arriba) — acá el texto va abajo de la imagen, no
+     al costado, así que no necesita margen a los lados, solo un poco adentro del marco redondeado. */
+  .landing-historia-destacada .landing-historia-split-text {
+    padding: 0 24px 24px;
+  }
+
   .landing-historia-split-image-wrap {
     order: 1;
     aspect-ratio: 4 / 3;
     margin-bottom: 24px;
+  }
+
+  /* Acá arriba de la imagen en vez de al costado del texto (ver reset de orden más arriba) — el
+     recorte "85% del alto, pegada a la derecha" de desktop no aplica, vuelve al banner de siempre. */
+  .landing-historia-destacada .landing-historia-split-image-wrap {
+    display: block;
+  }
+
+  .landing-historia-destacada .landing-historia-split-image {
+    width: 100%;
+    height: 100%;
+    max-width: none;
   }
 
   .landing-historia-split-image,
@@ -4580,7 +4650,7 @@ a {
 }
 
 .landing-historia-eyebrow {
-  margin: 0 0 16px;
+  margin: 0 0 22px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -4599,16 +4669,21 @@ a {
   color: var(--es-gold-ink);
 }
 
-.landing-historia-title {
-  margin: 0 0 12px;
+/* ".landing-page" repetido a propósito en el selector: sin ese empujón de especificidad pierde
+   contra ".landing-page h1,h2,h3" (que le pone Manrope, ver esa regla más arriba) y el título queda
+   en sans mientras nombre/epígrafe de al lado sí salen en Playfair Display — exactamente lo que
+   pasaba antes de este fix (mismo criterio que .landing-scent-finder-title, ver su comentario). */
+.landing-page .landing-historia-title {
+  margin: 0 0 18px;
   font-family: "Playfair Display", serif;
-  font-weight: 600;
-  line-height: 1.12;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.15;
   color: var(--es-navy-900);
 }
 
 .landing-historia-name {
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   font-family: "Playfair Display", serif;
   font-weight: 600;
   font-size: 19px;
@@ -4617,7 +4692,7 @@ a {
 }
 
 .landing-historia-tagline {
-  margin: 0 0 20px;
+  margin: 0 0 28px;
   font-family: "Playfair Display", serif;
   font-style: italic;
   font-size: 17px;
