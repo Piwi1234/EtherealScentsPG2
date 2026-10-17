@@ -4934,9 +4934,11 @@ a {
 
 /* --- Detalle /historias/[slug] --- */
 
+/* Sin margin-top a propósito — a pedido, que quede pegada contra la portada de arriba en vez de
+   dejar un salto de color de por medio (el resto de los bloques del detalle ya se tocan entre sí,
+   solo este tenía un margen propio). */
 .landing-historia-toc {
   background: var(--es-navy-100);
-  margin-top: 56px;
 }
 
 .landing-historia-toc-inner {
