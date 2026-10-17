@@ -4580,7 +4580,7 @@ a {
 }
 
 .landing-historia-eyebrow {
-  margin: 0 0 16px;
+  margin: 0 0 22px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -4599,16 +4599,21 @@ a {
   color: var(--es-gold-ink);
 }
 
-.landing-historia-title {
-  margin: 0 0 12px;
+/* ".landing-page" repetido a propósito en el selector: sin ese empujón de especificidad pierde
+   contra ".landing-page h1,h2,h3" (que le pone Manrope, ver esa regla más arriba) y el título queda
+   en sans mientras nombre/epígrafe de al lado sí salen en Playfair Display — exactamente lo que
+   pasaba antes de este fix (mismo criterio que .landing-scent-finder-title, ver su comentario). */
+.landing-page .landing-historia-title {
+  margin: 0 0 18px;
   font-family: "Playfair Display", serif;
-  font-weight: 600;
-  line-height: 1.12;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.15;
   color: var(--es-navy-900);
 }
 
 .landing-historia-name {
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   font-family: "Playfair Display", serif;
   font-weight: 600;
   font-size: 19px;
@@ -4617,7 +4622,7 @@ a {
 }
 
 .landing-historia-tagline {
-  margin: 0 0 20px;
+  margin: 0 0 28px;
   font-family: "Playfair Display", serif;
   font-style: italic;
   font-size: 17px;

@@ -14,9 +14,18 @@ import { API_ORIGIN, getCasaMatrizLogo } from "../lib/api";
 // grandes tipo display, igual que el .text--display de Clarkson.
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-inter" });
 const manrope = Manrope({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-manrope" });
-// Serif itálica elegante — solo para el título de "Encuentra tu aroma ideal" (ScentFinder, home),
-// a pedido puntual de ese título nomás. El resto del sitio sigue con Manrope (ver más arriba).
-const playfairDisplay = Playfair_Display({ subsets: ["latin"], weight: ["600"], style: ["italic"], variable: "--font-playfair-display" });
+// Serif elegante — título de "Encuentra tu aroma ideal" (ScentFinder, home) y toda la tipografía de
+// "Historias" (título/nombre/epígrafe, estilo revista). El resto del sitio sigue con Manrope (ver
+// más arriba). Antes solo se cargaba el corte itálico 600 (pensado nomás para ScentFinder) — como
+// una familia con un solo corte se usa para CUALQUIER peso/estilo que se le pida (el navegador no
+// tiene otra opción), el título de Historia (normal, no itálico) terminaba mostrándose inclinado
+// igual; con los 4 cortes de abajo cada uso cae en el corte que realmente le corresponde.
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-playfair-display",
+});
 
 export const SITE_TITLE = "Ethereal Scents";
 const SITE_DESCRIPTION = "Catálogo online";
