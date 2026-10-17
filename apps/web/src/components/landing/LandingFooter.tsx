@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_ORIGIN, apiGet, getCasaMatrizLogo } from "../../lib/api";
+import { productImageSrc } from "../../lib/catalog-display";
 import type { Category, ContactoInfo, RedSocial } from "../../lib/types";
 
 // Logos subidos antes de la migración a R2 tienen logoUrl relativo ("/uploads/..."); los nuevos ya
@@ -33,7 +34,7 @@ function FooterColChevron({ open }: { open: boolean }) {
 
 /** Footer de todo el sitio público — trae el ancla #contacto usada por LandingNavbar. */
 export function LandingFooter() {
-  const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
+  const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [contacto, setContacto] = useState<ContactoInfo | null>(null);
   const [redes, setRedes] = useState<RedSocial[]>([]);
@@ -60,14 +61,19 @@ export function LandingFooter() {
 
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   const brandName = empresa?.nombre ?? "Ethereal Scents";
+  const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
 
   return (
     <footer id="contacto" className="landing-footer">
       <div className="landing-container">
         <div className="landing-footer-grid">
-          <div>
-            <p className="landing-footer-brand">{brandName}</p>
-            <p className="landing-footer-tagline">Todo lo que necesitas en un solo lugar.</p>
+          <div className="landing-footer-brand-col">
+            {logoSrc ? (
+              <img className="landing-footer-logo" src={logoSrc} alt={brandName} />
+            ) : (
+              <p className="landing-footer-brand">{brandName}</p>
+            )}
+            <p className="landing-footer-tagline">Una experiencia más allá del aroma</p>
           </div>
           <div className="landing-footer-col">
             <button

@@ -230,12 +230,13 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
   }
 
   // Columnas de atributos: solo los marcados `mostrarEnProforma`, y solo los que efectivamente
-  // aparecen en los productos listados (evita columnas vacías de otras categorías). El de tipo
+  // aparecen en los productos pasados (evita columnas vacías de otras categorías). El de tipo
   // PRICED_VARIANT (si está marcado) se renderiza como desplegable — es la forma de elegir cuál de
-  // las variantes se agrega.
-  const atributosProformaColumns: ExtraColumn[] = (() => {
+  // las variantes se agrega. Factoreada aparte (antes era un solo cálculo sobre TODA la página) para
+  // poder aplicarla por separado a cada grupo de productGroups, ver más abajo.
+  function computeAtributosColumns(products: Product[]): ExtraColumn[] {
     const map = new Map<string, ExtraColumn>();
-    for (const product of page?.items ?? []) {
+    for (const product of products) {
       for (const pv of product.attributeValues) {
         if (pv.attribute.mostrarEnProforma) {
           map.set(pv.attributeId, { id: pv.attributeId, name: pv.attribute.name, type: pv.attribute.type, variantMode: pv.attribute.variantMode });
@@ -248,6 +249,42 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
       }
     }
     return Array.from(map.values());
+  }
+
+  // Mismo criterio que /dashboard/products (ver su comentario): si los resultados filtrados mezclan
+  // categorías (ej. "Todas" + búsqueda libre puede traer categorías raíz distintas, o dos
+  // subcategorías de una misma raíz con atributos propios distintos entre sí), agruparlos evita que
+  // las columnas de atributo de una se mezclen con las de la otra. Se agrupa por la categoría EXACTA
+  // del producto (product.category, la hoja real) y no solo por raíz. Con un solo grupo (el caso
+  // normal, con categoría ya filtrada) no cambia nada visualmente.
+  function resolveRootCategory(categoryId: string): Category | undefined {
+    let current = categories.find((c) => c.id === categoryId);
+    while (current?.parentId) {
+      current = categories.find((c) => c.id === current!.parentId);
+    }
+    return current;
+  }
+
+  function categoryGroupLabel(category: Category): string {
+    const root = resolveRootCategory(category.id);
+    if (root && root.id !== category.id) return `${root.name} · ${category.name}`;
+    return category.name;
+  }
+
+  const productGroups: { key: string; category: Category; label: string; products: Product[]; columns: ExtraColumn[] }[] = (() => {
+    const map = new Map<string, { category: Category; products: Product[] }>();
+    for (const product of page?.items ?? []) {
+      const key = product.categoryId;
+      const existing = map.get(key);
+      if (existing) existing.products.push(product);
+      else map.set(key, { category: product.category, products: [product] });
+    }
+    return Array.from(map.entries()).map(([key, g]) => ({
+      key,
+      ...g,
+      label: categoryGroupLabel(g.category),
+      columns: computeAtributosColumns(g.products),
+    }));
   })();
 
   async function handleAgregar(product: Product) {
@@ -371,28 +408,40 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
 
       {hasAnyFilter && !loading && page && page.items.length > 0 && (
         <>
-          <div className="table-scroll">
-            <table className="table table-minimal">
-              <thead>
-                <tr>
-                  <th>Stock</th>
-                  <th>Imagen</th>
-                  <th>ID Producto</th>
-                  <th>Marca</th>
-                  <th>Nombre</th>
-                  {atributosProformaColumns.map((column) => (
-                    <th key={column.id}>{column.name}</th>
-                  ))}
-                  {tipo === "VENTA" && <th>Presentación</th>}
-                  <th className="num">Descuento Bs</th>
-                  <th className="num">{tipo === "VENTA" && precioTipo === "MAY" ? "▸ " : ""}May Bs</th>
-                  <th className="num">{tipo === "VENTA" && precioTipo === "FINAL" ? "▸ " : ""}Precio Final Bs</th>
-                  <th className="num">Cantidad</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {page.items.map((product) => {
+          {productGroups.map((group) => (
+            <div key={group.key} style={{ marginBottom: 24 }}>
+              {/* Encabezado de categoría solo cuando hay más de un grupo — con un único grupo (el
+                  caso normal, con categoría ya filtrada) se ve exactamente igual que antes. */}
+              {productGroups.length > 1 && (
+                <h3 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
+                  {group.label}
+                  <span className="cell-muted" style={{ fontWeight: 400, marginLeft: 6 }}>
+                    ({group.products.length})
+                  </span>
+                </h3>
+              )}
+              <div className="table-scroll">
+                <table className="table table-minimal">
+                  <thead>
+                    <tr>
+                      <th>Stock</th>
+                      <th>Imagen</th>
+                      <th>ID Producto</th>
+                      <th>Marca</th>
+                      <th>Nombre</th>
+                      {group.columns.map((column) => (
+                        <th key={column.id}>{column.name}</th>
+                      ))}
+                      {tipo === "VENTA" && <th>Presentación</th>}
+                      <th className="num">Descuento Bs</th>
+                      <th className="num">{tipo === "VENTA" && precioTipo === "MAY" ? "▸ " : ""}May Bs</th>
+                      <th className="num">{tipo === "VENTA" && precioTipo === "FINAL" ? "▸ " : ""}Precio Final Bs</th>
+                      <th className="num">Cantidad</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.products.map((product) => {
                   const selectedVariant = getSelectedVariant(product);
                   const priceSource = selectedVariant ?? product;
                   const esVentaMl = tipo === "VENTA" && selectedVariant?.unidad === "ML";
@@ -421,7 +470,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                       <td className="cell-code">{product.productCode}</td>
                       <td className="cell-muted">{product.brand?.name ?? "—"}</td>
                       <td className="cell-primary">{product.name}</td>
-                      {atributosProformaColumns.map((column) => (
+                      {group.columns.map((column) => (
                         <td key={column.id}>{renderAttributeCell(product, column)}</td>
                       ))}
                       {tipo === "VENTA" && (
@@ -499,12 +548,14 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                           <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[product.id]}</p>
                         )}
                       </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
 
           {totalPages > 1 && (
             <div className="pagination">
