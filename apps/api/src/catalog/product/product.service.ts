@@ -14,7 +14,7 @@ import { ProductAttributeValueInputDto } from "./dto/product-attribute-value.dto
 import { CreateProductVariantDto, UpdateProductVariantDto } from "./dto/product-variant.dto";
 import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/product-variant-option-value.dto";
 import { generateUniqueEntityCode } from "../entity-code";
-import { withPrice } from "../product-price";
+import { computeBsPrices, computeCatalogPrice, withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
 
 const includeDetails = {
@@ -311,37 +311,92 @@ export class ProductService {
     return withStock(withPrice(product, await this.settings.getExchangeRate()));
   }
 
-  /** Código + Nombre (+ Marca/Categoría de referencia) de TODOS los productos — para cruzar contra
-   * una planilla propia (ej. de nombre/tamaño/precio) y armar la de import-variants sin ambigüedad,
-   * sin tener que buscar producto por producto en el filtro "ID Producto". */
+  /** Una hoja por categoría EXACTA (no por raíz — dos subcategorías de una misma raíz pueden tener
+   * atributos propios distintos entre sí, mismo criterio que la tabla de Productos del panel cuando
+   * una búsqueda mezcla categorías, ver ProductsPage.productGroups), cada una ordenada de más nuevo
+   * a más antiguo. Columnas: Código, Marca, Nombre, los atributos con precio propio de esa categoría
+   * (ej. Tamaño) + el Precio Final Bs de esa variante puntual, y por último los atributos "normales"
+   * (NONE + MULTI_VALUE, ej. Concentración/Acordes). Un producto con variantes con precio propio
+   * ocupa una fila por variante (cada una con su propio valor de atributo y su propio precio) — uno
+   * sin eso ocupa una sola fila, con esas columnas en blanco. */
   async exportToExcel(): Promise<Buffer> {
+    const exchangeRate = await this.settings.getExchangeRate();
     const products = await this.prisma.product.findMany({
       select: {
         productCode: true,
         name: true,
         brand: { select: { name: true } },
-        category: { select: { name: true, parent: { select: { name: true } } } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            orden: true,
+            parentId: true,
+            logisticsCost: true,
+            shippingCost: true,
+            securityCost: true,
+            parent: { select: { name: true, orden: true } },
+          },
+        },
         attributeValues: { include: { attribute: true, option: true } },
         variantOptionValues: { include: { attribute: true } },
+        variants: {
+          select: {
+            purchasePrice: true,
+            utility: true,
+            minPriceBs: true,
+            discountBs: true,
+            options: { include: { optionValue: { include: { attribute: true } } } },
+          },
+        },
       },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
     });
 
-    // Mismo criterio que getAllAttributeDetails del frontend (ver catalog-display.ts): de
-    // attributeValues entran los atributos "normales" (variantMode NONE); de variantOptionValues
-    // solo los MULTI_VALUE (ej. Acordes — puede tener varios valores por producto, se concatenan
-    // con ", "). Los PRICED_VARIANT (ej. Tamaño: cada valor es una variante con su propio precio)
-    // quedan afuera a propósito — no son "atributos" sueltos del producto, ya se definen como sus
-    // propias variantes (con su propio precio/stock), no tiene sentido repetirlos acá.
-    const rows: { codigo: string; marca: string; nombre: string; categoria: string; atributos: Map<string, string> }[] = [];
-    // nombre de atributo -> `orden` (campo del propio Attribute) — define en qué posición cae su
-    // columna; distintas categorías pueden no compartir ningún atributo entre sí, así que no hay un
-    // único orden "correcto" posible, este es sencillamente el que ya usa el panel para listarlos.
-    const columnOrder = new Map<string, number>();
+    type Row = {
+      codigo: string;
+      marca: string;
+      nombre: string;
+      pricedAttrs: Map<string, string>;
+      finalPriceBs: number | null;
+      normalAttrs: Map<string, string>;
+    };
+    type SheetBucket = {
+      label: string;
+      rootOrden: number;
+      // "" para la hoja de la categoría raíz en sí (productos cargados directo ahí, sin subcategoría)
+      // — así ordena antes que sus propias subcategorías (ver el sort más abajo), nunca por su nombre.
+      subName: string;
+      rows: Row[];
+      // nombre de atributo -> `orden` (campo del propio Attribute), por separado para cada grupo de
+      // columnas — cada hoja arma su propio orden según lo que sus productos realmente usan, no el
+      // de las demás categorías.
+      pricedColumnOrder: Map<string, number>;
+      normalColumnOrder: Map<string, number>;
+    };
+
+    const sheets = new Map<string, SheetBucket>();
 
     for (const product of products) {
-      const atributos = new Map<string, string>();
+      const cat = product.category;
+      const root = cat.parentId ? cat.parent! : cat;
+      let bucket = sheets.get(cat.id);
+      if (!bucket) {
+        bucket = {
+          label: cat.parentId ? `${root.name} - ${cat.name}` : cat.name,
+          rootOrden: root.orden,
+          subName: cat.parentId ? cat.name : "",
+          rows: [],
+          pricedColumnOrder: new Map(),
+          normalColumnOrder: new Map(),
+        };
+        sheets.set(cat.id, bucket);
+      }
 
+      // Atributos "normales" del producto (NONE desde attributeValues + MULTI_VALUE desde
+      // variantOptionValues, igual que antes) — compartidos por todas las filas/variantes de este
+      // mismo producto, así que se calculan una sola vez acá afuera.
+      const normalAttrs = new Map<string, string>();
       for (const pv of product.attributeValues) {
         const valor = pv.option
           ? pv.option.value
@@ -354,60 +409,107 @@ export class ProductService {
                   ? "Sí"
                   : "No"
                 : "";
-        const existing = atributos.get(pv.attribute.name);
-        atributos.set(pv.attribute.name, existing ? `${existing}, ${valor}` : valor);
-        if (!columnOrder.has(pv.attribute.name)) columnOrder.set(pv.attribute.name, pv.attribute.orden);
+        const existing = normalAttrs.get(pv.attribute.name);
+        normalAttrs.set(pv.attribute.name, existing ? `${existing}, ${valor}` : valor);
+        if (!bucket.normalColumnOrder.has(pv.attribute.name)) bucket.normalColumnOrder.set(pv.attribute.name, pv.attribute.orden);
       }
-
       for (const v of product.variantOptionValues) {
         if (v.attribute.variantMode !== AttributeVariantMode.MULTI_VALUE) continue;
-        const existing = atributos.get(v.attribute.name);
-        atributos.set(v.attribute.name, existing ? `${existing}, ${v.value}` : v.value);
-        if (!columnOrder.has(v.attribute.name)) columnOrder.set(v.attribute.name, v.attribute.orden);
+        const existing = normalAttrs.get(v.attribute.name);
+        normalAttrs.set(v.attribute.name, existing ? `${existing}, ${v.value}` : v.value);
+        if (!bucket.normalColumnOrder.has(v.attribute.name)) bucket.normalColumnOrder.set(v.attribute.name, v.attribute.orden);
       }
 
-      rows.push({
-        codigo: product.productCode,
-        marca: product.brand?.name ?? "",
-        nombre: product.name,
-        categoria: product.category.parent ? `${product.category.parent.name} > ${product.category.name}` : product.category.name,
-        atributos,
-      });
-    }
+      // Variantes reales con precio propio (options no vacío) — la variante "default" auto-provista
+      // de un producto sin atributos con precio propio tiene options:[], así que queda afuera sola.
+      const pricedVariants = product.variants.filter((v) => v.options.length > 0);
 
-    const attributeNames = Array.from(columnOrder.keys()).sort(
-      (a, b) => columnOrder.get(a)! - columnOrder.get(b)! || a.localeCompare(b),
-    );
+      if (pricedVariants.length === 0) {
+        bucket.rows.push({
+          codigo: product.productCode,
+          marca: product.brand?.name ?? "",
+          nombre: product.name,
+          pricedAttrs: new Map(),
+          finalPriceBs: null,
+          normalAttrs,
+        });
+        continue;
+      }
+
+      for (const variant of pricedVariants) {
+        const pricedAttrs = new Map<string, string>();
+        for (const opt of variant.options) {
+          const attr = opt.optionValue.attribute;
+          pricedAttrs.set(attr.name, opt.optionValue.value);
+          if (!bucket.pricedColumnOrder.has(attr.name)) bucket.pricedColumnOrder.set(attr.name, attr.orden);
+        }
+        const priceUsd = computeCatalogPrice(variant.purchasePrice, variant.utility, cat);
+        const { finalPriceBs } = computeBsPrices(priceUsd, variant, exchangeRate);
+        bucket.rows.push({
+          codigo: product.productCode,
+          marca: product.brand?.name ?? "",
+          nombre: product.name,
+          pricedAttrs,
+          finalPriceBs,
+          normalAttrs,
+        });
+      }
+    }
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Ethereal Scents";
     wb.created = new Date();
 
-    const sheet = wb.addWorksheet("Productos");
-    sheet.columns = [
-      { header: "Código de producto", key: "codigo", width: 20 },
-      { header: "Marca", key: "marca", width: 22 },
-      { header: "Nombre", key: "nombre", width: 45 },
-      { header: "Categoría", key: "categoria", width: 30 },
-      // Claves sintéticas (attr_0, attr_1...) en vez del nombre del atributo tal cual: evita que un
-      // atributo coincida por casualidad con una de las claves de arriba (ej. uno llamado "Nombre").
-      ...attributeNames.map((name, i) => ({ header: name, key: `attr_${i}`, width: 22 })),
-    ];
-    sheet.getRow(1).font = { bold: true };
-    sheet.getRow(1).eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E6F7" } }));
-    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    const usedSheetNames = new Set<string>();
+    function sheetName(label: string): string {
+      const base = (label.replace(/[:\\/?*[\]]/g, "-").trim() || "Hoja").slice(0, 31);
+      let name = base;
+      for (let i = 2; usedSheetNames.has(name.toLowerCase()); i++) {
+        const suffix = ` (${i})`;
+        name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+      }
+      usedSheetNames.add(name.toLowerCase());
+      return name;
+    }
 
-    for (const row of rows) {
-      const rowData: Record<string, string> = {
-        codigo: row.codigo,
-        marca: row.marca,
-        nombre: row.nombre,
-        categoria: row.categoria,
-      };
-      attributeNames.forEach((name, i) => {
-        rowData[`attr_${i}`] = row.atributos.get(name) ?? "";
-      });
-      sheet.addRow(rowData);
+    const orderedBuckets = Array.from(sheets.values()).sort(
+      (a, b) => a.rootOrden - b.rootOrden || a.subName.localeCompare(b.subName),
+    );
+
+    for (const bucket of orderedBuckets) {
+      const pricedAttrNames = Array.from(bucket.pricedColumnOrder.keys()).sort(
+        (a, b) => bucket.pricedColumnOrder.get(a)! - bucket.pricedColumnOrder.get(b)! || a.localeCompare(b),
+      );
+      const normalAttrNames = Array.from(bucket.normalColumnOrder.keys()).sort(
+        (a, b) => bucket.normalColumnOrder.get(a)! - bucket.normalColumnOrder.get(b)! || a.localeCompare(b),
+      );
+
+      const sheet = wb.addWorksheet(sheetName(bucket.label));
+      sheet.columns = [
+        { header: "Código de producto", key: "codigo", width: 20 },
+        { header: "Marca", key: "marca", width: 22 },
+        { header: "Nombre", key: "nombre", width: 45 },
+        // Claves sintéticas (pattr_0, nattr_0...) en vez del nombre del atributo tal cual: evita que
+        // uno coincida por casualidad con una de las claves fijas de arriba (ej. uno llamado "Nombre").
+        ...pricedAttrNames.map((name, i) => ({ header: name, key: `pattr_${i}`, width: 18 })),
+        ...(pricedAttrNames.length > 0 ? [{ header: "Precio Final Bs", key: "precioFinalBs", width: 16 }] : []),
+        ...normalAttrNames.map((name, i) => ({ header: name, key: `nattr_${i}`, width: 22 })),
+      ];
+      sheet.getRow(1).font = { bold: true };
+      sheet.getRow(1).eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E6F7" } }));
+      sheet.views = [{ state: "frozen", ySplit: 1 }];
+
+      for (const row of bucket.rows) {
+        const rowData: Record<string, string | number> = { codigo: row.codigo, marca: row.marca, nombre: row.nombre };
+        pricedAttrNames.forEach((name, i) => {
+          rowData[`pattr_${i}`] = row.pricedAttrs.get(name) ?? "";
+        });
+        if (pricedAttrNames.length > 0) rowData.precioFinalBs = row.finalPriceBs ?? "";
+        normalAttrNames.forEach((name, i) => {
+          rowData[`nattr_${i}`] = row.normalAttrs.get(name) ?? "";
+        });
+        sheet.addRow(rowData);
+      }
     }
 
     return Buffer.from(await wb.xlsx.writeBuffer());
