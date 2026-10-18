@@ -231,6 +231,10 @@ export function deleteCliente(id: string) {
   return apiDelete<Cliente>(`/clientes/${id}`);
 }
 
+export function activarCliente(id: string) {
+  return apiPatch<Cliente>(`/clientes/${id}/activar`, {});
+}
+
 // --- Empresas ---
 
 export function getEmpresas(query: { page?: number; pageSize?: number } = {}) {

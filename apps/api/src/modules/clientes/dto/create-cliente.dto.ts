@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
-import { TipoCliente, TipoDocumento } from "@app/database";
+import { TipoCliente } from "@app/database";
 
 export class CreateClienteDto {
   @ApiPropertyOptional({ enum: TipoCliente, default: TipoCliente.NATURAL })
@@ -13,15 +13,6 @@ export class CreateClienteDto {
   @IsNotEmpty()
   nombre!: string;
 
-  @ApiProperty({ enum: TipoDocumento, example: TipoDocumento.CI })
-  @IsEnum(TipoDocumento)
-  tipoDocumento!: TipoDocumento;
-
-  @ApiProperty({ example: "V-12345678", description: "String, no numérico: RUC/pasaporte pueden incluir letras." })
-  @IsString()
-  @IsNotEmpty()
-  numeroDocumento!: string;
-
   @ApiPropertyOptional({ example: "juan@ejemplo.com" })
   @IsOptional()
   @IsEmail()
@@ -31,11 +22,6 @@ export class CreateClienteDto {
   @IsOptional()
   @IsString()
   telefono?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  direccion?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

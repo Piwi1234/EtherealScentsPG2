@@ -2,19 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
-import type { Cliente, TipoDocumento } from "../../../../lib/types";
+import type { Cliente } from "../../../../lib/types";
 import { ClienteStatusBadge } from "../../../../components/clientes/ClienteStatusBadge";
 import { ClienteOrigenBadge } from "../../../../components/clientes/ClienteOrigenBadge";
 import { ClienteAcciones } from "../../../../components/clientes/ClienteAcciones";
 import { ClientePagosTable } from "../../../../components/clientes/ClientePagosTable";
-
-const TIPO_DOC_LABELS: Record<TipoDocumento, string> = {
-  DNI: "DNI",
-  CI: "CI",
-  RUC: "RUC",
-  PASAPORTE: "Pasaporte",
-  OTRO: "Otro",
-};
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString("es-VE", { dateStyle: "long", timeStyle: "short" });
@@ -68,10 +60,8 @@ export default async function ClienteDetallePage({ params }: { params: Promise<{
 
       <div className="grid-2" style={{ marginBottom: 24, rowGap: 18 }}>
         <Field label="Tipo" value={cliente.tipo === "JURIDICA" ? "Jurídica" : "Natural"} />
-        <Field label="Documento" value={`${TIPO_DOC_LABELS[cliente.tipoDocumento]} ${cliente.numeroDocumento}`} />
         <Field label="Email" value={cliente.email ?? "—"} />
         <Field label="Teléfono" value={cliente.telefono ?? "—"} />
-        <Field label="Dirección" value={cliente.direccion ?? "—"} />
         <Field label="Ciudad" value={cliente.ciudadRef?.nombre ?? cliente.ciudad ?? "—"} />
         <Field label="Estado" value={<ClienteStatusBadge activo={cliente.activo} />} />
         <Field label="Origen" value={<ClienteOrigenBadge origen={cliente.origen} />} />

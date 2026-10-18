@@ -101,7 +101,6 @@ export type ClientePerfil = {
   nombre: string;
   email: string | null;
   telefono: string | null;
-  direccion: string | null;
   ciudadId: string | null;
   ciudadRef: { nombre: string } | null;
 };
@@ -110,6 +109,6 @@ export function getMyProfile() {
   return customerApiRequest<ClientePerfil>("/cliente-auth/me", { method: "GET" });
 }
 
-export function updateMyProfile(data: { nombre?: string; telefono?: string; direccion?: string; ciudadId?: string }) {
+export function updateMyProfile(data: { nombre?: string; telefono?: string; ciudadId?: string }) {
   return customerApiPatch<ClientePerfil>("/cliente-auth/me", data);
 }

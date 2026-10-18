@@ -160,7 +160,6 @@ export class ClienteAuthService {
     nombre: true,
     email: true,
     telefono: true,
-    direccion: true,
     ciudadId: true,
     ciudadRef: { select: { nombre: true } },
   } as const;
@@ -186,7 +185,6 @@ export class ClienteAuthService {
       data: {
         nombre: dto.nombre?.trim(),
         telefono: dto.telefono?.trim(),
-        direccion: dto.direccion?.trim(),
         ciudadId: dto.ciudadId,
       },
       select: this.perfilSelect,

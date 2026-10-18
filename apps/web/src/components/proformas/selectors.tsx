@@ -30,7 +30,7 @@ export function ClienteSelector({ options, value, onChange, placeholder = "— E
       <option value="">{placeholder}</option>
       {options.map((o) => (
         <option key={o.id} value={o.id}>
-          {o.nombre} — {o.numeroDocumento}
+          {o.email ? `${o.nombre} — ${o.email}` : o.nombre}
         </option>
       ))}
     </select>
