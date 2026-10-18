@@ -15,7 +15,6 @@ export default function CuentaPage() {
 
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
-  const [direccion, setDireccion] = useState("");
   const [ciudadId, setCiudadId] = useState("");
   const [ciudades, setCiudades] = useState<{ id: string; nombre: string }[]>([]);
   const [email, setEmail] = useState<string | null>(null);
@@ -31,7 +30,6 @@ export default function CuentaPage() {
       .then((perfil) => {
         setNombre(perfil.nombre);
         setTelefono(perfil.telefono ?? "");
-        setDireccion(perfil.direccion ?? "");
         setCiudadId(perfil.ciudadId ?? "");
         setEmail(perfil.email);
       })
@@ -47,7 +45,6 @@ export default function CuentaPage() {
       const perfil = await updateMyProfile({
         nombre: nombre.trim(),
         telefono: telefono.trim(),
-        direccion: direccion.trim(),
         ciudadId: ciudadId || undefined,
       });
       updateCustomerUserName(perfil.nombre);
@@ -95,10 +92,6 @@ export default function CuentaPage() {
                   <div className="landing-auth-field">
                     <label htmlFor="cuenta-telefono">Teléfono</label>
                     <input id="cuenta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-                  </div>
-                  <div className="landing-auth-field">
-                    <label htmlFor="cuenta-direccion">Dirección</label>
-                    <input id="cuenta-direccion" value={direccion} onChange={(e) => setDireccion(e.target.value)} />
                   </div>
                   <div className="landing-auth-field">
                     <label htmlFor="cuenta-ciudad">Ciudad</label>

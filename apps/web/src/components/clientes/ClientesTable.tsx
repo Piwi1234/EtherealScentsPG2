@@ -1,17 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { Cliente, TipoDocumento } from "../../lib/types";
+import type { Cliente } from "../../lib/types";
 import { ClienteStatusBadge } from "./ClienteStatusBadge";
 import { ClienteOrigenBadge } from "./ClienteOrigenBadge";
-
-const TIPO_DOC_LABELS: Record<TipoDocumento, string> = {
-  DNI: "DNI",
-  CI: "CI",
-  RUC: "RUC",
-  PASAPORTE: "Pasaporte",
-  OTRO: "Otro",
-};
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -25,7 +17,6 @@ export function ClientesTable({ clientes }: { clientes: Cliente[] }) {
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>Documento</th>
           <th>Email</th>
           <th>Teléfono</th>
           <th>Estado</th>
@@ -41,9 +32,6 @@ export function ClientesTable({ clientes }: { clientes: Cliente[] }) {
             style={{ cursor: "pointer" }}
           >
             <td className="cell-primary">{cliente.nombre}</td>
-            <td className="cell-code">
-              {TIPO_DOC_LABELS[cliente.tipoDocumento]} {cliente.numeroDocumento}
-            </td>
             <td className="cell-muted">{cliente.email ?? "—"}</td>
             <td className="cell-muted">{cliente.telefono ?? "—"}</td>
             <td><ClienteStatusBadge activo={cliente.activo} /></td>

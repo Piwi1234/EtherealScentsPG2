@@ -18,7 +18,7 @@ export class ClientesController {
   constructor(private readonly clientes: ClientesService) {}
 
   @Get()
-  @ApiOperation({ summary: "Lista clientes (paginado, busca por nombre/numeroDocumento/email)." })
+  @ApiOperation({ summary: "Lista clientes (paginado, busca por nombre/email)." })
   findAll(@Query() query: QueryClienteDto) {
     return this.clientes.findAll(query);
   }
@@ -38,14 +38,14 @@ export class ClientesController {
 
   @Post()
   @ApiOperation({ summary: "Registra un cliente manualmente desde gestión (origen = MANUAL)." })
-  @ApiResponse({ status: 409, description: "Ya existe un cliente con ese número de documento o email." })
+  @ApiResponse({ status: 409, description: "Ya existe un cliente con ese email." })
   create(@Body() dto: CreateClienteDto, @CurrentUser() user: AuthenticatedUser) {
     return this.clientes.create(dto, user.id);
   }
 
   @Patch(":id")
   @ApiOperation({ summary: "Actualiza un cliente." })
-  @ApiResponse({ status: 409, description: "Ya existe otro cliente con ese número de documento o email." })
+  @ApiResponse({ status: 409, description: "Ya existe otro cliente con ese email." })
   update(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateClienteDto) {
     return this.clientes.update(id, dto);
   }
@@ -55,5 +55,12 @@ export class ClientesController {
   @ApiOperation({ summary: "Soft delete: marca activo = false. Nunca borra el registro. Solo ADMIN." })
   remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.clientes.remove(id);
+  }
+
+  @Patch(":id/activar")
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: "Reactiva un cliente desactivado: marca activo = true. Solo ADMIN." })
+  activar(@Param("id", ParseUUIDPipe) id: string) {
+    return this.clientes.activar(id);
   }
 }

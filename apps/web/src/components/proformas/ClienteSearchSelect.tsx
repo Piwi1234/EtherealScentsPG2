@@ -40,10 +40,10 @@ export function ClienteSearchSelect({
   const matches = query.trim()
     ? clientes.filter((c) => {
         const q = query.trim().toLowerCase();
-        // numeroDocumento es opcional en la base (String?) — algunos clientes se crean sin uno
-        // cargado todavía, y sin este chequeo el .toLowerCase() de abajo tira una excepción no
-        // atajada que rompe toda la página en cuanto se escribe algo acá.
-        return c.nombre.toLowerCase().includes(q) || (c.numeroDocumento?.toLowerCase().includes(q) ?? false);
+        // email es opcional en la base (String?) — algunos clientes se crean sin uno cargado
+        // todavía, y sin este chequeo el .toLowerCase() de abajo tira una excepción no atajada que
+        // rompe toda la página en cuanto se escribe algo acá.
+        return c.nombre.toLowerCase().includes(q) || (c.email?.toLowerCase().includes(q) ?? false);
       })
     : clientes;
 
@@ -79,9 +79,11 @@ export function ClienteSearchSelect({
             matches.slice(0, 50).map((c) => (
               <button key={c.id} type="button" className="autocomplete-option" onClick={() => handleSelect(c)}>
                 {c.nombre}
-                <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
-                  {c.numeroDocumento}
-                </span>
+                {c.email && (
+                  <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
+                    {c.email}
+                  </span>
+                )}
               </button>
             ))
           )}

@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator";
 
-// No reusa CreateClienteDto (el de gestión) a propósito: ese exige numeroDocumento/tipoDocumento,
-// que un alta rápida por Google no puede pedir de entrada.
+// No reusa CreateClienteDto (el de gestión) a propósito: ese pide campos que un alta rápida por
+// Google no puede exigir de entrada.
 export class RegisterClienteDto {
   @ApiProperty({ example: "Juan Pérez" })
   @IsString()

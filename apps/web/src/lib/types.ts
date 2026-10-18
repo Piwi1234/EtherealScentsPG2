@@ -377,7 +377,6 @@ export type Usuario = {
 };
 
 export type TipoCliente = "NATURAL" | "JURIDICA";
-export type TipoDocumento = "DNI" | "CI" | "RUC" | "PASAPORTE" | "OTRO";
 /** MANUAL: cargado desde gestión. WEB: registro propio del cliente (todavía no implementado). */
 export type OrigenCliente = "MANUAL" | "WEB";
 
@@ -385,11 +384,8 @@ export type Cliente = {
   id: string;
   tipo: TipoCliente;
   nombre: string;
-  tipoDocumento: TipoDocumento;
-  numeroDocumento: string;
   email: string | null;
   telefono: string | null;
-  direccion: string | null;
   ciudad: string | null;
   /** Referencia a la tabla Ciudad (para Proformas: precarga la ciudad de entrega). Independiente del
    * campo `ciudad` de texto libre de arriba, que conviven. */
@@ -404,11 +400,8 @@ export type Cliente = {
 export type ClienteInput = {
   tipo?: TipoCliente;
   nombre: string;
-  tipoDocumento: TipoDocumento;
-  numeroDocumento: string;
   email?: string;
   telefono?: string;
-  direccion?: string;
   ciudad?: string;
   ciudadId?: string;
 };

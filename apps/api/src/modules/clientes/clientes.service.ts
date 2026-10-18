@@ -25,7 +25,6 @@ export class ClientesService {
         ? {
             OR: [
               { nombre: { contains: query.search, mode: "insensitive" } },
-              { numeroDocumento: { contains: query.search, mode: "insensitive" } },
               { email: { contains: query.search, mode: "insensitive" } },
             ],
           }
@@ -80,17 +79,14 @@ export class ClientesService {
   }
 
   async create(dto: CreateClienteDto, creadoPorId: string) {
-    await validarClienteNoDuplicado(this.prisma, { numeroDocumento: dto.numeroDocumento, email: dto.email });
+    await validarClienteNoDuplicado(this.prisma, { email: dto.email });
     try {
       return await this.prisma.cliente.create({
         data: {
           tipo: dto.tipo ?? TipoCliente.NATURAL,
           nombre: dto.nombre.trim(),
-          tipoDocumento: dto.tipoDocumento,
-          numeroDocumento: dto.numeroDocumento.trim(),
           email: dto.email?.trim().toLowerCase(),
           telefono: dto.telefono,
-          direccion: dto.direccion,
           ciudad: dto.ciudad,
           ciudadId: dto.ciudadId,
           origen: OrigenCliente.MANUAL,
@@ -105,15 +101,14 @@ export class ClientesService {
 
   async update(id: string, dto: UpdateClienteDto) {
     await this.findOne(id);
-    if (dto.numeroDocumento !== undefined || dto.email !== undefined) {
-      await validarClienteNoDuplicado(this.prisma, { numeroDocumento: dto.numeroDocumento, email: dto.email }, id);
+    if (dto.email !== undefined) {
+      await validarClienteNoDuplicado(this.prisma, { email: dto.email }, id);
     }
     try {
       return await this.prisma.cliente.update({
         where: { id },
         data: {
           ...dto,
-          numeroDocumento: dto.numeroDocumento?.trim(),
           email: dto.email?.trim().toLowerCase(),
         },
         include: { ciudadRef: true },
@@ -128,6 +123,15 @@ export class ClientesService {
     await this.findOne(id);
     try {
       return await this.prisma.cliente.update({ where: { id }, data: { activo: false } });
+    } catch (error) {
+      rethrowPrismaError(error, "Cliente");
+    }
+  }
+
+  async activar(id: string) {
+    await this.findOne(id);
+    try {
+      return await this.prisma.cliente.update({ where: { id }, data: { activo: true }, include: { ciudadRef: true } });
     } catch (error) {
       rethrowPrismaError(error, "Cliente");
     }

@@ -28,11 +28,11 @@ model Usuario {
   refreshTokens   RefreshToken[]
   clientesCreados Cliente[]
 
-  proformasCreadas  Proforma[] @relation("ProformaCreadaPor")
+  proformasCreadas  Proforma[]          @relation("ProformaCreadaPor")
   proformaHistorial ProformaHistorial[]
 
-  movimientosCartera MovimientoCartera[]
-  traspasosCreados   Traspaso[]
+  movimientosCartera      MovimientoCartera[]
+  traspasosCreados        Traspaso[]
   traspasosAlmacenCreados TraspasoAlmacen[]
 
   @@map("usuarios")
@@ -58,16 +58,6 @@ enum TipoCliente {
   @@map("tipo_cliente")
 }
 
-enum TipoDocumento {
-  DNI
-  CI
-  RUC
-  PASAPORTE
-  OTRO
-
-  @@map("tipo_documento")
-}
-
 /// MANUAL: cargado desde gestión (ADMIN/SELLER). WEB: registro propio del cliente (ver
 /// ClienteAuthModule — email/contraseña o Google).
 enum OrigenCliente {
@@ -81,18 +71,12 @@ enum OrigenCliente {
 /// que más adelante se registren solos desde la web pública (origen = WEB) y para relacionarse con
 /// un futuro módulo de Proformas (todavía no existe: sin referencias a eso acá).
 model Cliente {
-  id              String         @id @default(uuid()) @db.Uuid
-  tipo            TipoCliente    @default(NATURAL)
-  nombre          String
-  // Opcionales: un cliente autorregistrado (origen=WEB) no los carga al momento del alta — se piden
-  // recién cuando hace falta un documento real (ej. al facturar una proforma). El form de gestión
-  // (CreateClienteDto) los sigue exigiendo por su cuenta, esto solo relaja la columna.
-  tipoDocumento   TipoDocumento? @map("tipo_documento")
-  numeroDocumento String?        @unique @map("numero_documento")
-  email           String?        @unique
-  telefono        String?
-  direccion       String?
-  ciudad          String?
+  id       String      @id @default(uuid()) @db.Uuid
+  tipo     TipoCliente @default(NATURAL)
+  nombre   String
+  email    String?     @unique
+  telefono String?
+  ciudad   String?
 
   // Referencia a la nueva tabla Ciudad (para Proformas/reparto). No reemplaza el campo `ciudad` de
   // arriba (texto libre, usado por las pantallas de gestión existentes) — conviven, este es opcional
@@ -198,37 +182,37 @@ enum EstadoVariante {
 /// Fila única de configuración global del sistema (id fijo "default"). Por ahora solo guarda el
 /// tipo de cambio $ -> Bs usado para calcular los precios en bolívares de los productos.
 model SystemSetting {
-  id           String   @id @default("default")
-  exchangeRate Decimal  @default(0) @map("exchange_rate") @db.Decimal(12, 4)
+  id                      String    @id @default("default")
+  exchangeRate            Decimal   @default(0) @map("exchange_rate") @db.Decimal(12, 4)
   // Imágenes de las secciones "Propuesta de valor" y "Sobre nosotros" del home — sin esto, esas
   // secciones muestran un placeholder con gradiente (ver Grid Imágenes en Configuración).
-  valueImageUrl String? @map("value_image_url")
-  aboutImageUrl String? @map("about_image_url")
+  valueImageUrl           String?   @map("value_image_url")
+  aboutImageUrl           String?   @map("about_image_url")
   // Marca elegida para el bloque "Colección de la semana" del home (se elige desde Marcas del panel
   // de gestión) — null = el bloque no se muestra. Una sola marca a la vez (no hay lista).
-  weeklyCollectionBrandId String? @map("weekly_collection_brand_id") @db.Uuid
-  weeklyCollectionBrand   Brand?  @relation(fields: [weeklyCollectionBrandId], references: [id], onDelete: SetNull)
+  weeklyCollectionBrandId String?   @map("weekly_collection_brand_id") @db.Uuid
+  weeklyCollectionBrand   Brand?    @relation(fields: [weeklyCollectionBrandId], references: [id], onDelete: SetNull)
   // Historia marcada a mano como destacada (se elige desde Gestión → Historias) — alimenta el bloque
   // "Última historia" del home y la tarjeta "Destacada" de /historias. Null = ambos caen a la
   // historia publicada más reciente (ver HistoriaService.findDestacada).
-  destacadaHistoriaId String?   @map("destacada_historia_id") @db.Uuid
-  destacadaHistoria   Historia? @relation(fields: [destacadaHistoriaId], references: [id], onDelete: SetNull)
+  destacadaHistoriaId     String?   @map("destacada_historia_id") @db.Uuid
+  destacadaHistoria       Historia? @relation(fields: [destacadaHistoriaId], references: [id], onDelete: SetNull)
   // Datos del módulo de contacto (footer del sitio público) — Configuración → Global → Contacto.
   // telefonos es texto libre (puede tener más de un número, uno por línea).
-  telefonos String? @map("telefonos")
-  email     String? @map("email")
-  ciudad    String? @map("ciudad")
+  telefonos               String?   @map("telefonos")
+  email                   String?   @map("email")
+  ciudad                  String?   @map("ciudad")
   // Botón "Canal de ofertas" de la sección Newsletter del home — a dónde redirige (ej. un grupo/canal
   // de WhatsApp o Telegram). Null = el botón queda sin destino.
-  canalOfertasUrl String? @map("canal_ofertas_url")
+  canalOfertasUrl         String?   @map("canal_ofertas_url")
   // Modal promocional del sitio público (Configuración → Grid Imágenes) — aparece con un delay al
   // entrar al sitio, una sola vez por imagen (el front guarda en localStorage la URL de la última
   // que ya se vio, así que una imagen nueva vuelve a mostrarse sola). enabled en false o sin imagen
   // cargada = no se muestra nada.
-  promoModalEnabled  Boolean @default(false) @map("promo_modal_enabled")
-  promoModalImageUrl String? @map("promo_modal_image_url")
-  promoModalUrl       String? @map("promo_modal_url")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  promoModalEnabled       Boolean   @default(false) @map("promo_modal_enabled")
+  promoModalImageUrl      String?   @map("promo_modal_image_url")
+  promoModalUrl           String?   @map("promo_modal_url")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
 
   @@map("system_settings")
 }
@@ -268,9 +252,9 @@ model Category {
   // por nombre (ver CategoryService.findAll).
   orden Int @default(0)
 
-  brands     BrandCategory[]
-  attributes Attribute[]
-  products   Product[]
+  brands         BrandCategory[]
+  attributes     Attribute[]
+  products       Product[]
   // Carrusel de imágenes destacadas — solo aplica a categorías raíz, lo usa la sección "Producto
   // destacado" del home (ver Grid Imágenes en Configuración). Sin ninguna cargada, esa sección
   // muestra un placeholder con gradiente y el nombre de la categoría.
@@ -286,7 +270,8 @@ model Category {
 /// un Hero) o del bloque "Producto destacado" de una categoría raíz puntual (categoryId). `orden`
 /// define el orden de reproducción; se reordena intercambiando `orden` con el vecino (ver
 /// CarouselImageService.move), nunca reescribiendo toda la lista.
-/** FEATURE: con categoryId de una categoría raíz, el bloque "Producto destacado" del home (tamaño
+/**
+ * FEATURE: con categoryId de una categoría raíz, el bloque "Producto destacado" del home (tamaño
  * cuadrado); con categoryId null, el Hero principal del home (tamaño panorámico) — es el valor por
  * default histórico, así que sigue significando "el carrusel principal de ese slot".
  * CATEGORY_HERO: carrusel del hero de /categoria/[id] (categoría raíz), tamaño panorámico — se
@@ -298,7 +283,8 @@ model Category {
  * de la fila de "Descuento y Ofertas" — mismo tamaño que una tarjeta de producto (aspect-ratio 4/5),
  * independiente de los demás.
  * WEEKLY_COLLECTION_BANNER: carrusel promocional del home (categoryId null, singleton) del bloque
- * "Colección de la semana" — mismo tamaño que una tarjeta de producto, independiente de los demás. */
+ * "Colección de la semana" — mismo tamaño que una tarjeta de producto, independiente de los demás.
+ */
 enum CarouselKind {
   FEATURE
   CATEGORY_HERO
@@ -308,24 +294,24 @@ enum CarouselKind {
 }
 
 model CarouselImage {
-  id              String       @id @default(uuid()) @db.Uuid
-  categoryId      String?      @map("category_id") @db.Uuid
-  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  kind            CarouselKind @default(FEATURE)
-  imageUrl        String       @map("image_url")
+  id             String       @id @default(uuid()) @db.Uuid
+  categoryId     String?      @map("category_id") @db.Uuid
+  category       Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  kind           CarouselKind @default(FEATURE)
+  imageUrl       String       @map("image_url")
   // Variante opcional para pantallas chicas — si no está cargada, el sitio público cae a
   // `imageUrl` también en mobile, como era antes de este campo.
-  mobileImageUrl  String?      @map("mobile_image_url")
+  mobileImageUrl String?      @map("mobile_image_url")
   // Link opcional: si tiene valor, la imagen se muestra clickeable en el sitio público y redirige
   // ahí; si está vacío, la imagen queda decorativa (sin click), como era antes de este campo.
-  url             String?
+  url            String?
   // Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
   // ("Producto destacado", kind FEATURE): titulo1 = subtítulo chico arriba, titulo2 = título grande
   // debajo. El resto de los carruseles (Hero, banners, heros de categoría/marcas) los ignoran.
-  titulo1         String?      @map("titulo_1")
-  titulo2         String?      @map("titulo_2")
-  orden           Int          @default(0)
-  createdAt       DateTime     @default(now()) @map("created_at")
+  titulo1        String?      @map("titulo_1")
+  titulo2        String?      @map("titulo_2")
+  orden          Int          @default(0)
+  createdAt      DateTime     @default(now()) @map("created_at")
 
   @@index([categoryId, kind, orden])
   @@map("carousel_images")
@@ -337,13 +323,13 @@ model Brand {
   slug    String  @unique
   logoUrl String? @map("logo_url")
 
-  categories BrandCategory[]
-  products   Product[]
+  categories               BrandCategory[]
+  products                 Product[]
   // Nunca más de una fila apunta acá en la práctica (SystemSetting es singleton) — ver
   // weeklyCollectionBrandId.
   weeklyCollectionSettings SystemSetting[]
   // Historias que sugieren esta marca al final ("Explora la casa") — ver Historia.sugerenciaBrandId.
-  historiasSugerencia Historia[]
+  historiasSugerencia      Historia[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -381,8 +367,8 @@ model Attribute {
   orden             Int                  @default(0)
   // Si se muestra en la línea de atributos de la tarjeta de producto pública (ProductCard),
   // ordenado por `ordenTarjeta` — independiente de mostrarEnProforma (ese controla proforma/PDF/Stock).
-  mostrarEnTarjeta Boolean               @default(false) @map("mostrar_en_tarjeta")
-  ordenTarjeta     Int                   @default(0) @map("orden_tarjeta")
+  mostrarEnTarjeta  Boolean              @default(false) @map("mostrar_en_tarjeta")
+  ordenTarjeta      Int                  @default(0) @map("orden_tarjeta")
   // Solo aplica (y solo tiene sentido) cuando type = SELECT.
   variantMode       AttributeVariantMode @default(NONE) @map("variant_mode")
   // Solo aplica cuando type = SELECT y variantMode = NONE: el producto puede elegir 1+ opciones de
@@ -402,20 +388,20 @@ model Attribute {
 }
 
 model AttributeOption {
-  id          String    @id @default(uuid()) @db.Uuid
-  attributeId String    @map("attribute_id") @db.Uuid
-  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  value       String
+  id             String    @id @default(uuid()) @db.Uuid
+  attributeId    String    @map("attribute_id") @db.Uuid
+  attribute      Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value          String
   // Color hex (ej. "#c9a96e") para el botón de esta opción en el formulario de producto. Opcional.
-  color       String?
+  color          String?
   // Curaduría manual para el buscador "¿Qué te gusta oler?" del home (bloque de Acordes destacados,
   // ver ScentFinder en home/page.tsx) — no tiene nada que ver con `isFilterable`/`ordenFiltro` de
   // Attribute (esos son del sidebar de filtros de /categoria). Solo tiene sentido en atributos
   // allowMultiple (hoy, en la práctica, Acordes); el resto lo deja en false.
-  destacadoHome  Boolean @default(false) @map("destacado_home")
-  ordenDestacado Int     @default(0) @map("orden_destacado")
+  destacadoHome  Boolean   @default(false) @map("destacado_home")
+  ordenDestacado Int       @default(0) @map("orden_destacado")
 
-  productValues ProductAttributeValue[]
+  productValues       ProductAttributeValue[]
   // Historias que sugieren este acorde/ingrediente al final ("Explora los aromas...") — ver
   // Historia.sugerenciaAttributeOptionId.
   historiasSugerencia Historia[]
@@ -427,17 +413,17 @@ model AttributeOption {
 }
 
 model Product {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String
+  id               String    @id @default(uuid()) @db.Uuid
+  name             String
   // Se genera solo al crear el producto (slugify(name) + productCode) — nunca se regenera después
   // aunque cambie el nombre, para que la URL pública (/producto/[slug]) no se rompa. El sufijo del
   // código garantiza que sea único sin tener que reintentar con sufijos numéricos.
-  slug          String   @unique @map("slug")
-  productCode   String   @unique @map("product_code") @db.VarChar(7)
-  purchasePrice Decimal  @map("purchase_price") @db.Decimal(12, 2)
+  slug             String    @unique @map("slug")
+  productCode      String    @unique @map("product_code") @db.VarChar(7)
+  purchasePrice    Decimal   @map("purchase_price") @db.Decimal(12, 2)
   // Utilidad cargada manualmente; ni los 3 costos heredados ni el precio final se guardan acá:
   // el precio $ se calcula en vivo como purchasePrice + costos de `category` + utility.
-  utility       Decimal  @default(0) @map("utility") @db.Decimal(12, 2)
+  utility          Decimal   @default(0) @map("utility") @db.Decimal(12, 2)
   // Precio May Bs (mayorista) se calcula en vivo (precio $ * tipo de cambio del sistema). "Add May"
   // (este campo, minPriceBs — el nombre no cambió, solo su significado, van dos veces ya: primero
   // pasó de ser un piso a un monto que se suma, ahora pasa de cargarse en Bs a cargarse en $) se
@@ -446,13 +432,13 @@ model Product {
   // convertir. Precio Final Bs = (Precio May Bs + Add May $ * tipo de cambio) - Descuento. Si la
   // categoría tiene variantes con precio propio, estos dos campos manuales se cargan por variante en
   // lugar de acá (mismo criterio que purchasePrice/utility).
-  minPriceBs    Decimal? @map("min_price_bs") @db.Decimal(12, 2)
-  discountBs    Decimal  @default(0) @map("discount_bs") @db.Decimal(12, 2)
-  brandId       String?  @map("brand_id") @db.Uuid
-  brand         Brand?   @relation(fields: [brandId], references: [id])
-  categoryId    String   @map("category_id") @db.Uuid
-  category      Category @relation(fields: [categoryId], references: [id])
-  imageUrl      String?  @map("image_url")
+  minPriceBs       Decimal?  @map("min_price_bs") @db.Decimal(12, 2)
+  discountBs       Decimal   @default(0) @map("discount_bs") @db.Decimal(12, 2)
+  brandId          String?   @map("brand_id") @db.Uuid
+  brand            Brand?    @relation(fields: [brandId], references: [id])
+  categoryId       String    @map("category_id") @db.Uuid
+  category         Category  @relation(fields: [categoryId], references: [id])
+  imageUrl         String?   @map("image_url")
   // Instante UTC hasta el que el producto aparece en el filtro "Ofertas Flash" del home — se guarda
   // siempre en UTC; el panel lo arma a partir de la hora que carga el admin en GMT-4 (ver
   // gmt4ToUtcIso en apps/web). Null = sin temporizador activo.
@@ -607,7 +593,7 @@ model PresentacionVenta {
   varianteId    String         @map("variante_id") @db.Uuid
   variante      ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
   cantidadMl    Int            @map("cantidad_ml")
-  precioVentaBs Decimal        @db.Decimal(12, 2) @map("precio_venta_bs")
+  precioVentaBs Decimal        @map("precio_venta_bs") @db.Decimal(12, 2)
   activo        Boolean        @default(true)
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
@@ -678,7 +664,7 @@ model Ciudad {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   clientes         Cliente[]
-  proformasEntrega Proforma[]      @relation("ProformaCiudadEntrega")
+  proformasEntrega Proforma[] @relation("ProformaCiudadEntrega")
 
   @@map("ciudades")
 }
@@ -740,12 +726,12 @@ model Almacen {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  stock        Stock[]
-  lotesCompra  LoteCompra[]
-  proformas    Proforma[]                  @relation("ProformaAlmacen")
-  asignaciones ProformaDetalleAsignacion[]
-  traspasosOrigen  TraspasoAlmacen[] @relation("TraspasoAlmacenOrigen")
-  traspasosDestino TraspasoAlmacen[] @relation("TraspasoAlmacenDestino")
+  stock            Stock[]
+  lotesCompra      LoteCompra[]
+  proformas        Proforma[]                  @relation("ProformaAlmacen")
+  asignaciones     ProformaDetalleAsignacion[]
+  traspasosOrigen  TraspasoAlmacen[]           @relation("TraspasoAlmacenOrigen")
+  traspasosDestino TraspasoAlmacen[]           @relation("TraspasoAlmacenDestino")
 
   @@map("almacenes")
 }
@@ -803,7 +789,7 @@ model LoteCompra {
   cantidadDisponible Int             @map("cantidad_disponible")
   fecha              DateTime        @default(now())
 
-  consumos LoteCompraConsumo[]
+  consumos             LoteCompraConsumo[]
   traspasosComoOrigen  TraspasoAlmacenLote[] @relation("LoteOrigenTraspaso")
   traspasosComoDestino TraspasoAlmacenLote[] @relation("LoteDestinoTraspaso")
 
@@ -915,7 +901,7 @@ model Proforma {
 
   // Aplica sobre el total del documento, no por línea (no se mezcla con el descuento de catálogo,
   // que ya está incorporado en precioFinalBs de cada línea de venta).
-  descuentoGeneral Decimal  @default(0) @map("descuento_general") @db.Decimal(12, 2)
+  descuentoGeneral   Decimal  @default(0) @map("descuento_general") @db.Decimal(12, 2)
   // Campo informativo por ahora: qué % del total debe adelantar el cliente (el monto y el saldo se
   // calculan en vivo a partir del total de las líneas). Sin ligar a un módulo de pagos todavía
   // (punto de extensión futuro).
@@ -974,7 +960,7 @@ model ProformaDetalle {
   asignaciones ProformaDetalleAsignacion[]
   // 1+ (no 0-o-1): al completar una compra nace 1, pero una corrección manual de catálogo puede
   // partir ese lote en más de un registro (ver comentario en LoteCompra.proformaDetalleId).
-  loteCompras LoteCompra[]
+  loteCompras  LoteCompra[]
 
   @@map("proforma_detalles")
 }
@@ -984,11 +970,11 @@ model ProformaDetalle {
 /// traiga stock para esa variante+almacén). CHECK agregado a mano en la migración:
 /// (origen='PROCURA' AND almacen_id IS NULL) OR (origen='STOCK' AND almacen_id IS NOT NULL).
 model ProformaDetalleAsignacion {
-  id                String           @id @default(uuid()) @db.Uuid
-  proformaDetalleId String           @map("proforma_detalle_id") @db.Uuid
-  proformaDetalle   ProformaDetalle  @relation(fields: [proformaDetalleId], references: [id], onDelete: Cascade)
-  almacenId         String?          @map("almacen_id") @db.Uuid
-  almacen           Almacen?         @relation(fields: [almacenId], references: [id], onDelete: Restrict)
+  id                String                   @id @default(uuid()) @db.Uuid
+  proformaDetalleId String                   @map("proforma_detalle_id") @db.Uuid
+  proformaDetalle   ProformaDetalle          @relation(fields: [proformaDetalleId], references: [id], onDelete: Cascade)
+  almacenId         String?                  @map("almacen_id") @db.Uuid
+  almacen           Almacen?                 @relation(fields: [almacenId], references: [id], onDelete: Restrict)
   cantidad          Int
   origen            OrigenAsignacion
   // Solo tiene sentido mientras origen=PROCURA y cantidad>0 (ver módulo Seguimiento) — en filas STOCK
@@ -1051,7 +1037,7 @@ model Cartera {
   moneda      MonedaCartera
   nombre      String
   activo      Boolean       @default(true)
-  saldoActual Decimal       @default(0) @db.Decimal(14, 2) @map("saldo_actual")
+  saldoActual Decimal       @default(0) @map("saldo_actual") @db.Decimal(14, 2)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -1127,9 +1113,9 @@ model Traspaso {
   carteraOrigen    Cartera  @relation("TraspasoOrigen", fields: [carteraOrigenId], references: [id], onDelete: Restrict)
   carteraDestinoId String   @map("cartera_destino_id") @db.Uuid
   carteraDestino   Cartera  @relation("TraspasoDestino", fields: [carteraDestinoId], references: [id], onDelete: Restrict)
-  montoOrigen      Decimal  @db.Decimal(14, 2) @map("monto_origen")
-  tipoCambio       Decimal  @default(1) @db.Decimal(12, 4) @map("tipo_cambio")
-  montoDestino     Decimal  @db.Decimal(14, 2) @map("monto_destino")
+  montoOrigen      Decimal  @map("monto_origen") @db.Decimal(14, 2)
+  tipoCambio       Decimal  @default(1) @map("tipo_cambio") @db.Decimal(12, 4)
+  montoDestino     Decimal  @map("monto_destino") @db.Decimal(14, 2)
   nota             String?
   creadoPorId      String   @map("creado_por_id") @db.Uuid
   creadoPor        Usuario  @relation(fields: [creadoPorId], references: [id])
@@ -1176,15 +1162,15 @@ enum HistoriaCategoria {
 /// /historias y /historias/[slug], y opcionalmente el bloque "Última historia" del home y la tarjeta
 /// "Destacada" de /historias vía SystemSetting.destacadaHistoriaId (ver ese campo).
 model Historia {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String  @id @default(uuid()) @db.Uuid
   titulo    String
   // Se genera desde el título al crear (slugify) — no se regenera después, mismo criterio que
   // Product.slug, para no romper el link público si cambia el título.
-  slug      String   @unique
-  publicada Boolean  @default(false)
+  slug      String  @unique
+  publicada Boolean @default(false)
   // Orden manual del listado en Gestión y de /historias — se reordena intercambiando `orden` con el
   // vecino (ver HistoriaService.move), mismo criterio que Category.orden/CarouselImage.orden.
-  orden     Int      @default(0)
+  orden     Int     @default(0)
 
   // Imagen propia del bloque "Última historia" del home — ese recorte (panorámico, ~980x460) es muy
   // distinto al de la portada en /historias/[slug] (angosto y alto, según el texto), así que
@@ -1210,11 +1196,11 @@ model Historia {
   // sugerencia (siempre el caso para historias de categoría Aprende). CASA resuelve sus productos en
   // vivo (últimos agregados de esa marca); INGREDIENTE ídem (últimos con ese acorde); PERFUMES usa la
   // lista manual de sugerenciaProductos en vez de resolver nada.
-  sugerenciaTipo              HistoriaSugerenciaTipo? @map("sugerencia_tipo")
-  sugerenciaBrandId           String?                 @map("sugerencia_brand_id") @db.Uuid
-  sugerenciaBrand             Brand?                  @relation(fields: [sugerenciaBrandId], references: [id], onDelete: SetNull)
-  sugerenciaAttributeOptionId String?                 @map("sugerencia_attribute_option_id") @db.Uuid
-  sugerenciaAttributeOption   AttributeOption?        @relation(fields: [sugerenciaAttributeOptionId], references: [id], onDelete: SetNull)
+  sugerenciaTipo              HistoriaSugerenciaTipo?      @map("sugerencia_tipo")
+  sugerenciaBrandId           String?                      @map("sugerencia_brand_id") @db.Uuid
+  sugerenciaBrand             Brand?                       @relation(fields: [sugerenciaBrandId], references: [id], onDelete: SetNull)
+  sugerenciaAttributeOptionId String?                      @map("sugerencia_attribute_option_id") @db.Uuid
+  sugerenciaAttributeOption   AttributeOption?             @relation(fields: [sugerenciaAttributeOptionId], references: [id], onDelete: SetNull)
   sugerenciaProductos         HistoriaSugerenciaProducto[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1277,7 +1263,7 @@ model HistoriaBloque {
   // Nullable: el bloque se crea solo con textos (o solo con imagen) desde el formulario de Gestión,
   // sin obligar a cargar todo en el mismo paso. Sin imagen, el sitio público muestra un placeholder
   // con gradiente, mismo criterio que Category sin CarouselImage.
-  imageUrl String? @map("image_url")
+  imageUrl       String? @map("image_url")
   // Variante opcional para pantallas chicas — si no está cargada, el sitio público cae a `imageUrl`
   // también en mobile, mismo criterio que CarouselImage.mobileImageUrl.
   mobileImageUrl String? @map("mobile_image_url")

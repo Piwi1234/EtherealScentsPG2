@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiError, deleteCliente } from "../../lib/api";
+import { ApiError, activarCliente, deleteCliente } from "../../lib/api";
 import { getAuthUser } from "../../lib/auth";
 import { Modal } from "../Modal";
 
@@ -13,6 +13,8 @@ export function ClienteAcciones({ clienteId, activo }: { clienteId: string; acti
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [activarError, setActivarError] = useState("");
+  const [activando, setActivando] = useState(false);
 
   useEffect(() => {
     setIsAdmin(getAuthUser()?.rol === "ADMIN");
@@ -32,6 +34,19 @@ export function ClienteAcciones({ clienteId, activo }: { clienteId: string; acti
     }
   }
 
+  async function handleActivar() {
+    setActivando(true);
+    setActivarError("");
+    try {
+      await activarCliente(clienteId);
+      router.refresh();
+    } catch (err) {
+      setActivarError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : String(err));
+    } finally {
+      setActivando(false);
+    }
+  }
+
   return (
     <div className="row-actions" style={{ justifyContent: "flex-start" }}>
       <Link href={`/dashboard/clientes/${clienteId}/editar`} className="action-btn">
@@ -44,8 +59,14 @@ export function ClienteAcciones({ clienteId, activo }: { clienteId: string; acti
           </button>
         )
       ) : (
-        <span className="cell-muted">Este cliente ya está inactivo.</span>
+        isAdmin && (
+          <button type="button" className="action-btn" onClick={handleActivar} disabled={activando}>
+            {activando ? "Activando..." : "Activar cliente"}
+          </button>
+        )
       )}
+      {!isAdmin && !activo && <span className="cell-muted">Este cliente está inactivo.</span>}
+      {activarError && <p className="error-text">{activarError}</p>}
 
       {confirmOpen && (
         <Modal title="Desactivar cliente" onClose={() => setConfirmOpen(false)}>
