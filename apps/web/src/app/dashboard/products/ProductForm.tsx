@@ -91,6 +91,67 @@ const EMPTY_VARIANT_FORM: VariantFormState = {
   unidad: "PZA",
 };
 
+/** Badge de un valor propio del producto (ej. "100 ML") con su texto editable — click para
+ * renombrar, blur/Enter confirma, Esc cancela. Mismo criterio que CarouselImageUrlInput (otro lado
+ * del panel): commit solo si cambió de verdad, nunca en cada tecla. */
+function EditableValueBadge({ value, onSave, onRemove }: { value: string; onSave: (next: string) => void; onRemove: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    else setDraft(value);
+  }
+
+  if (editing) {
+    return (
+      <span className="badge" style={{ padding: "2px 4px" }}>
+        <input
+          autoFocus
+          className="field"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+            if (e.key === "Escape") {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          style={{ fontSize: 12, padding: "2px 6px", width: `${Math.max(6, draft.length + 1)}ch` }}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="badge">
+      <button
+        type="button"
+        className="link-button"
+        title="Click para renombrar"
+        onClick={() => setEditing(true)}
+        style={{ color: "inherit", font: "inherit", padding: 0 }}
+      >
+        {value}
+      </button>
+      <button type="button" className="link-button danger" style={{ marginLeft: 6, fontSize: 12 }} onClick={onRemove}>
+        ×
+      </button>
+    </span>
+  );
+}
+
 export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const router = useRouter();
   const editing = initialProduct ?? null;
@@ -122,6 +183,10 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   // Atributos SELECT normales con allowMultiple (ej. Acordes): el producto elige 1+ opciones de la
   // lista compartida de la categoría. Botones coloreados, no un <select>.
   const [multiSelectValues, setMultiSelectValues] = useState<Record<string, Set<string>>>({});
+  // Filtro de texto por atributo (ej. Acordes puede tener decenas de opciones) — ver el campo de
+  // búsqueda más abajo. Los ya elegidos quedan siempre visibles aunque no matcheen la búsqueda, para
+  // no "perderlos" de vista mientras se busca el siguiente.
+  const [multiSelectSearch, setMultiSelectSearch] = useState<Record<string, string>>({});
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(productImageSrc(editing?.imageUrl ?? null));
   const [formError, setFormError] = useState("");
@@ -396,6 +461,23 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     try {
       await apiDelete(`/products/${currentProduct.id}/variant-options/${optionValueId}`);
       const updated = await apiGet<Product>(`/products/${currentProduct.id}`);
+      setCurrentProduct(updated);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  /** Renombra un valor propio del producto (ej. "100 ML" -> "100ml") — a diferencia de las opciones
+   * de un atributo SELECT simple (Configuración → Atributos), estos valores ya son propios de ESTE
+   * producto (ProductVariantOptionValue, no AttributeOption), así que el cambio no afecta a ningún
+   * otro producto que comparta el mismo atributo. */
+  async function handleUpdateVariantValue(optionValueId: string, value: string, setError: (msg: string) => void) {
+    if (!currentProduct || !value.trim()) return;
+    setError("");
+    try {
+      const updated = await apiPatch<Product>(`/products/${currentProduct.id}/variant-options/${optionValueId}`, {
+        value: value.trim(),
+      });
       setCurrentProduct(updated);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -710,22 +792,45 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                       {def.inherited ? <span className="badge badge-muted" style={{ marginLeft: 6 }}>Heredado</span> : null}
                     </label>
                     {def.type === "SELECT" && def.allowMultiple && (
-                      <div className="pill-group">
-                        {def.options.map((opt) => {
-                          const selected = multiSelectValues[def.id]?.has(opt.id) ?? false;
-                          return (
-                            <button
-                              type="button"
-                              key={opt.id}
-                              className={`color-pill${selected ? " selected" : ""}`}
-                              style={selected ? { background: opt.color ?? "#c9a96e" } : undefined}
-                              onClick={() => toggleMultiSelectValue(def.id, opt.id)}
-                            >
-                              {opt.value}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <>
+                        {def.options.length > 8 && (
+                          <input
+                            className="field"
+                            type="search"
+                            placeholder={`Buscar en ${def.name.toLowerCase()}...`}
+                            value={multiSelectSearch[def.id] ?? ""}
+                            onChange={(e) => setMultiSelectSearch((prev) => ({ ...prev, [def.id]: e.target.value }))}
+                            style={{ marginBottom: 8 }}
+                          />
+                        )}
+                        <div className="pill-group">
+                          {(() => {
+                            const term = (multiSelectSearch[def.id] ?? "").trim().toLowerCase();
+                            // Los ya elegidos quedan siempre visibles, matcheen o no la búsqueda —
+                            // ver el comentario de multiSelectSearch, más arriba.
+                            const visible = def.options.filter(
+                              (opt) => multiSelectValues[def.id]?.has(opt.id) || !term || opt.value.toLowerCase().includes(term),
+                            );
+                            if (visible.length === 0) {
+                              return <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin resultados para &quot;{multiSelectSearch[def.id]}&quot;.</span>;
+                            }
+                            return visible.map((opt) => {
+                              const selected = multiSelectValues[def.id]?.has(opt.id) ?? false;
+                              return (
+                                <button
+                                  type="button"
+                                  key={opt.id}
+                                  className={`color-pill${selected ? " selected" : ""}`}
+                                  style={selected ? { background: opt.color ?? "#c9a96e" } : undefined}
+                                  onClick={() => toggleMultiSelectValue(def.id, opt.id)}
+                                >
+                                  {opt.value}
+                                </button>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </>
                     )}
                     {def.type === "SELECT" && !def.allowMultiple && (
                       <select
@@ -791,17 +896,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                               <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin valores todavía.</span>
                             )}
                             {values.map((v) => (
-                              <span key={v.id} className="badge">
-                                {v.value}
-                                <button
-                                  type="button"
-                                  className="link-button danger"
-                                  style={{ marginLeft: 6, fontSize: 12 }}
-                                  onClick={() => handleRemoveVariantValue(v.id, setMultiValueError)}
-                                >
-                                  ×
-                                </button>
-                              </span>
+                              <EditableValueBadge
+                                key={v.id}
+                                value={v.value}
+                                onSave={(next) => handleUpdateVariantValue(v.id, next, setMultiValueError)}
+                                onRemove={() => handleRemoveVariantValue(v.id, setMultiValueError)}
+                              />
                             ))}
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
@@ -863,17 +963,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                 <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin valores todavía.</span>
                               )}
                               {values.map((v) => (
-                                <span key={v.id} className="badge">
-                                  {v.value}
-                                  <button
-                                    type="button"
-                                    className="link-button danger"
-                                    style={{ marginLeft: 6, fontSize: 12 }}
-                                    onClick={() => handleRemoveVariantValue(v.id, setVariantValueError)}
-                                  >
-                                    ×
-                                  </button>
-                                </span>
+                                <EditableValueBadge
+                                  key={v.id}
+                                  value={v.value}
+                                  onSave={(next) => handleUpdateVariantValue(v.id, next, setVariantValueError)}
+                                  onRemove={() => handleRemoveVariantValue(v.id, setVariantValueError)}
+                                />
                               ))}
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
