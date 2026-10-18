@@ -44,26 +44,51 @@ type LandingImages = {
   weeklyCollectionBrand: { id: string; name: string; slug: string; logoUrl: string | null } | null;
 };
 
+/** Mismo criterio que `initialLandingImages` (ver más abajo) pero para el bloque "Descuento y
+ * Ofertas": también quedaba 100% armado en el cliente (categorías → elegir la primera → recién ahí
+ * pedir productos), con un "Cargando..." de por medio en cada visita — ahora page.tsx lo resuelve
+ * server-side para el modo/categoría por default (Descuentos + primera categoría raíz) y esto solo
+ * se usa para sembrar el estado inicial; cambiar de modo o categoría sigue siendo 100% client-side. */
+type InitialOffers = {
+  categories: Category[];
+  defaultCategoryId: string | null;
+  hasFlashOffers: boolean;
+  hasPreventaProducts: boolean;
+  productsPage: Page<Product> | null;
+};
+
 /** La página en sí (page.tsx) es un Server Component que trae esto mismo de entrada y lo pasa acá
  * como prop — la imagen del Hero es el elemento LCP del sitio (lo marcó Cloudflare, ~4s), y pedirla
  * recién en un useEffect del cliente significa esperar HTML + JS + hidratación antes de siquiera
  * conocer su URL. Con la URL real ya en el HTML que manda el servidor, el navegador puede empezar a
  * descargarla en paralelo al JS, sin esperar nada de eso. */
-export function HomeClient({ initialLandingImages }: { initialLandingImages: LandingImages | null }) {
+export function HomeClient({
+  initialLandingImages,
+  initialOffers,
+}: {
+  initialLandingImages: LandingImages | null;
+  initialOffers: InitialOffers | null;
+}) {
   // --- Datos: empresa (nombre para textos propios), categorías reales y productos del catálogo público ---
   const [empresa, setEmpresa] = useState<{ nombre: string | null } | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(initialOffers?.categories ?? []);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(initialOffers?.defaultCategoryId ?? "");
   const [offersMode, setOffersMode] = useState<OffersMode>("discount");
   // null = todavía no se sabe si hay ofertas flash vigentes (se está consultando al montar). Hasta
   // que se resuelva, el pill "Ofertas Flash" queda oculto y el fetch de productos de abajo espera —
   // así arranca directo en el filtro correcto sin parpadeo.
-  const [hasFlashOffers, setHasFlashOffers] = useState<boolean | null>(null);
+  const [hasFlashOffers, setHasFlashOffers] = useState<boolean | null>(initialOffers ? initialOffers.hasFlashOffers : null);
   // Mismo criterio que hasFlashOffers, pero el pill "Preventa" nunca se auto-selecciona (ver
   // OffersMode) — solo controla si el pill se muestra o no.
-  const [hasPreventaProducts, setHasPreventaProducts] = useState<boolean | null>(null);
-  const [productsPage, setProductsPage] = useState<Page<Product> | null>(null);
+  const [hasPreventaProducts, setHasPreventaProducts] = useState<boolean | null>(
+    initialOffers ? initialOffers.hasPreventaProducts : null,
+  );
+  const [productsPage, setProductsPage] = useState<Page<Product> | null>(initialOffers?.productsPage ?? null);
+  // Modo con el que se pidió `productsPage` (no necesariamente el `offersMode` actual: mientras un
+  // cambio de modo todavía está en vuelo, los dos quedan desalineados a propósito — ver su uso en
+  // offerEntries más abajo, soluciona el salto a "vacío" al cambiar de modo).
+  const [productsPageMode, setProductsPageMode] = useState<OffersMode | null>(initialOffers?.productsPage ? "discount" : null);
   const [offersSlide, setOffersSlide] = useState(0);
   const [offersAutoKey, setOffersAutoKey] = useState(0);
   // Transición en curso del carrusel de "Descuento y Ofertas" (cinta deslizante, mismo mecanismo que
@@ -102,7 +127,13 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
 
   useEffect(() => {
     getCasaMatrizLogo().then(setEmpresa).catch(() => {});
-    apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    // Las 3 líneas de abajo (categorías, flash, preventa) ya vinieron del servidor junto con el
+    // primer page de productos del bloque "Descuento y Ofertas" (ver el comentario de InitialOffers
+    // más arriba) — pedirlas de nuevo acá sería un round-trip redundante. Si por algo no vinieron (ver
+    // page.tsx), se cae a pedirlas igual que antes.
+    if (!initialOffers) {
+      apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+    }
     getBrands().then(setBrands).catch(() => {});
     // Ya vino del servidor (ver el comentario del componente) — pedirlo de nuevo acá sería un
     // round-trip redundante. Si por algo no vino (ver page.tsx), se cae a pedirlo igual que antes.
@@ -110,16 +141,18 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
     apiGet<ContactoInfo>("/settings/contacto-info").then(setContacto).catch(() => {});
     getHistoriaDestacada().then(setHistoriaDestacada).catch(() => {});
 
-    // "Descuentos" es siempre el default (ver useState más arriba) — a pedido, ya no se auto-
-    // selecciona "Ofertas Flash" aunque haya alguna vigente; el pill solo se muestra si hay.
-    apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
-      .then((page) => setHasFlashOffers(page.total > 0))
-      .catch(() => setHasFlashOffers(false));
+    if (!initialOffers) {
+      // "Descuentos" es siempre el default (ver useState más arriba) — a pedido, ya no se auto-
+      // selecciona "Ofertas Flash" aunque haya alguna vigente; el pill solo se muestra si hay.
+      apiGet<Page<Product>>("/catalog/products?onlyFlash=true&pageSize=1")
+        .then((page) => setHasFlashOffers(page.total > 0))
+        .catch(() => setHasFlashOffers(false));
 
-    // El pill "Preventa" solo se muestra si hay algo que filtrar — nunca se auto-selecciona.
-    apiGet<Page<Product>>("/catalog/products?onlyPreventa=true&pageSize=1")
-      .then((page) => setHasPreventaProducts(page.total > 0))
-      .catch(() => setHasPreventaProducts(false));
+      // El pill "Preventa" solo se muestra si hay algo que filtrar — nunca se auto-selecciona.
+      apiGet<Page<Product>>("/catalog/products?onlyPreventa=true&pageSize=1")
+        .then((page) => setHasPreventaProducts(page.total > 0))
+        .catch(() => setHasPreventaProducts(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -173,6 +206,10 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
     return () => clearInterval(interval);
   }, []);
 
+  // Ver InitialOffers más arriba: page.tsx ya trajo el primer page de productos (modo "Descuentos" +
+  // primera categoría), así que la primera corrida del efecto de abajo sería un fetch redundante.
+  const skipInitialOffersFetch = useRef(Boolean(initialOffers?.productsPage));
+
   // Carrusel de "Descuento y Ofertas": últimos 40 productos con descuento/flash/preventa (por fecha
   // de última modificación) de la categoría elegida, de 5 en 5. Modo (1ra fila) y categoría (2da
   // fila) se combinan siempre — ninguno de los tres modos es exclusivo de todas las categorías
@@ -183,9 +220,22 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
     // los pocos ms saltaría a la primera, con doble fetch y salto visual.
     if (hasFlashOffers === null || !categoryFilter) return;
 
+    if (skipInitialOffersFetch.current) {
+      skipInitialOffersFetch.current = false;
+      return;
+    }
+
+    // Se guarda el modo pedido en esta misma corrida del efecto (no el `offersMode` "en vivo" de más
+    // arriba) — mientras este fetch todavía está en vuelo, `productsPage` sigue teniendo los items del
+    // modo ANTERIOR. Ej.: Descuentos → Preventa, ningún item de Descuentos es de Preventa (son
+    // mutuamente excluyentes, ver variantMatchesContext), así que filtrarlos ya con offersMode =
+    // "preventa" los vaciaba a todos de golpe — el bloque se achicaba a "vacío" y volvía a crecer
+    // apenas llegaba la respuesta real. Ver su uso en offerEntries.
+    const requestedMode = offersMode;
+
     const params = new URLSearchParams();
-    if (offersMode === "flash") params.set("onlyFlash", "true");
-    else if (offersMode === "preventa") params.set("onlyPreventa", "true");
+    if (requestedMode === "flash") params.set("onlyFlash", "true");
+    else if (requestedMode === "preventa") params.set("onlyPreventa", "true");
     else params.set("onlyDiscounted", "true");
     params.set("categoryId", categoryFilter);
     params.set("pageSize", "40");
@@ -193,6 +243,7 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
     apiGet<Page<Product>>(`/catalog/products?${params.toString()}`)
       .then((page) => {
         setProductsPage(page);
+        setProductsPageMode(requestedMode);
         offersCurrentRef.current = 0;
         offersAnimatingRef.current = false;
         setOffersSlide(0);
@@ -206,8 +257,9 @@ export function HomeClient({ initialLandingImages }: { initialLandingImages: Lan
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
   const offerEntries = useMemo(
-    () => offerVariantEntries(productsPage?.items ?? [], offersMode),
-    [productsPage, offersMode],
+    // `productsPageMode` (no `offersMode`) a propósito — ver el comentario del fetch de arriba.
+    () => offerVariantEntries(productsPage?.items ?? [], productsPageMode ?? offersMode),
+    [productsPage, productsPageMode, offersMode],
   );
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
 
