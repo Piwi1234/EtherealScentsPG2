@@ -4731,8 +4731,8 @@ a {
   /* El bloque del home fija `height` (no solo min-height, ver más abajo) para que texto e imagen
      queden parejos en desktop — sin resetearlo acá, esa misma altura fija (pensada para el layout
      en fila) se le quedaría pegada al apilarse en columna, recortando el contenido en vez de dejarlo
-     crecer. */
-  .landing-historia-promo,
+     crecer. .landing-historia-promo NO va acá — ver el motivo junto a su regla de desktop, más abajo
+     en este archivo. */
   .landing-historia-destacada {
     height: auto;
   }
@@ -4856,6 +4856,18 @@ a {
   max-width: 980px;
   height: 460px;
   margin: 0 auto;
+}
+
+/* No va en el @media (max-width:900px) de arriba a propósito: esta regla y esa tienen la misma
+   especificidad (una sola clase), así que en mobile ganaba la que estuviera MÁS ABAJO en el
+   archivo — y esta (height:460px, sin condición) quedaba después de esa, pisándola igual en
+   mobile. Con el reset acá, inmediatamente después y ya dentro de su propio @media, es la última
+   en aparecer y gana ella. El bloque quedaba con 460px fijos en mobile aunque el contenido
+   necesitara más, y lo que no entraba se desbordaba visualmente sobre la sección siguiente. */
+@media (max-width: 900px) {
+  .landing-historia-promo {
+    height: auto;
+  }
 }
 
 .landing-historia-promo .landing-historia-title {
