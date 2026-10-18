@@ -221,6 +221,13 @@ model SystemSetting {
   // Botón "Canal de ofertas" de la sección Newsletter del home — a dónde redirige (ej. un grupo/canal
   // de WhatsApp o Telegram). Null = el botón queda sin destino.
   canalOfertasUrl String? @map("canal_ofertas_url")
+  // Modal promocional del sitio público (Configuración → Grid Imágenes) — aparece con un delay al
+  // entrar al sitio, una sola vez por imagen (el front guarda en localStorage la URL de la última
+  // que ya se vio, así que una imagen nueva vuelve a mostrarse sola). enabled en false o sin imagen
+  // cargada = no se muestra nada.
+  promoModalEnabled  Boolean @default(false) @map("promo_modal_enabled")
+  promoModalImageUrl String? @map("promo_modal_image_url")
+  promoModalUrl       String? @map("promo_modal_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
