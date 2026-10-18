@@ -267,6 +267,28 @@ export function getLandingImages() {
   }>("/settings/landing-images");
 }
 
+/** Modal promocional del sitio público (Configuración → Grid Imágenes) — aparece con un delay al
+ * entrar, una sola vez por imagen. enabled en false o sin imageUrl = el sitio no muestra nada. */
+export function getPromoModal() {
+  return apiGet<{ enabled: boolean; imageUrl: string | null; url: string | null }>("/settings/promo-modal");
+}
+
+export function setPromoModalEnabled(enabled: boolean) {
+  return apiPut<{ enabled: boolean }>("/settings/promo-modal/enabled", { enabled });
+}
+
+export function setPromoModalUrl(url: string | null) {
+  return apiPatch<{ url: string | null }>("/settings/promo-modal/url", { url });
+}
+
+export function setPromoModalImage(file: File) {
+  return apiUpload<{ promoModalImageUrl: string | null }>("/settings/promo-modal/image", file);
+}
+
+export function removePromoModalImage() {
+  return apiDelete<{ imageUrl: string | null }>("/settings/promo-modal/image");
+}
+
 // --- Carrusel de imágenes (Hero, "Producto destacado"/hero por categoría raíz, hero de /marcas) ---
 
 export function getHeroCarouselImages() {

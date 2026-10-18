@@ -12,14 +12,19 @@ import {
   moveCategoryCarouselImage,
   moveHeroCarouselImage,
   moveWeeklyCollectionBannerCarouselImage,
+  getPromoModal,
   removeCategoryCarouselImage,
   removeCategoryCarouselImageMobile,
   removeHeroCarouselImage,
   removeHeroCarouselImageMobile,
+  removePromoModalImage,
   removeWeeklyCollectionBannerCarouselImage,
   removeWeeklyCollectionBannerCarouselImageMobile,
   setCategoryCarouselImageMobile,
   setHeroCarouselImageMobile,
+  setPromoModalEnabled,
+  setPromoModalImage,
+  setPromoModalUrl,
   setWeeklyCollectionBannerCarouselImageMobile,
   updateCategoryCarouselImageTitulos,
   updateCategoryCarouselImageUrl,
@@ -50,6 +55,7 @@ export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [heroImages, setHeroImages] = useState<CarouselImage[]>([]);
   const [weeklyCollectionBannerImages, setWeeklyCollectionBannerImages] = useState<CarouselImage[]>([]);
+  const [promoModal, setPromoModal] = useState<{ enabled: boolean; imageUrl: string | null; url: string | null } | null>(null);
   const [error, setError] = useState("");
   const [busySlot, setBusySlot] = useState<string | null>(null);
 
@@ -62,6 +68,9 @@ export default function GridImagenesPage() {
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getWeeklyCollectionBannerCarouselImages()
       .then(setWeeklyCollectionBannerImages)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getPromoModal()
+      .then(setPromoModal)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }
 
@@ -184,6 +193,58 @@ export default function GridImagenesPage() {
     }
   }
 
+  async function handleTogglePromoModal(enabled: boolean) {
+    setBusySlot("promo-modal");
+    setError("");
+    try {
+      await setPromoModalEnabled(enabled);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleSetPromoModalImage(file: File) {
+    setBusySlot("promo-modal");
+    setError("");
+    try {
+      await setPromoModalImage(file);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleRemovePromoModalImage() {
+    setBusySlot("promo-modal");
+    setError("");
+    try {
+      await removePromoModalImage();
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
+  async function handleSetPromoModalUrl(url: string | null) {
+    setBusySlot("promo-modal");
+    setError("");
+    try {
+      await setPromoModalUrl(url);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusySlot(null);
+    }
+  }
+
   const rootCategories = (categories ?? []).filter((c) => c.parentId === null);
 
   const homeSlots: CarouselSlot[] = [
@@ -256,7 +317,151 @@ export default function GridImagenesPage() {
               }
             />
           ))}
+
+          {promoModal && (
+            <PromoModalEditor
+              promoModal={promoModal}
+              busy={busySlot === "promo-modal"}
+              onToggle={handleTogglePromoModal}
+              onSetImage={handleSetPromoModalImage}
+              onRemoveImage={handleRemovePromoModalImage}
+              onSetUrl={handleSetPromoModalUrl}
+            />
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Modal promocional del sitio público: aparece con un delay (2,5s) al entrar al sitio, una sola vez
+ * por imagen — localStorage guarda cuál fue la última que se vio (ver lib/promo-modal.ts), así que
+ * una imagen nueva vuelve a mostrarse sola sin tener que "resetear" nada a mano. enabled en false, o
+ * sin imagen cargada, no muestra nada en el sitio aunque esté prendido. */
+function PromoModalEditor({
+  promoModal,
+  busy,
+  onToggle,
+  onSetImage,
+  onRemoveImage,
+  onSetUrl,
+}: {
+  promoModal: { enabled: boolean; imageUrl: string | null; url: string | null };
+  busy: boolean;
+  onToggle: (enabled: boolean) => void;
+  onSetImage: (file: File) => void;
+  onRemoveImage: () => void;
+  onSetUrl: (url: string | null) => void;
+}) {
+  const inputId = "promo-modal-image";
+  const [urlValue, setUrlValue] = useState(promoModal.url ?? "");
+
+  useEffect(() => {
+    setUrlValue(promoModal.url ?? "");
+  }, [promoModal.url]);
+
+  function commitUrl() {
+    const trimmed = urlValue.trim();
+    if (trimmed === (promoModal.url ?? "")) return;
+    onSetUrl(trimmed || null);
+  }
+
+  return (
+    <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <label style={{ fontSize: 14, fontWeight: 600 }}>Modal promocional</label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: busy ? "default" : "pointer" }}>
+          <input
+            type="checkbox"
+            checked={promoModal.enabled}
+            disabled={busy}
+            onChange={(e) => onToggle(e.target.checked)}
+          />
+          {promoModal.enabled ? "Activado" : "Desactivado"}
+        </label>
+      </div>
+      <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.4, maxWidth: 720 }}>
+        Aparece centrado sobre el sitio, con un breve retraso después de cargar la página — una sola vez por imagen (si
+        subís una nueva, vuelve a mostrarse). Se cierra haciendo click afuera, con la "×" o con Esc. Sin imagen
+        cargada, no se muestra nada aunque esté activado. Tamaño sugerido: 1000×1250px o más (vertical, relación
+        4:5) — se ajusta para no salirse de la pantalla sin recortarse.
+      </p>
+
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ width: 160 }}>
+          {promoModal.imageUrl ? (
+            <div className="image-uploader" style={{ padding: 6, justifyContent: "center", position: "relative" }}>
+              <img src={imgSrc(promoModal.imageUrl)!} alt="Modal promocional" />
+              <button
+                type="button"
+                className="action-btn danger"
+                disabled={busy}
+                onClick={onRemoveImage}
+                aria-label="Quitar imagen"
+                title="Quitar imagen"
+                style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, padding: 0, fontSize: 11, lineHeight: 1, borderRadius: "50%" }}
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <label
+              htmlFor={inputId}
+              className="image-uploader-placeholder"
+              style={{ cursor: busy ? "default" : "pointer", fontSize: 11, textAlign: "center", padding: 8 }}
+            >
+              Subir imagen
+            </label>
+          )}
+          <input
+            id={inputId}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={busy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onSetImage(file);
+              e.target.value = "";
+            }}
+            style={{ display: "none" }}
+          />
+          {promoModal.imageUrl && (
+            <label
+              htmlFor={inputId}
+              className="link-button"
+              style={{ display: "block", fontSize: 11, marginTop: 4, textAlign: "center", cursor: busy ? "default" : "pointer" }}
+            >
+              Cambiar
+            </label>
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <label className="cell-muted" style={{ fontSize: 11.5, display: "block", marginBottom: 4 }}>
+            Link al hacer click (opcional)
+          </label>
+          <input
+            className="field"
+            type="url"
+            placeholder="URL de redirección (opcional)"
+            value={urlValue}
+            disabled={busy}
+            onChange={(e) => setUrlValue(e.target.value)}
+            onBlur={commitUrl}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            style={{ fontSize: 12, padding: "6px 10px", maxWidth: 360 }}
+          />
+        </div>
+      </div>
+      {busy && (
+        <p className="cell-muted" style={{ fontSize: 12, marginTop: 10 }}>
+          Guardando...
+        </p>
       )}
     </div>
   );

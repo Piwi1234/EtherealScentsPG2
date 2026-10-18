@@ -201,7 +201,56 @@ export class SettingsService {
     return this.carouselImages.removeMobileImage(imageId);
   }
 
-  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl", file: Express.Multer.File) {
+  /** Público (sin auth) — el modal promocional del sitio público lo consulta al montar. enabled en
+   * false o sin imagen cargada = el front no muestra nada. */
+  async getPromoModal() {
+    const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    return {
+      enabled: setting?.promoModalEnabled ?? false,
+      imageUrl: setting?.promoModalImageUrl ?? null,
+      url: setting?.promoModalUrl ?? null,
+    };
+  }
+
+  async setPromoModalEnabled(enabled: boolean) {
+    const setting = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: { promoModalEnabled: enabled },
+      create: { id: SETTINGS_ID, promoModalEnabled: enabled },
+    });
+    return { enabled: setting.promoModalEnabled };
+  }
+
+  async setPromoModalUrl(url: string | null) {
+    const setting = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: { promoModalUrl: url },
+      create: { id: SETTINGS_ID, promoModalUrl: url },
+    });
+    return { url: setting.promoModalUrl };
+  }
+
+  async setPromoModalImage(file: Express.Multer.File) {
+    return this.setLandingImage("promoModalImageUrl", file);
+  }
+
+  // Sin apagar promoModalEnabled a propósito: si el admin saca la imagen pero se olvida de
+  // desactivar el modal, getPromoModal ya devuelve imageUrl null y el front no muestra nada —
+  // alcanza con esa condición en vez de forzar un estado acoplado.
+  async removePromoModalImage() {
+    const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    const updated = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: { promoModalImageUrl: null },
+      create: { id: SETTINGS_ID },
+    });
+    if (existing?.promoModalImageUrl) {
+      await deleteFromR2(existing.promoModalImageUrl).catch(() => {});
+    }
+    return { imageUrl: updated.promoModalImageUrl };
+  }
+
+  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl" | "promoModalImageUrl", file: Express.Multer.File) {
     const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
     // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
     const url = file.filename;

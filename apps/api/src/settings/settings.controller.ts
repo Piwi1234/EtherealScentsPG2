@@ -20,6 +20,7 @@ import { SettingsService } from "./settings.service";
 import { UpdateExchangeRateDto } from "./dto/update-exchange-rate.dto";
 import { UpdateWeeklyCollectionBrandDto } from "./dto/update-weekly-collection-brand.dto";
 import { UpdateContactoInfoDto } from "./dto/update-contacto-info.dto";
+import { UpdatePromoModalEnabledDto } from "./dto/update-promo-modal-enabled.dto";
 import { landingImageMulterOptions } from "./landing-image.multer";
 import { MoveCarouselImageDto } from "../catalog/carousel-image/dto/move-carousel-image.dto";
 import { UpdateCarouselImageUrlDto } from "../catalog/carousel-image/dto/update-carousel-image-url.dto";
@@ -235,5 +236,36 @@ export class SettingsController {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
     }
     return this.settings.setAboutImage(file);
+  }
+
+  // Público (sin auth): el modal promocional del sitio público lo consulta al montar.
+  @Public()
+  @Get("promo-modal")
+  getPromoModal() {
+    return this.settings.getPromoModal();
+  }
+
+  @Put("promo-modal/enabled")
+  setPromoModalEnabled(@Body() dto: UpdatePromoModalEnabledDto) {
+    return this.settings.setPromoModalEnabled(dto.enabled);
+  }
+
+  @Patch("promo-modal/url")
+  setPromoModalUrl(@Body() dto: UpdateCarouselImageUrlDto) {
+    return this.settings.setPromoModalUrl(dto.url ?? null);
+  }
+
+  @Post("promo-modal/image")
+  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("promo-modal")), WebpUploadInterceptor)
+  uploadPromoModalImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.setPromoModalImage(file);
+  }
+
+  @Delete("promo-modal/image")
+  removePromoModalImage() {
+    return this.settings.removePromoModalImage();
   }
 }
