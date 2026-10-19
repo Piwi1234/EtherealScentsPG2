@@ -4268,6 +4268,25 @@ a {
   pointer-events: none;
 }
 
+/* "← Anterior"/"Siguiente →" con el texto completo (más el padding de siempre de .landing-btn,
+   30px a cada lado) sumados a los números de página empujaban el ancho de .landing-pagination bien
+   por encima del viewport en mobile — se recortaban/empujaban fuera de la pantalla. Abajo, en mobile,
+   se esconde la etiqueta y solo queda la flecha, con un botón bien angosto en vez de uno pensado
+   para texto. */
+@media (max-width: 768px) {
+  .landing-pagination {
+    gap: 8px;
+  }
+
+  .landing-pagination-btn {
+    padding: 10px 14px;
+  }
+
+  .landing-pagination-btn-label {
+    display: none;
+  }
+}
+
 /* --- Carrusel de "Descuento y Ofertas" (home): 4 tarjetas de producto + 1 banner de imágenes --- */
 
 .landing-carousel {

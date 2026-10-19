@@ -672,14 +672,16 @@ export function CategoriaClient({
                   <div className="landing-pagination">
                     <button
                       type="button"
-                      className="landing-btn landing-btn-outline-dark"
+                      className="landing-btn landing-btn-outline-dark landing-pagination-btn"
+                      aria-label="Página anterior"
                       disabled={pageNumber <= 1}
                       onClick={() => {
                         setPageNumber((p) => p - 1);
                         document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      ← Anterior
+                      <span aria-hidden="true">←</span>
+                      <span className="landing-pagination-btn-label">Anterior</span>
                     </button>
                     <div className="landing-pagination-numbers">
                       {getPageWindow(pageNumber, totalPages).map((p) => (
@@ -699,14 +701,16 @@ export function CategoriaClient({
                     </div>
                     <button
                       type="button"
-                      className="landing-btn landing-btn-outline-dark"
+                      className="landing-btn landing-btn-outline-dark landing-pagination-btn"
+                      aria-label="Página siguiente"
                       disabled={pageNumber >= totalPages}
                       onClick={() => {
                         setPageNumber((p) => p + 1);
                         document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      Siguiente →
+                      <span className="landing-pagination-btn-label">Siguiente</span>
+                      <span aria-hidden="true">→</span>
                     </button>
                   </div>
                 )}
