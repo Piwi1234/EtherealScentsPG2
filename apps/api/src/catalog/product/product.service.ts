@@ -279,16 +279,23 @@ export class ProductService {
     // productos nunca cuelgan directo de una raíz que tenga hijas), así que se expande a sí misma +
     // descendientes en vez de un match exacto.
     const categoryIds = query.categoryId ? await this.categories.getDescendantIds(query.categoryId) : undefined;
+    // Por palabra (no la frase completa contra un solo campo): así "haramain amber" encuentra el
+    // producto "Amber Oud" de la marca "Al Haramain" aunque ninguna palabra sola esté completa ni en
+    // el nombre ni en la marca — cada palabra exige su propio match (nombre, código o marca), todas
+    // las palabras en AND entre sí. Mismo criterio que CatalogBrowseService.findProducts.
+    const searchWords = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
     const where: Prisma.ProductWhereInput = {
       categoryId: categoryIds ? { in: categoryIds } : undefined,
       brandId: query.brandId,
-      ...(query.search
+      ...(searchWords.length > 0
         ? {
-            OR: [
-              { name: { contains: query.search, mode: "insensitive" } },
-              { productCode: { contains: query.search, mode: "insensitive" } },
-              { brand: { name: { contains: query.search, mode: "insensitive" } } },
-            ],
+            AND: searchWords.map((word) => ({
+              OR: [
+                { name: { contains: word, mode: "insensitive" as const } },
+                { productCode: { contains: word, mode: "insensitive" as const } },
+                { brand: { name: { contains: word, mode: "insensitive" as const } } },
+              ],
+            })),
           }
         : {}),
     };
