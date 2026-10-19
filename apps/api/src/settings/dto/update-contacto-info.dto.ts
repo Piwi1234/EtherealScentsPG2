@@ -1,11 +1,12 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
+import { IsArray, IsOptional, IsString } from "class-validator";
 
 export class UpdateContactoInfoDto {
-  @ApiPropertyOptional({ example: "+591 700 00000\n+591 800 00000", description: "Uno o más números, uno por línea." })
+  @ApiPropertyOptional({ example: ["+591 700 00000", "+591 800 00000"], description: "Números individuales, cada uno con su propio link a WhatsApp en el footer." })
   @IsOptional()
-  @IsString()
-  telefonos?: string;
+  @IsArray()
+  @IsString({ each: true })
+  telefonos?: string[];
 
   @ApiPropertyOptional({ example: "hola@etherealscents.com" })
   @IsOptional()

@@ -61,15 +61,15 @@ export function FlashCountdown({
       >
         <span className="landing-flash-box">
           <span className="landing-flash-box-value">{pad(hours)}</span>
-          <span className="landing-flash-box-label">H</span>
+          <span className="landing-flash-box-label">HRS</span>
         </span>
         <span className="landing-flash-box">
           <span className="landing-flash-box-value">{pad(minutes)}</span>
-          <span className="landing-flash-box-label">M</span>
+          <span className="landing-flash-box-label">MIN</span>
         </span>
         <span className="landing-flash-box">
           <span className="landing-flash-box-value">{pad(seconds)}</span>
-          <span className="landing-flash-box-label">S</span>
+          <span className="landing-flash-box-label">SEG</span>
         </span>
       </div>
     );

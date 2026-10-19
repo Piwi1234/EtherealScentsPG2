@@ -90,7 +90,7 @@ export default function IngresarPage() {
           </a>
 
           <p className="landing-auth-footer">
-            ¿No tenés cuenta? <Link href="/registro">Registrate</Link>
+            ¿No tienes cuenta? <Link href="/registro">Registrate</Link>
           </p>
         </div>
       </section>

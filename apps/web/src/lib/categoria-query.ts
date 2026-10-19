@@ -4,11 +4,16 @@
 // /catalog/products a partir de esos filtros" — si se duplicara en los dos lados, en algún momento
 // iban a quedar desalineados entre sí.
 
+import { apiGet, ApiError } from "./api";
+import type { Category } from "./types";
+
 export type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 export type PriceRange = [number, number];
 
 export type CategoriaFiltersFromUrl = {
-  subCategoryFilter: string;
+  // Slug de la subcategoría, no su id — ver resolveSubCategorySlug (igual que el slug de la
+  // categoría raíz en la propia ruta, "?subcategoria=d3d87bc5-..." era ilegible y larguísimo).
+  subCategorySlug: string;
   discountOnly: boolean;
   flashOnly: boolean;
   preventaOnly: boolean;
@@ -16,6 +21,7 @@ export type CategoriaFiltersFromUrl = {
   priceApplied: PriceRange | null;
   brandFilters: string[];
   attributeFilters: Record<string, string[]>;
+  page: number;
 };
 
 /** "?subcategoria=", "?descuento=true", "?attr[id]=valor1,valor2", etc. — mismo formato que ya
@@ -30,9 +36,13 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
   const marcaFromQuery = searchParams.get("marca");
   const minPriceFromQuery = searchParams.get("minPriceBs");
   const maxPriceFromQuery = searchParams.get("maxPriceBs");
+  // Entero positivo o 1 — una página inválida en la URL (texto, 0, negativo) cae a la primera en vez
+  // de romper el fetch.
+  const pageFromQuery = Math.floor(Number(searchParams.get("page")));
+  const page = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
 
   return {
-    subCategoryFilter: searchParams.get("subcategoria") ?? "",
+    subCategorySlug: searchParams.get("subcategoria") ?? "",
     discountOnly: searchParams.get("descuento") === "true",
     flashOnly: searchParams.get("flash") === "true",
     preventaOnly: searchParams.get("preventa") === "true",
@@ -43,7 +53,24 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
         : null,
     brandFilters: marcaFromQuery ? marcaFromQuery.split(",").map((v) => v.trim()).filter(Boolean) : [],
     attributeFilters,
+    page,
   };
+}
+
+/** El slug de una subcategoría es único en toda la tabla Category (no solo entre hermanas, ver
+ * schema.prisma) — por eso /categories/slug/:slug (pensado originalmente para la categoría raíz de
+ * la propia ruta /categoria/[slug]) también sirve para resolver el de una subcategoría puesto en
+ * ?subcategoria=. Devuelve null si el slug viene vacío o ya no existe (se borró/cambió la
+ * subcategoría) — en vez de romper el fetch de productos con un id inválido, el filtro
+ * simplemente queda sin aplicar. */
+export async function resolveSubCategorySlug(slug: string): Promise<Category | null> {
+  if (!slug) return null;
+  try {
+    return await apiGet<Category>(`/categories/slug/${slug}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
 }
 
 /** Arma la query de /catalog/products a partir de filtros ya resueltos (no de la URL directamente)

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
 import { getAttributeFilterOptions } from "../../../lib/catalog-display";
-import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams } from "../../../lib/categoria-query";
+import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams, resolveSubCategorySlug } from "../../../lib/categoria-query";
 import type { SortBy, PriceRange } from "../../../lib/categoria-query";
 import type { Attribute, Category, CategoryAggregates, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
@@ -48,15 +48,22 @@ export function CategoriaClient({
   initialCategory,
   initialNotFound,
   initialProductsPage,
+  initialPageNumber,
+  initialSubCategoryId,
 }: {
   initialCategory: Category | null;
   initialNotFound: boolean;
   initialProductsPage: Page<Product> | null;
+  initialPageNumber: number;
+  initialSubCategoryId: string;
 }) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const skipInitialCategoryFetch = useRef(Boolean(initialCategory || initialNotFound));
   const skipInitialProductsFetch = useRef(Boolean(initialProductsPage));
+  // page.tsx ya resolvió el slug de ?subcategoria= (ver resolveSubCategorySlug) para el primer
+  // montaje — nada que resolver de nuevo ahí, solo en un cambio real después.
+  const skipInitialSubCategoryResolve = useRef(Boolean(initialCategory || initialNotFound));
 
   const [category, setCategory] = useState<Category | null>(initialCategory);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -78,7 +85,7 @@ export function CategoriaClient({
   const [notFound, setNotFound] = useState(initialNotFound);
   const [error, setError] = useState("");
 
-  const [subCategoryFilter, setSubCategoryFilter] = useState("");
+  const [subCategoryFilter, setSubCategoryFilter] = useState(initialSubCategoryId);
   const [discountOnly, setDiscountOnly] = useState(false);
   const [flashOnly, setFlashOnly] = useState(false);
   const [preventaOnly, setPreventaOnly] = useState(false);
@@ -89,7 +96,7 @@ export function CategoriaClient({
   const [priceApplied, setPriceApplied] = useState<PriceRange | null>(null);
   const [brandFilters, setBrandFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
-  const [pageNumber, setPageNumber] = useState(1);
+  const [pageNumber, setPageNumber] = useState(initialPageNumber);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
@@ -129,7 +136,6 @@ export function CategoriaClient({
     // del home (ver ScentFinder en home/page.tsx).
     const searchParams = new URLSearchParams(window.location.search);
     const filters = parseCategoriaFiltersFromSearchParams(searchParams);
-    setSubCategoryFilter(filters.subCategoryFilter);
     setDiscountOnly(filters.discountOnly);
     setFlashOnly(filters.flashOnly);
     setPreventaOnly(filters.preventaOnly);
@@ -143,12 +149,25 @@ export function CategoriaClient({
     setBrandFilters(filters.brandFilters);
     setSortBy("relevancia");
     setAttributeFilters(filters.attributeFilters);
-    setPageNumber(1);
+    setPageNumber(filters.page);
     setFiltersDrawerOpen(false);
     // Se resetea acá (y no solo al resolver la categoría nueva) para no mostrar de arranque los
     // filtros de la categoría anterior mientras se resuelve el slug de la URL.
     setFilterableAttributes([]);
     apiGet<Category[]>("/categories").then(setCategories).catch(() => {});
+
+    // page.tsx ya resolvió ?subcategoria= (un slug, no un id — ver resolveSubCategorySlug) para
+    // este primer montaje, vía initialSubCategoryId. Un cambio de slug real después (navegar a otra
+    // categoría sin recargar la página) sí lo resuelve acá.
+    if (skipInitialSubCategoryResolve.current) {
+      skipInitialSubCategoryResolve.current = false;
+    } else if (filters.subCategorySlug) {
+      resolveSubCategorySlug(filters.subCategorySlug)
+        .then((sub) => setSubCategoryFilter(sub?.id ?? ""))
+        .catch(() => setSubCategoryFilter(""));
+    } else {
+      setSubCategoryFilter("");
+    }
 
     // page.tsx ya resolvió la categoría de este primer montaje (ver el comentario del componente) —
     // nada que pedir de nuevo, solo falta el mismo efecto secundario de abajo (auto-marcar la
@@ -156,7 +175,7 @@ export function CategoriaClient({
     // montaje (navegar a otra categoría sin recargar la página) sí vuelve a pedirlo, como siempre.
     if (skipInitialCategoryFetch.current) {
       skipInitialCategoryFetch.current = false;
-      if (initialCategory?.parentId && !filters.subCategoryFilter) setSubCategoryFilter(initialCategory.id);
+      if (initialCategory?.parentId && !filters.subCategorySlug) setSubCategoryFilter(initialCategory.id);
       return;
     }
 
@@ -168,7 +187,7 @@ export function CategoriaClient({
         // Si se entra directo a una subcategoría (ej. desde el desplegable del navbar) y no vino
         // ninguna subcategoría puntual por query, esa subcategoría arranca marcada en el filtro — el
         // grid ya la mostraba igual, esto solo hace que el checkbox y sus hermanas aparezcan.
-        if (cat.parentId && !filters.subCategoryFilter) setSubCategoryFilter(cat.id);
+        if (cat.parentId && !filters.subCategorySlug) setSubCategoryFilter(cat.id);
       })
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);
@@ -261,16 +280,22 @@ export function CategoriaClient({
   // a esta misma entrada de historial, pero con la URL tal cual estaba ANTES de tocar nada: sin
   // filtros. El remount volvía a leer la URL (ver el efecto de arriba) y los perdía todos. Este efecto
   // mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial propio)
-  // para que esa vuelta atrás restaure la página tal como había quedado. No incluye pageNumber a
-  // propósito — volver arranca en la página 1 de esos mismos filtros, no en la página puntual.
+  // para que esa vuelta atrás restaure la página tal como había quedado — incluida la página puntual
+  // del paginado (?page=), así la URL siempre dice en qué página real se está parado.
   useEffect(() => {
-    if (!category) return;
+    // `categories` (con sus slugs) también tiene que estar listo — si no, no hay cómo traducir
+    // subCategoryFilter (id) al slug que va en la URL. Se re-sincroniza solo apenas llegue (está en
+    // las deps de abajo), así que esto solo pospone un instante la primera escritura, nunca la pierde.
+    if (!category || categories.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const setOrDelete = (key: string, value: string | null) => {
       if (value) params.set(key, value);
       else params.delete(key);
     };
-    setOrDelete("subcategoria", subCategoryFilter || null);
+    // La URL guarda el slug de la subcategoría, no su id (ver resolveSubCategorySlug) — mucho más
+    // corto y legible que el uuid que tenía antes.
+    const subCategorySlug = subCategoryFilter ? (categories.find((c) => c.id === subCategoryFilter)?.slug ?? "") : "";
+    setOrDelete("subcategoria", subCategorySlug || null);
     setOrDelete("marca", brandFilters.length > 0 ? brandFilters.join(",") : null);
     setOrDelete("descuento", discountOnly ? "true" : null);
     setOrDelete("flash", flashOnly ? "true" : null);
@@ -278,6 +303,9 @@ export function CategoriaClient({
     setOrDelete("stock", inStockOnly ? "true" : null);
     setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
     setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
+    // Página 1 no se escribe (es el default implícito) — así la URL queda limpia salvo que
+    // efectivamente se esté parado en otra página.
+    setOrDelete("page", pageNumber > 1 ? String(pageNumber) : null);
     // Saca del query string los "attr[...]" existentes antes de reescribir los activos — si no, uno
     // que se desmarcó del todo (sin valores) quedaría pegado ahí para siempre.
     for (const key of Array.from(params.keys())) {
@@ -288,7 +316,20 @@ export function CategoriaClient({
     }
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
-  }, [category, subCategoryFilter, brandFilters, discountOnly, flashOnly, preventaOnly, inStockOnly, priceApplied, attributeFilters, router]);
+  }, [
+    category,
+    categories,
+    subCategoryFilter,
+    brandFilters,
+    discountOnly,
+    flashOnly,
+    preventaOnly,
+    inStockOnly,
+    priceApplied,
+    attributeFilters,
+    pageNumber,
+    router,
+  ]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría, ya calculado
   // por el backend (ver getCategoryAggregates) sobre el total real, no sobre una muestra.
@@ -631,14 +672,16 @@ export function CategoriaClient({
                   <div className="landing-pagination">
                     <button
                       type="button"
-                      className="landing-btn landing-btn-outline-dark"
+                      className="landing-btn landing-btn-outline-dark landing-pagination-btn"
+                      aria-label="Página anterior"
                       disabled={pageNumber <= 1}
                       onClick={() => {
                         setPageNumber((p) => p - 1);
                         document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      ← Anterior
+                      <span aria-hidden="true">←</span>
+                      <span className="landing-pagination-btn-label">Anterior</span>
                     </button>
                     <div className="landing-pagination-numbers">
                       {getPageWindow(pageNumber, totalPages).map((p) => (
@@ -658,14 +701,16 @@ export function CategoriaClient({
                     </div>
                     <button
                       type="button"
-                      className="landing-btn landing-btn-outline-dark"
+                      className="landing-btn landing-btn-outline-dark landing-pagination-btn"
+                      aria-label="Página siguiente"
                       disabled={pageNumber >= totalPages}
                       onClick={() => {
                         setPageNumber((p) => p + 1);
                         document.getElementById("category-filters-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      Siguiente →
+                      <span className="landing-pagination-btn-label">Siguiente</span>
+                      <span aria-hidden="true">→</span>
                     </button>
                   </div>
                 )}

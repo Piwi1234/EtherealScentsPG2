@@ -61,6 +61,20 @@ export class SettingsController {
     return this.settings.setContactoInfo(dto);
   }
 
+  @Post("whatsapp-logo")
+  @UseInterceptors(FileInterceptor("file", landingImageMulterOptions("whatsapp")), WebpUploadInterceptor)
+  uploadWhatsappLogo(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
+    }
+    return this.settings.setWhatsappLogo(file);
+  }
+
+  @Delete("whatsapp-logo")
+  removeWhatsappLogo() {
+    return this.settings.removeWhatsappLogo();
+  }
+
   @Get("landing-images/hero-carousel")
   listHeroCarouselImages() {
     return this.settings.listHeroCarouselImages();

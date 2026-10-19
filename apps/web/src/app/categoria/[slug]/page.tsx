@@ -1,5 +1,5 @@
 import { apiGet, ApiError } from "../../../lib/api";
-import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams } from "../../../lib/categoria-query";
+import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams, resolveSubCategorySlug } from "../../../lib/categoria-query";
 import type { Category, Page, Product } from "../../../lib/types";
 import { CARDS_PER_PAGE, CategoriaClient } from "./CategoriaClient";
 
@@ -27,6 +27,8 @@ export default async function CategoriaPage({
     else if (Array.isArray(value) && value.length > 0) urlSearchParams.set(key, value[0]);
   }
 
+  const filters = parseCategoriaFiltersFromSearchParams(urlSearchParams);
+
   let category: Category | null = null;
   let notFound = false;
   try {
@@ -36,11 +38,12 @@ export default async function CategoriaPage({
   }
 
   let initialProductsPage: Page<Product> | null = null;
+  let subCategory: Category | null = null;
   if (category) {
-    const filters = parseCategoriaFiltersFromSearchParams(urlSearchParams);
+    subCategory = await resolveSubCategorySlug(filters.subCategorySlug);
     const productsParams = buildCategoriaProductsParams({
-      categoryId: filters.subCategoryFilter || category.id,
-      page: 1,
+      categoryId: subCategory?.id || category.id,
+      page: filters.page,
       pageSize: CARDS_PER_PAGE,
       attributeFilters: filters.attributeFilters,
       discountOnly: filters.discountOnly,
@@ -54,5 +57,16 @@ export default async function CategoriaPage({
     initialProductsPage = await apiGet<Page<Product>>(`/catalog/products?${productsParams.toString()}`).catch(() => null);
   }
 
-  return <CategoriaClient initialCategory={category} initialNotFound={notFound} initialProductsPage={initialProductsPage} />;
+  return (
+    <CategoriaClient
+      initialCategory={category}
+      initialNotFound={notFound}
+      initialProductsPage={initialProductsPage}
+      initialPageNumber={filters.page}
+      // Si `category` en sí ya es una subcategoría (se entró directo a su propia ruta, ej.
+      // /categoria/arabes, sin pasar por ?subcategoria=), esa es la que arranca marcada en el
+      // sidebar — mismo criterio que el efecto de slug de CategoriaClient para esto mismo.
+      initialSubCategoryId={subCategory?.id ?? (category?.parentId ? category.id : "")}
+    />
+  );
 }

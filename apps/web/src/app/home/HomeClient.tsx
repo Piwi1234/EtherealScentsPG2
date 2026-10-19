@@ -741,28 +741,34 @@ export function HomeClient({
               </h2>
 
               {cat.carouselImages.length > 0 ? (
-                <div className="landing-feature-visual">
-                  <ImageCarousel
-                    images={cat.carouselImages}
-                    alt={cat.name}
-                    imgClassName="landing-feature-visual-image"
-                    autoplayMs={FEATURE_AUTOPLAY_MS}
-                    visibleCount={isMobile ? 1 : 3}
-                    mobileMediaQuery={MOBILE_BREAKPOINT}
-                    renderOverlay={(image) => (
-                      <div className="landing-feature-overlay">
-                        <div className="landing-feature-overlay-text">
-                          {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
-                          {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
+                // Frame con padding a los costados — mismo mecanismo que .landing-carousel
+                // (Descuento y Ofertas / Explora Nuestras Marcas): las flechas de ImageCarousel
+                // (position:absolute) anclan a ESTE contenedor en vez de a .landing-feature-visual,
+                // así quedan en ese margen, afuera de la imagen, no superpuestas encima.
+                <div className="landing-feature-visual-frame">
+                  <div className="landing-feature-visual">
+                    <ImageCarousel
+                      images={cat.carouselImages}
+                      alt={cat.name}
+                      imgClassName="landing-feature-visual-image"
+                      autoplayMs={FEATURE_AUTOPLAY_MS}
+                      visibleCount={isMobile ? 1 : 3}
+                      mobileMediaQuery={MOBILE_BREAKPOINT}
+                      renderOverlay={(image) => (
+                        <div className="landing-feature-overlay">
+                          <div className="landing-feature-overlay-text">
+                            {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
+                            {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
+                          </div>
+                          {image.url && (
+                            <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
+                              Ver Todo
+                            </a>
+                          )}
                         </div>
-                        {image.url && (
-                          <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
-                            Ver Todo
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  />
+                      )}
+                    />
+                  </div>
                 </div>
               ) : (
                 <Link
@@ -776,10 +782,10 @@ export function HomeClient({
         );
       })}
 
-      {/* ============================== 6. Sobre nosotros ============================== */}
-      <section id="nosotros" className="landing-section landing-section-alt">
-        <div className="landing-container landing-about">
-          <div>
+      {/* ======== 6. Sobre nosotros + Newsletter: misma fila, 2 columnas con difuminado ======== */}
+      <section id="nosotros" className="landing-about-newsletter-row">
+        <div className="landing-about-newsletter-col landing-about-newsletter-col--about">
+          <div className="landing-about">
             <p className="landing-eyebrow">Nuestra filosofía</p>
             <h2 className="landing-section-title">Sobre {brandName}</h2>
             <p>
@@ -796,25 +802,24 @@ export function HomeClient({
             </p>
           </div>
         </div>
-      </section>
 
-      {/* ============================== 7. Newsletter ============================== */}
-      <section className="landing-section landing-newsletter">
-        <div className="landing-container">
-          <p className="landing-eyebrow">Newsletter</p>
-          <h2 className="landing-section-title">Enterate de nuestras novedades</h2>
-          <p className="landing-section-lead" style={{ margin: "0 auto 32px" }}>
-            Lanzamientos, ofertas y novedades del catálogo
-          </p>
-          <div className="landing-newsletter-form">
-            <a
-              className="landing-btn landing-btn-primary"
-              href={contacto?.canalOfertasUrl ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Canal de ofertas
-            </a>
+        <div className="landing-about-newsletter-col landing-about-newsletter-col--newsletter">
+          <div className="landing-newsletter">
+            <p className="landing-eyebrow">Newsletter</p>
+            <h2 className="landing-section-title">Enterate de nuestras novedades</h2>
+            <p className="landing-section-lead" style={{ margin: "0 auto 32px" }}>
+              Lanzamientos, ofertas y novedades del catálogo
+            </p>
+            <div className="landing-newsletter-form">
+              <a
+                className="landing-btn landing-btn-primary"
+                href={contacto?.canalOfertasUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Canal de ofertas
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -1017,8 +1022,10 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
   const params = new URLSearchParams();
   params.set(`attr[${acordesAttribute.id}]`, selectedAcorde.id);
   // "subcategoria" (no attr[...]) porque así es como /categoria/[slug] ya lo lee — mismo param que
-  // usan el navbar y el logo de marca del home, no uno nuevo.
-  if (selectedSubcategoriaId) params.set("subcategoria", selectedSubcategoriaId);
+  // usan el navbar y el logo de marca del home, no uno nuevo. Va por slug, no por id (ver
+  // resolveSubCategorySlug en categoria-query.ts).
+  const selectedSubcategoriaSlug = subcategories.find((s) => s.id === selectedSubcategoriaId)?.slug;
+  if (selectedSubcategoriaSlug) params.set("subcategoria", selectedSubcategoriaSlug);
   for (const attr of dropdownAttributes) {
     const value = selectedByAttribute[attr.id];
     if (value) params.set(`attr[${attr.id}]`, value);

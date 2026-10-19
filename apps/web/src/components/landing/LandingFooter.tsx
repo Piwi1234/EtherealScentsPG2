@@ -62,6 +62,7 @@ export function LandingFooter() {
   const rootCategories = categories.filter((cat) => cat.parentId === null);
   const brandName = empresa?.nombre ?? "Ethereal Scents";
   const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
+  const whatsappLogoSrc = productImageSrc(contacto?.whatsappLogoUrl ?? null);
 
   return (
     <footer id="contacto" className="landing-footer">
@@ -104,7 +105,18 @@ export function LandingFooter() {
               <FooterColChevron open={openMobileSections.has("contacto")} />
             </button>
             <div className={`landing-footer-col-content${openMobileSections.has("contacto") ? " landing-footer-col-content--open" : ""}`}>
-              {contacto?.telefonos?.split("\n").map((tel, i) => tel.trim() && <p key={i}>{tel.trim()}</p>)}
+              {contacto?.telefonos.map((tel) => (
+                <a
+                  key={tel}
+                  className="landing-footer-telefono"
+                  href={`https://wa.me/${tel.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {whatsappLogoSrc && <img className="landing-footer-whatsapp-icon" src={whatsappLogoSrc} alt="WhatsApp" />}
+                  {tel}
+                </a>
+              ))}
               {contacto?.email && <p>{contacto.email}</p>}
               {contacto?.ciudad && <p>{contacto.ciudad}</p>}
             </div>

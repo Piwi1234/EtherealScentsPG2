@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, apiDelete, apiGet, apiPost, apiPut, apiUpload, ApiError } from "../../../../lib/api";
+import {
+  API_ORIGIN,
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPut,
+  apiUpload,
+  ApiError,
+  removeWhatsappLogo,
+  setWhatsappLogo,
+} from "../../../../lib/api";
 import type { ContactoInfo, RedSocial } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 
@@ -13,7 +23,11 @@ function logoSrc(logoUrl: string | null): string | null {
 }
 
 export default function ContactoPage() {
-  const [telefonos, setTelefonos] = useState("");
+  // Cada número es su propio input (en vez de un textarea de texto libre) — así cada uno se puede
+  // agregar/sacar individualmente, y el footer los muestra uno por uno con el logo de WhatsApp al
+  // lado (ver whatsappLogoUrl más abajo). Arranca con un campo vacío si todavía no hay ninguno
+  // cargado, para no mostrar la lista en blanco sin ningún lugar donde escribir.
+  const [telefonos, setTelefonosState] = useState<string[]>([""]);
   const [email, setEmail] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [canalOfertasUrl, setCanalOfertasUrl] = useState("");
@@ -21,6 +35,10 @@ export default function ContactoPage() {
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoError, setInfoError] = useState("");
   const [infoSuccess, setInfoSuccess] = useState(false);
+
+  const [whatsappLogoUrl, setWhatsappLogoUrl] = useState<string | null>(null);
+  const [whatsappLogoBusy, setWhatsappLogoBusy] = useState(false);
+  const [whatsappLogoError, setWhatsappLogoError] = useState("");
 
   const [redes, setRedes] = useState<RedSocial[] | null>(null);
   const [redesError, setRedesError] = useState("");
@@ -36,7 +54,8 @@ export default function ContactoPage() {
   useEffect(() => {
     apiGet<ContactoInfo>("/settings/contacto-info")
       .then((data) => {
-        setTelefonos(data.telefonos ?? "");
+        setTelefonosState(data.telefonos.length > 0 ? data.telefonos : [""]);
+        setWhatsappLogoUrl(data.whatsappLogoUrl);
         setEmail(data.email ?? "");
         setCiudad(data.ciudad ?? "");
         setCanalOfertasUrl(data.canalOfertasUrl ?? "");
@@ -52,19 +71,59 @@ export default function ContactoPage() {
       .catch((e) => setRedesError(e instanceof Error ? e.message : String(e)));
   }
 
+  function updateTelefono(index: number, value: string) {
+    setTelefonosState((prev) => prev.map((t, i) => (i === index ? value : t)));
+  }
+
+  function addTelefono() {
+    setTelefonosState((prev) => [...prev, ""]);
+  }
+
+  function removeTelefono(index: number) {
+    setTelefonosState((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [""]));
+  }
+
   async function handleSaveInfo(e: React.FormEvent) {
     e.preventDefault();
     setInfoError("");
     setInfoSuccess(false);
     setSavingInfo(true);
     try {
-      await apiPut("/settings/contacto-info", { telefonos, email, ciudad, canalOfertasUrl });
+      const cleanTelefonos = telefonos.map((t) => t.trim()).filter(Boolean);
+      await apiPut("/settings/contacto-info", { telefonos: cleanTelefonos, email, ciudad, canalOfertasUrl });
+      setTelefonosState(cleanTelefonos.length > 0 ? cleanTelefonos : [""]);
       setInfoSuccess(true);
       setTimeout(() => setInfoSuccess(false), 4000);
     } catch (e) {
       setInfoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setSavingInfo(false);
+    }
+  }
+
+  async function handleSetWhatsappLogo(file: File) {
+    setWhatsappLogoBusy(true);
+    setWhatsappLogoError("");
+    try {
+      const result = await setWhatsappLogo(file);
+      setWhatsappLogoUrl(result.whatsappLogoUrl);
+    } catch (e) {
+      setWhatsappLogoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setWhatsappLogoBusy(false);
+    }
+  }
+
+  async function handleRemoveWhatsappLogo() {
+    setWhatsappLogoBusy(true);
+    setWhatsappLogoError("");
+    try {
+      await removeWhatsappLogo();
+      setWhatsappLogoUrl(null);
+    } catch (e) {
+      setWhatsappLogoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setWhatsappLogoBusy(false);
     }
   }
 
@@ -121,13 +180,71 @@ export default function ContactoPage() {
           <form className="form-grid" onSubmit={handleSaveInfo}>
             <div>
               <label>Números</label>
-              <textarea
-                className="field"
-                value={telefonos}
-                onChange={(e) => setTelefonos(e.target.value)}
-                placeholder={"Ej: +591 700 00000\n+591 800 00000"}
-                rows={3}
-              />
+              {telefonos.map((tel, i) => (
+                <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    className="field"
+                    value={tel}
+                    onChange={(e) => updateTelefono(i, e.target.value)}
+                    placeholder="Ej: +591 700 00000"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="action-btn danger"
+                    onClick={() => removeTelefono(i)}
+                    aria-label="Quitar número"
+                    title="Quitar número"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="link-button" onClick={addTelefono}>
+                + Agregar número
+              </button>
+            </div>
+            <div>
+              <label>Logo de WhatsApp</label>
+              <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 8px" }}>
+                Se muestra al lado de cada número de arriba, en el footer del sitio — un solo logo, compartido por
+                todos los números.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="image-uploader" style={{ width: 64, height: 64, padding: 6, position: "relative" }}>
+                  {logoSrc(whatsappLogoUrl) ? (
+                    <img src={logoSrc(whatsappLogoUrl)!} alt="Logo de WhatsApp" style={{ objectFit: "contain" }} />
+                  ) : (
+                    <div className="image-uploader-placeholder" style={{ fontSize: 10.5 }}>Sin logo</div>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input
+                    id="whatsapp-logo-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    disabled={whatsappLogoBusy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSetWhatsappLogo(file);
+                      e.target.value = "";
+                    }}
+                    style={{ background: "transparent", border: 0, padding: 0 }}
+                  />
+                  {whatsappLogoUrl && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      style={{ alignSelf: "flex-start" }}
+                      disabled={whatsappLogoBusy}
+                      onClick={handleRemoveWhatsappLogo}
+                    >
+                      Quitar logo
+                    </button>
+                  )}
+                </div>
+              </div>
+              {whatsappLogoError && <p className="error-text">{whatsappLogoError}</p>}
             </div>
             <div>
               <label>Correo electrónico</label>

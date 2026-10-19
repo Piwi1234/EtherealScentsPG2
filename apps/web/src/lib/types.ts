@@ -312,7 +312,10 @@ export type CarritoWhatsappContacto = {
 
 /** Datos del bloque "Contacto" del footer del sitio público (Configuración → Global → Contacto). */
 export type ContactoInfo = {
-  telefonos: string | null;
+  // Números individuales — cada uno se muestra en el footer con whatsappLogoUrl al lado, como link
+  // a wa.me.
+  telefonos: string[];
+  whatsappLogoUrl: string | null;
   email: string | null;
   ciudad: string | null;
   // A dónde redirige el botón "Canal de ofertas" de la sección Newsletter del home.

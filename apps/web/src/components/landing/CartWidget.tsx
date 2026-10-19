@@ -35,7 +35,7 @@ function buildWhatsappMessage(items: CartItem[], totalBs: number): string {
     const variante = item.atributos ? ` — ${item.atributos}` : "";
     return `• ${item.name}${variante} (${item.code}) x${item.qty} — Bs ${(item.unitPriceBs * item.qty).toFixed(2)}`;
   });
-  return `Hola, quiero solicitar una cotización de:\n\n${lines.join("\n")}\n\nTotal: Bs ${totalBs.toFixed(2)}`;
+  return `Hola, quiero confirmar disponibilidad de:\n\n${lines.join("\n")}\n\nTotal: Bs ${totalBs.toFixed(2)}`;
 }
 
 // Duración de la animación de entrada/salida del drawer — tiene que coincidir con la de

@@ -4268,6 +4268,25 @@ a {
   pointer-events: none;
 }
 
+/* "← Anterior"/"Siguiente →" con el texto completo (más el padding de siempre de .landing-btn,
+   30px a cada lado) sumados a los números de página empujaban el ancho de .landing-pagination bien
+   por encima del viewport en mobile — se recortaban/empujaban fuera de la pantalla. Abajo, en mobile,
+   se esconde la etiqueta y solo queda la flecha, con un botón bien angosto en vez de uno pensado
+   para texto. */
+@media (max-width: 768px) {
+  .landing-pagination {
+    gap: 8px;
+  }
+
+  .landing-pagination-btn {
+    padding: 10px 14px;
+  }
+
+  .landing-pagination-btn-label {
+    display: none;
+  }
+}
+
 /* --- Carrusel de "Descuento y Ofertas" (home): 4 tarjetas de producto + 1 banner de imágenes --- */
 
 .landing-carousel {
@@ -5655,14 +5674,43 @@ a {
   border-bottom: 1px solid var(--lp-border);
 }
 
-/* 85% del ancho del contenedor (centrado) — 15% menos que antes, ver ImageCarousel/visibleCount
-   para cómo se reparte ese ancho entre las 3 columnas. */
-.landing-feature-visual {
+/* Mismo mecanismo que .landing-carousel (Descuento y Ofertas / Explora Nuestras Marcas) — el padding
+   lateral vive en el frame de afuera (.landing-feature-visual-frame), no acá, así las flechas de
+   ImageCarousel anclan a ESE contenedor (ver su position:relative) y quedan en ese margen, afuera de
+   la imagen, en vez de ancladas a este mismo recorte y superpuestas encima. Sin position:relative a
+   propósito — si lo tuviera, les ganaría a la del frame por ser el ancestro más cercano. */
+.landing-feature-visual-frame {
   position: relative;
+  padding: 0 52px;
+}
+
+.landing-feature-visual {
   display: block;
   overflow: hidden;
-  width: 85%;
-  margin: 0 auto;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow {
+  /* Afuera de la imagen ya no hace falta el "cristal" semitransparente pensado para apoyarse sobre
+     una foto — colores de --lp-text/--lp-border, que ya cambian solos entre el bloque claro y el
+     oscuro (ver .landing-feature-block--dark), para que se lean bien sobre los dos fondos. */
+  left: 0;
+  right: auto;
+  background: transparent;
+  border: 1.5px solid var(--lp-border);
+  color: var(--lp-text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow--next {
+  left: auto;
+  right: 0;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow:hover {
+  border-color: var(--lp-accent-dark);
+  color: var(--lp-accent-dark);
+  background: transparent;
 }
 
 .landing-feature-visual-image {
@@ -5694,7 +5742,12 @@ a {
 }
 
 .landing-feature-visual--fallback {
+  /* Este caso no pasa por ImageCarousel (categoría sin imágenes de carrusel cargadas, ver el
+     comentario de :not() más abajo) — no vive dentro de .landing-feature-visual-frame, así que el
+     85% centrado que antes traía la clase base hay que conservarlo acá. */
   display: flex;
+  width: 85%;
+  margin: 0 auto;
   aspect-ratio: 21 / 9;
   border-radius: 0;
 }
@@ -6226,9 +6279,71 @@ a {
   margin: 0;
 }
 
-/* --- Sobre nosotros --- */
-/* Sin imagen a propósito (se sacó junto con el bloque "Propuesta de valor" de arriba) — una sola
-   columna de texto, centrada, en vez del grid de 2 columnas que usaba antes con la imagen al lado. */
+/* --- Sobre nosotros + Newsletter: misma fila, 2 columnas --- */
+/* A pedido: antes eran 2 secciones apiladas, cada una su propio ancho completo. Ahora comparten una
+   sola fila de 2 columnas, cada una con su propio fondo (claro para "Sobre nosotros", navy para
+   Newsletter) — un único gradiente de pared a pared en vez de dos <div> con su color sólido cada
+   uno, así el cambio de color entre los dos no es un corte duro sino un difuminado (mismo recurso
+   que .landing-historia-split-fade, pero acá entre dos colores sólidos en vez de color→imagen). Los
+   % de corte (42/58) dejan la franja difuminada centrada en la costura entre las dos columnas
+   (50/50) sin que ninguna de las dos quede con menos espacio útil para su contenido. */
+.landing-about-newsletter-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 420px;
+  background: linear-gradient(to right, var(--lp-surface) 0%, var(--lp-surface) 42%, var(--es-navy-900) 58%, var(--es-navy-900) 100%);
+}
+
+.landing-about-newsletter-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 48px;
+}
+
+/* Mismo mecanismo de variables --lp-* que .landing-feature-block--dark (ver su comentario) — texto
+   papel, acento dorado, heredado por todo lo de adentro (eyebrow, título, párrafos) sin tocarlos uno
+   por uno. El botón "Canal de ofertas" sí necesita su propio ajuste: .landing-btn-primary (navy de
+   fondo + dorado de texto, ver la paleta al final del archivo) quedaba casi invisible sobre este
+   mismo navy — acá se invierte a dorado sólido con texto navy, mismo criterio que un pill activo de
+   "Descuento y Ofertas". */
+.landing-about-newsletter-col--newsletter {
+  --lp-text: #eef1f7;
+  --lp-muted: rgba(238, 241, 247, 0.7);
+  --lp-accent-dark: var(--es-gold);
+  --lp-border: rgba(238, 241, 247, 0.18);
+  color: var(--lp-text);
+}
+
+.landing-about-newsletter-col--newsletter .landing-btn.landing-btn-primary {
+  background: var(--es-gold);
+  color: var(--es-navy-900);
+}
+
+.landing-about-newsletter-col--newsletter .landing-btn-primary:hover {
+  background: #e0c58f;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .landing-about-newsletter-row {
+    flex-direction: column;
+    min-height: 0;
+    /* En una sola columna el difuminado diagonal no tiene costura que suavizar — cada mitad pasa a
+       llevar su propio color sólido (ver las dos reglas de abajo). */
+    background: none;
+  }
+
+  .landing-about-newsletter-col--about {
+    background: var(--lp-surface);
+  }
+
+  .landing-about-newsletter-col--newsletter {
+    background: var(--es-navy-900);
+  }
+}
 
 .landing-about {
   max-width: 820px;
@@ -6362,8 +6477,32 @@ a {
   margin: 0 0 10px;
 }
 
+/* block (arriba) para que cada link siga en su propia línea, pero sin estirar el área clickeable a
+   todo el ancho de la columna — mismo texto, mismo lugar, pero el click fuera de la palabra (a la
+   derecha) ya no cuenta como click en "Perfumes"/"Vapes"/etc. */
+.landing-footer-col a {
+  width: fit-content;
+}
+
 .landing-footer-col a:hover {
   color: #ffffff;
+}
+
+/* .landing-footer-col a (arriba) ya le da el font-size/margin de siempre — acá solo se pisa el
+   display:block por flex (mismo selector ".landing-footer-col a", misma especificidad: gana por
+   venir después) para poner el ícono al lado del número, sin tocar esas reglas compartidas con el
+   resto del footer. */
+.landing-footer-col a.landing-footer-telefono {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-footer-whatsapp-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .landing-footer-social {
@@ -7092,7 +7231,8 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .landing-carousel {
+  .landing-carousel,
+  .landing-feature-visual-frame {
     padding: 0 44px;
   }
 
@@ -7371,7 +7511,8 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .landing-carousel {
+  .landing-carousel,
+  .landing-feature-visual-frame {
     padding: 0 40px;
   }
 
@@ -7785,8 +7926,10 @@ a {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #e5e2df;
-  color: #d81f26;
+  /* Mismo par fondo/ícono que .landing-trust-icon (barra de confianza) — navy + dorado en vez del
+     rojo suelto que tenía antes, fuera de la paleta del resto del sitio. */
+  background: var(--es-navy-100);
+  color: var(--es-navy-700);
   flex-shrink: 0;
 }
 
@@ -8112,6 +8255,10 @@ a {
 }
 
 .landing-feature-block--dark {
+  /* Pisa el #080706 ("Black Steel") original de la sección de arriba — mismo navy que navbar/footer/
+     hero oscuro/"Descuento y Ofertas" (--es-navy-900), para que los bloques de "Producto destacado"
+     no queden con un negro aparte, fuera de la paleta azul marino + dorado del resto del sitio. */
+  background: var(--es-navy-900);
   --lp-text: #eef1f7;
   --lp-muted: rgba(238, 241, 247, 0.7);
   --lp-accent-dark: var(--es-gold);
