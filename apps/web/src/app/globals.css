@@ -7785,8 +7785,10 @@ a {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #e5e2df;
-  color: #d81f26;
+  /* Mismo par fondo/ícono que .landing-trust-icon (barra de confianza) — navy + dorado en vez del
+     rojo suelto que tenía antes, fuera de la paleta del resto del sitio. */
+  background: var(--es-navy-100);
+  color: var(--es-navy-700);
   flex-shrink: 0;
 }
 
@@ -8112,6 +8114,10 @@ a {
 }
 
 .landing-feature-block--dark {
+  /* Pisa el #080706 ("Black Steel") original de la sección de arriba — mismo navy que navbar/footer/
+     hero oscuro/"Descuento y Ofertas" (--es-navy-900), para que los bloques de "Producto destacado"
+     no queden con un negro aparte, fuera de la paleta azul marino + dorado del resto del sitio. */
+  background: var(--es-navy-900);
   --lp-text: #eef1f7;
   --lp-muted: rgba(238, 241, 247, 0.7);
   --lp-accent-dark: var(--es-gold);
