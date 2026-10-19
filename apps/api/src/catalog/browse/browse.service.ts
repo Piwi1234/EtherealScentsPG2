@@ -13,6 +13,10 @@ import { expireFlashOffers } from "../expire-flash-offers";
  * vez volvería casi imposible que algún producto matchee. */
 const MAX_ALLOW_MULTIPLE_FILTER_VALUES = 4;
 
+/** "Ver similares" (ver getSimilarByAccords): mínimo de acordes en común para contar como similar —
+ * antes era 2, a pedido se subió a 3 (solo se muestran coincidencias de 3 o 4 de 4, nunca 2 de 4). */
+const MIN_SIMILAR_ACCORD_MATCH = 3;
+
 const includeDetails = {
   brand: true,
   category: true,
@@ -324,11 +328,11 @@ export class CatalogBrowseService {
 
   /**
    * Para el botón "Ver similares" de la página de producto (/comparar/[slug]): otros perfumes que
-   * comparten 2 o más acordes con el producto dado, agrupados por cantidad de coincidencias
-   * (descendente). "Acordes" es, hoy, el único atributo `allowMultiple` de la categoría Perfumes —
-   * matchear por nombre (no por "cualquier atributo allowMultiple") deja clara la intención: esto es
-   * específicamente sobre acordes, no un mecanismo genérico que se active solo si en el futuro se
-   * agrega otro atributo de selección múltiple para otra categoría.
+   * comparten MIN_SIMILAR_ACCORD_MATCH o más acordes con el producto dado, agrupados por cantidad de
+   * coincidencias (descendente). "Acordes" es, hoy, el único atributo `allowMultiple` de la
+   * categoría Perfumes — matchear por nombre (no por "cualquier atributo allowMultiple") deja clara
+   * la intención: esto es específicamente sobre acordes, no un mecanismo genérico que se active solo
+   * si en el futuro se agrega otro atributo de selección múltiple para otra categoría.
    */
   async getSimilarByAccords(productId: string) {
     const product = await this.prisma.product.findUnique({
@@ -346,9 +350,10 @@ export class CatalogBrowseService {
     const accords = accordValues.map((av) => ({ id: av.option.id, name: av.option.value, color: av.option.color }));
     const totalAccords = accords.length;
 
-    // Con menos de 2 acordes propios no hay nada que comparar (y el front ya no muestra el botón en
-    // ese caso) — se responde vacío en vez de tirar error, por si igual se llega acá.
-    if (totalAccords < 2) {
+    // Con menos acordes propios que el mínimo exigido, ningún candidato podría nunca alcanzarlo (el
+    // match no puede superar el tamaño del set más chico) — se responde vacío en vez de tirar error,
+    // por si igual se llega acá (el front ya no muestra el botón en ese caso).
+    if (totalAccords < MIN_SIMILAR_ACCORD_MATCH) {
       return { accords, totalAccords, groups: [] as { matchCount: number; items: unknown[] }[] };
     }
 
@@ -370,7 +375,7 @@ export class CatalogBrowseService {
         ).size;
         return { matchCount, product: finalizeProduct(candidate, exchangeRate) };
       })
-      .filter((entry) => entry.matchCount >= 2)
+      .filter((entry) => entry.matchCount >= MIN_SIMILAR_ACCORD_MATCH)
       .sort((a, b) => b.matchCount - a.matchCount);
 
     const groupsByMatchCount = new Map<number, (typeof scored)[number]["product"][]>();

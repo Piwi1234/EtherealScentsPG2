@@ -42,7 +42,8 @@ export default async function CompararPage({
   );
 
   // Se aplana para paginar de a PAGE_SIZE sin importar en qué grupo cae cada tarjeta — ya viene
-  // ordenado por matchCount descendente (4/4, 3/4, 2/4...) desde el backend.
+  // ordenado por matchCount descendente (4/4, 3/4... nunca menos de 3, ver MIN_SIMILAR_ACCORD_MATCH
+  // en browse.service.ts) desde el backend.
   const flat: FlatEntry[] = similar.groups.flatMap((group) =>
     group.items.map((item) => ({ matchCount: group.matchCount, product: item })),
   );
@@ -157,29 +158,14 @@ export default async function CompararPage({
               </div>
               <div className="landing-product-grid landing-product-grid--5col">
                 {pageSection.items.map(({ product: similarProduct }) => {
-                  const accords = similarProduct.attributeValues.filter(
-                    (av): av is typeof av & { option: NonNullable<typeof av.option> } =>
-                      av.attribute.name === "Acordes" && av.option !== null,
-                  );
-                  return (
-                    <ProductCard
-                      key={similarProduct.id}
-                      product={similarProduct}
-                      footer={
-                        <div className="landing-compare-card-accords">
-                          {accords.map((av) => (
-                            <span
-                              key={av.option.id}
-                              className="landing-compare-card-accord"
-                              style={av.option.color ? { background: av.option.color, color: getContrastTextColor(av.option.color) } : undefined}
-                            >
-                              {av.option.value.toLowerCase()}
-                            </span>
-                          ))}
-                        </div>
-                      }
-                    />
-                  );
+                  const cardAccords = similarProduct.attributeValues
+                    .filter(
+                      (av): av is typeof av & { option: NonNullable<typeof av.option> } =>
+                        av.attribute.name === "Acordes" && av.option !== null,
+                    )
+                    .map((av) => ({ id: av.option.id, name: av.option.value, color: av.option.color }))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                  return <ProductCard key={similarProduct.id} product={similarProduct} accords={cardAccords} />;
                 })}
               </div>
             </div>
