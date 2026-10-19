@@ -323,6 +323,70 @@ export class CatalogBrowseService {
   }
 
   /**
+   * Para el botón "Ver similares" de la página de producto (/comparar/[slug]): otros perfumes que
+   * comparten 2 o más acordes con el producto dado, agrupados por cantidad de coincidencias
+   * (descendente). "Acordes" es, hoy, el único atributo `allowMultiple` de la categoría Perfumes —
+   * matchear por nombre (no por "cualquier atributo allowMultiple") deja clara la intención: esto es
+   * específicamente sobre acordes, no un mecanismo genérico que se active solo si en el futuro se
+   * agrega otro atributo de selección múltiple para otra categoría.
+   */
+  async getSimilarByAccords(productId: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { attributeValues: { include: { attribute: true, option: true } } },
+    });
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado.");
+    }
+
+    const accordValues = product.attributeValues.filter(
+      (av): av is typeof av & { option: NonNullable<typeof av.option> } =>
+        av.attribute.name === "Acordes" && av.option !== null,
+    );
+    const accords = accordValues.map((av) => ({ id: av.option.id, name: av.option.value, color: av.option.color }));
+    const totalAccords = accords.length;
+
+    // Con menos de 2 acordes propios no hay nada que comparar (y el front ya no muestra el botón en
+    // ese caso) — se responde vacío en vez de tirar error, por si igual se llega acá.
+    if (totalAccords < 2) {
+      return { accords, totalAccords, groups: [] as { matchCount: number; items: unknown[] }[] };
+    }
+
+    const targetOptionIds = accordValues.map((av) => av.option.id);
+    const targetSet = new Set(targetOptionIds);
+
+    const candidates = await this.prisma.product.findMany({
+      where: { id: { not: productId }, attributeValues: { some: { optionId: { in: targetOptionIds } } } },
+      include: includeDetails,
+    });
+
+    const exchangeRate = await this.settings.getExchangeRate();
+    const scored = candidates
+      .map((candidate) => {
+        const matchCount = new Set(
+          candidate.attributeValues
+            .map((av) => av.optionId)
+            .filter((optionId): optionId is string => optionId !== null && targetSet.has(optionId)),
+        ).size;
+        return { matchCount, product: finalizeProduct(candidate, exchangeRate) };
+      })
+      .filter((entry) => entry.matchCount >= 2)
+      .sort((a, b) => b.matchCount - a.matchCount);
+
+    const groupsByMatchCount = new Map<number, (typeof scored)[number]["product"][]>();
+    for (const entry of scored) {
+      const items = groupsByMatchCount.get(entry.matchCount) ?? [];
+      items.push(entry.product);
+      groupsByMatchCount.set(entry.matchCount, items);
+    }
+    const groups = [...groupsByMatchCount.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([matchCount, items]) => ({ matchCount, items }));
+
+    return { accords, totalAccords, groups };
+  }
+
+  /**
    * Atributos filtrables disponibles para una categoría (propios + heredados), con sus opciones.
    * Los atributos con precio propio (variantMode PRICED_VARIANT) nunca se ofrecen como filtro acá,
    * aunque estén marcados isFilterable: ya tienen su propio mecanismo de selección de variante.

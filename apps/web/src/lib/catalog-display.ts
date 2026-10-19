@@ -178,6 +178,18 @@ export function isPreventa(product: Product): boolean {
   return product.variants.some((v) => v.estado === "PREVENTA");
 }
 
+/** Negro o blanco según qué tan clara es la variante — así un bloque/pill relleno con un color
+ * guardado (ej. un acorde, ver ScentFinder en home/page.tsx y /comparar) mantiene el texto legible
+ * sin importar si ese color es claro u oscuro. Fórmula YIQ estándar (percepción de brillo), no
+ * luminancia relativa WCAG completa — alcanza para este uso. */
+export function getContrastTextColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 150 ? "#1a2234" : "#ffffff";
+}
+
 export type AttributeDetail = { key: string; nombre: string; valor: string; orden: number };
 
 /**

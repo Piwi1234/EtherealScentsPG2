@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
 import {
@@ -28,6 +28,7 @@ export function ProductCard({
   flashVariant = "pill",
   context,
   forcedVariant,
+  footer,
 }: {
   product: Product;
   className?: string;
@@ -43,6 +44,10 @@ export function ProductCard({
    * variante calificando para `context` (ver offerVariantEntries): ahí sale una tarjeta por cada
    * una, no una sola por producto. */
   forcedVariant?: ProductVariant;
+  /** Contenido extra al final de la tarjeta (dentro del mismo <Link>, debajo del precio) — ej. los
+   * acordes del perfume en /comparar. Ningún otro uso de ProductCard lo pasa, así que no cambia nada
+   * fuera de ahí. */
+  footer?: ReactNode;
 }) {
   const { addItem, removeItem, setQty, items } = useCart();
   const { bs, fromPrice, variant, discountBs } = forcedVariant
@@ -236,6 +241,7 @@ export function ProductCard({
           {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
         </div>
       </div>
+      {footer}
     </Link>
   );
 }
