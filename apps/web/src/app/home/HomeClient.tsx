@@ -15,6 +15,9 @@ const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
 const BRANDS_SLIDE_SIZE = 7;
+// En mobile .landing-brand-grid cae a 2 columnas (ver globals.css) — con 7 de siempre eso eran 4
+// filas por página; 4 (2 filas parejas) se ve mucho menos alargado.
+const BRANDS_SLIDE_SIZE_MOBILE = 4;
 const BRANDS_AUTOPLAY_MS = 10000;
 // Ciclan por posición dentro de la fila (no por marca) — solo para que la pared de nombres no se
 // vea plana, como en la referencia.
@@ -876,13 +879,28 @@ function BrandsShowcase({ rootCategories, brands }: { rootCategories: Category[]
 }
 
 /** Carrusel de nombres de marca de una categoría raíz — mismo mecanismo que el carrusel de
- * "Descuento y Ofertas" de arriba (flechas + autoplay), de 8 en 8. */
+ * "Descuento y Ofertas" de arriba (flechas + autoplay), de 7 en 7 (4 en mobile). */
 function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategory: { id: string; slug: string } }) {
   const [slide, setSlide] = useState(0);
   const [autoKey, setAutoKey] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
+  // null/false tratados igual (lado mobile/seguro) — mismo criterio que el isMobile del carrusel de
+  // ofertas más arriba (ver su comentario): el servidor no sabe el ancho real, así que el primer
+  // HTML siempre es el mismo para todos. Acá no hay alto medido por JS que se pueda quedar
+  // "pegado" como en ese otro carrusel (el grid crece y achica solo, por CSS), pero igual conviene
+  // partir del tamaño de página chico en vez de mostrar de entrada 7 nombres en 2 columnas.
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
-  const chunks = useMemo(() => chunk(brands, BRANDS_SLIDE_SIZE), [brands]);
+  useLayoutEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT);
+    setIsMobile(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  const slideSize = isMobile === false ? BRANDS_SLIDE_SIZE : BRANDS_SLIDE_SIZE_MOBILE;
+  const chunks = useMemo(() => chunk(brands, slideSize), [brands, slideSize]);
 
   useEffect(() => {
     if (chunks.length <= 1) return;
