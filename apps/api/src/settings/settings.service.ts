@@ -49,29 +49,58 @@ export class SettingsService {
     };
   }
 
-  /** Público (sin auth) — el footer del sitio público lo usa para pintar el bloque "Contacto". */
+  /** Público (sin auth) — el footer del sitio público lo usa para pintar el bloque "Contacto".
+   * telefonos son números individuales — cada uno se muestra con el logo de whatsappLogoUrl al
+   * lado, como link a wa.me. */
   async getContactoInfo() {
     const setting = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
     return {
-      telefonos: setting?.telefonos ?? null,
+      telefonos: setting?.telefonos ?? [],
+      whatsappLogoUrl: setting?.whatsappLogoUrl ?? null,
       email: setting?.email ?? null,
       ciudad: setting?.ciudad ?? null,
       canalOfertasUrl: setting?.canalOfertasUrl ?? null,
     };
   }
 
-  async setContactoInfo(data: { telefonos?: string; email?: string; ciudad?: string; canalOfertasUrl?: string }) {
+  async setContactoInfo(data: { telefonos?: string[]; email?: string; ciudad?: string; canalOfertasUrl?: string }) {
+    const update = {
+      ...data,
+      // Defensa extra además de la del DTO: recorta espacios y descarta líneas vacías antes de
+      // guardar, así un número con solo espacios no queda colgando en el footer.
+      telefonos: data.telefonos?.map((t) => t.trim()).filter(Boolean),
+    };
     const setting = await this.prisma.systemSetting.upsert({
       where: { id: SETTINGS_ID },
-      update: data,
-      create: { id: SETTINGS_ID, ...data },
+      update,
+      create: { id: SETTINGS_ID, ...update },
     });
     return {
       telefonos: setting.telefonos,
+      whatsappLogoUrl: setting.whatsappLogoUrl,
       email: setting.email,
       ciudad: setting.ciudad,
       canalOfertasUrl: setting.canalOfertasUrl,
     };
+  }
+
+  setWhatsappLogo(file: Express.Multer.File) {
+    return this.setLandingImage("whatsappLogoUrl", file);
+  }
+
+  // Sin tocar los números a propósito: si el admin saca el logo, el footer simplemente deja de
+  // mostrarlo junto a cada número (sin romper los links a wa.me, que no dependen de esto).
+  async removeWhatsappLogo() {
+    const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
+    const updated = await this.prisma.systemSetting.upsert({
+      where: { id: SETTINGS_ID },
+      update: { whatsappLogoUrl: null },
+      create: { id: SETTINGS_ID },
+    });
+    if (existing?.whatsappLogoUrl) {
+      await deleteFromR2(existing.whatsappLogoUrl).catch(() => {});
+    }
+    return { whatsappLogoUrl: updated.whatsappLogoUrl };
   }
 
   /** Marca elegida para el bloque "Colección de la semana" del home — se edita desde Marcas del
@@ -250,7 +279,7 @@ export class SettingsService {
     return { imageUrl: updated.promoModalImageUrl };
   }
 
-  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl" | "promoModalImageUrl", file: Express.Multer.File) {
+  private async setLandingImage(field: "valueImageUrl" | "aboutImageUrl" | "promoModalImageUrl" | "whatsappLogoUrl", file: Express.Multer.File) {
     const existing = await this.prisma.systemSetting.findUnique({ where: { id: SETTINGS_ID } });
     // file.filename ya es la URL pública completa de R2 (ver WebpUploadInterceptor).
     const url = file.filename;

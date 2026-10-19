@@ -6462,6 +6462,23 @@ a {
   color: #ffffff;
 }
 
+/* .landing-footer-col a (arriba) ya le da el font-size/margin de siempre — acá solo se pisa el
+   display:block por flex (mismo selector ".landing-footer-col a", misma especificidad: gana por
+   venir después) para poner el ícono al lado del número, sin tocar esas reglas compartidas con el
+   resto del footer. */
+.landing-footer-col a.landing-footer-telefono {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-footer-whatsapp-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .landing-footer-social {
   display: flex;
   gap: 12px;

@@ -293,6 +293,16 @@ export function removePromoModalImage() {
   return apiDelete<{ imageUrl: string | null }>("/settings/promo-modal/image");
 }
 
+/** Logo de WhatsApp (Configuración → Contacto) — uno solo, compartido por todos los números del
+ * footer (ver ContactoInfo.whatsappLogoUrl). */
+export function setWhatsappLogo(file: File) {
+  return apiUpload<{ whatsappLogoUrl: string | null }>("/settings/whatsapp-logo", file);
+}
+
+export function removeWhatsappLogo() {
+  return apiDelete<{ whatsappLogoUrl: string | null }>("/settings/whatsapp-logo");
+}
+
 // --- Carrusel de imágenes (Hero, "Producto destacado"/hero por categoría raíz, hero de /marcas) ---
 
 export function getHeroCarouselImages() {
