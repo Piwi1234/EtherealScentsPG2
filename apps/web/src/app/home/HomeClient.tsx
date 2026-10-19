@@ -1017,8 +1017,10 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
   const params = new URLSearchParams();
   params.set(`attr[${acordesAttribute.id}]`, selectedAcorde.id);
   // "subcategoria" (no attr[...]) porque así es como /categoria/[slug] ya lo lee — mismo param que
-  // usan el navbar y el logo de marca del home, no uno nuevo.
-  if (selectedSubcategoriaId) params.set("subcategoria", selectedSubcategoriaId);
+  // usan el navbar y el logo de marca del home, no uno nuevo. Va por slug, no por id (ver
+  // resolveSubCategorySlug en categoria-query.ts).
+  const selectedSubcategoriaSlug = subcategories.find((s) => s.id === selectedSubcategoriaId)?.slug;
+  if (selectedSubcategoriaSlug) params.set("subcategoria", selectedSubcategoriaSlug);
   for (const attr of dropdownAttributes) {
     const value = selectedByAttribute[attr.id];
     if (value) params.set(`attr[${attr.id}]`, value);

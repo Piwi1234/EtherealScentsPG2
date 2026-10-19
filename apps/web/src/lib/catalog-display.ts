@@ -11,14 +11,14 @@ export function productImageSrc(imageUrl: string | null): string | null {
 /** A dónde lleva el logo/nombre de una marca: la página de esa categoría raíz, con la marca ya
  * filtrada y, si está atada a una única subcategoría de esa raíz, esa subcategoría también filtrada
  * (si está en más de una, se deja sin filtro de subcategoría — el de marca ya alcanza para acotar).
- * El path usa el slug (URL corta); el filtro de subcategoría sigue siendo por id, como lo espera el
- * resto de /categoria/[slug]. */
+ * El path usa el slug (URL corta); el filtro de subcategoría también va por slug ahora, no por id
+ * (ver resolveSubCategorySlug en categoria-query.ts). */
 export function brandLinkHref(rootCategory: { id: string; slug: string }, brand: Brand): string {
-  const ownSubcategories = new Set(
-    brand.categories.filter((bc) => bc.category.parentId === rootCategory.id).map((bc) => bc.categoryId),
+  const ownSubcategorySlugs = new Set(
+    brand.categories.filter((bc) => bc.category.parentId === rootCategory.id).map((bc) => bc.category.slug),
   );
   const params = new URLSearchParams({ marca: brand.id });
-  if (ownSubcategories.size === 1) params.set("subcategoria", Array.from(ownSubcategories)[0]);
+  if (ownSubcategorySlugs.size === 1) params.set("subcategoria", Array.from(ownSubcategorySlugs)[0]);
   return `/categoria/${rootCategory.slug}?${params.toString()}`;
 }
 

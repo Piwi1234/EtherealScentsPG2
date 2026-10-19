@@ -224,26 +224,29 @@ export default function MarcasPage() {
             <div className="landing-marcas-letter-group" key={letter}>
               <h2 className="landing-marcas-letter-heading">{letter}</h2>
               <div className="landing-marcas-grid">
-                {groupBrands.map((brand) => (
-                  <Link
-                    href={
-                      selectedCategory && subCategoryFilter
-                        ? `/categoria/${selectedCategory.slug}?marca=${brand.id}&subcategoria=${subCategoryFilter}`
-                        : selectedCategory
-                          ? brandLinkHref(selectedCategory, brand)
-                          : "#"
-                    }
-                    className="landing-marca-card"
-                    key={brand.id}
-                  >
-                    {brand.logoUrl ? (
-                      <img className="landing-marca-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
-                    ) : (
-                      <div className="landing-marca-logo-placeholder">{brand.name.slice(0, 1)}</div>
-                    )}
-                    <p className="landing-marca-name">{brand.name}</p>
-                  </Link>
-                ))}
+                {groupBrands.map((brand) => {
+                  const subCategorySlug = subcategories.find((s) => s.id === subCategoryFilter)?.slug;
+                  return (
+                    <Link
+                      href={
+                        selectedCategory && subCategorySlug
+                          ? `/categoria/${selectedCategory.slug}?marca=${brand.id}&subcategoria=${subCategorySlug}`
+                          : selectedCategory
+                            ? brandLinkHref(selectedCategory, brand)
+                            : "#"
+                      }
+                      className="landing-marca-card"
+                      key={brand.id}
+                    >
+                      {brand.logoUrl ? (
+                        <img className="landing-marca-logo" src={productImageSrc(brand.logoUrl)!} alt={brand.name} />
+                      ) : (
+                        <div className="landing-marca-logo-placeholder">{brand.name.slice(0, 1)}</div>
+                      )}
+                      <p className="landing-marca-name">{brand.name}</p>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ))}

@@ -1,5 +1,5 @@
 import { apiGet, ApiError } from "../../../lib/api";
-import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams } from "../../../lib/categoria-query";
+import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams, resolveSubCategorySlug } from "../../../lib/categoria-query";
 import type { Category, Page, Product } from "../../../lib/types";
 import { CARDS_PER_PAGE, CategoriaClient } from "./CategoriaClient";
 
@@ -38,9 +38,11 @@ export default async function CategoriaPage({
   }
 
   let initialProductsPage: Page<Product> | null = null;
+  let subCategory: Category | null = null;
   if (category) {
+    subCategory = await resolveSubCategorySlug(filters.subCategorySlug);
     const productsParams = buildCategoriaProductsParams({
-      categoryId: filters.subCategoryFilter || category.id,
+      categoryId: subCategory?.id || category.id,
       page: filters.page,
       pageSize: CARDS_PER_PAGE,
       attributeFilters: filters.attributeFilters,
@@ -61,6 +63,10 @@ export default async function CategoriaPage({
       initialNotFound={notFound}
       initialProductsPage={initialProductsPage}
       initialPageNumber={filters.page}
+      // Si `category` en sí ya es una subcategoría (se entró directo a su propia ruta, ej.
+      // /categoria/arabes, sin pasar por ?subcategoria=), esa es la que arranca marcada en el
+      // sidebar — mismo criterio que el efecto de slug de CategoriaClient para esto mismo.
+      initialSubCategoryId={subCategory?.id ?? (category?.parentId ? category.id : "")}
     />
   );
 }
