@@ -93,6 +93,9 @@ export function ProductoDetailClient({
   const enStock = selectedVariant ? selectedVariant.hasStock : product.hasStock;
   const codigo = product.variants.length > 1 && selectedVariant ? selectedVariant.variantCode : product.productCode;
   const detalles = getAllAttributeDetails(product);
+  // "Ver similares" (-> /comparar/[slug]) solo tiene sentido con 2+ acordes propios para comparar —
+  // en la práctica, solo perfumes (Vapes/Cuidado Personal no tienen este atributo cargado).
+  const acordesCount = product.attributeValues.filter((av) => av.attribute.name === "Acordes" && av.option).length;
   const atributos = formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? []);
   const flashUntil = flashUntilFor(product, selectedVariant);
 
@@ -272,6 +275,12 @@ export function ProductoDetailClient({
                   ))}
                 </div>
               </>
+            )}
+
+            {acordesCount >= 2 && (
+              <Link href={`/comparar/${product.slug}`} className="landing-btn landing-btn-outline-dark landing-product-detail-similar-btn">
+                Ver similares
+              </Link>
             )}
           </div>
         </div>

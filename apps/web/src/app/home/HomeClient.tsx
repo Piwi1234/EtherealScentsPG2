@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
-import { brandLinkHref, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
 import type { Attribute, Brand, CarouselImage, Category, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
@@ -965,18 +965,6 @@ function BrandsCarousel({ brands, rootCategory }: { brands: Brand[]; rootCategor
       </button>
     </div>
   );
-}
-
-/** Negro o blanco según qué tan clara es la variante — así el pill de un acorde elegido (ver
- * ScentFinder) se puede rellenar con su propio color guardado en vez de un navy genérico, sin que
- * el texto se vuelva ilegible en los acordes de color claro (ej. "Atalcado", "Cítrico"). Fórmula
- * YIQ estándar (percepción de brillo), no luminancia relativa WCAG completa — alcanza para este uso. */
-function getContrastTextColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 150 ? "#1a2234" : "#ffffff";
 }
 
 /** "Encuentra tu aroma ideal" — prefiltrado rápido de Perfumes antes de llegar a /categoria: elegís UN

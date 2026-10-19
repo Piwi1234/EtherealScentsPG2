@@ -65,6 +65,13 @@ export class CatalogBrowseController {
     return this.browse.getProduct(id);
   }
 
+  /** Perfumes que comparten 2+ acordes con este producto, agrupados por cantidad de coincidencias —
+   * ver el botón "Ver similares" en /producto/[slug] y la página /comparar/[slug]. */
+  @Get("products/:id/similares")
+  getSimilarByAccords(@Param("id", ParseUUIDPipe) id: string) {
+    return this.browse.getSimilarByAccords(id);
+  }
+
   // No colisiona con ":id" (un solo segmento) — usado por /producto/[slug] público.
   @Get("products/slug/:slug")
   getProductBySlug(@Param("slug") slug: string) {

@@ -298,6 +298,17 @@ export type Product = {
   createdAt: string;
 };
 
+/** Un acorde del perfume de referencia en /comparar/[slug] — ver GET /catalog/products/:id/similares. */
+export type AccordInfo = { id: string; name: string; color: string | null };
+
+/** Respuesta de GET /catalog/products/:id/similares: perfumes que comparten 2+ acordes con el
+ * producto, agrupados por cantidad de coincidencias (descendente). */
+export type SimilarByAccordsResponse = {
+  accords: AccordInfo[];
+  totalAccords: number;
+  groups: { matchCount: number; items: Product[] }[];
+};
+
 /** Contacto de WhatsApp ofrecido para solicitar cotización desde el carrito del sitio público
  * (Gestión → Configuración → Carrito Whatsapp). */
 export type CarritoWhatsappContacto = {
