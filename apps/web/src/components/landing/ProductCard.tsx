@@ -89,6 +89,7 @@ export function ProductCard({
       productSlug: product.slug,
       variantId: variant?.id ?? null,
       name: product.name,
+      brand: product.brand?.name ?? null,
       code: codigo,
       atributos: formatCartAtributos(product.attributeValues, product.variantOptionValues, variant?.options ?? []),
       imageUrl: image,

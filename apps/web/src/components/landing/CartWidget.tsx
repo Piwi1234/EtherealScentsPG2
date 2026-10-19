@@ -33,7 +33,8 @@ function buildWhatsappMessage(items: CartItem[], totalBs: number): string {
     // "50 ML") como los atributos simples que se muestran en proforma (ej. sabor) — mismo criterio
     // que la ficha del carrito y que la proforma.
     const variante = item.atributos ? ` — ${item.atributos}` : "";
-    return `• ${item.name}${variante} (${item.code}) x${item.qty} — Bs ${(item.unitPriceBs * item.qty).toFixed(2)}`;
+    const marca = item.brand ? `${item.brand} — ` : "";
+    return `• ${marca}${item.name}${variante} (${item.code}) x${item.qty} — Bs ${(item.unitPriceBs * item.qty).toFixed(2)}`;
   });
   return `Hola, quiero confirmar disponibilidad de:\n\n${lines.join("\n")}\n\nTotal: Bs ${totalBs.toFixed(2)}`;
 }
