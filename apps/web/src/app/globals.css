@@ -3653,11 +3653,19 @@ a {
   white-space: nowrap;
 }
 
+/* La flechita nativa del <select> queda pegada al borde sin importar el padding-right (no es parte
+   del content box, varía por navegador) — se reemplaza por una propia dibujada como fondo, con el
+   mismo margen (14px) que el padding-left del texto, así los dos quedan parejos. */
 .landing-select {
-  padding: 9px 14px;
+  padding: 9px 36px 9px 14px;
   border-radius: 0;
   border: 1.5px solid var(--lp-border);
-  background: var(--lp-surface);
+  background: var(--lp-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6778' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 14px center;
+  background-size: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   color: var(--lp-text);
   font-size: 13px;
   font-weight: 600;
@@ -8368,7 +8376,9 @@ a {
 .landing-filters-mobile-btn,
 .landing-select {
   border: 1px solid var(--es-line);
-  background: var(--es-surface);
+  /* background-color, no el shorthand "background" — ese resetea la flechita de fondo que le pone
+     .landing-select más arriba (mismo selector, menos específico que esto solo por venir antes). */
+  background-color: var(--es-surface);
   color: var(--es-text);
 }
 

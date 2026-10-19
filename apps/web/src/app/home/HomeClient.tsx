@@ -1038,7 +1038,7 @@ function ScentFinder({ category, subcategories }: { category: Category; subcateg
         <div className="landing-scent-finder-card">
           <div className="landing-scent-finder-header">
             <div>
-              <p className="landing-eyebrow">Encontrá tu aroma</p>
+              <p className="landing-eyebrow">Descubre tu aroma</p>
               <h2 className="landing-section-title landing-scent-finder-title">Encuentra tu aroma ideal</h2>
             </div>
             <p className="landing-scent-finder-lead">Filtrá por familia olfativa, género y concentración</p>
