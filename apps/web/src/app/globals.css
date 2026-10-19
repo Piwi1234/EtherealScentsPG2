@@ -2463,7 +2463,10 @@ a {
    contacto?.canalOfertasUrl), pero acá sirve de invitación a seguir de cerca los descuentos. */
 .landing-offers-channel-cta {
   margin-top: 36px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
 /* .landing-offers-channel-cta .landing-offers-channel-btn (2 clases) — mismo motivo que arriba. */
@@ -7091,6 +7094,13 @@ a {
 
   .landing-carousel {
     padding: 0 44px;
+  }
+
+  /* En mobile (2 columnas, tarjetas angostas) el espacio reservado para el countdown de flash (ver
+     .landing-flash-slot/--boxes) más este margen sumaban un hueco bastante más notorio que en
+     desktop antes de "Ver más"/"Unirte al canal de ofertas" — se achica solo acá. */
+  .landing-offers-channel-cta {
+    margin-top: 16px;
   }
 
   .landing-carousel-arrow {

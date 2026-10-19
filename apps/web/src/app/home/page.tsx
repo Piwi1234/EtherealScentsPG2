@@ -12,6 +12,18 @@ import { HomeClient } from "./HomeClient";
 // arrancaba vacío con un "Cargando..." hasta que categorías → flash/preventa → productos se
 // resolvían en cadena en el cliente. Acá se resuelve de entrada el modo/categoría por default
 // (Descuentos + primera categoría raíz) — ver InitialOffers en HomeClient.tsx.
+//
+// force-dynamic a propósito: a diferencia de /categoria/[slug] (dinámica sola, porque lee
+// searchParams) o /historias/[slug] (idem, por el param dinámico), esta página no tenía NADA que le
+// avisara a Next.js "esto cambia por request" — sin parámetros ni searchParams, Next.js la
+// pre-renderizó UNA sola vez como página estática y la sirvió cacheada (visto en prod:
+// x-nextjs-prerender:1, Cache-Control s-maxage=31536000 — un año) desde que se agregó este fetch
+// server-side. Clientes/precios/ofertas/imágenes del carrusel quedaban congelados en lo que fuera
+// que hubiera en ese momento, y lo que se borrara/cambiara después en gestión sencillamente no se
+// reflejaba más — así se rompieron las imágenes del bloque "Producto destacado" (apuntaban a
+// archivos que ya no existían). force-dynamic fuerza SSR en cada request, igual que esas otras dos.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [landingImages, categories] = await Promise.all([
     getLandingImages().catch(() => null),

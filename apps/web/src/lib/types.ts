@@ -357,6 +357,7 @@ export type CategoryAggregates = {
   brands: { id: string; name: string; count: number }[];
   discountCount: number;
   flashCount: number;
+  preventaCount: number;
   inStockCount: number;
   maxPriceBs: number;
 };
