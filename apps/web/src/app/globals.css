@@ -25,6 +25,11 @@ body {
   background: var(--paper);
   color: var(--text);
   font-family: Arial, Helvetica, sans-serif;
+  /* Red de seguridad general: nada de ningún lado del sitio (público o Gestión) debería poder
+     forzar scroll horizontal del documento entero — si algo de adentro no se achica del todo en
+     mobile, que se recorte ahí, no que estire la página (eso dejaba franjas en blanco al costado
+     y cortaba contenido fuera de pantalla, ver el panel de Gestión en mobile). */
+  overflow-x: hidden;
 }
 
 a {
@@ -261,7 +266,10 @@ a {
     inset: auto 0 0 0;
     top: auto;
     width: 100%;
-    height: auto;
+    /* Alto fijo (no auto): así el popover de los acordeones (ver .sidebar-accordion-panel más
+       abajo) puede anclarse con un "bottom" que coincide siempre con el borde superior de la
+       barra, sin depender de medir el alto real renderizado. */
+    height: 68px;
     flex-direction: row;
     align-items: stretch;
     padding: 4px 4px;
@@ -284,6 +292,7 @@ a {
 
   .sidebar-link {
     flex-direction: column;
+    justify-content: center;
     gap: 3px;
     margin: 4px 2px;
     padding: 6px 8px;
@@ -308,6 +317,41 @@ a {
     font-size: 10px;
   }
 
+  /* El panel de acordeón (Clientes/Proveedores/Stock/Contabilidad/Configuración) vive dentro de
+     .sidebar, que tiene overflow-x:auto para el scroll horizontal de la barra — eso recorta
+     cualquier descendiente que intente "desplegarse" hacia arriba con position:absolute (overflow
+     no-visible en un eje fuerza el otro eje a clip aunque diga "visible"), que es justo lo que
+     rompía el desplegado. position:fixed escapa de ese recorte (su containing block es
+     el viewport, no .sidebar), así que lo mostramos como un popover flotante anclado al alto fijo
+     de la barra en vez de intentar crecer en línea dentro de la fila horizontal.               */
+  .sidebar-accordion-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    margin: 0;
+    padding-left: 0;
+    border-left: none;
+    border: 1px solid rgba(245, 244, 240, 0.18);
+    border-radius: 12px;
+    background: var(--ink);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+    z-index: 60;
+  }
+
+  .sidebar-accordion-panel-inner {
+    overflow-y: auto;
+    max-height: 50vh;
+    padding: 6px;
+  }
+
+  .sidebar-accordion-panel .sidebar-link-nested {
+    text-align: left;
+    white-space: normal;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
   .dashboard-main {
     padding-bottom: 84px;
   }
@@ -316,6 +360,12 @@ a {
 .dashboard-main {
   padding: 24px;
   flex: 1;
+  /* Red de seguridad: cualquier cosa de adentro (gráficos, tablas anchas, etc.) que no se achique
+     del todo en mobile queda recortada acá en vez de empujar todo el documento a desbordar — eso
+     era lo que dejaba esa franja en blanco a la derecha del panel (el documento entero se había
+     vuelto más ancho que el viewport). */
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .stat-card {
@@ -407,6 +457,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 8px;
   padding: 16px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
@@ -419,6 +471,18 @@ a {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  /* Tablas que no están envueltas manualmente en .table-scroll (la mayoría) se vuelven su propio
+     contenedor de scroll horizontal: evita que en mobile columnas/labels queden recortados por el
+     overflow-x:hidden del body/.dashboard-main en vez de accesibles con scroll. */
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll .table {
+  display: table;
+  max-width: none;
+  overflow-x: visible;
 }
 
 .table th,
@@ -1586,6 +1650,23 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
 }
 
+/* minmax(340px, 1fr)/minmax(520px, 1fr) de arriba son un piso más ancho que el viewport en mobile
+   (390px típico, menos los 24px de padding de .dashboard-main a cada lado) — cualquier ancho de
+   grilla mayor al disponible fuerza todo el documento a desbordar horizontalmente, no solo la
+   grilla (así se veía la franja en blanco a la derecha del panel en mobile: contenido corrido fuera
+   del viewport por este motivo, no uno propio del lugar donde se notaba). Una sola columna a full
+   width evita ese piso. */
+@media (max-width: 640px) {
+  .dash-grid,
+  .dash-grid--wide {
+    /* minmax(0, 1fr), no "1fr" a secas — un track "1fr" solo sigue siendo minmax(auto, 1fr) por
+       default, con ese "auto" tomando el min-content del contenido (ej. el SVG de un gráfico) como
+       piso igual que antes. minmax(0, 1fr) fuerza el piso a 0 así el track (y lo que tiene adentro)
+       sí se achica al ancho real disponible. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .dash-widget-title {
   margin: 0 0 4px;
   font-size: 13.5px;
@@ -1718,6 +1799,14 @@ a {
   align-items: flex-end;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+/* Sin esto, un label largo ("Empresa (ventas/compras mensuales)") fuerza el ancho del campo por
+   encima de lo disponible en vez de wrappear — el min-width:auto que traen los flex items por
+   default toma el tamaño preferido del contenido, no el real del contenedor. */
+.dash-filter-field {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .dash-filter-field label {
