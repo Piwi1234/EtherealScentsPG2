@@ -782,10 +782,10 @@ export function HomeClient({
         );
       })}
 
-      {/* ============================== 6. Sobre nosotros ============================== */}
-      <section id="nosotros" className="landing-section landing-section-alt">
-        <div className="landing-container landing-about">
-          <div>
+      {/* ======== 6. Sobre nosotros + Newsletter: misma fila, 2 columnas con difuminado ======== */}
+      <section id="nosotros" className="landing-about-newsletter-row">
+        <div className="landing-about-newsletter-col landing-about-newsletter-col--about">
+          <div className="landing-about">
             <p className="landing-eyebrow">Nuestra filosofía</p>
             <h2 className="landing-section-title">Sobre {brandName}</h2>
             <p>
@@ -802,25 +802,24 @@ export function HomeClient({
             </p>
           </div>
         </div>
-      </section>
 
-      {/* ============================== 7. Newsletter ============================== */}
-      <section className="landing-section landing-newsletter">
-        <div className="landing-container">
-          <p className="landing-eyebrow">Newsletter</p>
-          <h2 className="landing-section-title">Enterate de nuestras novedades</h2>
-          <p className="landing-section-lead" style={{ margin: "0 auto 32px" }}>
-            Lanzamientos, ofertas y novedades del catálogo
-          </p>
-          <div className="landing-newsletter-form">
-            <a
-              className="landing-btn landing-btn-primary"
-              href={contacto?.canalOfertasUrl ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Canal de ofertas
-            </a>
+        <div className="landing-about-newsletter-col landing-about-newsletter-col--newsletter">
+          <div className="landing-newsletter">
+            <p className="landing-eyebrow">Newsletter</p>
+            <h2 className="landing-section-title">Enterate de nuestras novedades</h2>
+            <p className="landing-section-lead" style={{ margin: "0 auto 32px" }}>
+              Lanzamientos, ofertas y novedades del catálogo
+            </p>
+            <div className="landing-newsletter-form">
+              <a
+                className="landing-btn landing-btn-primary"
+                href={contacto?.canalOfertasUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Canal de ofertas
+              </a>
+            </div>
           </div>
         </div>
       </section>
