@@ -199,8 +199,8 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-            <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
               <p className="dash-widget-title">Top 10 clientes</p>
               <p className="dash-widget-note">Total comprado en el mes elegido.</p>
             </div>
