@@ -81,6 +81,7 @@ export function CategoriaClient({
   const [subCategoryFilter, setSubCategoryFilter] = useState("");
   const [discountOnly, setDiscountOnly] = useState(false);
   const [flashOnly, setFlashOnly] = useState(false);
+  const [preventaOnly, setPreventaOnly] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
   // priceRange: posición actual del slider (se ve en vivo). priceApplied: lo que realmente filtra
   // — se actualiza recién al tocar "Filtrar", como en el mock de referencia.
@@ -131,6 +132,7 @@ export function CategoriaClient({
     setSubCategoryFilter(filters.subCategoryFilter);
     setDiscountOnly(filters.discountOnly);
     setFlashOnly(filters.flashOnly);
+    setPreventaOnly(filters.preventaOnly);
     setInStockOnly(filters.inStockOnly);
     setPriceRange(null);
     // El slider en sí (priceRange) arranca en su rango completo de siempre apenas se resuelva
@@ -231,6 +233,7 @@ export function CategoriaClient({
       attributeFilters,
       discountOnly,
       flashOnly,
+      preventaOnly,
       inStockOnly,
       brandFilters,
       priceApplied,
@@ -245,6 +248,7 @@ export function CategoriaClient({
     attributeFilters,
     discountOnly,
     flashOnly,
+    preventaOnly,
     inStockOnly,
     brandFilters,
     priceApplied,
@@ -270,6 +274,7 @@ export function CategoriaClient({
     setOrDelete("marca", brandFilters.length > 0 ? brandFilters.join(",") : null);
     setOrDelete("descuento", discountOnly ? "true" : null);
     setOrDelete("flash", flashOnly ? "true" : null);
+    setOrDelete("preventa", preventaOnly ? "true" : null);
     setOrDelete("stock", inStockOnly ? "true" : null);
     setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
     setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
@@ -283,7 +288,7 @@ export function CategoriaClient({
     }
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
-  }, [category, subCategoryFilter, brandFilters, discountOnly, flashOnly, inStockOnly, priceApplied, attributeFilters, router]);
+  }, [category, subCategoryFilter, brandFilters, discountOnly, flashOnly, preventaOnly, inStockOnly, priceApplied, attributeFilters, router]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría, ya calculado
   // por el backend (ver getCategoryAggregates) sobre el total real, no sobre una muestra.
@@ -329,6 +334,11 @@ export function CategoriaClient({
     setPageNumber(1);
   }
 
+  function togglePreventaOnly() {
+    setPreventaOnly((prev) => !prev);
+    setPageNumber(1);
+  }
+
   function toggleInStockOnly() {
     setInStockOnly((prev) => !prev);
     setPageNumber(1);
@@ -363,6 +373,7 @@ export function CategoriaClient({
     setSubCategoryFilter("");
     setDiscountOnly(false);
     setFlashOnly(false);
+    setPreventaOnly(false);
     setInStockOnly(false);
     setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
     setPriceApplied(null);
@@ -377,6 +388,7 @@ export function CategoriaClient({
     subCategoryFilter !== "" ||
     discountOnly ||
     flashOnly ||
+    preventaOnly ||
     inStockOnly ||
     brandFilters.length > 0 ||
     priceApplied !== null;
@@ -385,6 +397,7 @@ export function CategoriaClient({
     (subCategoryFilter ? 1 : 0) +
     (discountOnly ? 1 : 0) +
     (flashOnly ? 1 : 0) +
+    (preventaOnly ? 1 : 0) +
     (inStockOnly ? 1 : 0) +
     brandFilters.length +
     (priceApplied ? 1 : 0);
@@ -398,6 +411,7 @@ export function CategoriaClient({
   const subcategoryCounts = rootSubcategoryCounts;
   const discountCount = aggregates?.discountCount ?? 0;
   const flashCount = aggregates?.flashCount ?? 0;
+  const preventaCount = aggregates?.preventaCount ?? 0;
   const inStockCount = aggregates?.inStockCount ?? 0;
   const brandsWithCounts: BrandCount[] = aggregates?.brands ?? [];
 
@@ -425,6 +439,7 @@ export function CategoriaClient({
   if (inStockOnly) activeFilterChips.push({ key: "stock", label: "En Stock", onRemove: toggleInStockOnly });
   if (discountOnly) activeFilterChips.push({ key: "discount", label: "Con Descuento", onRemove: toggleDiscountOnly });
   if (flashOnly) activeFilterChips.push({ key: "flash", label: "Por tiempo limitado", onRemove: toggleFlashOnly });
+  if (preventaOnly) activeFilterChips.push({ key: "preventa", label: "Preventa", onRemove: togglePreventaOnly });
   if (priceApplied) {
     activeFilterChips.push({
       key: "price",
@@ -467,6 +482,7 @@ export function CategoriaClient({
     subcategories.length > 0 ||
     discountCount > 0 ||
     flashCount > 0 ||
+    preventaCount > 0 ||
     inStockCount > 0 ||
     brandsWithCounts.length > 0 ||
     filterableAttributes.length > 0;
@@ -488,6 +504,9 @@ export function CategoriaClient({
     flashOnly,
     onToggleFlashOnly: toggleFlashOnly,
     flashCount,
+    preventaOnly,
+    onTogglePreventaOnly: togglePreventaOnly,
+    preventaCount,
     subcategories,
     subCategoryFilter,
     onSelectSubcategory: selectSubcategory,
@@ -712,6 +731,9 @@ type FilterGroupsProps = {
   flashOnly: boolean;
   onToggleFlashOnly: () => void;
   flashCount: number;
+  preventaOnly: boolean;
+  onTogglePreventaOnly: () => void;
+  preventaCount: number;
   subcategories: Category[];
   subCategoryFilter: string;
   onSelectSubcategory: (id: string) => void;
@@ -751,6 +773,9 @@ function FilterGroups({
   flashOnly,
   onToggleFlashOnly,
   flashCount,
+  preventaOnly,
+  onTogglePreventaOnly,
+  preventaCount,
   subcategories,
   subCategoryFilter,
   onSelectSubcategory,
@@ -829,7 +854,14 @@ function FilterGroups({
         </div>
       )}
 
-      {(inStockCount > 0 || inStockOnly || discountCount > 0 || discountOnly || flashCount > 0 || flashOnly) && (
+      {(inStockCount > 0 ||
+        inStockOnly ||
+        discountCount > 0 ||
+        discountOnly ||
+        flashCount > 0 ||
+        flashOnly ||
+        preventaCount > 0 ||
+        preventaOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
           {(inStockCount > 0 || inStockOnly) && (
@@ -873,6 +905,13 @@ function FilterGroups({
                 </svg>
               </span>
               <span className="landing-filter-count">{flashCount}</span>
+            </label>
+          )}
+          {(preventaCount > 0 || preventaOnly) && (
+            <label className="landing-filter-checkbox">
+              <input type="checkbox" checked={preventaOnly} onChange={onTogglePreventaOnly} />
+              <span className="landing-filter-checkbox-label">Preventa</span>
+              <span className="landing-filter-count">{preventaCount}</span>
             </label>
           )}
         </div>

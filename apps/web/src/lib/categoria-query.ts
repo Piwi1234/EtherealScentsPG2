@@ -11,6 +11,7 @@ export type CategoriaFiltersFromUrl = {
   subCategoryFilter: string;
   discountOnly: boolean;
   flashOnly: boolean;
+  preventaOnly: boolean;
   inStockOnly: boolean;
   priceApplied: PriceRange | null;
   brandFilters: string[];
@@ -34,6 +35,7 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
     subCategoryFilter: searchParams.get("subcategoria") ?? "",
     discountOnly: searchParams.get("descuento") === "true",
     flashOnly: searchParams.get("flash") === "true",
+    preventaOnly: searchParams.get("preventa") === "true",
     inStockOnly: searchParams.get("stock") === "true",
     priceApplied:
       minPriceFromQuery !== null || maxPriceFromQuery !== null
@@ -54,6 +56,7 @@ export function buildCategoriaProductsParams(filters: {
   attributeFilters: Record<string, string[]>;
   discountOnly: boolean;
   flashOnly: boolean;
+  preventaOnly: boolean;
   inStockOnly: boolean;
   brandFilters: string[];
   priceApplied: PriceRange | null;
@@ -68,6 +71,7 @@ export function buildCategoriaProductsParams(filters: {
   }
   if (filters.discountOnly) params.set("onlyDiscounted", "true");
   if (filters.flashOnly) params.set("onlyFlash", "true");
+  if (filters.preventaOnly) params.set("onlyPreventa", "true");
   if (filters.inStockOnly) params.set("onlyInStock", "true");
   if (filters.brandFilters.length > 0) params.set("brandId", filters.brandFilters.join(","));
   if (filters.priceApplied) {

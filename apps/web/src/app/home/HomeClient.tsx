@@ -103,7 +103,17 @@ export function HomeClient({
   // .landing-offers-carousel-frame).
   const offersFrameRef = useRef<HTMLDivElement>(null);
   const [offersHeight, setOffersHeight] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  // null = todavía no se sabe (ver el layout effect de más abajo) — se trata igual que "sí es
+  // mobile" en todo lo que decide CUÁNTOS productos entran por página del carrusel de abajo (ver
+  // offersSlideSize): un server no tiene forma de saber el ancho real del dispositivo, así que el
+  // primer HTML que manda siempre es el mismo para todos. Asumir "no es mobile" ahí (como antes)
+  // hacía que ese primer HTML trajera 5 tarjetas por página aunque el dispositivo fuera angosto — la
+  // grilla de 2 columnas de mobile las desbordaba a 3 filas hasta que se corregía, inflando de golpe
+  // el alto medido del bloque (ver offersHeight) y dejando las flechas, centradas a la mitad de ese
+  // alto, perdidas muy abajo. Asumir mobile de entrada es el default seguro: en mobile de verdad no
+  // hay nada que corregir, y en desktop la corrección solo ensancha la misma fila (más columnas, no
+  // más filas) — nunca se desborda en ese sentido.
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [landingImages, setLandingImages] = useState<LandingImages | null>(initialLandingImages);
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
@@ -252,8 +262,10 @@ export function HomeClient({
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, offersMode, hasFlashOffers]);
 
-  // En mobile pagina de a 2 productos en vez de 5 (ver el useEffect de matchMedia más abajo).
-  const offersSlideSize = isMobile ? OFFERS_SLIDE_SIZE_MOBILE : OFFERS_SLIDE_SIZE;
+  // En mobile pagina de a 2 productos en vez de 5 (ver el layout effect de matchMedia más abajo).
+  // `=== false` a propósito, no solo `isMobile ?` — ver el comentario del useState de isMobile: null
+  // (todavía no se sabe) tiene que caer del lado mobile/seguro, no del lado desktop.
+  const offersSlideSize = isMobile === false ? OFFERS_SLIDE_SIZE : OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
   const offerEntries = useMemo(
@@ -262,6 +274,13 @@ export function HomeClient({
     [productsPage, productsPageMode, offersMode],
   );
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
+
+  // Link del botón "Ver más": la página de la categoría elegida arriba (1ra fila de pills), con el
+  // mismo modo de oferta activo (Descuentos/Ofertas Flash/Preventa) ya marcado como filtro — mismo
+  // parámetro de URL que entiende CategoriaClient (ver categoria-query.ts).
+  const offersCategorySlug = rootCategories.find((cat) => cat.id === categoryFilter)?.slug ?? null;
+  const offersModeParam = offersMode === "flash" ? "flash" : offersMode === "preventa" ? "preventa" : "descuento";
+  const offersViewMoreHref = offersCategorySlug ? `/categoria/${offersCategorySlug}?${offersModeParam}=true` : null;
 
   // "Colección de la semana": los últimos 5 productos creados de la marca elegida en Marcas del
   // panel de gestión — bloque oculto si no hay ninguna marca elegida. Sin sortBy: el mismo orden por
@@ -348,7 +367,13 @@ export function HomeClient({
 
   // En mobile el hero muestra 1 sola imagen por vez (en vez de 3 lado a lado) y el carrusel de
   // ofertas pagina de a 2 (en vez de 5) — ninguno de los dos cambia en PC.
-  useEffect(() => {
+  //
+  // useLayoutEffect a propósito (no useEffect): confirma isMobile en el mismo paso síncrono que la
+  // hidratación, antes de que el navegador pinte algo nuevo — con un useEffect (efecto "pasivo") esa
+  // confirmación podía demorar uno o más frames reales después de hidratar, y en celulares lentos eso
+  // alcanzaba a pintarse. El default seguro mientras tanto (ver el useState de isMobile, null en vez
+  // de false) ya evita el peor caso de ese instante — acá solo se achica la ventana.
+  useLayoutEffect(() => {
     const mql = window.matchMedia(MOBILE_BREAKPOINT);
     setIsMobile(mql.matches);
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
@@ -570,6 +595,11 @@ export function HomeClient({
 
           {offersChunks.length > 0 && (
             <div className="landing-offers-channel-cta">
+              {offersViewMoreHref && (
+                <Link className="landing-offers-channel-btn" href={offersViewMoreHref}>
+                  Ver más
+                </Link>
+              )}
               <a
                 className="landing-offers-channel-btn"
                 href={contacto?.canalOfertasUrl ?? "#"}

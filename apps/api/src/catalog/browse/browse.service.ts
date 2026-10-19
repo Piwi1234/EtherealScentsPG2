@@ -345,7 +345,7 @@ export class CatalogBrowseService {
     const where: Prisma.ProductWhereInput = { categoryId: { in: categoryIds } };
     const exchangeRate = await this.settings.getExchangeRate();
 
-    const [subcategoryGroups, brandGroups, discountCount, flashCount, priced] = await Promise.all([
+    const [subcategoryGroups, brandGroups, discountCount, flashCount, preventaCount, priced] = await Promise.all([
       this.prisma.product.groupBy({ by: ["categoryId"], where, _count: { _all: true } }),
       this.prisma.product.groupBy({
         by: ["brandId"],
@@ -361,6 +361,7 @@ export class CatalogBrowseService {
           OR: [{ ofertaFlashHasta: { gt: new Date() } }, { variants: { some: { ofertaFlashHasta: { gt: new Date() } } } }],
         },
       }),
+      this.prisma.product.count({ where: { ...where, variants: { some: { estado: "PREVENTA" } } } }),
       // hasStock y el precio final no son columnas (ver `findProducts`) — acá se trae solo lo mínimo
       // necesario para calcularlos, sin el include pesado de `includeDetails` (nada de atributos ni
       // opciones de variante, que acá no hacen falta).
@@ -424,6 +425,7 @@ export class CatalogBrowseService {
         .sort((a, b) => a.name.localeCompare(b.name)),
       discountCount,
       flashCount,
+      preventaCount,
       inStockCount,
       maxPriceBs: maxPriceBs > 0 ? Math.max(10, Math.ceil(maxPriceBs / 10) * 10) : 0,
     };

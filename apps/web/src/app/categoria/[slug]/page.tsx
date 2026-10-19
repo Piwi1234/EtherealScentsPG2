@@ -45,6 +45,7 @@ export default async function CategoriaPage({
       attributeFilters: filters.attributeFilters,
       discountOnly: filters.discountOnly,
       flashOnly: filters.flashOnly,
+      preventaOnly: filters.preventaOnly,
       inStockOnly: filters.inStockOnly,
       brandFilters: filters.brandFilters,
       priceApplied: filters.priceApplied,
