@@ -232,6 +232,7 @@ export function ProductoDetailClient({
                         productSlug: product.slug,
                         variantId: selectedVariant?.id ?? null,
                         name: product.name,
+                        brand: product.brand?.name ?? null,
                         code: codigo,
                         atributos,
                         imageUrl: image,

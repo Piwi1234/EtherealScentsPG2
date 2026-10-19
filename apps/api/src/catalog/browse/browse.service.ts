@@ -146,13 +146,19 @@ export class CatalogBrowseService {
     }
 
     if (query.search && query.search.trim()) {
-      const search = query.search.trim();
-      andConditions.push({
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { brand: { name: { contains: search, mode: "insensitive" } } },
-        ],
-      });
+      // Por palabra (no la frase completa contra un solo campo): así "haramain amber" encuentra el
+      // producto "Amber Oud" de la marca "Al Haramain" aunque ninguna palabra sola esté completa ni
+      // en el nombre ni en la marca — cada palabra exige su propio match (nombre O marca), todas las
+      // palabras en AND entre sí.
+      const words = query.search.trim().split(/\s+/).filter(Boolean);
+      for (const word of words) {
+        andConditions.push({
+          OR: [
+            { name: { contains: word, mode: "insensitive" } },
+            { brand: { name: { contains: word, mode: "insensitive" } } },
+          ],
+        });
+      }
     }
 
     if (query.productCode && query.productCode.trim()) {
