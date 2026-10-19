@@ -6477,6 +6477,13 @@ a {
   margin: 0 0 10px;
 }
 
+/* block (arriba) para que cada link siga en su propia línea, pero sin estirar el área clickeable a
+   todo el ancho de la columna — mismo texto, mismo lugar, pero el click fuera de la palabra (a la
+   derecha) ya no cuenta como click en "Perfumes"/"Vapes"/etc. */
+.landing-footer-col a {
+  width: fit-content;
+}
+
 .landing-footer-col a:hover {
   color: #ffffff;
 }
