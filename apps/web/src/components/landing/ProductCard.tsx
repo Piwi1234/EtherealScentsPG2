@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent, ReactNode } from "react";
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useCart } from "../../lib/cart-context";
 import {
@@ -9,6 +9,7 @@ import {
   displayPrice,
   flashUntilFor,
   formatPriceBs,
+  getContrastTextColor,
   hasDiscount,
   isPreventa,
   isSoldOut,
@@ -28,7 +29,7 @@ export function ProductCard({
   flashVariant = "pill",
   context,
   forcedVariant,
-  footer,
+  accords,
 }: {
   product: Product;
   className?: string;
@@ -44,10 +45,13 @@ export function ProductCard({
    * variante calificando para `context` (ver offerVariantEntries): ahí sale una tarjeta por cada
    * una, no una sola por producto. */
   forcedVariant?: ProductVariant;
-  /** Contenido extra al final de la tarjeta (dentro del mismo <Link>, debajo del precio) — ej. los
-   * acordes del perfume en /comparar. Ningún otro uso de ProductCard lo pasa, así que no cambia nada
-   * fuera de ahí. */
-  footer?: ReactNode;
+  /** Acordes a mostrar como pills al final de la tarjeta — solo /comparar lo pasa. Se recibe como
+   * DATA (no JSX ya armado) a propósito: page.tsx es un Server Component y ProductCard un Client
+   * Component ("use client"), y pasar un elemento ya armado con una lista adentro a través de ese
+   * límite server/client confundía el chequeo de keys de React (avisaba de un key faltante que en
+   * realidad sí estaba puesto, con la pila apuntando al Server Component en vez del renderer real).
+   * Construyendo el JSX acá adentro, del lado del cliente, se evita ese cruce. */
+  accords?: { id: string; name: string; color: string | null }[];
 }) {
   const { addItem, removeItem, setQty, items } = useCart();
   const { bs, fromPrice, variant, discountBs } = forcedVariant
@@ -240,8 +244,20 @@ export function ProductCard({
         <div className={`landing-flash-slot landing-flash-slot--${flashVariant}`}>
           {flashUntil && <FlashCountdown until={flashUntil} variant={flashVariant} />}
         </div>
+        {accords && accords.length > 0 && (
+          <div className="landing-compare-card-accords">
+            {accords.map((accord) => (
+              <span
+                key={accord.id}
+                className="landing-compare-card-accord"
+                style={accord.color ? { background: accord.color, color: getContrastTextColor(accord.color) } : undefined}
+              >
+                {accord.name.toLowerCase()}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-      {footer}
     </Link>
   );
 }
