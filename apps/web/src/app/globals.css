@@ -266,7 +266,10 @@ a {
     inset: auto 0 0 0;
     top: auto;
     width: 100%;
-    height: auto;
+    /* Alto fijo (no auto): así el popover de los acordeones (ver .sidebar-accordion-panel más
+       abajo) puede anclarse con un "bottom" que coincide siempre con el borde superior de la
+       barra, sin depender de medir el alto real renderizado. */
+    height: 68px;
     flex-direction: row;
     align-items: stretch;
     padding: 4px 4px;
@@ -289,6 +292,7 @@ a {
 
   .sidebar-link {
     flex-direction: column;
+    justify-content: center;
     gap: 3px;
     margin: 4px 2px;
     padding: 6px 8px;
@@ -311,6 +315,41 @@ a {
     margin: 4px 2px;
     padding: 6px 8px;
     font-size: 10px;
+  }
+
+  /* El panel de acordeón (Clientes/Proveedores/Stock/Contabilidad/Configuración) vive dentro de
+     .sidebar, que tiene overflow-x:auto para el scroll horizontal de la barra — eso recorta
+     cualquier descendiente que intente "desplegarse" hacia arriba con position:absolute (overflow
+     no-visible en un eje fuerza el otro eje a clip aunque diga "visible"), que es justo lo que
+     rompía el desplegado. position:fixed escapa de ese recorte (su containing block es
+     el viewport, no .sidebar), así que lo mostramos como un popover flotante anclado al alto fijo
+     de la barra en vez de intentar crecer en línea dentro de la fila horizontal.               */
+  .sidebar-accordion-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    margin: 0;
+    padding-left: 0;
+    border-left: none;
+    border: 1px solid rgba(245, 244, 240, 0.18);
+    border-radius: 12px;
+    background: var(--ink);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+    z-index: 60;
+  }
+
+  .sidebar-accordion-panel-inner {
+    overflow-y: auto;
+    max-height: 50vh;
+    padding: 6px;
+  }
+
+  .sidebar-accordion-panel .sidebar-link-nested {
+    text-align: left;
+    white-space: normal;
+    font-size: 13px;
+    padding: 10px 12px;
   }
 
   .dashboard-main {

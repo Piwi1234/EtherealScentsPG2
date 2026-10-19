@@ -102,11 +102,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [configuracionOpen, setConfiguracionOpen] = useState(false);
-  const [clientesOpen, setClientesOpen] = useState(false);
-  const [proveedoresOpen, setProveedoresOpen] = useState(false);
-  const [stockOpen, setStockOpen] = useState(false);
-  const [contabilidadOpen, setContabilidadOpen] = useState(false);
+  // Un solo acordeón abierto a la vez: en mobile los paneles son popovers (position:fixed,
+  // anclados al mismo lugar sobre la barra) — con más de uno abierto, se superponen literalmente
+  // en el mismo rectángulo de pantalla. Antes cada uno tenía su propio booleano independiente.
+  const [openAccordion, setOpenAccordion] = useState<
+    "configuracion" | "clientes" | "proveedores" | "stock" | "contabilidad" | null
+  >(null);
+  const configuracionOpen = openAccordion === "configuracion";
+  const clientesOpen = openAccordion === "clientes";
+  const proveedoresOpen = openAccordion === "proveedores";
+  const stockOpen = openAccordion === "stock";
+  const contabilidadOpen = openAccordion === "contabilidad";
 
   useEffect(() => {
     const stored = getAuthUser();
@@ -121,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const configuracionHasActiveChild = configuracionGroups.some((g) => g.items.some((i) => pathname.startsWith(i.href)));
 
   useEffect(() => {
-    if (configuracionHasActiveChild) setConfiguracionOpen(true);
+    if (configuracionHasActiveChild) setOpenAccordion("configuracion");
   }, [configuracionHasActiveChild]);
 
   const clientesHasActiveChild = pathname.startsWith("/dashboard/clientes");
@@ -134,7 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       : null;
 
   useEffect(() => {
-    if (clientesHasActiveChild) setClientesOpen(true);
+    if (clientesHasActiveChild) setOpenAccordion("clientes");
   }, [clientesHasActiveChild]);
 
   const proveedoresHasActiveChild = pathname.startsWith("/dashboard/proveedores");
@@ -147,7 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       : null;
 
   useEffect(() => {
-    if (proveedoresHasActiveChild) setProveedoresOpen(true);
+    if (proveedoresHasActiveChild) setOpenAccordion("proveedores");
   }, [proveedoresHasActiveChild]);
 
   const stockHasActiveChild = pathname.startsWith("/dashboard/stock");
@@ -160,13 +166,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       : null;
 
   useEffect(() => {
-    if (stockHasActiveChild) setStockOpen(true);
+    if (stockHasActiveChild) setOpenAccordion("stock");
   }, [stockHasActiveChild]);
 
   const contabilidadHasActiveChild = pathname.startsWith("/dashboard/contabilidad");
 
   useEffect(() => {
-    if (contabilidadHasActiveChild) setContabilidadOpen(true);
+    if (contabilidadHasActiveChild) setOpenAccordion("contabilidad");
   }, [contabilidadHasActiveChild]);
 
   function logout() {
@@ -190,7 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${clientesHasActiveChild ? " active" : ""}`}
-            onClick={() => setClientesOpen((open) => !open)}
+            onClick={() => setOpenAccordion((cur) => (cur === "clientes" ? null : "clientes"))}
             aria-expanded={clientesOpen}
           >
             <ClientsIcon className="sidebar-link-icon" />
@@ -216,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${proveedoresHasActiveChild ? " active" : ""}`}
-            onClick={() => setProveedoresOpen((open) => !open)}
+            onClick={() => setOpenAccordion((cur) => (cur === "proveedores" ? null : "proveedores"))}
             aria-expanded={proveedoresOpen}
           >
             <ClientsIcon className="sidebar-link-icon" />
@@ -252,7 +258,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${stockHasActiveChild ? " active" : ""}`}
-            onClick={() => setStockOpen((open) => !open)}
+            onClick={() => setOpenAccordion((cur) => (cur === "stock" ? null : "stock"))}
             aria-expanded={stockOpen}
           >
             <StockIcon className="sidebar-link-icon" />
@@ -294,7 +300,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${contabilidadHasActiveChild ? " active" : ""}`}
-            onClick={() => setContabilidadOpen((open) => !open)}
+            onClick={() => setOpenAccordion((cur) => (cur === "contabilidad" ? null : "contabilidad"))}
             aria-expanded={contabilidadOpen}
           >
             <ContabilidadIcon className="sidebar-link-icon" />
@@ -323,7 +329,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             type="button"
             className={`sidebar-link sidebar-accordion-toggle${configuracionHasActiveChild ? " active" : ""}`}
-            onClick={() => setConfiguracionOpen((open) => !open)}
+            onClick={() => setOpenAccordion((cur) => (cur === "configuracion" ? null : "configuracion"))}
             aria-expanded={configuracionOpen}
           >
             <SettingsIcon className="sidebar-link-icon" />
