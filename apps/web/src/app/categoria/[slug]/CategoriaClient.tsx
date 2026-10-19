@@ -48,10 +48,12 @@ export function CategoriaClient({
   initialCategory,
   initialNotFound,
   initialProductsPage,
+  initialPageNumber,
 }: {
   initialCategory: Category | null;
   initialNotFound: boolean;
   initialProductsPage: Page<Product> | null;
+  initialPageNumber: number;
 }) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
@@ -89,7 +91,7 @@ export function CategoriaClient({
   const [priceApplied, setPriceApplied] = useState<PriceRange | null>(null);
   const [brandFilters, setBrandFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
-  const [pageNumber, setPageNumber] = useState(1);
+  const [pageNumber, setPageNumber] = useState(initialPageNumber);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   const [filterableAttributes, setFilterableAttributes] = useState<Attribute[]>([]);
@@ -143,7 +145,7 @@ export function CategoriaClient({
     setBrandFilters(filters.brandFilters);
     setSortBy("relevancia");
     setAttributeFilters(filters.attributeFilters);
-    setPageNumber(1);
+    setPageNumber(filters.page);
     setFiltersDrawerOpen(false);
     // Se resetea acá (y no solo al resolver la categoría nueva) para no mostrar de arranque los
     // filtros de la categoría anterior mientras se resuelve el slug de la URL.
@@ -261,8 +263,8 @@ export function CategoriaClient({
   // a esta misma entrada de historial, pero con la URL tal cual estaba ANTES de tocar nada: sin
   // filtros. El remount volvía a leer la URL (ver el efecto de arriba) y los perdía todos. Este efecto
   // mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial propio)
-  // para que esa vuelta atrás restaure la página tal como había quedado. No incluye pageNumber a
-  // propósito — volver arranca en la página 1 de esos mismos filtros, no en la página puntual.
+  // para que esa vuelta atrás restaure la página tal como había quedado — incluida la página puntual
+  // del paginado (?page=), así la URL siempre dice en qué página real se está parado.
   useEffect(() => {
     if (!category) return;
     const params = new URLSearchParams(window.location.search);
@@ -278,6 +280,9 @@ export function CategoriaClient({
     setOrDelete("stock", inStockOnly ? "true" : null);
     setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
     setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
+    // Página 1 no se escribe (es el default implícito) — así la URL queda limpia salvo que
+    // efectivamente se esté parado en otra página.
+    setOrDelete("page", pageNumber > 1 ? String(pageNumber) : null);
     // Saca del query string los "attr[...]" existentes antes de reescribir los activos — si no, uno
     // que se desmarcó del todo (sin valores) quedaría pegado ahí para siempre.
     for (const key of Array.from(params.keys())) {
@@ -288,7 +293,19 @@ export function CategoriaClient({
     }
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
-  }, [category, subCategoryFilter, brandFilters, discountOnly, flashOnly, preventaOnly, inStockOnly, priceApplied, attributeFilters, router]);
+  }, [
+    category,
+    subCategoryFilter,
+    brandFilters,
+    discountOnly,
+    flashOnly,
+    preventaOnly,
+    inStockOnly,
+    priceApplied,
+    attributeFilters,
+    pageNumber,
+    router,
+  ]);
 
   // Techo del slider de precio: precio más alto entre los productos de la categoría, ya calculado
   // por el backend (ver getCategoryAggregates) sobre el total real, no sobre una muestra.

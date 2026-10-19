@@ -27,6 +27,8 @@ export default async function CategoriaPage({
     else if (Array.isArray(value) && value.length > 0) urlSearchParams.set(key, value[0]);
   }
 
+  const filters = parseCategoriaFiltersFromSearchParams(urlSearchParams);
+
   let category: Category | null = null;
   let notFound = false;
   try {
@@ -37,10 +39,9 @@ export default async function CategoriaPage({
 
   let initialProductsPage: Page<Product> | null = null;
   if (category) {
-    const filters = parseCategoriaFiltersFromSearchParams(urlSearchParams);
     const productsParams = buildCategoriaProductsParams({
       categoryId: filters.subCategoryFilter || category.id,
-      page: 1,
+      page: filters.page,
       pageSize: CARDS_PER_PAGE,
       attributeFilters: filters.attributeFilters,
       discountOnly: filters.discountOnly,
@@ -54,5 +55,12 @@ export default async function CategoriaPage({
     initialProductsPage = await apiGet<Page<Product>>(`/catalog/products?${productsParams.toString()}`).catch(() => null);
   }
 
-  return <CategoriaClient initialCategory={category} initialNotFound={notFound} initialProductsPage={initialProductsPage} />;
+  return (
+    <CategoriaClient
+      initialCategory={category}
+      initialNotFound={notFound}
+      initialProductsPage={initialProductsPage}
+      initialPageNumber={filters.page}
+    />
+  );
 }

@@ -16,6 +16,7 @@ export type CategoriaFiltersFromUrl = {
   priceApplied: PriceRange | null;
   brandFilters: string[];
   attributeFilters: Record<string, string[]>;
+  page: number;
 };
 
 /** "?subcategoria=", "?descuento=true", "?attr[id]=valor1,valor2", etc. — mismo formato que ya
@@ -30,6 +31,10 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
   const marcaFromQuery = searchParams.get("marca");
   const minPriceFromQuery = searchParams.get("minPriceBs");
   const maxPriceFromQuery = searchParams.get("maxPriceBs");
+  // Entero positivo o 1 — una página inválida en la URL (texto, 0, negativo) cae a la primera en vez
+  // de romper el fetch.
+  const pageFromQuery = Math.floor(Number(searchParams.get("page")));
+  const page = Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
 
   return {
     subCategoryFilter: searchParams.get("subcategoria") ?? "",
@@ -43,6 +48,7 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
         : null,
     brandFilters: marcaFromQuery ? marcaFromQuery.split(",").map((v) => v.trim()).filter(Boolean) : [],
     attributeFilters,
+    page,
   };
 }
 
