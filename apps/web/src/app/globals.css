@@ -5655,14 +5655,43 @@ a {
   border-bottom: 1px solid var(--lp-border);
 }
 
-/* 85% del ancho del contenedor (centrado) — 15% menos que antes, ver ImageCarousel/visibleCount
-   para cómo se reparte ese ancho entre las 3 columnas. */
-.landing-feature-visual {
+/* Mismo mecanismo que .landing-carousel (Descuento y Ofertas / Explora Nuestras Marcas) — el padding
+   lateral vive en el frame de afuera (.landing-feature-visual-frame), no acá, así las flechas de
+   ImageCarousel anclan a ESE contenedor (ver su position:relative) y quedan en ese margen, afuera de
+   la imagen, en vez de ancladas a este mismo recorte y superpuestas encima. Sin position:relative a
+   propósito — si lo tuviera, les ganaría a la del frame por ser el ancestro más cercano. */
+.landing-feature-visual-frame {
   position: relative;
+  padding: 0 52px;
+}
+
+.landing-feature-visual {
   display: block;
   overflow: hidden;
-  width: 85%;
-  margin: 0 auto;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow {
+  /* Afuera de la imagen ya no hace falta el "cristal" semitransparente pensado para apoyarse sobre
+     una foto — colores de --lp-text/--lp-border, que ya cambian solos entre el bloque claro y el
+     oscuro (ver .landing-feature-block--dark), para que se lean bien sobre los dos fondos. */
+  left: 0;
+  right: auto;
+  background: transparent;
+  border: 1.5px solid var(--lp-border);
+  color: var(--lp-text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow--next {
+  left: auto;
+  right: 0;
+}
+
+.landing-feature-visual-frame .landing-image-carousel-arrow:hover {
+  border-color: var(--lp-accent-dark);
+  color: var(--lp-accent-dark);
+  background: transparent;
 }
 
 .landing-feature-visual-image {
@@ -5694,7 +5723,12 @@ a {
 }
 
 .landing-feature-visual--fallback {
+  /* Este caso no pasa por ImageCarousel (categoría sin imágenes de carrusel cargadas, ver el
+     comentario de :not() más abajo) — no vive dentro de .landing-feature-visual-frame, así que el
+     85% centrado que antes traía la clase base hay que conservarlo acá. */
   display: flex;
+  width: 85%;
+  margin: 0 auto;
   aspect-ratio: 21 / 9;
   border-radius: 0;
 }
@@ -7092,7 +7126,8 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .landing-carousel {
+  .landing-carousel,
+  .landing-feature-visual-frame {
     padding: 0 44px;
   }
 
@@ -7371,7 +7406,8 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .landing-carousel {
+  .landing-carousel,
+  .landing-feature-visual-frame {
     padding: 0 40px;
   }
 

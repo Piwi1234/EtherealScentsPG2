@@ -741,28 +741,34 @@ export function HomeClient({
               </h2>
 
               {cat.carouselImages.length > 0 ? (
-                <div className="landing-feature-visual">
-                  <ImageCarousel
-                    images={cat.carouselImages}
-                    alt={cat.name}
-                    imgClassName="landing-feature-visual-image"
-                    autoplayMs={FEATURE_AUTOPLAY_MS}
-                    visibleCount={isMobile ? 1 : 3}
-                    mobileMediaQuery={MOBILE_BREAKPOINT}
-                    renderOverlay={(image) => (
-                      <div className="landing-feature-overlay">
-                        <div className="landing-feature-overlay-text">
-                          {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
-                          {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
+                // Frame con padding a los costados — mismo mecanismo que .landing-carousel
+                // (Descuento y Ofertas / Explora Nuestras Marcas): las flechas de ImageCarousel
+                // (position:absolute) anclan a ESTE contenedor en vez de a .landing-feature-visual,
+                // así quedan en ese margen, afuera de la imagen, no superpuestas encima.
+                <div className="landing-feature-visual-frame">
+                  <div className="landing-feature-visual">
+                    <ImageCarousel
+                      images={cat.carouselImages}
+                      alt={cat.name}
+                      imgClassName="landing-feature-visual-image"
+                      autoplayMs={FEATURE_AUTOPLAY_MS}
+                      visibleCount={isMobile ? 1 : 3}
+                      mobileMediaQuery={MOBILE_BREAKPOINT}
+                      renderOverlay={(image) => (
+                        <div className="landing-feature-overlay">
+                          <div className="landing-feature-overlay-text">
+                            {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
+                            {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
+                          </div>
+                          {image.url && (
+                            <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
+                              Ver Todo
+                            </a>
+                          )}
                         </div>
-                        {image.url && (
-                          <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
-                            Ver Todo
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  />
+                      )}
+                    />
+                  </div>
                 </div>
               ) : (
                 <Link
