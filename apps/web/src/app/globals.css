@@ -3739,7 +3739,7 @@ a {
 
 .landing-compare-hero-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 20px;
   margin-top: 18px;
   text-align: left;
