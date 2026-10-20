@@ -4,6 +4,7 @@ import { apiGetServer } from "../../../lib/api-server";
 import type { Cliente, Page } from "../../../lib/types";
 import { ClientesTable } from "../../../components/clientes/ClientesTable";
 import { ClienteFiltros } from "../../../components/clientes/ClienteFiltros";
+import { ClientesImportControls } from "../../../components/clientes/ClientesImportControls";
 
 const PAGE_SIZE = 20;
 
@@ -39,11 +40,14 @@ export default async function ClientesPage({
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Clientes</h1>
-        <Link href="/dashboard/clientes/nuevo" className="btn-cta">
-          <span className="btn-cta-icon">+</span> Nuevo cliente
-        </Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <ClientesImportControls />
+          <Link href="/dashboard/clientes/nuevo" className="btn-cta">
+            <span className="btn-cta-icon">+</span> Nuevo cliente
+          </Link>
+        </div>
       </div>
 
       <Suspense fallback={null}>
