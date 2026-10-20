@@ -431,7 +431,7 @@ export function HomeClient({
             </span>
             <div>
               <p className="landing-trust-title">Envío a todo el país</p>
-              <p className="landing-trust-subtitle">Envío gratuito en compras a partir de 1.000 Bs</p>
+              <p className="landing-trust-subtitle">Envío gratuito en compras a partir de 2.000 Bs</p>
             </div>
           </div>
 
