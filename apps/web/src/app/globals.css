@@ -4510,14 +4510,6 @@ a {
   pointer-events: none;
 }
 
-/* /comparar pagina con <Link href="?page=N"> en vez de <button disabled> (es un Server Component
-   puro, sin JS de cliente) — mismo look, vía clase en vez del pseudo-selector de arriba. */
-.landing-pagination .landing-btn.disabled {
-  opacity: 0.4;
-  cursor: default;
-  pointer-events: none;
-}
-
 /* Números de página clickeables entre Anterior/Siguiente (estilo Google, ver /categoria) — ventana
    deslizante de a lo sumo 8 (ver PAGINATION_WINDOW), sin "...": siempre números contiguos. */
 .landing-pagination-numbers {
