@@ -163,11 +163,13 @@ export default function ProductsPage() {
     setRootCategoryFilter(id);
     setSubCategoryFilter("");
     setBrandFilter("");
+    setPageNumber(1);
   }
 
   function handleSubCategoryFilterChange(id: string) {
     setSubCategoryFilter(id);
     setBrandFilter("");
+    setPageNumber(1);
   }
 
   function handleClearFilters() {
@@ -180,6 +182,7 @@ export default function ProductsPage() {
     setProductCodeInput("");
     setDebouncedProductCode("");
     setSortFilter("");
+    setPageNumber(1);
   }
 
   function loadProducts() {
@@ -214,7 +217,7 @@ export default function ProductsPage() {
   // Los filtros vivían solo en memoria (useState) — al entrar a editar un producto y volver, el
   // remount releía la URL (que nunca se había actualizado) y los perdía todos. Esto lee el estado
   // inicial desde la URL una sola vez al montar (ver el efecto de más abajo, que hace el camino
-  // inverso: mantiene la URL sincronizada con los filtros activos).
+  // inverso: mantiene la URL sincronizada con los filtros activos, página incluida).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setRootCategoryFilter(params.get("categoryId") ?? "");
@@ -230,13 +233,16 @@ export default function ProductsPage() {
     setDebouncedProductCode(productCodeFromUrl);
     const sortFromUrl = params.get("sortBy");
     setSortFilter(sortFromUrl === "nombre-asc" || sortFromUrl === "nombre-desc" ? sortFromUrl : "");
+    const pageFromUrl = Math.floor(Number(params.get("page") ?? "1"));
+    setPageNumber(Number.isFinite(pageFromUrl) && pageFromUrl > 0 ? pageFromUrl : 1);
     setHydratedFromUrl(true);
   }, []);
 
-  // Mantiene la URL sincronizada con los filtros activos (router.replace, no agrega historial
-  // propio) — así "Volver"/"Cancelar" desde Nuevo/Editar producto (router.back()) restauran esta
-  // página tal como había quedado. No incluye pageNumber a propósito: volver arranca en la página 1
-  // de esos mismos filtros, no en la página puntual (mismo criterio que /categoria/[slug]).
+  // Mantiene la URL sincronizada con los filtros y la página activos (router.replace, no agrega
+  // historial propio) — así "Volver"/"Cancelar" desde Nuevo/Editar producto (router.back()) y
+  // "Guardar" (ver getProductsListQuery más abajo) restauran esta página tal como había quedado,
+  // incluida la página puntual del paginado. Página 1 no se escribe (default implícito) para no
+  // ensuciar la URL salvo que efectivamente se esté parado en otra página.
   useEffect(() => {
     if (!hydratedFromUrl) return;
     const params = new URLSearchParams(window.location.search);
@@ -251,6 +257,7 @@ export default function ProductsPage() {
     setOrDelete("oferta", offerFilter || null);
     setOrDelete("productCode", debouncedProductCode.trim() || null);
     setOrDelete("sortBy", sortFilter || null);
+    setOrDelete("page", pageNumber > 1 ? String(pageNumber) : null);
     const query = params.toString();
     router.replace(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
     // Para que "Guardar" en Nuevo/Editar producto pueda volver a estos mismos filtros (ver
@@ -265,6 +272,7 @@ export default function ProductsPage() {
     offerFilter,
     debouncedProductCode,
     sortFilter,
+    pageNumber,
     router,
   ]);
 
@@ -365,12 +373,6 @@ export default function ProductsPage() {
     const timeout = setTimeout(() => setDebouncedProductCode(productCodeInput), 300);
     return () => clearTimeout(timeout);
   }, [productCodeInput]);
-
-  // Vuelve a la primera página cada vez que cambia un filtro (si no, se podría quedar en una
-  // página que ya no existe para el nuevo resultado).
-  useEffect(() => {
-    setPageNumber(1);
-  }, [effectiveCategoryFilter, brandFilter, debouncedSearch, offerFilter, debouncedProductCode, sortFilter]);
 
   useEffect(loadProducts, [
     effectiveCategoryFilter,
@@ -719,7 +721,10 @@ export default function ProductsPage() {
           <select
             className="field"
             value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
+            onChange={(e) => {
+              setBrandFilter(e.target.value);
+              setPageNumber(1);
+            }}
             disabled={!effectiveCategoryFilter}
           >
             <option value="">Todas</option>
@@ -734,7 +739,10 @@ export default function ProductsPage() {
             className="field"
             type="search"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPageNumber(1);
+            }}
             placeholder="Nombre o marca"
           />
         </div>
@@ -746,7 +754,10 @@ export default function ProductsPage() {
           <select
             className="field"
             value={offerFilter}
-            onChange={(e) => setOfferFilter(e.target.value as typeof offerFilter)}
+            onChange={(e) => {
+              setOfferFilter(e.target.value as typeof offerFilter);
+              setPageNumber(1);
+            }}
             disabled={!effectiveCategoryFilter}
           >
             <option value="">Todas</option>
@@ -760,14 +771,24 @@ export default function ProductsPage() {
             className="field"
             type="search"
             value={productCodeInput}
-            onChange={(e) => setProductCodeInput(e.target.value)}
+            onChange={(e) => {
+              setProductCodeInput(e.target.value);
+              setPageNumber(1);
+            }}
             placeholder="Código del producto"
             disabled={!effectiveCategoryFilter}
           />
         </div>
         <div className="filter-field" style={{ minWidth: 160 }}>
           <label className="filter-label">Ordenar por</label>
-          <select className="field" value={sortFilter} onChange={(e) => setSortFilter(e.target.value as typeof sortFilter)}>
+          <select
+            className="field"
+            value={sortFilter}
+            onChange={(e) => {
+              setSortFilter(e.target.value as typeof sortFilter);
+              setPageNumber(1);
+            }}
+          >
             <option value="">Recientes</option>
             <option value="nombre-asc">A-Z</option>
             <option value="nombre-desc">Z-A</option>
