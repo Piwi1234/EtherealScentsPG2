@@ -4510,14 +4510,6 @@ a {
   pointer-events: none;
 }
 
-/* /comparar pagina con <Link href="?page=N"> en vez de <button disabled> (es un Server Component
-   puro, sin JS de cliente) — mismo look, vía clase en vez del pseudo-selector de arriba. */
-.landing-pagination .landing-btn.disabled {
-  opacity: 0.4;
-  cursor: default;
-  pointer-events: none;
-}
-
 /* Números de página clickeables entre Anterior/Siguiente (estilo Google, ver /categoria) — ventana
    deslizante de a lo sumo 8 (ver PAGINATION_WINDOW), sin "...": siempre números contiguos. */
 .landing-pagination-numbers {
@@ -5527,10 +5519,12 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--lp-font-display);
-  font-size: 26px;
-  color: #ffffff;
-  background: linear-gradient(150deg, var(--lp-accent), #4b3f8f);
+  background: var(--lp-surface);
+}
+
+.landing-product-image-placeholder-icon {
+  width: 46%;
+  height: 46%;
 }
 
 /* Leyenda "En Stock": abajo a la izquierda de la imagen — ver `Product.hasStock` (física - reservada

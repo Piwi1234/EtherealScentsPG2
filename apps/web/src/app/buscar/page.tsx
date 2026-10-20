@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "../../lib/api";
 import { displayPrice, hasActiveFlash, hasDiscount, isPreventa } from "../../lib/catalog-display";
 import type { Page, Product } from "../../lib/types";
@@ -13,7 +13,7 @@ import { FilterOptionList } from "../../components/landing/FilterOptionList";
 
 type SortBy = "relevancia" | "recientes" | "precio-asc" | "precio-desc" | "nombre-asc";
 type PriceRange = [number, number];
-type BrandCount = { id: string; name: string; count: number };
+type BrandCount = { slug: string; name: string; count: number };
 
 // Mismo criterio que /categoria/[slug]: 4 tarjetas por fila x 5 filas visibles antes de paginar.
 const CARDS_PER_PAGE = 20;
@@ -25,12 +25,36 @@ const CARDS_PER_PAGE = 20;
 // pensadas justo para esto) — una búsqueda con más coincidencias que este tope no las vería todas.
 const SEARCH_FETCH_LIMIT = 200;
 
+/** "?marca=slug1,slug2" (slug de marca, no id — mucho más legible en la URL, mismo criterio que
+ * ?subcategoria= en /categoria), "?descuento=true", "?minPriceBs="/"?maxPriceBs=", "?page=" — se lee
+ * directo de window.location.search (no del hook useSearchParams) para no reaccionar a los cambios
+ * de URL que este mismo componente genera (ver el efecto que sincroniza estado -> URL más abajo). */
+function parseBuscarFiltersFromSearch(search: string) {
+  const params = new URLSearchParams(search);
+  const minPriceBsRaw = params.get("minPriceBs");
+  const maxPriceBsRaw = params.get("maxPriceBs");
+  const pageRaw = Math.floor(Number(params.get("page") ?? "1"));
+  return {
+    brandFilters: (params.get("marca") ?? "").split(",").map((v) => v.trim()).filter(Boolean),
+    discountOnly: params.get("descuento") === "true",
+    flashOnly: params.get("flash") === "true",
+    preventaOnly: params.get("preventa") === "true",
+    inStockOnly: params.get("stock") === "true",
+    priceApplied:
+      minPriceBsRaw !== null || maxPriceBsRaw !== null
+        ? ([Number(minPriceBsRaw ?? 0), Number(maxPriceBsRaw ?? 10_000_000)] as PriceRange)
+        : null,
+    page: Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1,
+  };
+}
+
 // useSearchParams (a diferencia de leer window.location.search a mano) es reactivo a los cambios de
 // query string entre navegaciones del lado del cliente a esta misma ruta — antes, buscar un segundo
 // término desde el navbar (router.push("/buscar?q=...") sin desmontar la página) no disparaba una
 // nueva búsqueda porque el efecto de fetch tenía dependencias vacías ([]), solo corría al montar.
 function BuscarContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = searchParams.get("q") ?? "";
 
   const [allItems, setAllItems] = useState<Product[] | null>(null);
@@ -48,14 +72,19 @@ function BuscarContent() {
   const [sortBy, setSortBy] = useState<SortBy>("relevancia");
 
   useEffect(() => {
-    setPageNumber(1);
+    // Filtros + página ya en la URL (?marca=, ?descuento=true, ?minPriceBs=, ?page=, etc.) — llegan
+    // así al volver con "atrás" desde /producto/[slug] (ver el efecto de sincronización más abajo) o
+    // al entrar por un link ya armado con filtros. Lee window.location.search (no searchParams del
+    // hook) a propósito: ver el comentario de parseBuscarFiltersFromSearch.
+    const filters = parseBuscarFiltersFromSearch(window.location.search);
+    setPageNumber(filters.page);
     setError("");
-    setBrandFilters([]);
-    setDiscountOnly(false);
-    setFlashOnly(false);
-    setPreventaOnly(false);
-    setInStockOnly(false);
-    setPriceApplied(null);
+    setBrandFilters(filters.brandFilters);
+    setDiscountOnly(filters.discountOnly);
+    setFlashOnly(filters.flashOnly);
+    setPreventaOnly(filters.preventaOnly);
+    setInStockOnly(filters.inStockOnly);
+    setPriceApplied(filters.priceApplied);
     setSortBy("relevancia");
     if (!query.trim()) {
       setAllItems([]);
@@ -70,12 +99,41 @@ function BuscarContent() {
         // Rango del slider calculado acá, junto con el set recién llegado — si quedara en un efecto
         // aparte dependiendo de un `priceBoundsMax` ya derivado, dos búsquedas distintas que dieran la
         // misma cota máxima no dispararían ese efecto de nuevo (mismo valor primitivo) y el slider
-        // quedaría pegado al rango de la búsqueda anterior.
+        // quedaría pegado al rango de la búsqueda anterior. Arranca en el rango completo (no en
+        // filters.priceApplied) aunque ese filtro YA esté aplicado — mismo criterio que /categoria.
         const max = page.items.length > 0 ? Math.ceil(Math.max(...page.items.map((p) => displayPrice(p).bs))) : 0;
         setPriceRange(max > 0 ? [0, max] : null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [query]);
+
+  // Mantiene la URL sincronizada con los filtros/página activos (router.replace, no agrega
+  // historial propio) — mismo criterio que CategoriaClient: así "atrás" desde /producto/[slug]
+  // restaura la búsqueda tal como había quedado, filtros y página incluidos, en vez de reiniciarla.
+  // Esperar a que `allItems` ya esté resuelto (no null) evita una escritura prematura: en el primer
+  // render de una URL que YA traía filtros, el estado recién se termina de poblar (ver el efecto de
+  // arriba) antes de que el fetch resuelva — sin esta espera, este efecto alcanzaría a pisar la URL
+  // con los valores por default de un instante antes.
+  useEffect(() => {
+    if (allItems === null) return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (key: string, value: string | null) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("marca", brandFilters.length > 0 ? brandFilters.join(",") : null);
+    setOrDelete("descuento", discountOnly ? "true" : null);
+    setOrDelete("flash", flashOnly ? "true" : null);
+    setOrDelete("preventa", preventaOnly ? "true" : null);
+    setOrDelete("stock", inStockOnly ? "true" : null);
+    setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
+    setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
+    // Página 1 no se escribe (default implícito) — la URL queda limpia salvo que efectivamente se
+    // esté parado en otra página.
+    setOrDelete("page", pageNumber > 1 ? String(pageNumber) : null);
+    const next = params.toString();
+    router.replace(next ? `${window.location.pathname}?${next}` : window.location.pathname, { scroll: false });
+  }, [allItems, brandFilters, discountOnly, flashOnly, preventaOnly, inStockOnly, priceApplied, pageNumber, router]);
 
   const priceBoundsMax = useMemo(() => {
     if (!allItems || allItems.length === 0) return 0;
@@ -90,9 +148,9 @@ function BuscarContent() {
     const counts = new Map<string, BrandCount>();
     for (const product of allItems) {
       if (!product.brand) continue;
-      const entry = counts.get(product.brand.id) ?? { id: product.brand.id, name: product.brand.name, count: 0 };
+      const entry = counts.get(product.brand.slug) ?? { slug: product.brand.slug, name: product.brand.name, count: 0 };
       entry.count += 1;
-      counts.set(product.brand.id, entry);
+      counts.set(product.brand.slug, entry);
     }
     return [...counts.values()];
   }, [allItems]);
@@ -105,7 +163,7 @@ function BuscarContent() {
   const filteredItems = useMemo(() => {
     if (!allItems) return [];
     let items = allItems;
-    if (brandFilters.length > 0) items = items.filter((p) => p.brand && brandFilters.includes(p.brand.id));
+    if (brandFilters.length > 0) items = items.filter((p) => p.brand && brandFilters.includes(p.brand.slug));
     if (discountOnly) items = items.filter(hasDiscount);
     if (flashOnly) items = items.filter(hasActiveFlash);
     if (preventaOnly) items = items.filter(isPreventa);
@@ -127,8 +185,8 @@ function BuscarContent() {
     return items;
   }, [allItems, brandFilters, discountOnly, flashOnly, preventaOnly, inStockOnly, priceApplied, sortBy]);
 
-  function toggleBrand(id: string) {
-    setBrandFilters((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  function toggleBrand(slug: string) {
+    setBrandFilters((prev) => (prev.includes(slug) ? prev.filter((v) => v !== slug) : [...prev, slug]));
     setPageNumber(1);
   }
 
@@ -199,9 +257,9 @@ function BuscarContent() {
     (priceApplied ? 1 : 0);
 
   const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
-  for (const brandId of brandFilters) {
-    const brand = brandsWithCounts.find((b) => b.id === brandId);
-    if (brand) activeFilterChips.push({ key: `brand-${brandId}`, label: brand.name, onRemove: () => toggleBrand(brandId) });
+  for (const brandSlug of brandFilters) {
+    const brand = brandsWithCounts.find((b) => b.slug === brandSlug);
+    if (brand) activeFilterChips.push({ key: `brand-${brandSlug}`, label: brand.name, onRemove: () => toggleBrand(brandSlug) });
   }
   if (inStockOnly) activeFilterChips.push({ key: "stock", label: "En Stock", onRemove: toggleInStockOnly });
   if (discountOnly) activeFilterChips.push({ key: "discount", label: "Con Descuento", onRemove: toggleDiscountOnly });
@@ -306,7 +364,7 @@ function BuscarContent() {
         <FilterOptionList
           key={`${query}-marca`}
           title="Marca"
-          options={brandsWithCounts.map((brand) => ({ value: brand.id, label: brand.name, count: brand.count }))}
+          options={brandsWithCounts.map((brand) => ({ value: brand.slug, label: brand.name, count: brand.count }))}
           selected={brandFilters}
           onToggle={toggleBrand}
           variant="scroll"

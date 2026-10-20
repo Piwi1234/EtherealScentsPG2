@@ -20,6 +20,18 @@ import type { Product, ProductVariant } from "../../lib/types";
 import { formatAtributosTarjeta, formatCartAtributos } from "../proformas/AtributosVisibles";
 import { FlashCountdown } from "./FlashCountdown";
 
+/** Reemplaza el cuadrado con degradé + inicial de antes — un frasco genérico en línea, discreto,
+ * para cuando el producto todavía no tiene foto cargada (muy común recién importado). */
+function ProductPlaceholderBottle() {
+  return (
+    <svg className="landing-product-image-placeholder-icon" viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="32" y="2" width="16" height="13" rx="2.5" fill="#eef0f5" stroke="#aab2c2" strokeWidth="2" />
+      <rect x="35" y="14" width="10" height="9" fill="#eef0f5" stroke="#aab2c2" strokeWidth="2" />
+      <rect x="13" y="21" width="54" height="76" rx="18" fill="#eef0f5" stroke="#aab2c2" strokeWidth="2" />
+    </svg>
+  );
+}
+
 // Tarjeta de producto compartida por home (ofertas + colección de la semana), /categoria y /buscar —
 // antes cada página inlineaba esta misma marcación por separado; se unificó acá al agregarle el botón
 // de "agregar al carrito", para no repetir esa lógica en 4 lugares.
@@ -121,7 +133,9 @@ export function ProductCard({
         {image ? (
           <img className="landing-product-image" src={image} alt={product.name} />
         ) : (
-          <div className="landing-product-image-placeholder">{product.name.slice(0, 1)}</div>
+          <div className="landing-product-image-placeholder">
+            <ProductPlaceholderBottle />
+          </div>
         )}
         {hasOffer && (
           <span className="landing-product-offer-badge">
