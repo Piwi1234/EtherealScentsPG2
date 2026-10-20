@@ -11,6 +11,7 @@ import type {
   Category,
   Ciudad,
   Cliente,
+  ClienteImportReport,
   ClienteInput,
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
@@ -233,6 +234,14 @@ export function deleteCliente(id: string) {
 
 export function activarCliente(id: string) {
   return apiPatch<Cliente>(`/clientes/${id}/activar`, {});
+}
+
+export function downloadClientesImportTemplate() {
+  return apiDownload("/clientes/import/template", "plantilla-importacion-clientes.xlsx");
+}
+
+export function importClientesFromFile(file: File) {
+  return apiUpload<ClienteImportReport>("/clientes/import", file);
 }
 
 // --- Empresas ---
