@@ -277,6 +277,12 @@ a {
     overflow-y: visible;
     border-top: 1px solid rgba(245, 244, 240, 0.12);
     z-index: 50;
+    /* En iOS, un toque sobre un botón de esta barra podía interpretarse como el inicio de un gesto
+       de scroll (ambiguo entre "tocar" y "arrastrar" en un contenedor con overflow) y el toque se
+       "comía" sin disparar el click — Clientes/Proveedores/Configuración, etc. no abrían su panel.
+       touch-action:pan-x le dice a Safari que acá el único gesto de arrastre válido es horizontal,
+       así no hay ambigüedad que hacer perder el toque. */
+    touch-action: pan-x;
   }
 
   .sidebar-brand,
@@ -307,6 +313,24 @@ a {
   .sidebar-link.active {
     border-left-color: transparent;
     border-top-color: var(--gold);
+  }
+
+  /* La chevron (ícono+texto+chevron, 18+10+14px más los gaps/padding) apenas entraba en los 68px
+     fijos de la barra en fila — con el margin-left:auto que la empuja a la derecha en la versión de
+     escritorio (fila), acá (columna) terminaba corrida de lugar, y en algunos navegadores (iOS) ese
+     ajuste cerrado la dejaba directamente recortada/invisible. Se saca del flujo en columna (badge
+     en la esquina del botón) para que no le quite alto a ícono+texto ni dependa de ese margin.     */
+  .sidebar-accordion-toggle {
+    position: relative;
+  }
+
+  .sidebar-accordion-chevron {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    margin-left: 0;
+    width: 10px;
+    height: 10px;
   }
 
   .sidebar-logout {
@@ -511,6 +535,78 @@ a {
 
 .table-scroll {
   overflow-x: auto;
+}
+
+/* Tabla de "Variantes con precio propio" (Gestión -> Productos -> Editar): en mobile tiene 13
+   columnas, imposible de mostrar sin desplazar horizontalmente. A este ancho se abandona la forma de
+   tabla (oculta el thead) y cada <tr> pasa a ser su propia tarjeta en columna, con cada <td> como una
+   fila propia "etiqueta: control" (la etiqueta sale del data-label que pone cada <td> en el JSX,
+   mismo valor que su <th> correspondiente) — toda la información entra en el ancho de pantalla, sin
+   scroll. Las clases variant-field-sm/md reemplazan los style={{width}} en línea de cada input/select
+   (un ancho fijo en línea no se puede pisar con CSS sin !important) para poder ensancharlos acá. */
+.variant-field-sm {
+  width: 90px;
+}
+
+.variant-field-md {
+  width: 130px;
+}
+
+@media (max-width: 640px) {
+  .variant-table thead {
+    display: none;
+  }
+
+  .variant-table,
+  .variant-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .variant-table tr {
+    display: block;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-divider, var(--line));
+    border-radius: 10px;
+  }
+
+  .variant-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .variant-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--color-divider, var(--line));
+  }
+
+  .variant-table td:last-child {
+    border-bottom: none;
+  }
+
+  .variant-table td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+
+  .variant-table td > * {
+    min-width: 0;
+  }
+
+  .variant-field-sm,
+  .variant-field-md {
+    width: auto;
+    max-width: 150px;
+  }
 }
 
 .filters-bar {

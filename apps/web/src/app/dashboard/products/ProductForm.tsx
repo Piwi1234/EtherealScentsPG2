@@ -1001,7 +1001,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
                     {currentProduct.variants.length > 0 && (
                       <div style={{ overflowX: "auto", marginBottom: 14 }}>
-                        <table className="table">
+                        <table className="table variant-table">
                           <thead>
                             <tr>
                               <th>Imagen</th>
@@ -1024,7 +1024,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                             {currentProduct.variants.map((variant) => (
                               <Fragment key={variant.id}>
                                 <tr>
-                                  <td>
+                                  <td data-label="Imagen">
                                     {variant.unidad === "PZA" ? (
                                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                         {productImageSrc(variant.imageUrl) ? (
@@ -1038,8 +1038,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                         )}
                                         <input
                                           type="file"
+                                          className="variant-field-sm"
                                           accept="image/jpeg,image/png,image/webp,image/gif"
-                                          style={{ width: 90, fontSize: 11 }}
+                                          style={{ fontSize: 11 }}
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) handleUploadVariantImage(variant.id, file);
@@ -1050,25 +1051,24 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                       <span className="cell-muted">—</span>
                                     )}
                                   </td>
-                                  <td>
+                                  <td data-label="Disponible">
                                     <select
-                                      className="field"
+                                      className="field variant-field-md"
                                       value={variant.estado}
                                       onChange={(e) => handleUpdateVariantEstado(variant.id, e.target.value as EstadoVariante)}
-                                      style={{ width: 130 }}
                                     >
                                       <option value="DISPONIBLE">Disponible</option>
                                       <option value="NO_DISPONIBLE">No disponible</option>
                                       <option value="PREVENTA">Preventa</option>
                                     </select>
                                   </td>
-                                  <td>{variant.variantCode}</td>
-                                  <td>
+                                  <td data-label="ID">{variant.variantCode}</td>
+                                  <td data-label="Combinación">
                                     {variant.options
                                       .map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`)
                                       .join(" · ")}
                                   </td>
-                                  <td>
+                                  <td data-label="Unidad">
                                     <span className={`badge ${variant.unidad === "ML" ? "badge-accent" : "badge-muted"}`}>
                                       {variant.unidad === "ML" ? "Ml" : "Pza"}
                                     </span>
@@ -1083,55 +1083,51 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                       </button>
                                     )}
                                   </td>
-                                  <td>
+                                  <td data-label="Compra">
                                     <input
-                                      className="field"
+                                      className="field variant-field-sm"
                                       type="number"
                                       min={0}
                                       step="0.01"
                                       defaultValue={variant.purchasePrice}
                                       onBlur={(e) => handleUpdateVariantField(variant.id, "purchasePrice", e.target.value)}
-                                      style={{ width: 90 }}
                                     />
                                   </td>
-                                  <td>
+                                  <td data-label="Utilidad">
                                     <input
-                                      className="field"
+                                      className="field variant-field-sm"
                                       type="number"
                                       min={0}
                                       step="0.01"
                                       defaultValue={variant.utility}
                                       onBlur={(e) => handleUpdateVariantField(variant.id, "utility", e.target.value)}
-                                      style={{ width: 90 }}
                                     />
                                   </td>
-                                  <td>${variant.price.toFixed(2)}</td>
-                                  <td>Bs {variant.wholesalePriceBs.toFixed(2)}</td>
-                                  <td>
+                                  <td data-label="Precio $">${variant.price.toFixed(2)}</td>
+                                  <td data-label="May Bs">Bs {variant.wholesalePriceBs.toFixed(2)}</td>
+                                  <td data-label="Add May $">
                                     <input
-                                      className="field"
+                                      className="field variant-field-sm"
                                       type="number"
                                       min={0}
                                       step="0.01"
                                       placeholder="—"
                                       defaultValue={variant.minPriceBs ?? ""}
                                       onBlur={(e) => handleUpdateVariantField(variant.id, "minPriceBs", e.target.value)}
-                                      style={{ width: 90 }}
                                     />
                                   </td>
-                                  <td>
+                                  <td data-label="Desc. Bs">
                                     <input
-                                      className="field"
+                                      className="field variant-field-sm"
                                       type="number"
                                       min={0}
                                       step="0.01"
                                       defaultValue={variant.discountBs}
                                       onBlur={(e) => handleUpdateVariantField(variant.id, "discountBs", e.target.value)}
-                                      style={{ width: 90 }}
                                     />
                                   </td>
-                                  <td>Bs {variant.finalPriceBs.toFixed(2)}</td>
-                                  <td>
+                                  <td data-label="Final Bs">Bs {variant.finalPriceBs.toFixed(2)}</td>
+                                  <td data-label="Oferta Flash">
                                     <button
                                       type="button"
                                       className="link-button"
