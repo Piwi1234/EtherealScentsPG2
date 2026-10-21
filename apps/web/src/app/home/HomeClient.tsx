@@ -14,6 +14,13 @@ import { ProductCard } from "../../components/landing/ProductCard";
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
 const OFFERS_AUTOPLAY_MS = 7000;
+// Mismos anchos que las media queries de .landing-product-grid--carousel en globals.css (5/3/2
+// columnas) — antes la cantidad de tarjetas por página del carrusel solo conocía 2 estados (mobile/
+// desktop, breakpoint de 768px), así que en el rango intermedio (ej. ventana a media pantalla, o un
+// laptop con escalado de DPI que deja un ancho CSS efectivo entre 769 y 1200px) la grilla ya mostraba
+// menos columnas pero JS seguía mandando 5 tarjetas por página, desbordando a una segunda fila.
+const OFFERS_BREAKPOINT_MD = "(max-width: 1200px)";
+const OFFERS_BREAKPOINT_SM = "(max-width: 900px)";
 const BRANDS_SLIDE_SIZE = 7;
 // En mobile .landing-brand-grid cae a 2 columnas (ver globals.css) — con 7 de siempre eso eran 4
 // filas por página; 4 (2 filas parejas) se ve mucho menos alargado.
@@ -117,6 +124,11 @@ export function HomeClient({
   // hay nada que corregir, y en desktop la corrección solo ensancha la misma fila (más columnas, no
   // más filas) — nunca se desborda en ese sentido.
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  // Cantidad de tarjetas por página del carrusel de "Descuento y Ofertas" (5/3/2), en sintonía con
+  // las columnas reales de .landing-product-grid--carousel a cada ancho — ver OFFERS_BREAKPOINT_MD/SM
+  // y el layout effect de más abajo. null (todavía no se sabe) cae del lado más angosto (2), mismo
+  // criterio que isMobile: nunca desborda, como mucho underfillea una página de más.
+  const [offersColumns, setOffersColumns] = useState<number | null>(null);
   const [landingImages, setLandingImages] = useState<LandingImages | null>(initialLandingImages);
   const [weeklyCollectionProducts, setWeeklyCollectionProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
@@ -265,10 +277,9 @@ export function HomeClient({
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [categoryFilter, offersMode, hasFlashOffers]);
 
-  // En mobile pagina de a 2 productos en vez de 5 (ver el layout effect de matchMedia más abajo).
-  // `=== false` a propósito, no solo `isMobile ?` — ver el comentario del useState de isMobile: null
-  // (todavía no se sabe) tiene que caer del lado mobile/seguro, no del lado desktop.
-  const offersSlideSize = isMobile === false ? OFFERS_SLIDE_SIZE : OFFERS_SLIDE_SIZE_MOBILE;
+  // Cantidad de tarjetas por página = columnas reales de la grilla a este ancho (ver offersColumns
+  // más arriba) — así nunca desborda a una segunda fila, en ningún ancho intermedio.
+  const offersSlideSize = offersColumns ?? OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
   const offerEntries = useMemo(
@@ -349,7 +360,7 @@ export function HomeClient({
     const el = offersFrameRef.current;
     if (!el) return;
     setOffersHeight(el.scrollHeight);
-  }, [offersChunks, offersSlide, offersAnim, isMobile]);
+  }, [offersChunks, offersSlide, offersAnim, offersColumns]);
 
   function renderOffersWindow(index: number) {
     const chunk = offersChunks[index] ?? [];
@@ -382,6 +393,27 @@ export function HomeClient({
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  // offersColumns: mismos 2 breakpoints que .landing-product-grid--carousel en globals.css (ver su
+  // comentario más arriba) — se escuchan los dos a la vez (no solo MOBILE_BREAKPOINT) para que el
+  // carrusel de ofertas nunca desborde a una segunda fila, cualquiera sea el ancho real.
+  useLayoutEffect(() => {
+    const mqlMd = window.matchMedia(OFFERS_BREAKPOINT_MD);
+    const mqlSm = window.matchMedia(OFFERS_BREAKPOINT_SM);
+    function computeColumns(): number {
+      if (mqlSm.matches) return 2;
+      if (mqlMd.matches) return 3;
+      return 5;
+    }
+    setOffersColumns(computeColumns());
+    const onChange = () => setOffersColumns(computeColumns());
+    mqlMd.addEventListener("change", onChange);
+    mqlSm.addEventListener("change", onChange);
+    return () => {
+      mqlMd.removeEventListener("change", onChange);
+      mqlSm.removeEventListener("change", onChange);
+    };
   }, []);
 
   // Hero: una sola imagen a pantalla completa por vez (antes eran 3 banners lado a lado) — ahora usa
