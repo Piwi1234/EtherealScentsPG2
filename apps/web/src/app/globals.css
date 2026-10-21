@@ -277,6 +277,12 @@ a {
     overflow-y: visible;
     border-top: 1px solid rgba(245, 244, 240, 0.12);
     z-index: 50;
+    /* En iOS, un toque sobre un botón de esta barra podía interpretarse como el inicio de un gesto
+       de scroll (ambiguo entre "tocar" y "arrastrar" en un contenedor con overflow) y el toque se
+       "comía" sin disparar el click — Clientes/Proveedores/Configuración, etc. no abrían su panel.
+       touch-action:pan-x le dice a Safari que acá el único gesto de arrastre válido es horizontal,
+       así no hay ambigüedad que hacer perder el toque. */
+    touch-action: pan-x;
   }
 
   .sidebar-brand,
@@ -307,6 +313,24 @@ a {
   .sidebar-link.active {
     border-left-color: transparent;
     border-top-color: var(--gold);
+  }
+
+  /* La chevron (ícono+texto+chevron, 18+10+14px más los gaps/padding) apenas entraba en los 68px
+     fijos de la barra en fila — con el margin-left:auto que la empuja a la derecha en la versión de
+     escritorio (fila), acá (columna) terminaba corrida de lugar, y en algunos navegadores (iOS) ese
+     ajuste cerrado la dejaba directamente recortada/invisible. Se saca del flujo en columna (badge
+     en la esquina del botón) para que no le quite alto a ícono+texto ni dependa de ese margin.     */
+  .sidebar-accordion-toggle {
+    position: relative;
+  }
+
+  .sidebar-accordion-chevron {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    margin-left: 0;
+    width: 10px;
+    height: 10px;
   }
 
   .sidebar-logout {
