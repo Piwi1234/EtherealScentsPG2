@@ -351,10 +351,6 @@ a {
     font-size: 13px;
     padding: 10px 12px;
   }
-
-  .dashboard-main {
-    padding-bottom: 84px;
-  }
 }
 
 .dashboard-main {
@@ -366,6 +362,19 @@ a {
      vuelto más ancho que el viewport). */
   min-width: 0;
   overflow-x: hidden;
+}
+
+/* Este override tenía que vivir DESPUÉS de la regla base de acá arriba (antes estaba adentro del
+   mismo @media que convierte el sidebar en barra inferior, más arriba en el archivo): como las dos
+   reglas pesan lo mismo (mismo selector ".dashboard-main"), gana la que aparece último en el
+   archivo — y el `padding: 24px` de la regla base (que fija los 4 lados, bottom incluido) pisaba
+   este padding-bottom más grande, dejando solo 24px de aire sobre la barra fija de 68px de alto. El
+   contenido que terminaba ahí (ej. "Siguiente" del paginado en Clientes/Proveedores) quedaba tapado
+   por la barra en vez de poder tocarse. */
+@media (max-width: 640px) {
+  .dashboard-main {
+    padding-bottom: 84px;
+  }
 }
 
 .stat-card {
