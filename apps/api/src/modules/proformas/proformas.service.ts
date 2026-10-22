@@ -19,8 +19,6 @@ export const includeDetails = {
   cliente: true,
   almacen: true,
   ciudadEntrega: true,
-  proveedor: true,
-  paisProcedencia: true,
   creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
   detalles: {
     // Sin esto, Postgres devuelve las filas en su orden físico (sin ORDER BY no hay garantía de
@@ -51,6 +49,9 @@ export const includeDetails = {
       },
       // VENTA de una variante unidad=ML: qué presentación (subvariante) se vendió en esta línea.
       presentacionVenta: true,
+      // COMPRA: a quién se le compra ESTA línea puntual (ver comentario en schema.prisma) — null
+      // para líneas de VENTA.
+      proveedor: true,
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
     },
@@ -90,9 +91,10 @@ export class ProformasService {
       empresaId: query.empresaId,
       creadoPorId: query.creadoPorId,
       clienteId: query.clienteId,
-      proveedorId: query.proveedorId,
+      // El proveedor es por línea, no por documento — filtra proformas que tengan AL MENOS una
+      // línea de ese proveedor (ver ProformaDetalle.proveedorId).
+      detalles: query.proveedorId ? { some: { proveedorId: query.proveedorId } } : undefined,
       ciudadEntregaId: query.ciudadEntregaId,
-      paisProcedenciaId: query.paisProcedenciaId,
       codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
       fecha: {
         gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
@@ -145,11 +147,6 @@ export class ProformasService {
     if (!ciudad) throw new BadRequestException(`ciudadEntregaId inválido: ${id}`);
   }
 
-  private async assertPaisProcedenciaExists(id: string) {
-    const pais = await this.prisma.paisProcedencia.findUnique({ where: { id } });
-    if (!pais) throw new BadRequestException(`paisProcedenciaId inválido: ${id}`);
-  }
-
   private async assertProveedorExists(id: string) {
     const proveedor = await this.prisma.proveedor.findUnique({ where: { id } });
     if (!proveedor) throw new BadRequestException(`proveedorId inválido: ${id}`);
@@ -190,15 +187,10 @@ export class ProformasService {
       if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
       await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
-      if (dto.proveedorId) throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
-      if (dto.paisProcedenciaId) throw new BadRequestException("paisProcedenciaId no aplica a una proforma de venta.");
       if (dto.tipoCambioProf !== undefined) throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
     } else {
       if (dto.clienteId) throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
-      if (!dto.proveedorId) throw new BadRequestException("proveedorId es obligatorio para una proforma de compra.");
-      await this.assertProveedorExists(dto.proveedorId);
-      if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
       if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
     }
@@ -218,8 +210,6 @@ export class ProformasService {
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
-            proveedorId: dto.tipo === TipoProforma.COMPRA ? dto.proveedorId : undefined,
-            paisProcedenciaId: dto.tipo === TipoProforma.COMPRA ? dto.paisProcedenciaId : undefined,
             tipoCambioProf,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
@@ -241,12 +231,6 @@ export class ProformasService {
     if (existing.tipo === TipoProforma.VENTA) {
       if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
-      if (dto.proveedorId !== undefined) {
-        throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
-      }
-      if (dto.paisProcedenciaId !== undefined) {
-        throw new BadRequestException("paisProcedenciaId no aplica a una proforma de venta.");
-      }
       if (dto.tipoCambioProf !== undefined) {
         throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
       }
@@ -257,8 +241,6 @@ export class ProformasService {
       if (dto.ciudadEntregaId !== undefined) {
         throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       }
-      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
-      if (dto.paisProcedenciaId) await this.assertPaisProcedenciaExists(dto.paisProcedenciaId);
       if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
     }
@@ -326,6 +308,7 @@ export class ProformasService {
       throw new BadRequestException("Esta proforma no es de compra.");
     }
     await this.getVarianteParaPrecio(dto.varianteId);
+    if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
 
     const costoUnitario = dto.precioCompra + dto.costoEnvio + dto.costoSeguridad + dto.costoLogistica;
     const subtotal = dto.cantidad * costoUnitario;
@@ -340,6 +323,7 @@ export class ProformasService {
           costoEnvio: dto.costoEnvio,
           costoSeguridad: dto.costoSeguridad,
           costoLogistica: dto.costoLogistica,
+          proveedorId: dto.proveedorId,
           subtotal,
         },
       });
@@ -358,7 +342,9 @@ export class ProformasService {
     }
 
     const cantidad = dto.cantidad ?? detalle.cantidad;
-    let data: Prisma.ProformaDetalleUpdateInput;
+    // Unchecked (no Update a secas): para poder setear proveedorId directo como FK escalar en vez
+    // de por `proveedor: { connect: ... }`.
+    let data: Prisma.ProformaDetalleUncheckedUpdateInput;
 
     if (proforma.tipo === TipoProforma.VENTA) {
       const precioUnitario = dto.precioUnitario ?? Number(detalle.precioUnitario);
@@ -369,7 +355,17 @@ export class ProformasService {
       const costoSeguridad = dto.costoSeguridad ?? Number(detalle.costoSeguridad);
       const costoLogistica = dto.costoLogistica ?? Number(detalle.costoLogistica);
       const costoUnitario = precioCompra + costoEnvio + costoSeguridad + costoLogistica;
-      data = { cantidad, precioCompra, costoEnvio, costoSeguridad, costoLogistica, subtotal: cantidad * costoUnitario };
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+      const proveedorId = dto.proveedorId ?? detalle.proveedorId ?? undefined;
+      data = {
+        cantidad,
+        precioCompra,
+        costoEnvio,
+        costoSeguridad,
+        costoLogistica,
+        proveedorId,
+        subtotal: cantidad * costoUnitario,
+      };
     }
 
     try {

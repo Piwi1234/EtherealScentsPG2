@@ -662,6 +662,10 @@ export type ProformaDetalle = {
   costoEnvio: string | null;
   costoSeguridad: string | null;
   costoLogistica: string | null;
+  /** COMPRA: a quién se le compra ESTA línea puntual — una misma proforma puede traer productos de
+   * varios proveedores distintos, cada línea el suyo. Null en líneas de venta. */
+  proveedorId: string | null;
+  proveedor: Proveedor | null;
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -685,13 +689,10 @@ export type Proforma = {
   almacen: Almacen | null;
   ciudadEntregaId: string | null;
   ciudadEntrega: Ciudad | null;
-  /** Solo COMPRA: a quién se le compra — mismo rol que cliente cumple en VENTA. */
-  proveedorId: string | null;
-  proveedor: Proveedor | null;
-  /** Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
-   * compra puntual, para valorar en Bs sin depender del tipo de cambio del sistema. Ambos null en VENTA. */
-  paisProcedenciaId: string | null;
-  paisProcedencia: PaisProcedencia | null;
+  /** Solo COMPRA: el tipo de cambio propio de ESTA compra puntual, para valorar en Bs sin depender
+   * del tipo de cambio del sistema — único para todo el documento (no por línea). Null en VENTA.
+   * El proveedor y el país de procedencia ya no son del documento: son por línea, ver
+   * ProformaDetalle.proveedorId. */
   tipoCambioProf: string | null;
   creadoPorId: string;
   creadoPor: { id: string; nombre: string; email: string; rol: Rol };
@@ -731,8 +732,6 @@ export type ProformaInput = {
   empresaId: string;
   clienteId?: string;
   ciudadEntregaId?: string;
-  proveedorId?: string;
-  paisProcedenciaId?: string;
   tipoCambioProf?: number;
   descuentoGeneral?: number;
   adelantoPorcentaje?: number;
@@ -755,6 +754,7 @@ export type DetalleCompraInput = {
   costoEnvio: number;
   costoSeguridad: number;
   costoLogistica: number;
+  proveedorId?: string;
 };
 
 export type UpdateDetalleInput = {
@@ -764,6 +764,7 @@ export type UpdateDetalleInput = {
   costoEnvio?: number;
   costoSeguridad?: number;
   costoLogistica?: number;
+  proveedorId?: string;
 };
 
 export type AprobarProformaInput = { almacenId?: string; carteraId?: string };
@@ -795,14 +796,14 @@ export type RegistroLinea = {
   costoSeguridad: string | null;
   costoLogistica: string | null;
   subtotal: string;
+  /** COMPRA: a quién se le compra ESTA línea puntual. Null en líneas de venta. */
+  proveedor: { id: string; nombre: string; paisProcedencia: { id: string; nombre: string } | null } | null;
   proforma: {
     id: string;
     codigo: string;
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
-    proveedor: { id: string; nombre: string } | null;
-    paisProcedencia: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
   };
   variante: ProformaDetalleVariante;

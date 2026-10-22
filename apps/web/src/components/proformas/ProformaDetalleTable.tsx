@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
-import type { Proforma, ProformaDetalle, TipoProforma } from "../../lib/types";
+import type { Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
 import { formatAtributosVisibles } from "./AtributosVisibles";
+import { ProveedorSelector } from "./selectors";
 
 /** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
  * categoría marcados para mostrarse en proforma +, si es una venta fraccionada (unidad=ML), qué
@@ -54,17 +55,19 @@ function DetalleRow({
   tipo,
   editable,
   tipoCambioProf,
+  proveedores,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
   tipo: TipoProforma;
   editable: boolean;
   tipoCambioProf: string | null;
+  proveedores: Proveedor[];
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 11) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : 12) + (editable ? 1 : 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -100,6 +103,27 @@ function DetalleRow({
           {detalle.variante.product.name}
           {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
         </td>
+        {tipo === "COMPRA" && (
+          <td style={{ minWidth: 160 }}>
+            {editable ? (
+              <ProveedorSelector
+                options={proveedores}
+                value={detalle.proveedorId ?? ""}
+                // Vacío ("— Elegir proveedor —") no se manda: el backend valida proveedorId como
+                // UUID cuando viene, un string vacío lo rechazaría — simplemente no hay forma de
+                // "limpiarlo" una vez elegido, solo de cambiarlo por otro.
+                onChange={(v) => v && commit({ proveedorId: v })}
+              />
+            ) : (
+              detalle.proveedor?.nombre ?? "—"
+            )}
+            {editable && !detalle.proveedorId && (
+              <p className="error-text" style={{ fontSize: 11, margin: "4px 0 0" }}>
+                Sin proveedor
+              </p>
+            )}
+          </td>
+        )}
         <td className="num">
           {editable ? (
             <EditableNumber value={detalle.cantidad} min={1} step="1" onCommit={(v) => commit({ cantidad: v })} />
@@ -186,7 +210,15 @@ function DetalleRow({
  * propio PATCH, sin estado local de formulario. Se usa tanto en el constructor (BORRADOR) como en
  * modo solo-lectura (APROBADA/COMPLETADA/ANULADA), pasando `editable={false}`.
  */
-export function ProformaDetalleTable({ proforma, editable }: { proforma: Proforma; editable: boolean }) {
+export function ProformaDetalleTable({
+  proforma,
+  editable,
+  proveedores = [],
+}: {
+  proforma: Proforma;
+  editable: boolean;
+  proveedores?: Proveedor[];
+}) {
   const { tipo, detalles } = proforma;
 
   if (detalles.length === 0) {
@@ -195,7 +227,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
 
   // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
-  const totalCols = (tipo === "VENTA" ? 6 : 11) + (editable ? 1 : 0);
+  const totalCols = (tipo === "VENTA" ? 6 : 12) + (editable ? 1 : 0);
   const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
   return (
@@ -206,6 +238,7 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
             <th>ID Producto</th>
             <th>Marca</th>
             <th style={{ minWidth: 240 }}>Producto</th>
+            {tipo === "COMPRA" && <th>Proveedor</th>}
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>
@@ -232,18 +265,25 @@ export function ProformaDetalleTable({ proforma, editable }: { proforma: Proform
               tipo={tipo}
               editable={editable}
               tipoCambioProf={proforma.tipoCambioProf}
+              proveedores={proveedores}
             />
           ))}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3} className="cell-muted" style={{ textAlign: "right", fontWeight: 600, borderTop: "2px solid var(--line)" }}>
+            <td
+              colSpan={tipo === "COMPRA" ? 4 : 3}
+              className="cell-muted"
+              style={{ textAlign: "right", fontWeight: 600, borderTop: "2px solid var(--line)" }}
+            >
               Total unidades
             </td>
             <td className="num cell-primary" style={{ borderTop: "2px solid var(--line)" }}>
               {totalCantidad}
             </td>
-            {totalCols > 4 && <td colSpan={totalCols - 4} style={{ borderTop: "2px solid var(--line)" }}></td>}
+            {totalCols > (tipo === "COMPRA" ? 5 : 4) && (
+              <td colSpan={totalCols - (tipo === "COMPRA" ? 5 : 4)} style={{ borderTop: "2px solid var(--line)" }}></td>
+            )}
           </tr>
         </tfoot>
       </table>

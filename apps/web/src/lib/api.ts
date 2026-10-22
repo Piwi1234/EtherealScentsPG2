@@ -600,6 +600,10 @@ export function downloadStockExport() {
   return apiDownload("/stock/export", "existencias.xlsx");
 }
 
+export function downloadStockLotesExport() {
+  return apiDownload("/stock/export/lotes", "existencias-por-lote.xlsx");
+}
+
 export function getCategories() {
   return apiGet<Category[]>("/categories");
 }

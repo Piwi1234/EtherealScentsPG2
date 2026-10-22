@@ -671,9 +671,9 @@ model Ciudad {
   @@map("ciudades")
 }
 
-/// Catálogo de países de origen (de dónde viene la mercadería) — usada en Proforma.paisProcedencia
-/// (solo COMPRA). Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque son dos
-/// conceptos distintos aunque hoy tengan una forma parecida.
+/// Catálogo de países de origen (de dónde viene la mercadería) — usada en Proveedor.paisProcedencia.
+/// Separado de Ciudad (que es la ciudad de ENTREGA del cliente) porque son dos conceptos distintos
+/// aunque hoy tengan una forma parecida.
 model PaisProcedencia {
   id        String   @id @default(uuid()) @db.Uuid
   nombre    String   @unique
@@ -681,7 +681,6 @@ model PaisProcedencia {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  proformas   Proforma[]
   proveedores Proveedor[]
 
   @@map("paises_procedencia")
@@ -700,7 +699,9 @@ model Proveedor {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  proformas Proforma[]
+  // Por línea, no por proforma entera — una misma compra (un mismo envío) puede traer productos de
+  // varios proveedores distintos, cada línea el suyo. Ver ProformaDetalle.proveedorId.
+  proformaDetalles ProformaDetalle[]
 
   @@map("proveedores")
 }
@@ -885,18 +886,12 @@ model Proforma {
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
 
-  // Solo COMPRA: a quién se le compra — mismo rol que clienteId cumple en VENTA. Al elegirlo en el
-  // formulario de creación, precarga paisProcedenciaId con el país del proveedor (igual criterio que
-  // clienteId precarga ciudadEntregaId) — sigue editable después.
-  proveedorId String?    @map("proveedor_id") @db.Uuid
-  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-
-  // Solo COMPRA: de dónde viene la mercadería (informativo) y el tipo de cambio propio de ESTA
-  // compra puntual — permite valorar en Bs sin depender del tipo de cambio del sistema, que puede
-  // cambiar después de hecha la compra. Ambos null para VENTA.
-  paisProcedenciaId String?          @map("pais_procedencia_id") @db.Uuid
-  paisProcedencia   PaisProcedencia? @relation(fields: [paisProcedenciaId], references: [id], onDelete: Restrict)
-  tipoCambioProf    Decimal?         @map("tipo_cambio_prof") @db.Decimal(12, 4)
+  // Solo COMPRA: el tipo de cambio propio de ESTA compra puntual — permite valorar en Bs sin
+  // depender del tipo de cambio del sistema, que puede cambiar después de hecha la compra. Es único
+  // para todo el documento (no por línea): una misma compra puede traer productos de varios
+  // proveedores (ver ProformaDetalle.proveedorId), pero se paga/registra con un solo tipo de cambio.
+  // Null para VENTA.
+  tipoCambioProf Decimal? @map("tipo_cambio_prof") @db.Decimal(12, 4)
 
   creadoPorId String  @map("creado_por_id") @db.Uuid
   creadoPor   Usuario @relation("ProformaCreadaPor", fields: [creadoPorId], references: [id])
@@ -951,6 +946,13 @@ model ProformaDetalle {
   costoEnvio     Decimal? @map("costo_envio") @db.Decimal(12, 2)
   costoSeguridad Decimal? @map("costo_seguridad") @db.Decimal(12, 2)
   costoLogistica Decimal? @map("costo_logistica") @db.Decimal(12, 2)
+
+  // COMPRA: a quién se le compra ESTA línea puntual — por línea, no por proforma entera, para poder
+  // armar una sola proforma (un mismo envío) con productos de varios proveedores distintos. El país
+  // de procedencia no se guarda acá ni en la proforma: se consulta en vivo desde
+  // proveedor.paisProcedencia cuando hace falta, en vez de duplicarlo. Null para VENTA.
+  proveedorId String?    @map("proveedor_id") @db.Uuid
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
 
   // cantidad × precioUnitario (VENTA) o cantidad × suma de los 4 costos (COMPRA). Recalculado en el
   // servicio en cada create/update de la línea.

@@ -307,6 +307,8 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
         await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
       } else {
+        // Sin proveedor acá a propósito — se elige después, directo en la proforma ya creada (ver
+        // ProformaDetalleTable), para no interrumpir el flujo rápido de cargar varios productos.
         const cantidad = cantidadByProduct[product.id] ?? 1;
         await addDetalleCompra(proformaId, {
           varianteId: variant.id,

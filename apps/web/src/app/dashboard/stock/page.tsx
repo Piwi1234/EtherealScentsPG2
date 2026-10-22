@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, createTraspasoAlmacen, downloadStockExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
+import { ApiError, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
@@ -41,6 +41,7 @@ export default function StockPage() {
   const [stockPageNum, setStockPageNum] = useState(1);
   const [stockLoading, setStockLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingLotes, setExportingLotes] = useState(false);
 
   const parentCategories = categories.filter((c) => c.parentId === null);
   // Marcas enlazadas a alguna subcategoría (hija directa) de la categoría padre elegida — no al padre.
@@ -139,6 +140,17 @@ export default function StockPage() {
     }
   }
 
+  async function handleExportLotes() {
+    setExportingLotes(true);
+    try {
+      await downloadStockLotesExport();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setExportingLotes(false);
+    }
+  }
+
   function handleVerLotes(row: StockRow) {
     setLotesVarianteId(row.varianteId);
     setLotesVarianteLabel(`${row.variante.product.name} — ${row.variante.variantCode}`);
@@ -214,9 +226,26 @@ export default function StockPage() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h1 style={{ margin: 0, fontSize: 20 }}>Existencias</h1>
-          <button type="button" className="button" onClick={handleExport} disabled={exporting}>
-            {exporting ? "Exportando..." : "Exportar a Excel"}
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="button"
+              onClick={handleExport}
+              disabled={exporting}
+              style={{ background: "#14805F", borderColor: "#14805F", color: "#ffffff" }}
+            >
+              {exporting ? "Exportando..." : "Exportar existencias"}
+            </button>
+            <button
+              type="button"
+              className="button"
+              onClick={handleExportLotes}
+              disabled={exportingLotes}
+              style={{ background: "#7B1E2B", borderColor: "#7B1E2B", color: "#ffffff" }}
+            >
+              {exportingLotes ? "Exportando..." : "Exportar por lote"}
+            </button>
+          </div>
         </div>
 
         <div className="filters-bar" style={{ marginBottom: 16 }}>

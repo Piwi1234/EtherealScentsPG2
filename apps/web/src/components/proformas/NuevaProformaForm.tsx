@@ -3,32 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createProforma } from "../../lib/api";
-import type { Cliente, Empresa, Proveedor, TipoProforma } from "../../lib/types";
-import { ClienteSelector, EmpresaSelector, ProveedorSelector } from "./selectors";
+import type { Cliente, Empresa, TipoProforma } from "../../lib/types";
+import { ClienteSelector, EmpresaSelector } from "./selectors";
 
 /**
  * Único paso "todo en un formulario" del flujo: crea la proforma con lo mínimo indispensable
- * (`POST /proformas` exige clienteId en venta, proveedorId en compra; en compra el almacén se elige
- * más adelante, al completar) y navega al constructor real, donde ya sí cada acción es su propio
- * request.
+ * (`POST /proformas` exige clienteId en venta; en compra el proveedor se elige por línea al agregar
+ * cada producto, no acá, y el almacén se elige más adelante, al completar) y navega al constructor
+ * real, donde ya sí cada acción es su propio request.
  */
 export function NuevaProformaForm({
   tipo,
   empresas,
   clientes,
-  proveedores,
 }: {
   tipo: TipoProforma;
   empresas: Empresa[];
   clientes: Cliente[];
-  proveedores: Proveedor[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
   const [clienteId, setClienteId] = useState("");
   const [ciudadEntregaId, setCiudadEntregaId] = useState("");
-  const [proveedorId, setProveedorId] = useState("");
-  const [paisProcedenciaId, setPaisProcedenciaId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,14 +34,6 @@ export function NuevaProformaForm({
     setClienteId(id);
     const cliente = clientes.find((c) => c.id === id);
     setCiudadEntregaId(cliente?.ciudadId ?? "");
-  }
-
-  /** Mismo criterio que la ciudad de entrega en VENTA: el país de procedencia no se pregunta acá,
-   * se precarga en silencio con el del proveedor elegido y queda editable después. */
-  function handleProveedorChange(id: string) {
-    setProveedorId(id);
-    const proveedor = proveedores.find((p) => p.id === id);
-    setPaisProcedenciaId(proveedor?.paisProcedenciaId ?? "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,10 +47,6 @@ export function NuevaProformaForm({
       setError("Elegí un cliente.");
       return;
     }
-    if (tipo === "COMPRA" && !proveedorId) {
-      setError("Elegí un proveedor.");
-      return;
-    }
     setSubmitting(true);
     try {
       const proforma = await createProforma({
@@ -70,8 +54,6 @@ export function NuevaProformaForm({
         empresaId,
         clienteId: tipo === "VENTA" ? clienteId : undefined,
         ciudadEntregaId: tipo === "VENTA" ? ciudadEntregaId || undefined : undefined,
-        proveedorId: tipo === "COMPRA" ? proveedorId : undefined,
-        paisProcedenciaId: tipo === "COMPRA" ? paisProcedenciaId || undefined : undefined,
       });
       router.push(`/dashboard/proformas/${proforma.id}`);
     } catch (e) {
@@ -97,14 +79,14 @@ export function NuevaProformaForm({
             <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
           </div>
         )}
-
-        {tipo === "COMPRA" && (
-          <div>
-            <label>Proveedor</label>
-            <ProveedorSelector options={proveedores} value={proveedorId} onChange={handleProveedorChange} />
-          </div>
-        )}
       </div>
+
+      {tipo === "COMPRA" && (
+        <p className="cell-muted" style={{ fontSize: 13, margin: 0 }}>
+          El proveedor se elige por producto en el siguiente paso — una misma proforma puede traer
+          productos de varios proveedores distintos.
+        </p>
+      )}
 
       {error && <p className="error-text">{error}</p>}
 

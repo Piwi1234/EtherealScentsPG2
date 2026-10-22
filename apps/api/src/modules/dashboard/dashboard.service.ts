@@ -196,17 +196,21 @@ export class DashboardService {
   }
 
   async comprasPorProveedorYCategoria(from: Date, to: Date) {
+    // El proveedor es por línea, no por proforma entera (una misma compra puede traer productos de
+    // varios) — se agrupa directo por detalle.proveedor, el tipo de cambio sigue siendo el del
+    // documento completo (ver ProformaDetalle.proveedorId / Proforma.tipoCambioProf en schema.prisma).
     const detalles = await this.prisma.proformaDetalle.findMany({
       where: { proforma: { tipo: TipoProforma.COMPRA, estado: { in: ESTADOS_REALES }, fecha: { gte: from, lte: to } } },
       select: {
         subtotal: true,
         variante: { select: { product: { select: { category: { select: { name: true } } } } } },
-        proforma: { select: { tipoCambioProf: true, proveedor: { select: { id: true, nombre: true } } } },
+        proveedor: { select: { id: true, nombre: true } },
+        proforma: { select: { tipoCambioProf: true } },
       },
     });
     const byKey = new Map<string, { proveedor: string; categoria: string; total: number }>();
     for (const d of detalles) {
-      const proveedor = d.proforma.proveedor?.nombre ?? "Sin proveedor";
+      const proveedor = d.proveedor?.nombre ?? "Sin proveedor";
       const categoria = d.variante.product.category.name;
       const key = `${proveedor}|${categoria}`;
       const val = Number(d.subtotal) * Number(d.proforma.tipoCambioProf ?? 0);

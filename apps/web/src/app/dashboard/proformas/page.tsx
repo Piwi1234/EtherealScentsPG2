@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { apiGetServer } from "../../../lib/api-server";
-import type { Cliente, Ciudad, PaisProcedencia, Page, Proforma, Proveedor } from "../../../lib/types";
+import type { Cliente, Ciudad, Page, Proforma, Proveedor } from "../../../lib/types";
 import { ProformasTable } from "../../../components/proformas/ProformasTable";
 import { ProformaFiltros } from "../../../components/proformas/ProformaFiltros";
 
@@ -18,7 +18,6 @@ export default async function ProformasPage({
     clienteId?: string;
     proveedorId?: string;
     ciudadEntregaId?: string;
-    paisProcedenciaId?: string;
     fechaDesde?: string;
     fechaHasta?: string;
     page?: string;
@@ -35,7 +34,6 @@ export default async function ProformasPage({
   if (params.tipo === "VENTA" && params.clienteId) qs.set("clienteId", params.clienteId);
   if (params.tipo === "COMPRA" && params.proveedorId) qs.set("proveedorId", params.proveedorId);
   if (params.tipo === "VENTA" && params.ciudadEntregaId) qs.set("ciudadEntregaId", params.ciudadEntregaId);
-  if (params.tipo === "COMPRA" && params.paisProcedenciaId) qs.set("paisProcedenciaId", params.paisProcedenciaId);
   if (params.fechaDesde) qs.set("fechaDesde", params.fechaDesde);
   if (params.fechaHasta) qs.set("fechaHasta", params.fechaHasta);
   qs.set("page", String(currentPage));
@@ -60,8 +58,6 @@ export default async function ProformasPage({
     params.tipo === "COMPRA" ? (await apiGetServer<Page<Proveedor>>("/proveedores?activo=true&pageSize=500")).items : [];
   const ciudades =
     params.tipo === "VENTA" ? (await apiGetServer<Page<Ciudad>>("/ciudades?pageSize=500")).items : [];
-  const paisesProcedencia =
-    params.tipo === "COMPRA" ? (await apiGetServer<Page<PaisProcedencia>>("/paises-procedencia?pageSize=500")).items : [];
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -94,14 +90,12 @@ export default async function ProformasPage({
           initialClienteId={params.clienteId ?? ""}
           initialProveedorId={params.proveedorId ?? ""}
           initialCiudadEntregaId={params.ciudadEntregaId ?? ""}
-          initialPaisProcedenciaId={params.paisProcedenciaId ?? ""}
           initialFechaDesde={params.fechaDesde ?? ""}
           initialFechaHasta={params.fechaHasta ?? ""}
           vendedores={vendedores}
           clientes={clientes}
           proveedores={proveedores}
           ciudades={ciudades}
-          paisesProcedencia={paisesProcedencia}
         />
       </Suspense>
 
