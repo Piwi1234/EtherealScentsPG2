@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, updateProforma } from "../../lib/api";
 import type { Ciudad, Cliente, Empresa, Proforma } from "../../lib/types";
-import { CiudadSelector, ClienteSelector, EmpresaSelector } from "./selectors";
+import { ClienteBuscador } from "./ClienteBuscador";
+import { CiudadSelector, EmpresaSelector } from "./selectors";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -29,13 +30,11 @@ export function ProformaHeaderEditor({
   proforma,
   editable,
   empresas,
-  clientes,
   ciudades,
 }: {
   proforma: Proforma;
   editable: boolean;
   empresas: Empresa[];
-  clientes: Cliente[];
   ciudades: Ciudad[];
 }) {
   const router = useRouter();
@@ -48,9 +47,8 @@ export function ProformaHeaderEditor({
 
   /** Al elegir cliente, precarga la ciudad de entrega con la del cliente (si tiene una definida en
    * su catálogo) — sigue quedando editable después vía el selector de abajo. */
-  function handleClienteChange(id: string) {
-    setClienteId(id);
-    const cliente = clientes.find((c) => c.id === id);
+  function handleClienteChange(cliente: Cliente | null) {
+    setClienteId(cliente?.id ?? "");
     if (cliente?.ciudadId) {
       setCiudadEntregaId(cliente.ciudadId);
     }
@@ -102,7 +100,7 @@ export function ProformaHeaderEditor({
         {proforma.tipo === "VENTA" && (
           <div className="filter-field" style={{ minWidth: 200 }}>
             <label className="filter-label">Cliente</label>
-            <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
+            <ClienteBuscador value={clienteId} initialNombre={proforma.cliente?.nombre} onChange={handleClienteChange} />
           </div>
         )}
         {proforma.tipo === "VENTA" && (

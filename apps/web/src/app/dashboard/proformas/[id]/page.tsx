@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
-import type { Almacen, Cartera, Ciudad, Cliente, Empresa, Page, Proforma, Proveedor } from "../../../../lib/types";
+import type { Almacen, Cartera, Ciudad, Empresa, Page, Proforma, Proveedor } from "../../../../lib/types";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
@@ -26,11 +26,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
   const editableDetalle = proforma.estado === "BORRADOR";
   const mostrarAsignaciones = proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA");
 
-  const [empresasPage, clientesPage, almacenesPage, ciudadesPage, proveedoresPage, carterasBs] = await Promise.all([
+  const [empresasPage, almacenesPage, ciudadesPage, proveedoresPage, carterasBs] = await Promise.all([
     apiGetServer<Page<Empresa>>("/empresas?pageSize=100"),
-    proforma.tipo === "VENTA"
-      ? apiGetServer<Page<Cliente>>("/clientes?activo=true&limit=200")
-      : Promise.resolve<Page<Cliente>>({ items: [], total: 0, page: 1, pageSize: 0 }),
     apiGetServer<Page<Almacen>>("/almacenes?pageSize=200"),
     apiGetServer<Page<Ciudad>>("/ciudades?pageSize=100"),
     // Ya no es para la cabecera (ver ProformaHeaderEditor) — el proveedor es por línea, hace falta
@@ -71,7 +68,6 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         proforma={proforma}
         editable={editableHeader}
         empresas={empresasPage.items.filter((e) => e.activo)}
-        clientes={clientesPage.items}
         ciudades={ciudadesPage.items}
       />
 
