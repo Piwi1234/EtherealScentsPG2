@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createProforma } from "../../lib/api";
 import type { Cliente, Empresa, TipoProforma } from "../../lib/types";
-import { ClienteSelector, EmpresaSelector } from "./selectors";
+import { ClienteBuscador } from "./ClienteBuscador";
+import { EmpresaSelector } from "./selectors";
 
 /**
  * Único paso "todo en un formulario" del flujo: crea la proforma con lo mínimo indispensable
@@ -15,11 +16,9 @@ import { ClienteSelector, EmpresaSelector } from "./selectors";
 export function NuevaProformaForm({
   tipo,
   empresas,
-  clientes,
 }: {
   tipo: TipoProforma;
   empresas: Empresa[];
-  clientes: Cliente[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(empresas[0]?.id ?? "");
@@ -30,9 +29,8 @@ export function NuevaProformaForm({
 
   /** La ciudad de entrega no se pregunta acá: se toma en silencio de la ciudad del cliente elegido
    * (si la tiene definida). Queda editable después en la cabecera de la proforma ya creada. */
-  function handleClienteChange(id: string) {
-    setClienteId(id);
-    const cliente = clientes.find((c) => c.id === id);
+  function handleClienteChange(cliente: Cliente | null) {
+    setClienteId(cliente?.id ?? "");
     setCiudadEntregaId(cliente?.ciudadId ?? "");
   }
 
@@ -76,7 +74,7 @@ export function NuevaProformaForm({
         {tipo === "VENTA" && (
           <div>
             <label>Cliente</label>
-            <ClienteSelector options={clientes} value={clienteId} onChange={handleClienteChange} />
+            <ClienteBuscador value={clienteId} onChange={handleClienteChange} />
           </div>
         )}
       </div>
