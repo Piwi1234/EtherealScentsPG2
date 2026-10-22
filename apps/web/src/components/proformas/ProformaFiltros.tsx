@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Ciudad, Cliente, PaisProcedencia, Proveedor } from "../../lib/types";
+import type { Ciudad, Cliente, Proveedor } from "../../lib/types";
 import { DateRangeDropdown, type DateSelection } from "../DateRangeDropdown";
 import { ClienteSearchSelect } from "./ClienteSearchSelect";
 import { ProveedorSearchSelect } from "./ProveedorSearchSelect";
@@ -15,14 +15,12 @@ export function ProformaFiltros({
   initialClienteId,
   initialProveedorId,
   initialCiudadEntregaId,
-  initialPaisProcedenciaId,
   initialFechaDesde,
   initialFechaHasta,
   vendedores,
   clientes,
   proveedores,
   ciudades,
-  paisesProcedencia,
 }: {
   initialTipo: string;
   initialEstado: string;
@@ -31,14 +29,12 @@ export function ProformaFiltros({
   initialClienteId: string;
   initialProveedorId: string;
   initialCiudadEntregaId: string;
-  initialPaisProcedenciaId: string;
   initialFechaDesde: string;
   initialFechaHasta: string;
   vendedores: { id: string; nombre: string }[];
   clientes: Cliente[];
   proveedores: Proveedor[];
   ciudades: Ciudad[];
-  paisesProcedencia: PaisProcedencia[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -101,7 +97,6 @@ export function ProformaFiltros({
               clienteId: "",
               proveedorId: "",
               ciudadEntregaId: "",
-              paisProcedenciaId: "",
             })
           }
         >
@@ -162,27 +157,10 @@ export function ProformaFiltros({
         </>
       )}
       {initialTipo === "COMPRA" && (
-        <>
-          <div className="filter-field" style={{ minWidth: 220 }}>
-            <label className="filter-label">Proveedor</label>
-            <ProveedorSearchSelect proveedores={proveedores} value={initialProveedorId} onChange={(id) => pushParams({ proveedorId: id })} />
-          </div>
-          <div className="filter-field">
-            <label className="filter-label">País de procedencia</label>
-            <select
-              className="field"
-              defaultValue={initialPaisProcedenciaId}
-              onChange={(e) => pushParams({ paisProcedenciaId: e.target.value })}
-            >
-              <option value="">Todos</option>
-              {paisesProcedencia.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
+        <div className="filter-field" style={{ minWidth: 220 }}>
+          <label className="filter-label">Proveedor</label>
+          <ProveedorSearchSelect proveedores={proveedores} value={initialProveedorId} onChange={(id) => pushParams({ proveedorId: id })} />
+        </div>
       )}
     </div>
   );

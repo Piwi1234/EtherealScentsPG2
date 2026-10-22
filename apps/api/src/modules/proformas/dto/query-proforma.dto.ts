@@ -29,7 +29,7 @@ export class QueryProformaDto {
   @IsUUID()
   clienteId?: string;
 
-  @ApiPropertyOptional({ description: "Solo COMPRA: pedidos de un proveedor puntual." })
+  @ApiPropertyOptional({ description: "Solo COMPRA: proformas que tengan al menos una línea de este proveedor (el proveedor es por línea, no por documento)." })
   @IsOptional()
   @IsUUID()
   proveedorId?: string;
@@ -38,11 +38,6 @@ export class QueryProformaDto {
   @IsOptional()
   @IsUUID()
   ciudadEntregaId?: string;
-
-  @ApiPropertyOptional({ description: "Solo COMPRA: país de procedencia puntual." })
-  @IsOptional()
-  @IsUUID()
-  paisProcedenciaId?: string;
 
   @ApiPropertyOptional({ description: "Filtra por quién la creó (el \"Vendedor\" en el listado de VENTA)." })
   @IsOptional()

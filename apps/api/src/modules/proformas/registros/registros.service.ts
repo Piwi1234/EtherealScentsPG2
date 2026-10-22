@@ -17,11 +17,13 @@ const registroInclude = {
       fecha: true,
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
-      proveedor: { select: { id: true, nombre: true } },
-      paisProcedencia: { select: { id: true, nombre: true } },
       tipoCambioProf: true,
     },
   },
+  // Por línea, no por proforma entera (ver ProformaDetalle.proveedorId) — null en líneas de venta.
+  // Incluye el país del proveedor: el país de origen ya no se guarda en la proforma/línea, se
+  // consulta en vivo desde acá.
+  proveedor: { select: { id: true, nombre: true, paisProcedencia: { select: { id: true, nombre: true } } } },
   variante: {
     include: {
       product: {
@@ -60,11 +62,11 @@ export class RegistrosService {
     if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
     const where: Prisma.ProformaDetalleWhereInput = {
+      proveedorId: query.proveedorId,
       proforma: {
         tipo: query.tipo,
         codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
         clienteId: query.clienteId,
-        proveedorId: query.proveedorId,
         estado: { in: ESTADOS_REGISTRABLES },
         fecha: {
           gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,

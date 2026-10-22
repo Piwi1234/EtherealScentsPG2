@@ -123,6 +123,10 @@ export default function PedidosProveedoresPage() {
 
   const data = vista === "productos" ? lineas : proformas;
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  // Esta vista ya está acotada a UN proveedor puntual (el elegido arriba), así que todas las líneas
+  // comparten el mismo país de origen — el país ya no viene en la línea/proforma (es del proveedor,
+  // ver ProformaDetalle.proveedorId en schema.prisma), se consulta acá una sola vez.
+  const paisDelProveedor = proveedores.find((p) => p.id === proveedorId)?.paisProcedencia?.nombre ?? "—";
 
   if (error) {
     return (
@@ -247,7 +251,7 @@ export default function PedidosProveedoresPage() {
                       <td className="num">{linea.cantidad}</td>
                       <td className="num">{money(unitarioBs)}</td>
                       <td className="num cell-primary">{money(subtotalBs)}</td>
-                      <td>{linea.proforma.paisProcedencia?.nombre ?? "—"}</td>
+                      <td>{paisDelProveedor}</td>
                     </tr>
                   );
                 })}

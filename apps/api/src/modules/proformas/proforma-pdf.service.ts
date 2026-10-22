@@ -7,10 +7,12 @@ import { ProformasService } from "./proformas.service";
 
 // Paleta "Ethereal Scents" (ver apps/web/src/app/globals.css, --es-*) — diseño "Minimalista" (opción
 // D, aprobada), compartido por VENTA y COMPRA: mismo encabezado/tabla/pie con filetes en vez de
-// bandas de color. Lo que cambia entre tipos es el CONTENIDO del bloque de info y de los totales
-// (ver drawInfoBlockVenta/Compra y drawTotalesVenta/Compra más abajo) — Venta muestra cliente+validez
-// de la proforma, Compra muestra proveedor+país de procedencia (y no lleva el disclaimer de envío del
-// pie, que está escrito desde la perspectiva de que nosotros le entregamos algo al cliente).
+// bandas de color. Venta tiene un bloque de info propio (cliente+validez de la proforma, ver
+// drawInfoBlockVenta) que Compra no — el proveedor es por línea, no por documento (una misma compra
+// puede traer productos de varios), así que se muestra en su propia columna de la tabla en vez de en
+// un bloque de cabecera. Compra tampoco lleva el disclaimer de envío del pie (ver
+// drawFooterVenta/Compra), que está escrito desde la perspectiva de que nosotros le entregamos algo
+// al cliente.
 const ES_NAVY_900 = "#0D1A30";
 const ES_NAVY_700 = "#1C3561";
 const ES_GOLD = "#C9A96E";
@@ -123,7 +125,8 @@ export class ProformaPdfService {
       this.drawTotalesVenta(doc, proforma, prefix, subtotal);
       this.drawFooterVenta(doc);
     } else {
-      this.drawInfoBlockCompra(doc, proforma);
+      // Sin bloque de info propio: el proveedor ya no es uno solo por documento (puede traer
+      // productos de varios), se muestra por línea en la propia tabla (ver drawTableMinimal).
       const subtotal = this.drawTableMinimal(doc, proforma, esVenta, prefix);
       this.drawTotalesCompra(doc, proforma, prefix, subtotal);
       this.drawFooterCompra(doc);
@@ -205,49 +208,34 @@ export class ProformaPdfService {
     doc.y = bottom + 10;
   }
 
-  /** Proveedor + país de procedencia (sin datos de la empresa, mismo criterio que Venta) — el tipo de
-   * cambio no va acá, se muestra junto a la conversión a Bs en drawTotalesCompra. */
-  private drawInfoBlockCompra(doc: PDFKit.PDFDocument, proforma: Proforma) {
-    const y = doc.y;
-    const colWidth = (doc.page.width - PAGE_MARGIN * 2 - 16) / 2;
-    const leftX = PAGE_MARGIN;
-    const rightX = PAGE_MARGIN + colWidth + 16;
-
-    doc.font("Roboto-Bold").fontSize(6.5).fillColor(ES_GOLD_INK);
-    doc.text("PROVEEDOR", leftX, y, { characterSpacing: 0.5 });
-    doc.text("PAÍS DE PROCEDENCIA", rightX, y, { width: colWidth, characterSpacing: 0.5 });
-
-    doc.font("Roboto").fontSize(7.5).fillColor("#000000");
-    const ly = y + 10;
-    doc.text(proforma.proveedor?.nombre ?? "—", leftX, ly, { width: colWidth });
-    doc.text(proforma.paisProcedencia?.nombre ?? "—", rightX, ly, { width: colWidth });
-
-    const bottom = ly + 10.5 + 6;
-    doc.moveTo(PAGE_MARGIN, bottom).lineTo(doc.page.width - PAGE_MARGIN, bottom).strokeColor(ES_LINE).lineWidth(0.75).stroke();
-    doc.fillColor("#000000");
-    doc.y = bottom + 10;
-  }
-
   /** Nunca corta una fila a la mitad (si no entra en lo que queda de página, pasa entera a la
    * siguiente, repitiendo el encabezado). precioUnitario sigue la misma fórmula que antes según el
    * tipo: en VENTA es el precio cargado en la línea; en COMPRA es compra + envío + seguridad +
-   * logística (ver addDetalleCompra). */
+   * logística (ver addDetalleCompra). En COMPRA suma una columna PROVEEDOR (una misma proforma puede
+   * traer productos de varios proveedores distintos, cada línea el suyo — ver
+   * ProformaDetalle.proveedorId) que VENTA no tiene. */
   private drawTableMinimal(doc: PDFKit.PDFDocument, proforma: Proforma, esVenta: boolean, prefix: string): number {
     const left = PAGE_MARGIN;
     const width = doc.page.width - PAGE_MARGIN * 2;
-    const colMarca = width * 0.16;
-    const colConcepto = width * 0.36;
-    const colCantidad = width * 0.12;
-    const colPrecio = width * 0.16;
-    const colTotal = width * 0.2;
+    const colMarca = width * (esVenta ? 0.16 : 0.14);
+    const colProveedor = esVenta ? 0 : width * 0.16;
+    const colConcepto = width * (esVenta ? 0.36 : 0.28);
+    const colCantidad = width * (esVenta ? 0.12 : 0.1);
+    const colPrecio = width * (esVenta ? 0.16 : 0.14);
+    const colTotal = width * (esVenta ? 0.2 : 0.18);
+    const xConcepto = left + colMarca + colProveedor;
+    const xCantidad = xConcepto + colConcepto;
+    const xPrecio = xCantidad + colCantidad;
+    const xTotal = xPrecio + colPrecio;
 
     const drawTableHeader = (y: number) => {
       doc.font("Roboto-Bold").fontSize(6).fillColor(ES_NAVY_900);
       doc.text("MARCA", left, y, { width: colMarca });
-      doc.text("CONCEPTO", left + colMarca, y, { width: colConcepto });
-      doc.text("CANT.", left + colMarca + colConcepto, y, { width: colCantidad, align: "center" });
-      doc.text("PRECIO", left + colMarca + colConcepto + colCantidad, y, { width: colPrecio, align: "right" });
-      doc.text("TOTAL", left + colMarca + colConcepto + colCantidad + colPrecio, y, { width: colTotal, align: "right" });
+      if (!esVenta) doc.text("PROVEEDOR", left + colMarca, y, { width: colProveedor });
+      doc.text("CONCEPTO", xConcepto, y, { width: colConcepto });
+      doc.text("CANT.", xCantidad, y, { width: colCantidad, align: "center" });
+      doc.text("PRECIO", xPrecio, y, { width: colPrecio, align: "right" });
+      doc.text("TOTAL", xTotal, y, { width: colTotal, align: "right" });
       const headerBottom = y + 9;
       doc.moveTo(left, headerBottom).lineTo(left + width, headerBottom).strokeColor(ES_NAVY_900).lineWidth(1).stroke();
       doc.fillColor("#000000");
@@ -278,13 +266,11 @@ export class ProformaPdfService {
       }
 
       doc.font("Roboto").fillColor(ES_MUTED).text(marca, left, y + 3, { width: colMarca });
-      doc.fillColor("#000000").text(concepto, left + colMarca, y + 3, { width: colConcepto });
-      doc.text(String(detalle.cantidad), left + colMarca + colConcepto, y + 3, { width: colCantidad, align: "center" });
-      doc.text(money(precioUnitario, prefix), left + colMarca + colConcepto + colCantidad, y + 3, { width: colPrecio, align: "right" });
-      doc.font("Roboto-Bold").text(money(total, prefix), left + colMarca + colConcepto + colCantidad + colPrecio, y + 3, {
-        width: colTotal,
-        align: "right",
-      });
+      if (!esVenta) doc.text(detalle.proveedor?.nombre ?? "—", left + colMarca, y + 3, { width: colProveedor });
+      doc.fillColor("#000000").text(concepto, xConcepto, y + 3, { width: colConcepto });
+      doc.text(String(detalle.cantidad), xCantidad, y + 3, { width: colCantidad, align: "center" });
+      doc.text(money(precioUnitario, prefix), xPrecio, y + 3, { width: colPrecio, align: "right" });
+      doc.font("Roboto-Bold").text(money(total, prefix), xTotal, y + 3, { width: colTotal, align: "right" });
 
       y += rowHeight;
       doc.moveTo(left, y).lineTo(left + width, y).strokeColor(ES_LINE).lineWidth(0.5).stroke();

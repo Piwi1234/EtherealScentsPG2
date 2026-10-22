@@ -8,6 +8,16 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** El proveedor es por línea, no por proforma entera (una misma compra puede traer productos de
+ * varios) — para esta columna compacta del listado se arma un resumen: el nombre si todas las
+ * líneas son del mismo, o "Varios (N)" si hay más de uno distinto. */
+function proveedoresLabel(proforma: Proforma): string {
+  const nombres = Array.from(new Set(proforma.detalles.map((d) => d.proveedor?.nombre).filter((n): n is string => Boolean(n))));
+  if (nombres.length === 0) return "—";
+  if (nombres.length === 1) return nombres[0];
+  return `Varios (${nombres.length})`;
+}
+
 export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Proforma[]; mostrarVendedor: boolean }) {
   const router = useRouter();
 
@@ -40,7 +50,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             <td>{proforma.empresa.nombre}</td>
             <td className="cell-muted">{proforma.almacen?.nombre ?? "—"}</td>
             <td className="cell-muted">
-              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proforma.proveedor?.nombre ?? "—"}
+              {proforma.tipo === "VENTA" ? proforma.cliente?.nombre ?? "—" : proveedoresLabel(proforma)}
             </td>
             {mostrarVendedor && <td className="cell-muted">{proforma.tipo === "VENTA" ? proforma.creadoPor.nombre : "—"}</td>}
             {mostrarVendedor && <td className="cell-muted">{proforma.ciudadEntrega?.nombre ?? "—"}</td>}
