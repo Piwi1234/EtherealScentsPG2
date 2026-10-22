@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getPromoModal } from "../../lib/api";
 import { productImageSrc } from "../../lib/catalog-display";
-import { hasSeenPromoModal, markPromoModalSeen } from "../../lib/promo-modal";
+import { markPromoModalShown, shouldShowPromoModal } from "../../lib/promo-modal";
 
 // Delay antes de mostrarse (ver la conversación sobre "poco disruptivo") — ni instantáneo (se siente
 // como una emboscada apenas carga la página) ni tan tarde que el usuario ya se fue.
@@ -13,26 +14,42 @@ const SHOW_DELAY_MS = 2500;
  * Modal promocional del sitio público (Configuración → Grid Imágenes → Modal promocional) — una
  * imagen centrada sobre el sitio, con link opcional. No bloquea la navegación de fondo (el usuario
  * puede seguir scrolleando detrás si la cierra) y se cierra con click afuera, la "×" o Esc. Se
- * muestra una sola vez por imagen (ver lib/promo-modal.ts, localStorage) — si Gestión sube una
- * imagen nueva, vuelve a aparecer sola.
+ * muestra solo en el home (/home), no en login, cuenta ni el resto del sitio, y como mucho una vez
+ * cada 2 horas por navegador (ver lib/promo-modal.ts, localStorage) — si Gestión sube una imagen
+ * nueva, vuelve a aparecer sola sin esperar.
  */
 export function PromoModal() {
   const [promo, setPromo] = useState<{ imageUrl: string; url: string | null } | null>(null);
   const [visible, setVisible] = useState(false);
+  const isHome = usePathname() === "/home";
 
+  // Este componente vive en el layout raíz (persiste entre navegaciones del lado del cliente), así
+  // que se re-evalúa cada vez que se entra o sale del home.
   useEffect(() => {
+    if (!isHome) {
+      setPromo(null);
+      setVisible(false);
+      return;
+    }
+    let cancelled = false;
     getPromoModal()
       .then((data) => {
-        if (!data.enabled || !data.imageUrl) return;
-        if (hasSeenPromoModal(data.imageUrl)) return;
+        if (cancelled || !data.enabled || !data.imageUrl) return;
+        if (!shouldShowPromoModal(data.imageUrl)) return;
         setPromo({ imageUrl: data.imageUrl, url: data.url });
       })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [isHome]);
 
   useEffect(() => {
     if (!promo) return;
-    const timer = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
+    const timer = setTimeout(() => {
+      markPromoModalShown(promo.imageUrl);
+      setVisible(true);
+    }, SHOW_DELAY_MS);
     return () => clearTimeout(timer);
   }, [promo]);
 
@@ -47,7 +64,6 @@ export function PromoModal() {
   }, [visible]);
 
   function close() {
-    if (promo) markPromoModalSeen(promo.imageUrl);
     setVisible(false);
   }
 
