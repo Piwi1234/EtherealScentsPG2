@@ -16,14 +16,25 @@ export class StockController {
     private readonly stockExport: StockExportService,
   ) {}
 
-  // Antes de ":id"-like routes — acá no hay ninguna, pero se declara junto al resto de rutas fijas.
+  // Rutas fijas declaradas antes que cualquier ruta con parámetro.
   @Get("export")
-  @ApiOperation({ summary: "Excel de existencias (stock físico > 0, todos los almacenes), una hoja por categoría raíz." })
+  @ApiOperation({ summary: "Excel de existencias (stock físico > 0, todos los almacenes): almacén, marca, producto, atributos de tarjeta, precio final Bs, stock." })
   async exportExcel(@Res() res: Response) {
-    const buffer = await this.stockExport.buildExport();
+    const buffer = await this.stockExport.buildExistenciasExport();
     res.set({
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": 'attachment; filename="existencias.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Get("export/lotes")
+  @ApiOperation({ summary: "Excel de existencias por lote de compra: almacén, marca, producto, atributos de tarjeta, lote, precio compra lote Bs, stock." })
+  async exportLotesExcel(@Res() res: Response) {
+    const buffer = await this.stockExport.buildLotesExport();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="existencias-por-lote.xlsx"',
     });
     res.send(buffer);
   }
