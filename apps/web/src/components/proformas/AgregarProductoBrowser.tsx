@@ -63,7 +63,16 @@ function defaultVariantId(product: Product): string | undefined {
  * no se cargan productos hasta elegir al menos uno (2000+ productos en catálogo, no tiene sentido
  * traer todo de una).
  */
-export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: string; tipo: TipoProforma }) {
+export function AgregarProductoBrowser({
+  proformaId,
+  tipo,
+  cantidadesIniciales = {},
+}: {
+  proformaId: string;
+  tipo: TipoProforma;
+  /** Piezas que la proforma ya tiene por variante (varianteId → cantidad), para no duplicar líneas. */
+  cantidadesIniciales?: Record<string, number>;
+}) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [rootCategoryId, setRootCategoryId] = useState("");
@@ -78,6 +87,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
 
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
+  const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
   // Venta de variantes unidad=ML: se elige una presentación (subvariante) en vez de cantidad+precio
   // libres — ver AgregarProductoBrowser.tsx en el plan de "Variantes fraccionadas por ml".
@@ -310,6 +320,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
         const cantidad = cantidadByProduct[product.id] ?? 1;
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
         await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       } else {
         // Sin proveedor acá a propósito — se elige después, directo en la proforma ya creada (ver
         // ProformaDetalleTable), para no interrumpir el flujo rápido de cargar varios productos.
@@ -323,6 +334,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
           costoLogistica: Number(product.category.logisticsCost ?? 0),
           destino,
         });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
       setAddedFlash((prev) => ({ ...prev, [product.id]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [product.id]: false })), FLASH_MS);
@@ -555,6 +567,11 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                         />
                         {esCompraMl && (
                           <span className="cell-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>ml</span>
+                        )}
+                        {!esVentaMl && selectedVariant && (enProforma[selectedVariant.id] ?? 0) > 0 && (
+                          <span className="badge badge-muted" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                            Ya en proforma: {enProforma[selectedVariant.id]}
+                          </span>
                         )}
                       </td>
                       <td>

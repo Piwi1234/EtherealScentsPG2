@@ -289,6 +289,21 @@ export class ProformasService {
       precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
     }
 
+    // Mismo producto (y misma presentación) → se acumula en la línea existente, no se duplica la fila.
+    const existente = proforma.detalles.find((d) => d.varianteId === dto.varianteId && (d.presentacionVentaId ?? null) === presentacionVentaId);
+    if (existente) {
+      const nuevaCantidad = existente.cantidad + cantidad;
+      try {
+        await this.prisma.proformaDetalle.update({
+          where: { id: existente.id },
+          data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * Number(existente.precioUnitario) },
+        });
+        return this.findOne(id);
+      } catch (error) {
+        rethrowPrismaError(error, "Línea de proforma");
+      }
+    }
+
     const subtotal = cantidad * precioUnitario;
 
     try {
@@ -309,6 +324,29 @@ export class ProformasService {
     }
     await this.getVarianteParaPrecio(dto.varianteId);
     if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+
+    // Misma variante, mismo destino y mismo proveedor → se acumula en la línea existente. Una línea
+    // "Pedido de cliente" y otra "Para stock" del mismo producto sí quedan separadas (son cosas distintas).
+    const existente = proforma.detalles.find(
+      (d) =>
+        d.varianteId === dto.varianteId &&
+        d.destino === (dto.destino ?? DestinoCompra.STOCK) &&
+        (d.proveedorId ?? null) === (dto.proveedorId ?? null),
+    );
+    if (existente) {
+      const nuevaCantidad = existente.cantidad + dto.cantidad;
+      const costoExistente =
+        Number(existente.precioCompra) + Number(existente.costoEnvio) + Number(existente.costoSeguridad) + Number(existente.costoLogistica);
+      try {
+        await this.prisma.proformaDetalle.update({
+          where: { id: existente.id },
+          data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * costoExistente },
+        });
+        return this.findOne(id);
+      } catch (error) {
+        rethrowPrismaError(error, "Línea de proforma");
+      }
+    }
 
     const costoUnitario = dto.precioCompra + dto.costoEnvio + dto.costoSeguridad + dto.costoLogistica;
     const subtotal = dto.cantidad * costoUnitario;
