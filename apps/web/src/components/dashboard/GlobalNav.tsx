@@ -50,12 +50,11 @@ const GROUPS: NavGroup[] = [
     sections: [
       {
         items: [
+          { href: "/dashboard/products", label: "Productos", desc: "Catálogo, variantes y precios" },
           { href: "/dashboard/stock", label: "Existencias", desc: "Stock físico, reservado y en tránsito por almacén" },
           { href: "/dashboard/stock/traspasos", label: "Traspasos", desc: "Mover mercadería entre almacenes" },
-          { href: "/dashboard/products", label: "Productos", desc: "Catálogo, variantes y precios" },
           { href: "/dashboard/categories", label: "Categorías", desc: "Organización del catálogo" },
           { href: "/dashboard/brands", label: "Marcas", desc: "Marcas de los productos" },
-          { href: "/dashboard/historias", label: "Historias", desc: "Contenido del sitio público" },
         ],
       },
     ],
@@ -108,6 +107,7 @@ const GROUPS: NavGroup[] = [
       {
         title: "Sitio público",
         items: [
+          { href: "/dashboard/historias", label: "Historias", desc: "Contenido del sitio público" },
           { href: "/dashboard/configuracion/grid-imagenes", label: "Grid de imágenes" },
           { href: "/dashboard/configuracion/carrito-whatsapp", label: "Carrito WhatsApp" },
         ],
