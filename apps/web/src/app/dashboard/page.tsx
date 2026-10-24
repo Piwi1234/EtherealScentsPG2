@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiGet } from "../../lib/api";
 import type {
   DashCategoriaTotal,
@@ -8,6 +9,7 @@ import type {
   DashCuentasPorCobrar,
   DashIngresoEgresoCartera,
   DashMargenMes,
+  DashPendientes,
   DashMesTotal,
   DashProveedorCategoriaTotal,
   DashSaldoCartera,
@@ -61,6 +63,7 @@ export default function DashboardPage() {
   const [saldosCartera, setSaldosCartera] = useState<DashSaldoCartera[] | null>(null);
   const [ingresosEgresos, setIngresosEgresos] = useState<DashIngresoEgresoCartera[] | null>(null);
   const [cuentasPorCobrar, setCuentasPorCobrar] = useState<DashCuentasPorCobrar | null>(null);
+  const [pendientes, setPendientes] = useState<DashPendientes | null>(null);
 
   useEffect(() => {
     apiGet<Page<Empresa>>("/empresas?pageSize=100")
@@ -71,6 +74,7 @@ export default function DashboardPage() {
     apiGet<DashStockValorizado>("/dashboard/stock-valorizado").then(setStockValorizado).catch(() => {});
     apiGet<DashSaldoCartera[]>("/dashboard/saldos-cartera").then(setSaldosCartera).catch(() => {});
     apiGet<DashCuentasPorCobrar>("/dashboard/cuentas-por-cobrar").then(setCuentasPorCobrar).catch(() => {});
+    apiGet<DashPendientes>("/dashboard/pendientes").then(setPendientes).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -145,6 +149,69 @@ export default function DashboardPage() {
     }));
   }, [ingresosEgresos]);
 
+  // Indicadores del mes en curso (último mes del rango) contra el anterior.
+  const ventasMes = ventasMensuales?.[ventasMensuales.length - 1]?.total ?? null;
+  const ventasMesAnterior = ventasMensuales && ventasMensuales.length > 1 ? ventasMensuales[ventasMensuales.length - 2].total : null;
+  const comprasMes = comprasMensuales?.[comprasMensuales.length - 1]?.total ?? null;
+  const variacionVentas =
+    ventasMes !== null && ventasMesAnterior !== null && ventasMesAnterior > 0
+      ? Math.round(((ventasMes - ventasMesAnterior) / ventasMesAnterior) * 100)
+      : null;
+
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+  const atencion = pendientes
+    ? [
+        {
+          n: pendientes.pedidosSinCompra,
+          tono: "warn",
+          titulo: `${plural(pendientes.pedidosSinCompra, "pedido", "pedidos")} de clientes sin comprar`,
+          detalle: "Faltantes de notas de venta aprobadas",
+          href: "/dashboard/seguimiento",
+          accion: "Ver seguimiento",
+        },
+        {
+          n: pendientes.enviosEnTransito,
+          tono: "info",
+          titulo: `${plural(pendientes.enviosEnTransito, "envío", "envíos")} en camino`,
+          detalle: `${plural(pendientes.piezasEnTransito, "pieza", "piezas")} por recibir`,
+          href: "/dashboard/stock/envios",
+          accion: "Recibir",
+        },
+        {
+          n: pendientes.enviosArmando,
+          tono: "info",
+          titulo: `${plural(pendientes.enviosArmando, "envío", "envíos")} armándose`,
+          detalle: "Todavía no salieron",
+          href: "/dashboard/stock/envios",
+          accion: "Abrir envíos",
+        },
+        {
+          n: pendientes.ventasPorCompletar,
+          tono: "ok",
+          titulo: `${plural(pendientes.ventasPorCompletar, "venta aprobada", "ventas aprobadas")} por completar`,
+          detalle: "Reservadas, falta entregar y cobrar",
+          href: "/dashboard/proformas?tipo=VENTA&estado=APROBADA",
+          accion: "Ver ventas",
+        },
+        {
+          n: pendientes.borradoresVenta,
+          tono: "ok",
+          titulo: `${plural(pendientes.borradoresVenta, "borrador", "borradores")} de venta sin aprobar`,
+          detalle: `El más antiguo tiene ${plural(pendientes.diasBorradorMasViejo, "día", "días")}`,
+          href: "/dashboard/proformas?tipo=VENTA&estado=BORRADOR",
+          accion: "Abrir",
+        },
+        {
+          n: pendientes.borradoresCompra,
+          tono: "ok",
+          titulo: `${plural(pendientes.borradoresCompra, "borrador", "borradores")} de compra sin aprobar`,
+          detalle: "Pedidos a proveedores sin confirmar",
+          href: "/dashboard/proformas?tipo=COMPRA&estado=BORRADOR",
+          accion: "Abrir",
+        },
+      ].filter((r) => r.n > 0)
+    : null;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
@@ -175,6 +242,56 @@ export default function DashboardPage() {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="dash-kpis">
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Ventas del mes</span>
+          <span className="dash-kpi-value">{ventasMes === null ? "—" : bs(ventasMes)}</span>
+          <span className={`dash-kpi-note${variacionVentas !== null ? (variacionVentas < 0 ? " neg" : " pos") : ""}`}>
+            {variacionVentas === null ? "Sin mes anterior para comparar" : `${variacionVentas > 0 ? "+" : ""}${variacionVentas}% vs. el mes anterior`}
+          </span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Por cobrar</span>
+          <span className="dash-kpi-value">{cuentasPorCobrar ? bs(cuentasPorCobrar.totalBs) : "—"}</span>
+          <span className="dash-kpi-note">
+            {cuentasPorCobrar ? plural(cuentasPorCobrar.cantidad, "cuenta pendiente", "cuentas pendientes") : ""}
+          </span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Compras del mes</span>
+          <span className="dash-kpi-value">{comprasMes === null ? "—" : bs(comprasMes)}</span>
+          <span className="dash-kpi-note">Aprobadas o completadas</span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">En tránsito</span>
+          <span className="dash-kpi-value">{pendientes ? `${pendientes.piezasEnTransito} pzs` : "—"}</span>
+          <span className="dash-kpi-note">{pendientes ? `${plural(pendientes.enviosEnTransito, "envío", "envíos")} en camino` : ""}</span>
+        </div>
+      </div>
+
+      <div className="card dash-attention">
+        <p className="dash-widget-title">Requiere atención</p>
+        <p className="dash-widget-note">Lo que está esperando una acción tuya.</p>
+        {atencion === null ? (
+          <p className="dash-empty">Cargando...</p>
+        ) : atencion.length === 0 ? (
+          <p className="dash-empty">Todo al día: no hay nada pendiente.</p>
+        ) : (
+          <div className="dash-attention-list">
+            {atencion.map((r) => (
+              <Link key={r.titulo} href={r.href} className="dash-attention-row">
+                <span className={`dash-attention-dot ${r.tono}`} />
+                <span className="dash-attention-text">
+                  <b>{r.titulo}</b>
+                  <small>{r.detalle}</small>
+                </span>
+                <span className="dash-attention-go">{r.accion} →</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ================= Ventas ================= */}

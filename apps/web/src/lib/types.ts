@@ -736,6 +736,18 @@ export type CuentaPorCobrarConProforma = CuentaPorCobrar & {
   proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
 };
 
+/** GET /dashboard/pendientes: lo que está esperando una acción. */
+export type DashPendientes = {
+  pedidosSinCompra: number;
+  enviosEnTransito: number;
+  piezasEnTransito: number;
+  enviosArmando: number;
+  borradoresVenta: number;
+  borradoresCompra: number;
+  diasBorradorMasViejo: number;
+  ventasPorCompletar: number;
+};
+
 export type ProformaInput = {
   tipo: TipoProforma;
   empresaId: string;

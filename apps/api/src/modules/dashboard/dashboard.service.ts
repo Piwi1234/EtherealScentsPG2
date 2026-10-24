@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EstadoCuentaPorCobrar, EstadoProforma, NaturalezaMovimiento, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 
 // Solo cuentan como "reales" las proformas aprobadas o completadas — ni borrador (todavía no pasó
@@ -306,5 +306,40 @@ export class DashboardService {
       _count: true,
     });
     return { totalBs: round2(Number(result._sum.montoAdeudado ?? 0)), cantidad: result._count };
+  }
+
+  /** Lo que está esperando una acción: faltantes sin compra, envíos por recibir, borradores y ventas por completar. */
+  async pendientes() {
+    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasPorCompletar] = await Promise.all([
+      this.prisma.proformaDetalleAsignacion.count({
+        where: {
+          origen: OrigenAsignacion.PROCURA,
+          cantidad: { gt: 0 },
+          compraDetalleId: null,
+          proformaDetalle: { proforma: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.VENTA } },
+        },
+      }),
+      this.prisma.envio.count({ where: { estado: EstadoEnvio.EN_TRANSITO } }),
+      this.prisma.proformaDetalle.aggregate({
+        where: { proforma: { envio: { estado: EstadoEnvio.EN_TRANSITO } } },
+        _sum: { cantidad: true },
+      }),
+      this.prisma.envio.count({ where: { estado: EstadoEnvio.ARMANDO } }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.VENTA } }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.COMPRA } }),
+      this.prisma.proforma.findFirst({ where: { estado: EstadoProforma.BORRADOR }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.VENTA } }),
+    ]);
+    const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;
+    return {
+      pedidosSinCompra,
+      enviosEnTransito,
+      piezasEnTransito: piezasEnTransito._sum.cantidad ?? 0,
+      enviosArmando,
+      borradoresVenta,
+      borradoresCompra,
+      diasBorradorMasViejo,
+      ventasPorCompletar,
+    };
   }
 }
