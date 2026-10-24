@@ -211,13 +211,16 @@ export class ProformaApprovalService {
         async (tx) => {
           await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
 
-          const rows = await tx.$queryRaw<{ estado: EstadoProforma; tipo: TipoProforma }[]>`
-            SELECT "estado", "tipo" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE
+          const rows = await tx.$queryRaw<{ estado: EstadoProforma; tipo: TipoProforma; envioId: string | null }[]>`
+            SELECT "estado", "tipo", "envio_id" AS "envioId" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE
           `;
           const lock = rows[0];
           if (!lock) throw new NotFoundException("Proforma no encontrada.");
           if (lock.estado !== EstadoProforma.APROBADA) {
             throw new ConflictException(`No se puede anular: la proforma está en estado ${lock.estado} (solo se puede anular desde APROBADA).`);
+          }
+          if (lock.envioId) {
+            throw new ConflictException("No se puede anular: la compra está en un envío. Quitala del envío primero.");
           }
 
           if (lock.tipo === TipoProforma.VENTA) {

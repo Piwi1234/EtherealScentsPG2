@@ -11,13 +11,15 @@ import { SeguimientoResumenController } from "./seguimiento/seguimiento-resumen.
 import { SeguimientoService } from "./seguimiento/seguimiento.service";
 import { RegistrosController } from "./registros/registros.controller";
 import { RegistrosService } from "./registros/registros.service";
+import { EnviosController } from "./envios/envios.controller";
+import { EnviosService } from "./envios/envios.service";
 
 @Module({
   imports: [SettingsModule, CategoryModule],
   // SeguimientoResumenController/RegistrosController (rutas estáticas "proformas/seguimiento" y
   // "proformas/registros") van ANTES que ProformasController: Nest/Express matchea rutas en orden de
   // registro, y "GET proformas/:id" capturaría esos segmentos como :id si quedaran primero.
-  controllers: [SeguimientoResumenController, RegistrosController, ProformasController],
+  controllers: [SeguimientoResumenController, RegistrosController, EnviosController, ProformasController],
   providers: [
     ProformasService,
     ProformaHistorialService,
@@ -26,6 +28,7 @@ import { RegistrosService } from "./registros/registros.service";
     ProformaPdfService,
     SeguimientoService,
     RegistrosService,
+    EnviosService,
   ],
 })
 export class ProformasModule {}

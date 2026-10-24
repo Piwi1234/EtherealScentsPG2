@@ -16,9 +16,12 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   DetalleCompraInput,
+  CreateEnvioInput,
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
+  Envio,
+  EnvioResumen,
   EstadoCuentaPorCobrar,
   EstadoSeguimientoProcura,
   HistoriaBloque,
@@ -55,6 +58,7 @@ import type {
   TraspasoAlmacenInput,
   TraspasoInput,
   UpdateDetalleInput,
+  UpdateRecepcionLineaInput,
 } from "./types";
 
 const DEFAULT_API_HOST = "http://localhost:4100";
@@ -1086,4 +1090,59 @@ export function getCuentasPorCobrar(
 
 export function cobrarCuenta(id: string, data: { monto: number; carteraId: string }) {
   return apiPost<CuentaPorCobrarConProforma>(`/contabilidad/cuentas-por-cobrar/${id}/cobrar`, data);
+}
+
+// --- Envíos ---
+
+export function getEnvios(query: { estado?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<EnvioResumen>>(`/envios${qs ? `?${qs}` : ""}`);
+}
+
+export function getEnvio(id: string) {
+  return apiGet<Envio>(`/envios/${id}`);
+}
+
+export function getComprasDisponiblesParaEnvio() {
+  return apiGet<Proforma[]>("/envios/compras-disponibles");
+}
+
+export function createEnvio(data: CreateEnvioInput) {
+  return apiPost<Envio>("/envios", data);
+}
+
+export function updateEnvio(id: string, data: { almacenDestinoId?: string; nota?: string }) {
+  return apiPatch<Envio>(`/envios/${id}`, data);
+}
+
+export function agregarCompraAEnvio(id: string, proformaId: string) {
+  return apiPost<Envio>(`/envios/${id}/compras/${proformaId}`, {});
+}
+
+export function quitarCompraDeEnvio(id: string, proformaId: string) {
+  return apiDelete<Envio>(`/envios/${id}/compras/${proformaId}`);
+}
+
+export function marcarEnvioEnTransito(id: string) {
+  return apiPost<Envio>(`/envios/${id}/en-transito`, {});
+}
+
+export function anularEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/anular`, {});
+}
+
+export function iniciarRecepcionEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/recepcion`, {});
+}
+
+export function updateRecepcionLinea(envioId: string, lineaId: string, data: UpdateRecepcionLineaInput) {
+  return apiPatch<Envio>(`/envios/${envioId}/recepcion/${lineaId}`, data);
+}
+
+export function confirmarRecepcionEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/recepcion/confirmar`, {});
 }

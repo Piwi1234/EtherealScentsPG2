@@ -41,12 +41,10 @@ export class ProformaCompletionService {
           }
 
           if (lock.tipo === TipoProforma.COMPRA) {
-            if (!dto.almacenId) throw new BadRequestException("almacenId es obligatorio para completar una proforma de compra.");
-            const almacen = await tx.almacen.findUnique({ where: { id: dto.almacenId } });
-            if (!almacen) throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
-
-            await tx.proforma.update({ where: { id }, data: { almacenId: dto.almacenId } });
-            await this.completarCompra(tx, id, dto.almacenId);
+            // Una compra solo se completa al confirmar la recepción de su envío (ver
+            // EnviosService.confirmarRecepcion): ahí se corrige lo que realmente llegó antes de
+            // crear lotes y stock.
+            throw new ConflictException("Una compra se completa al recibir su envío: agregala a un envío y confirmá la recepción.");
           } else {
             if (!lock.almacenId) throw new ConflictException("La proforma no tiene almacén asignado (debería haberse fijado al aprobar).");
             await this.assertSinProcuraPendiente(tx, id);
@@ -81,53 +79,6 @@ export class ProformaCompletionService {
       .map((p) => `${p.proformaDetalle.variante.product.name} (${p.proformaDetalle.variante.variantCode}): faltan ${p.cantidad}`)
       .join(", ");
     throw new ConflictException(`No se puede completar: todavía falta stock para ${detalleMsg}.`);
-  }
-
-  /**
-   * Crea un LoteCompra por línea con el costo real de esa compra e incrementa el stock físico del
-   * almacén. El catálogo (Product/ProductVariant) NUNCA se toca acá. Después de sumar el stock de cada
-   * línea, resuelve sola cualquier Procura pendiente de ventas ya aprobadas para esa misma
-   * variante+almacén (por orden de aprobación, la más antigua primero) — reserva el stock recién
-   * llegado contra ellas, convirtiendo Procura en Reservado sin intervención manual.
-   */
-  private async completarCompra(tx: Prisma.TransactionClient, proformaId: string, almacenId: string) {
-    const proforma = await tx.proforma.findUniqueOrThrow({
-      where: { id: proformaId },
-      include: { detalles: true },
-    });
-    if (proforma.detalles.length === 0) {
-      throw new ConflictException("La proforma no tiene líneas.");
-    }
-
-    const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
-    const stockPorPar = await lockStockRows(tx, pares);
-
-    for (const detalle of proforma.detalles) {
-      const costoUnitario =
-        Number(detalle.precioCompra) + Number(detalle.costoEnvio) + Number(detalle.costoSeguridad) + Number(detalle.costoLogistica);
-
-      await tx.loteCompra.create({
-        data: {
-          varianteId: detalle.varianteId,
-          almacenId,
-          proformaDetalleId: detalle.id,
-          costoUnitario,
-          cantidadInicial: detalle.cantidad,
-          cantidadDisponible: detalle.cantidad,
-        },
-      });
-
-      await tx.stock.update({
-        where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
-        data: { cantidadFisica: { increment: detalle.cantidad } },
-      });
-
-      const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
-      stock.cantidadFisica += detalle.cantidad;
-      const disponible = stock.cantidadFisica - stock.cantidadReservada;
-
-      await resolverProcuraPendiente(tx, { varianteId: detalle.varianteId, almacenId, disponible });
-    }
   }
 
   /**

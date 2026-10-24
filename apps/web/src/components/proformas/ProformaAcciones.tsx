@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, anularProforma, aprobarProforma, completarProforma, deleteProforma, downloadProformaPdf } from "../../lib/api";
+import { ApiError, anularProforma, aprobarProforma, deleteProforma, downloadProformaPdf } from "../../lib/api";
 import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
@@ -124,7 +124,8 @@ export function ProformaAcciones({
     if (tipo === "VENTA") {
       router.push(`/dashboard/proformas/${proformaId}/completar`);
     } else {
-      abrirModal("completar");
+      // Una compra se completa al recibir su envío (ver EnviosService.confirmarRecepcion).
+      router.push("/dashboard/stock/envios");
     }
   }
 
@@ -143,7 +144,7 @@ export function ProformaAcciones({
         )}
         {puedeCompletar && (
           <button type="button" className="action-btn" onClick={irACompletar} disabled={submitting !== null}>
-            Completar
+            {tipo === "COMPRA" ? "Agregar a un envío" : "Completar"}
           </button>
         )}
         {puede("anular") && (
@@ -223,69 +224,6 @@ export function ProformaAcciones({
         </Modal>
       )}
 
-      {modal === "completar" && (
-        <ModalCompletarCompra
-          proformaId={proformaId}
-          almacenes={almacenes}
-          onClose={() => setModal(null)}
-          onDone={() => {
-            setModal(null);
-            router.refresh();
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-function ModalCompletarCompra({
-  proformaId,
-  almacenes,
-  onClose,
-  onDone,
-}: {
-  proformaId: string;
-  almacenes: Almacen[];
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [almacenId, setAlmacenId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  async function confirmar() {
-    if (!almacenId) {
-      setError("Elegí el almacén que recibe la mercadería.");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    try {
-      await completarProforma(proformaId, { almacenId });
-      onDone();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal title="Completar proforma" onClose={onClose}>
-      <p>Elegí el almacén que recibe la mercadería.</p>
-      <div className="filter-field" style={{ marginBottom: 12 }}>
-        <label className="filter-label">Almacén</label>
-        <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
-      </div>
-      {error && <p className="error-text">{error}</p>}
-      <div className="form-actions">
-        <button type="button" className="link-button" onClick={onClose}>
-          Cancelar
-        </button>
-        <button type="button" className="button" onClick={confirmar} disabled={submitting}>
-          {submitting ? "Completando..." : "Completar"}
-        </button>
-      </div>
-    </Modal>
   );
 }

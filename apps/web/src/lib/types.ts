@@ -902,3 +902,51 @@ export type TraspasoInput = {
   tipoCambio?: number;
   nota?: string;
 };
+
+// --- Envíos (agrupan compras que viajan juntas; una compra solo se completa al recibir su envío) ---
+
+export type EstadoEnvio = "ARMANDO" | "EN_TRANSITO" | "RECIBIDO" | "ANULADO";
+
+export type EnvioVariante = {
+  id: string;
+  variantCode: string;
+  unidad: UnidadVariante;
+  product: { id: string; name: string; productCode: string; brand: { id: string; name: string } | null };
+  options: { optionValue: { value: string; attribute: { name: string } } }[];
+};
+
+/** Foto editable de lo esperado/recibido por cada línea de compra del envío. */
+export type EnvioRecepcionLinea = {
+  id: string;
+  envioId: string;
+  compraDetalleId: string;
+  compraDetalle: { id: string; proformaId: string; proveedor: { id: string; nombre: string } | null };
+  varianteEsperadaId: string;
+  varianteEsperada: EnvioVariante;
+  varianteRecibidaId: string;
+  varianteRecibida: EnvioVariante;
+  cantidadEsperada: number;
+  cantidadRecibida: number;
+  nota: string | null;
+};
+
+export type Envio = {
+  id: string;
+  codigo: string;
+  estado: EstadoEnvio;
+  almacenDestinoId: string;
+  almacenDestino: Almacen;
+  nota: string | null;
+  fechaEnvio: string | null;
+  fechaRecepcion: string | null;
+  creadoPor: { id: string; nombre: string };
+  createdAt: string;
+  compras: Proforma[];
+  recepcion: EnvioRecepcionLinea[];
+};
+
+/** Fila del listado: sin el detalle de líneas ni recepción. */
+export type EnvioResumen = Omit<Envio, "compras" | "recepcion"> & { compras: { id: string; codigo: string }[] };
+
+export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; compraIds?: string[] };
+export type UpdateRecepcionLineaInput = { cantidadRecibida?: number; varianteRecibidaId?: string; nota?: string };

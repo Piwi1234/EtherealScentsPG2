@@ -51,6 +51,7 @@ const PROVEEDORES_ITEMS = [
 const STOCK_ITEMS = [
   { href: "/dashboard/stock", label: "Existencias" },
   { href: "/dashboard/stock/traspasos", label: "Traspasos" },
+  { href: "/dashboard/stock/envios", label: "Envíos" },
 ];
 
 const PROFORMAS_NAV_ITEMS = [
@@ -161,7 +162,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // (Traspasos) gana cuando aplica, mismo criterio que Clientes/Pedidos.
   const stockActiveHref = pathname.startsWith("/dashboard/stock/traspasos")
     ? "/dashboard/stock/traspasos"
-    : stockHasActiveChild
+    : pathname.startsWith("/dashboard/stock/envios")
+      ? "/dashboard/stock/envios"
+      : stockHasActiveChild
       ? "/dashboard/stock"
       : null;
 
