@@ -32,7 +32,8 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
   const router = useRouter();
 
   return (
-    <table className="table table-minimal">
+    <div className="table-scroll">
+    <table className="table table-minimal table-compact">
       <thead>
         <tr>
           <th>Código</th>
@@ -72,5 +73,6 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

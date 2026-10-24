@@ -313,7 +313,7 @@ export default function BrandsPage() {
       )}
       {brands && brands.length > 0 && filteredBrands.length === 0 && <p>Ninguna marca coincide con "{search}".</p>}
       {brands && filteredBrands.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Logo</th>

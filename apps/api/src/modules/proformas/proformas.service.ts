@@ -95,7 +95,7 @@ export class ProformasService {
       // línea de ese proveedor (ver ProformaDetalle.proveedorId).
       detalles: query.proveedorId ? { some: { proveedorId: query.proveedorId } } : undefined,
       ciudadEntregaId: query.ciudadEntregaId,
-      codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
+      codigo: query.codigo ? { contains: query.codigo.trim(), mode: "insensitive" } : undefined,
       fecha: {
         gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
         lte: hasta,

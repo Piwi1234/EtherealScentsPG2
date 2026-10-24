@@ -114,7 +114,7 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
     <>
       {error && <p className="error-text">{error}</p>}
       <div className="table-scroll">
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Fecha</th>

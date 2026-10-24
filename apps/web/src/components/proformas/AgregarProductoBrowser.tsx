@@ -455,7 +455,7 @@ export function AgregarProductoBrowser({
                 </h3>
               )}
               <div className="table-scroll">
-                <table className="table table-minimal">
+                <table className="table table-minimal table-compact">
                   <thead>
                     <tr>
                       <th>Stock</th>

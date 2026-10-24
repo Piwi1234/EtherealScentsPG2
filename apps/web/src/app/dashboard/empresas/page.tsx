@@ -109,7 +109,7 @@ export default function EmpresasPage() {
       {!empresas && !error && <p>Cargando...</p>}
       {empresas && empresas.length === 0 && <p>No hay empresas todavía.</p>}
       {empresas && empresas.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Nombre</th>

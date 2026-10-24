@@ -41,7 +41,7 @@ function AttributesTable({
     return <p style={{ color: "var(--muted)" }}>Sin atributos definidos.</p>;
   }
   return (
-    <table className="table">
+    <table className="table table-minimal table-compact">
       <thead>
         <tr>
           <th>Nombre</th>

@@ -172,7 +172,7 @@ export default function AlmacenesPage() {
         {almacenes.length === 0 ? (
           <p>No hay almacenes todavía.</p>
         ) : (
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -220,7 +220,7 @@ export default function AlmacenesPage() {
             Ninguna todavía.
           </p>
         ) : (
-          <table className="table table-minimal" style={{ marginBottom: 16 }}>
+          <table className="table table-minimal table-compact" style={{ marginBottom: 16 }}>
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -273,7 +273,7 @@ export default function AlmacenesPage() {
             Ninguno todavía.
           </p>
         ) : (
-          <table className="table table-minimal" style={{ marginBottom: 16 }}>
+          <table className="table table-minimal table-compact" style={{ marginBottom: 16 }}>
             <thead>
               <tr>
                 <th>Nombre</th>

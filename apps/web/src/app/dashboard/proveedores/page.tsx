@@ -139,7 +139,7 @@ export default function ProveedoresPage() {
         <p>{search || activo ? "No hay proveedores para estos filtros." : "No hay proveedores todavía."}</p>
       )}
       {proveedores && proveedores.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Nombre</th>

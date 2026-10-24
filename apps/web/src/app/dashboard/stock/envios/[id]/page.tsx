@@ -270,7 +270,7 @@ export default function EnvioDetallePage() {
         <p className="cell-muted">Todavía no hay compras en este envío.</p>
       ) : (
         <div className="table-scroll">
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Compra</th>
@@ -331,7 +331,7 @@ export default function EnvioDetallePage() {
               : "Lo que se recibió en este envío. Las filas resaltadas tuvieron diferencias respecto de lo esperado."}
           </p>
           <div className="table-scroll">
-            <table className="table table-minimal">
+            <table className="table table-minimal table-compact">
               <thead>
                 <tr>
                   <th>Proveedor</th>

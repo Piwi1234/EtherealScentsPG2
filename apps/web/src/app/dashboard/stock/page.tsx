@@ -326,7 +326,7 @@ export default function StockPage() {
           <p>No hay existencias registradas.</p>
         ) : (
           <>
-            <table className="table table-minimal">
+            <table className="table table-minimal table-compact">
               <thead>
                 <tr>
                   <th>Almacén</th>
@@ -475,7 +475,7 @@ export default function StockPage() {
           <p>No hay lotes de compra registrados.</p>
         ) : (
           <>
-            <table className="table table-minimal">
+            <table className="table table-minimal table-compact">
               <thead>
                 <tr>
                   <th>Fecha</th>

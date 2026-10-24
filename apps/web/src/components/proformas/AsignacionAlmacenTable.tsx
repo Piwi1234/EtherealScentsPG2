@@ -16,7 +16,7 @@ export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
 
   return (
     <div className="table-scroll">
-      <table className="table table-minimal">
+      <table className="table table-minimal table-compact">
         <thead>
           <tr>
             <th>Producto</th>

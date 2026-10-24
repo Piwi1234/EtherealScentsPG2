@@ -805,6 +805,29 @@ a {
   font-size: 13px;
 }
 
+/* Densidad alta de Productos, sin sus columnas fijas ni controles inline: filas bajas, letra chica y
+   zebra en el <tr>. Para listados que quieren el mismo look compacto (ej. proformas). */
+.table-compact td {
+  font-size: 12px;
+}
+
+.table-compact td.cell-primary {
+  font-size: 13px;
+}
+
+.table-compact th,
+.table-compact td {
+  padding: 5px 10px;
+}
+
+.table-compact thead th {
+  font-size: 10.5px;
+}
+
+.table-compact tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 /* --- Rediseño "densidad alta + edición rápida" (a pedido, evaluado antes con 3 mockups) ---
    Fila más baja (padding 5px en vez de los 8px de .table-minimal) y zebra striping aplicado al
    <tr> (no al <td>) a propósito: .may-bs-col/.final-bs-col/.compra-col ya tienen su propio

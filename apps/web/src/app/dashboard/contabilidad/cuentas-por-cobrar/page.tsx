@@ -137,7 +137,7 @@ export default function CuentasPorCobrarPage() {
         <p>No hay cuentas por cobrar para estos filtros.</p>
       ) : (
         <>
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Fecha</th>

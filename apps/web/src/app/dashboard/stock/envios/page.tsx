@@ -126,7 +126,7 @@ export default function EnviosPage() {
       {data && data.items.length === 0 && <p>No hay envíos todavía.</p>}
       {data && data.items.length > 0 && (
         <div className="table-scroll">
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Código</th>

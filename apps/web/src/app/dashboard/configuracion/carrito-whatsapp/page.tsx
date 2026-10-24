@@ -96,7 +96,7 @@ export default function CarritoWhatsappPage() {
       {!contactos && !error && <p>Cargando...</p>}
       {contactos && contactos.length === 0 && <p>No hay fichas todavía.</p>}
       {contactos && contactos.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Imagen</th>

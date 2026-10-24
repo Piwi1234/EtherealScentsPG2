@@ -209,7 +209,7 @@ export default function PedidosProveedoresPage() {
       {proveedorId && !loading && vista === "productos" && lineas && lineas.items.length > 0 && (
         <>
           <div className="table-scroll">
-            <table className="table table-minimal">
+            <table className="table table-minimal table-compact">
               <thead>
                 <tr>
                   <th>Fecha</th>

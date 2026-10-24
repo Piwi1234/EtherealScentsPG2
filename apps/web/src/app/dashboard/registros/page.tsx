@@ -207,7 +207,7 @@ export default function RegistrosPage() {
       {tipo && !loading && data && data.items.length > 0 && (
         <>
           <div className="table-scroll">
-            <table className="table table-minimal">
+            <table className="table table-minimal table-compact">
               <thead>
                 <tr>
                   <th>Fecha</th>
