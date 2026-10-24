@@ -184,8 +184,8 @@ export class ProformasService {
     await this.assertEmpresaExists(dto.empresaId);
 
     if (dto.tipo === TipoProforma.VENTA) {
-      if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
-      await this.assertClienteExists(dto.clienteId);
+      // El cliente puede elegirse después, en la cabecera del BORRADOR; es obligatorio recién al aprobar.
+      if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
       if (dto.tipoCambioProf !== undefined) throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
     } else {

@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { apiGetServer } from "../../../lib/api-server";
-import type { Cliente, Ciudad, Page, Proforma, Proveedor } from "../../../lib/types";
+import type { Cliente, Ciudad, Empresa, Page, Proforma, Proveedor } from "../../../lib/types";
 import { ProformasTable } from "../../../components/proformas/ProformasTable";
+import { NuevaProformaBoton } from "../../../components/proformas/NuevaProformaBoton";
 import { ProformaFiltros } from "../../../components/proformas/ProformaFiltros";
 
 const PAGE_SIZE = 20;
@@ -59,6 +60,10 @@ export default async function ProformasPage({
   const ciudades =
     params.tipo === "VENTA" ? (await apiGetServer<Page<Ciudad>>("/ciudades?pageSize=500")).items : [];
 
+  // Las proformas nuevas arrancan con la casa matriz (se puede cambiar después en la cabecera).
+  const empresas = (await apiGetServer<Page<Empresa>>("/empresas?pageSize=100")).items.filter((e) => e.activo);
+  const empresaPorDefectoId = (empresas.find((e) => e.tipo === "CASA_MATRIZ") ?? empresas[0])?.id ?? "";
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   function pageHref(page: number): string {
@@ -72,12 +77,8 @@ export default async function ProformasPage({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Proformas</h1>
         <div style={{ display: "flex", gap: 10 }}>
-          <Link href="/dashboard/proformas/nueva?tipo=venta" className="btn-cta">
-            <span className="btn-cta-icon">+</span> Nueva venta
-          </Link>
-          <Link href="/dashboard/proformas/nueva?tipo=compra" className="btn-cta">
-            <span className="btn-cta-icon">+</span> Nueva compra
-          </Link>
+          <NuevaProformaBoton tipo="VENTA" empresaId={empresaPorDefectoId} />
+          <NuevaProformaBoton tipo="COMPRA" empresaId={empresaPorDefectoId} />
         </div>
       </div>
 

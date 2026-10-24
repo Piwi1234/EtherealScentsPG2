@@ -80,6 +80,8 @@ export class ProformaApprovalService {
   private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
     const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true, cliente: true } });
 
+    if (!proforma.clienteId) throw new BadRequestException("Elegí un cliente antes de aprobar la proforma de venta.");
+
     const { montoAdelanto } = calcularTotalesVenta(proforma);
     if (montoAdelanto > 0) {
       if (!carteraId) throw new BadRequestException("carteraId es obligatorio: la proforma tiene un adelanto a registrar en una cartera en Bs.");

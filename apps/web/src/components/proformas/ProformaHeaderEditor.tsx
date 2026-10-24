@@ -45,12 +45,19 @@ export function ProformaHeaderEditor({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  /** Al elegir cliente, precarga la ciudad de entrega con la del cliente (si tiene una definida en
-   * su catálogo) — sigue quedando editable después vía el selector de abajo. */
-  function handleClienteChange(cliente: Cliente | null) {
+  /** Al elegir cliente se guarda solo (junto con la ciudad de entrega del cliente, si tiene una
+   * definida en su catálogo — sigue editable después vía el selector de abajo). */
+  async function handleClienteChange(cliente: Cliente | null) {
     setClienteId(cliente?.id ?? "");
-    if (cliente?.ciudadId) {
-      setCiudadEntregaId(cliente.ciudadId);
+    const ciudad = cliente?.ciudadId ?? ciudadEntregaId;
+    if (cliente?.ciudadId) setCiudadEntregaId(cliente.ciudadId);
+    if (!cliente) return;
+    setError("");
+    try {
+      await updateProforma(proforma.id, { clienteId: cliente.id, ciudadEntregaId: ciudad || undefined });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
     }
   }
 
