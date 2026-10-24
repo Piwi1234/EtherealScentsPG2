@@ -49,6 +49,9 @@ import type {
   ProveedorInput,
   RegistroLinea,
   SeguimientoLinea,
+  SeguimientoStockLinea,
+  CompraCandidata,
+  ProcuraCandidata,
   StockRow,
   TipoMovimiento,
   TipoMovimientoConCartera,
@@ -957,8 +960,31 @@ export function getSeguimientoPendientes(
   return apiGet<Page<SeguimientoLinea>>(`/proformas/seguimiento${qs ? `?${qs}` : ""}`);
 }
 
-export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura, cantidad: number) {
-  return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado, cantidad });
+export function getSeguimientoStock(query: { estado?: string; empresaId?: string; categoryId?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.empresaId) params.set("empresaId", query.empresaId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<SeguimientoStockLinea>>(`/proformas/seguimiento/stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getComprasCandidatas(asignacionId: string) {
+  return apiGet<CompraCandidata[]>(`/proformas/seguimiento/${asignacionId}/compras-candidatas`);
+}
+
+export function getProcurasParaCompra(compraDetalleId: string) {
+  return apiGet<ProcuraCandidata[]>(`/proformas/seguimiento/compra/${compraDetalleId}/procuras`);
+}
+
+export function vincularPedido(asignacionId: string, compraDetalleId: string) {
+  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId });
+}
+
+export function desvincularPedido(asignacionId: string) {
+  return apiDelete<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`);
 }
 
 // --- Registros ---

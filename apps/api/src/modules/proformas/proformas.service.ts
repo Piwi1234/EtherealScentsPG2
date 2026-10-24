@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, Prisma, TipoProforma } from "@app/database";
+import { DestinoCompra, EstadoProforma, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -324,6 +324,7 @@ export class ProformasService {
           costoSeguridad: dto.costoSeguridad,
           costoLogistica: dto.costoLogistica,
           proveedorId: dto.proveedorId,
+          destino: dto.destino,
           subtotal,
         },
       });
@@ -364,12 +365,19 @@ export class ProformasService {
         costoSeguridad,
         costoLogistica,
         proveedorId,
+        destino: dto.destino,
         subtotal: cantidad * costoUnitario,
       };
     }
 
     try {
-      await this.prisma.proformaDetalle.update({ where: { id: detalleId }, data });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proformaDetalle.update({ where: { id: detalleId }, data });
+        // Si la línea deja de ser un pedido, suelta las notas de venta que tenía ligadas.
+        if (dto.destino === DestinoCompra.STOCK) {
+          await tx.proformaDetalleAsignacion.updateMany({ where: { compraDetalleId: detalleId }, data: { compraDetalleId: null } });
+        }
+      });
       return this.findOne(id);
     } catch (error) {
       rethrowPrismaError(error, "Línea de proforma");

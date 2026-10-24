@@ -666,6 +666,8 @@ export type ProformaDetalle = {
    * varios proveedores distintos, cada línea el suyo. Null en líneas de venta. */
   proveedorId: string | null;
   proveedor: Proveedor | null;
+  /** COMPRA: para stock o para cubrir pedidos de clientes (ver DestinoCompra). */
+  destino: DestinoCompra;
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -755,6 +757,7 @@ export type DetalleCompraInput = {
   costoSeguridad: number;
   costoLogistica: number;
   proveedorId?: string;
+  destino?: DestinoCompra;
 };
 
 export type UpdateDetalleInput = {
@@ -765,6 +768,7 @@ export type UpdateDetalleInput = {
   costoSeguridad?: number;
   costoLogistica?: number;
   proveedorId?: string;
+  destino?: DestinoCompra;
 };
 
 export type AprobarProformaInput = { almacenId?: string; carteraId?: string };
@@ -779,9 +783,64 @@ export type SeguimientoLinea = {
   id: string;
   cantidad: number;
   estadoSeguimiento: EstadoSeguimientoProcura;
+  /** Derivado de la compra/envío ligados (ya no es una etiqueta manual). */
+  estadoPedido: EstadoPedido;
   proformaDetalle: {
-    proforma: { id: string; fecha: string; empresa: { id: string; nombre: string } };
+    proforma: {
+      id: string;
+      codigo: string;
+      fecha: string;
+      empresa: { id: string; nombre: string };
+      cliente: { id: string; nombre: string } | null;
+    };
     variante: ProformaDetalleVariante;
+  };
+  /** La línea de compra (destino PEDIDO) que viene a cubrir este faltante, si hay una ligada. */
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+  } | null;
+};
+
+export type DestinoCompra = "STOCK" | "PEDIDO";
+
+/** SIN_COMPRA: nada ligado (o la compra ligada ya cerró sin cubrirlo). */
+export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "EN_TRANSITO";
+
+/** Una línea de compra "para stock" ya aprobada y todavía sin recibir (vista "Stock pedido"). */
+export type SeguimientoStockLinea = {
+  id: string;
+  cantidad: number;
+  estadoStock: "COMPRADO" | "EN_TRANSITO";
+  proveedor: { id: string; nombre: string } | null;
+  proforma: {
+    id: string;
+    codigo: string;
+    fecha: string;
+    empresa: { id: string; nombre: string };
+    envio: { id: string; codigo: string; estado: EstadoEnvio; almacenDestino: { id: string; nombre: string } } | null;
+  };
+  variante: ProformaDetalleVariante;
+};
+
+/** Línea de compra (pedido) a la que se puede ligar un faltante, con cuánto le queda por cubrir. */
+export type CompraCandidata = {
+  id: string;
+  cantidad: number;
+  restante: number;
+  proveedor: { id: string; nombre: string } | null;
+  proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+};
+
+/** Faltante de una nota de venta aprobada que una línea de compra puede cubrir. */
+export type ProcuraCandidata = {
+  id: string;
+  cantidad: number;
+  compraDetalleId: string | null;
+  proformaDetalle: {
+    proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
   };
 };
 

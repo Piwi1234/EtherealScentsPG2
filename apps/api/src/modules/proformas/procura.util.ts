@@ -12,7 +12,15 @@ import { EstadoProforma, OrigenAsignacion, Prisma } from "@app/database";
  */
 export async function resolverProcuraPendiente(
   tx: Prisma.TransactionClient,
-  params: { varianteId: string; almacenId: string; disponible: number; excluirProformaId?: string },
+  params: {
+    varianteId: string;
+    almacenId: string;
+    disponible: number;
+    excluirProformaId?: string;
+    /** Líneas de compra recién recibidas: las Procura ligadas a ellas (ver compraDetalleId) se cubren
+     * primero, antes del criterio "más antigua primero". */
+    preferirCompraDetalleIds?: string[];
+  },
 ): Promise<void> {
   let disponible = params.disponible;
   if (disponible <= 0) return;
@@ -32,6 +40,12 @@ export async function resolverProcuraPendiente(
     },
     orderBy: { createdAt: "asc" },
   });
+
+  if (params.preferirCompraDetalleIds?.length) {
+    const preferidas = new Set(params.preferirCompraDetalleIds);
+    // Array.prototype.sort es estable: dentro de cada grupo se conserva el orden por createdAt.
+    procurasPendientes.sort((a, b) => Number(preferidas.has(b.compraDetalleId ?? "")) - Number(preferidas.has(a.compraDetalleId ?? "")));
+  }
 
   for (const procura of procurasPendientes) {
     if (disponible <= 0) break;

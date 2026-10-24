@@ -978,6 +978,11 @@ model ProformaDetalle {
   loteCompras  LoteCompra[]
   recepciones  EnvioRecepcionLinea[]
 
+  // COMPRA: para qué se compra esta línea (ver DestinoCompra). Las líneas de VENTA lo ignoran.
+  destino               DestinoCompra               @default(STOCK)
+  // COMPRA con destino PEDIDO: las asignaciones PROCURA de notas de venta que esta línea cubre.
+  asignacionesCubiertas ProformaDetalleAsignacion[] @relation("AsignacionCubiertaPor")
+
   @@map("proforma_detalles")
 }
 
@@ -1001,7 +1006,23 @@ model ProformaDetalleAsignacion {
 
   consumos LoteCompraConsumo[]
 
+  // Solo PROCURA: la línea de COMPRA (destino PEDIDO) que viene a cubrir este faltante. Null = todavía
+  // sin compra ligada. Si esa línea se borra, el vínculo se suelta solo.
+  compraDetalleId String?          @map("compra_detalle_id") @db.Uuid
+  compraDetalle   ProformaDetalle? @relation("AsignacionCubiertaPor", fields: [compraDetalleId], references: [id], onDelete: SetNull)
+
+  @@index([compraDetalleId])
   @@map("proforma_detalle_asignaciones")
+}
+
+/// Para qué se compra cada línea de una COMPRA: STOCK = reponer inventario; PEDIDO = cubre faltantes
+/// (Procura) de notas de venta de clientes — se liga a esas asignaciones con
+/// ProformaDetalleAsignacion.compraDetalleId, así el Seguimiento sabe qué compra/envío trae cada pedido.
+enum DestinoCompra {
+  STOCK
+  PEDIDO
+
+  @@map("destino_compra")
 }
 
 /// Ciclo de un envío (un mismo viaje de carga con varias compras de varios proveedores).

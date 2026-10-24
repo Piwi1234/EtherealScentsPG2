@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, removeDetalle, updateDetalle } from "../../lib/api";
-import type { Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
+import { ApiError, desvincularPedido, getProcurasParaCompra, removeDetalle, updateDetalle, vincularPedido } from "../../lib/api";
+import type { DestinoCompra, ProcuraCandidata, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
+import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { ProveedorSelector } from "./selectors";
 
@@ -49,6 +50,67 @@ function EditableNumber({
   );
 }
 
+/** Liga/suelta los faltantes (Procura) de notas de venta aprobadas que esta línea de compra viene a
+ * cubrir. Solo aplica a líneas con destino "Pedido de cliente". */
+function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDetalle; onClose: () => void; onChanged: () => void }) {
+  const [procuras, setProcuras] = useState<ProcuraCandidata[] | null>(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function load() {
+    getProcurasParaCompra(detalle.id)
+      .then(setProcuras)
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
+  }
+  useEffect(load, [detalle.id]);
+
+  async function toggle(p: ProcuraCandidata) {
+    setBusyId(p.id);
+    setError("");
+    try {
+      if (p.compraDetalleId === detalle.id) await desvincularPedido(p.id);
+      else await vincularPedido(p.id, detalle.id);
+      load();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const cubierto = (procuras ?? []).filter((p) => p.compraDetalleId === detalle.id).reduce((s, p) => s + p.cantidad, 0);
+
+  return (
+    <Modal title="Ligar a notas de venta" onClose={onClose}>
+      <p className="cell-muted" style={{ fontSize: 13, marginTop: 0 }}>
+        Esta línea compra {detalle.cantidad} de {detalle.variante.product.name}. Elegí qué faltantes de notas de venta aprobadas viene
+        a cubrir ({cubierto} de {detalle.cantidad} ligadas).
+      </p>
+      {!procuras && !error && <p>Cargando...</p>}
+      {procuras && procuras.length === 0 && <p className="cell-muted">No hay faltantes pendientes de este producto en notas de venta aprobadas.</p>}
+      {procuras && procuras.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {procuras.map((p) => {
+            const ligada = p.compraDetalleId === detalle.id;
+            return (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span>
+                  {p.proformaDetalle.proforma.codigo} · {p.proformaDetalle.proforma.cliente?.nombre ?? "—"} · faltan {p.cantidad}
+                </span>
+                <button type="button" className={`action-btn${ligada ? " danger" : ""}`} disabled={busyId !== null} onClick={() => toggle(p)}>
+                  {ligada ? "Soltar" : "Ligar"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {error && <p className="error-text">{error}</p>}
+    </Modal>
+  );
+}
+
 function DetalleRow({
   proformaId,
   detalle,
@@ -67,7 +129,8 @@ function DetalleRow({
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 12) + (editable ? 1 : 0);
+  const [ligando, setLigando] = useState(false);
+  const colSpan = (tipo === "VENTA" ? 6 : 13) + (editable ? 1 : 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -121,6 +184,25 @@ function DetalleRow({
               <p className="error-text" style={{ fontSize: 11, margin: "4px 0 0" }}>
                 Sin proveedor
               </p>
+            )}
+          </td>
+        )}
+        {tipo === "COMPRA" && (
+          <td style={{ minWidth: 150 }}>
+            {editable ? (
+              <select className="field" value={detalle.destino} onChange={(e) => commit({ destino: e.target.value as DestinoCompra })}>
+                <option value="STOCK">Para stock</option>
+                <option value="PEDIDO">Pedido de cliente</option>
+              </select>
+            ) : detalle.destino === "PEDIDO" ? (
+              "Pedido de cliente"
+            ) : (
+              "Para stock"
+            )}
+            {detalle.destino === "PEDIDO" && (
+              <button type="button" className="link-button" style={{ display: "block", fontSize: 12 }} onClick={() => setLigando(true)}>
+                Ligar a notas
+              </button>
             )}
           </td>
         )}
@@ -200,6 +282,7 @@ function DetalleRow({
           </td>
         </tr>
       )}
+      {ligando && <LigarNotasModal detalle={detalle} onClose={() => setLigando(false)} onChanged={() => router.refresh()} />}
     </>
   );
 }
@@ -227,7 +310,7 @@ export function ProformaDetalleTable({
 
   // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
-  const totalCols = (tipo === "VENTA" ? 6 : 12) + (editable ? 1 : 0);
+  const totalCols = (tipo === "VENTA" ? 6 : 13) + (editable ? 1 : 0);
   const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
   return (
@@ -239,6 +322,7 @@ export function ProformaDetalleTable({
             <th>Marca</th>
             <th style={{ minWidth: 240 }}>Producto</th>
             {tipo === "COMPRA" && <th>Proveedor</th>}
+            {tipo === "COMPRA" && <th>Destino</th>}
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>
@@ -272,7 +356,7 @@ export function ProformaDetalleTable({
         <tfoot>
           <tr>
             <td
-              colSpan={tipo === "COMPRA" ? 4 : 3}
+              colSpan={tipo === "COMPRA" ? 5 : 3}
               className="cell-muted"
               style={{ textAlign: "right", fontWeight: 600, borderTop: "2px solid var(--line)" }}
             >
@@ -281,8 +365,8 @@ export function ProformaDetalleTable({
             <td className="num cell-primary" style={{ borderTop: "2px solid var(--line)" }}>
               {totalCantidad}
             </td>
-            {totalCols > (tipo === "COMPRA" ? 5 : 4) && (
-              <td colSpan={totalCols - (tipo === "COMPRA" ? 5 : 4)} style={{ borderTop: "2px solid var(--line)" }}></td>
+            {totalCols > (tipo === "COMPRA" ? 6 : 4) && (
+              <td colSpan={totalCols - (tipo === "COMPRA" ? 6 : 4)} style={{ borderTop: "2px solid var(--line)" }}></td>
             )}
           </tr>
         </tfoot>

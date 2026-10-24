@@ -283,7 +283,11 @@ export class EnviosService {
 
           for (const par of pares) {
             const stock = stockPorPar.get(stockKey(par.varianteId, par.almacenId))!;
-            await resolverProcuraPendiente(tx, { ...par, disponible: stock.cantidadFisica - stock.cantidadReservada });
+            await resolverProcuraPendiente(tx, {
+              ...par,
+              disponible: stock.cantidadFisica - stock.cantidadReservada,
+              preferirCompraDetalleIds: envio.recepcion.map((l) => l.compraDetalleId),
+            });
           }
 
           const diferencias = envio.recepcion

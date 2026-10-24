@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiError, updateSeguimientoEstado } from "../../lib/api";
-import type { EstadoSeguimientoProcura, SeguimientoLinea } from "../../lib/types";
+import { ApiError, desvincularPedido, getComprasCandidatas, vincularPedido } from "../../lib/api";
+import type { CompraCandidata, SeguimientoLinea } from "../../lib/types";
 import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
-import { CLASES_SEGUIMIENTO, LABELS_SEGUIMIENTO, ORDEN_SEGUIMIENTO } from "./seguimiento-estados";
+import { CLASES_PEDIDO, LABELS_PEDIDO } from "./seguimiento-estados";
 
 function formatFecha(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -22,157 +22,184 @@ function atributosLabel(variante: SeguimientoLinea["proformaDetalle"]["variante"
   return partes.length > 0 ? partes.join(", ") : null;
 }
 
-/** Modal que pide la cantidad a mover al nuevo estado — el seguimiento de una línea puede avanzar de
- * a poco (ej. el proveedor despacha 20 de 50 pedidas), así que no siempre es "todo o nada". */
-function CambiarEstadoModal({
-  linea,
-  siguienteEstado,
-  onClose,
-  onSaved,
-}: {
-  linea: SeguimientoLinea;
-  siguienteEstado: EstadoSeguimientoProcura;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [cantidad, setCantidad] = useState(String(linea.cantidad));
-  const [saving, setSaving] = useState(false);
+/** Elige a qué línea de compra (pedido de cliente, misma variante) se liga este faltante. */
+function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea; onClose: () => void; onSaved: () => void }) {
+  const [candidatas, setCandidatas] = useState<CompraCandidata[] | null>(null);
   const [error, setError] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  async function handleConfirmar() {
-    const parsed = Number(cantidad);
-    if (!Number.isInteger(parsed) || parsed < 1 || parsed > linea.cantidad) {
-      setError(`Ingresá una cantidad entre 1 y ${linea.cantidad}.`);
-      return;
-    }
-    setSaving(true);
+  useEffect(() => {
+    getComprasCandidatas(linea.id)
+      .then(setCandidatas)
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
+  }, [linea.id]);
+
+  async function handleLigar(compraDetalleId: string) {
+    setSavingId(compraDetalleId);
     setError("");
     try {
-      await updateSeguimientoEstado(linea.id, siguienteEstado, parsed);
+      await vincularPedido(linea.id, compraDetalleId);
       onSaved();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setSaving(false);
+      setSavingId(null);
     }
   }
 
   return (
-    <Modal title={`Marcar como ${LABELS_SEGUIMIENTO[siguienteEstado]}`} onClose={onClose}>
-      <div className="form-grid">
-        <p className="cell-muted" style={{ margin: 0 }}>
-          {linea.proformaDetalle.variante.product.name} — pendiente: {linea.cantidad}
+    <Modal title="Ligar a una compra" onClose={onClose}>
+      <p className="cell-muted" style={{ fontSize: 13, marginTop: 0 }}>
+        Faltan <strong>{linea.cantidad}</strong> de {linea.proformaDetalle.variante.product.name} para la nota{" "}
+        {linea.proformaDetalle.proforma.codigo}. Elegí la línea de compra (marcada como "Pedido de cliente") que los va a cubrir.
+      </p>
+      {!candidatas && !error && <p>Cargando...</p>}
+      {candidatas && candidatas.length === 0 && (
+        <p className="cell-muted">
+          No hay compras con este producto marcadas como "Pedido de cliente". Agregalo en una compra, elegí el destino "Pedido de
+          cliente" y volvé acá.
         </p>
-        <div>
-          <label>Cantidad</label>
-          <input
-            className="field"
-            type="number"
-            min={1}
-            max={linea.cantidad}
-            value={cantidad}
-            onChange={(e) => setCantidad(e.target.value)}
-          />
-          <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
-            Si es menor a la cantidad pendiente, el resto queda como está.
-          </p>
+      )}
+      {candidatas && candidatas.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {candidatas.map((c) => {
+            const cabe = c.restante >= linea.cantidad;
+            return (
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span>
+                  {c.proforma.codigo} · {c.proveedor?.nombre ?? "Sin proveedor"} · {c.restante} sin cubrir de {c.cantidad}
+                  {c.proforma.envio ? ` · envío ${c.proforma.envio.codigo}` : ""}
+                </span>
+                <button type="button" className="action-btn" disabled={!cabe || savingId !== null} onClick={() => handleLigar(c.id)}>
+                  {savingId === c.id ? "Ligando..." : cabe ? "Ligar" : "No alcanza"}
+                </button>
+              </div>
+            );
+          })}
         </div>
-        {error && <p className="error-text">{error}</p>}
-        <div className="form-actions">
-          <button type="button" className="link-button" onClick={onClose}>
-            Cancelar
-          </button>
-          <button type="button" className="button" disabled={saving} onClick={handleConfirmar}>
-            {saving ? "Guardando..." : "Confirmar"}
-          </button>
-        </div>
-      </div>
+      )}
+      {error && <p className="error-text">{error}</p>}
     </Modal>
   );
 }
 
-function Fila({ linea, onPedirCantidad }: { linea: SeguimientoLinea; onPedirCantidad: (linea: SeguimientoLinea, siguienteEstado: EstadoSeguimientoProcura) => void }) {
-  const { proforma, variante } = linea.proformaDetalle;
-  const etiqueta = atributosLabel(variante);
-
-  const indiceActual = ORDEN_SEGUIMIENTO.indexOf(linea.estadoSeguimiento);
-  const siguienteEstado = ORDEN_SEGUIMIENTO[indiceActual + 1];
-
-  return (
-    <tr>
-      <td className="cell-muted">{formatFecha(proforma.fecha)}</td>
-      <td className="cell-muted">{variante.product.brand?.name ?? "—"}</td>
-      <td className="cell-primary">
-        {variante.product.name}
-        {etiqueta && (
-          <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>
-            {etiqueta}
-          </div>
-        )}
-      </td>
-      <td className="num">{linea.cantidad}</td>
-      <td>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className={CLASES_SEGUIMIENTO[linea.estadoSeguimiento]}>{LABELS_SEGUIMIENTO[linea.estadoSeguimiento]}</span>
-          {siguienteEstado && (
-            <button type="button" className="action-btn" onClick={() => onPedirCantidad(linea, siguienteEstado)}>
-              Marcar {LABELS_SEGUIMIENTO[siguienteEstado]}
-            </button>
-          )}
-        </div>
-      </td>
-      <td>
-        <Link href={`/dashboard/proformas/${proforma.id}`} className="link-button">
-          Ver proforma
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
 /**
- * Todo lo que hoy está a Procura (venta aprobada sin stock suficiente todavía), de cualquier proforma
- * — la vista operativa de "qué falta pedirle al proveedor". Se recalcula en vivo: cambia solo cuando
- * una compra resuelve la Procura o se anula la venta que la generaba.
+ * Pedidos de clientes: los faltantes (Procura) de notas de venta aprobadas, con el estado derivado de la
+ * compra y el envío que los cubren. No hay botones de "marcar comprado/enviado": el estado avanza solo a
+ * medida que la compra se aprueba, entra a un envío y el envío sale.
  */
 export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea[] }) {
   const router = useRouter();
-  const [pendiente, setPendiente] = useState<{ linea: SeguimientoLinea; siguienteEstado: EstadoSeguimientoProcura } | null>(null);
+  const [ligando, setLigando] = useState<SeguimientoLinea | null>(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function handleSoltar(linea: SeguimientoLinea) {
+    setBusyId(linea.id);
+    setError("");
+    try {
+      await desvincularPedido(linea.id);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   if (lineas.length === 0) {
-    return <p className="cell-muted">No hay productos a Procura para estos filtros.</p>;
+    return <p className="cell-muted">No hay pedidos de clientes pendientes con estos filtros.</p>;
   }
 
   return (
-    <div className="table-scroll">
-      <table className="table table-minimal">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Marca</th>
-            <th>Producto</th>
-            <th className="num">Cant.</th>
-            <th>Estado</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {lineas.map((linea) => (
-            <Fila key={linea.id} linea={linea} onPedirCantidad={(l, e) => setPendiente({ linea: l, siguienteEstado: e })} />
-          ))}
-        </tbody>
-      </table>
-      {pendiente && (
-        <CambiarEstadoModal
-          linea={pendiente.linea}
-          siguienteEstado={pendiente.siguienteEstado}
-          onClose={() => setPendiente(null)}
+    <>
+      {error && <p className="error-text">{error}</p>}
+      <div className="table-scroll">
+        <table className="table table-minimal">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Nota</th>
+              <th>Cliente</th>
+              <th>Marca</th>
+              <th style={{ minWidth: 220 }}>Producto</th>
+              <th className="num">Cant.</th>
+              <th>Estado</th>
+              <th>Compra / Envío</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {lineas.map((linea) => {
+              const { proforma, variante } = linea.proformaDetalle;
+              const etiqueta = atributosLabel(variante);
+              const compra = linea.compraDetalle?.proforma;
+              return (
+                <tr key={linea.id}>
+                  <td className="cell-muted">{formatFecha(proforma.fecha)}</td>
+                  <td>
+                    <Link href={`/dashboard/proformas/${proforma.id}`} className="link-button">
+                      {proforma.codigo}
+                    </Link>
+                  </td>
+                  <td className="cell-muted">{proforma.cliente?.nombre ?? "—"}</td>
+                  <td className="cell-muted">{variante.product.brand?.name ?? "—"}</td>
+                  <td className="cell-primary">
+                    {variante.product.name}
+                    {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
+                  </td>
+                  <td className="num">{linea.cantidad}</td>
+                  <td>
+                    <span className={CLASES_PEDIDO[linea.estadoPedido]}>{LABELS_PEDIDO[linea.estadoPedido]}</span>
+                  </td>
+                  <td className="cell-muted">
+                    {compra && linea.estadoPedido !== "SIN_COMPRA" ? (
+                      <>
+                        <Link href={`/dashboard/proformas/${compra.id}`} className="link-button">
+                          {compra.codigo}
+                        </Link>
+                        {linea.compraDetalle?.proveedor ? ` · ${linea.compraDetalle.proveedor.nombre}` : ""}
+                        {compra.envio && (
+                          <div style={{ fontSize: 12 }}>
+                            Envío{" "}
+                            <Link href={`/dashboard/stock/envios/${compra.envio.id}`} className="link-button">
+                              {compra.envio.codigo}
+                            </Link>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      {linea.compraDetalle && linea.estadoPedido !== "SIN_COMPRA" ? (
+                        <button type="button" className="action-btn" disabled={busyId === linea.id} onClick={() => handleSoltar(linea)}>
+                          Soltar
+                        </button>
+                      ) : (
+                        <button type="button" className="action-btn" onClick={() => setLigando(linea)}>
+                          Ligar a compra
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {ligando && (
+        <LigarCompraModal
+          linea={ligando}
+          onClose={() => setLigando(null)}
           onSaved={() => {
-            setPendiente(null);
+            setLigando(null);
             router.refresh();
           }}
         />
       )}
-    </div>
+    </>
   );
 }
