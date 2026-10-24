@@ -102,7 +102,7 @@ export class ProformasService {
       },
     };
     const [items, total] = await Promise.all([
-      this.prisma.proforma.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
+      this.prisma.proforma.findMany({ where, skip, take, orderBy: [{ estadoActualizadoAt: "desc" }, { createdAt: "desc" }], include: includeDetails }),
       this.prisma.proforma.count({ where }),
     ]);
     return { items, total, page, pageSize };

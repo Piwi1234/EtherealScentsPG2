@@ -877,6 +877,8 @@ model Proforma {
   id     String         @id @default(uuid()) @db.Uuid
   tipo   TipoProforma
   estado EstadoProforma @default(BORRADOR)
+  /// Última vez que cambió el estado (lo escribe ProformaHistorialService.registrar): ordena el listado.
+  estadoActualizadoAt DateTime @default(now()) @map("estado_actualizado_at")
 
   // Código corto para mostrar/buscar en vez del id UUID (mismo mecanismo que Product.productCode /
   // ProductVariant.variantCode — generateUniqueEntityCode, alfanumérico de 7, no lo escribe el
@@ -938,6 +940,7 @@ model Proforma {
 
   @@index([tipo, estado])
   @@index([envioId])
+  @@index([estadoActualizadoAt])
   @@map("proformas")
 }
 
