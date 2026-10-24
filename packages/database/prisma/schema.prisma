@@ -732,6 +732,8 @@ model Almacen {
   id        String   @id @default(uuid()) @db.Uuid
   nombre    String
   activo    Boolean  @default(true)
+  /// Almacén que se preselecciona cada vez que el sistema pide uno. A lo sumo uno (índice único parcial en la migración).
+  predeterminado Boolean @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

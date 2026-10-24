@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import type { Almacen, Cartera, Ciudad, Empresa, Proveedor } from "../../lib/types";
 
 /** Selects reutilizables — reciben las opciones ya cargadas por el Server Component padre, no
@@ -44,6 +47,14 @@ export function ProveedorSelector({
 }
 
 export function AlmacenSelector({ options, value, onChange, placeholder = "— Elegir almacén —", disabled }: SelectorProps<Almacen>) {
+  // Al aparecer sin valor, preselecciona el almacén predeterminado (si hay uno activo entre las opciones).
+  useEffect(() => {
+    if (value) return;
+    const predeterminado = options.find((o) => o.predeterminado && o.activo);
+    if (predeterminado) onChange(predeterminado.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <select className="field" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
       <option value="">{placeholder}</option>

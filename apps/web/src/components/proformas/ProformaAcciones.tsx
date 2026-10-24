@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, anularProforma, aprobarProforma, deleteProforma, downloadProformaPdf } from "../../lib/api";
-import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
+import { useEffect } from "react";
+import Link from "next/link";
+import {
+  ApiError,
+  agregarCompraAEnvio,
+  anularProforma,
+  aprobarProforma,
+  createEnvio,
+  deleteProforma,
+  downloadProformaPdf,
+  getEnvios,
+} from "../../lib/api";
+import type { Almacen, Cartera, EnvioResumen, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
 
@@ -29,6 +40,7 @@ export function ProformaAcciones({
   almacenes,
   montoAdelanto = 0,
   carterasBs = [],
+  envioId = null,
 }: {
   proformaId: string;
   codigo: string;
@@ -37,11 +49,15 @@ export function ProformaAcciones({
   almacenes: Almacen[];
   montoAdelanto?: number;
   carterasBs?: Cartera[];
+  /** Solo compras: envío en el que ya está (si lo hay). */
+  envioId?: string | null;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState<Transicion | "completar" | null>(null);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState<"aprobar" | "anular" | "eliminar" | "completar" | null>(null);
+  const [modal, setModal] = useState<"aprobar" | "anular" | "eliminar" | "completar" | "envio" | null>(null);
+  const [enviosArmando, setEnviosArmando] = useState<EnvioResumen[] | null>(null);
+  const [envioElegido, setEnvioElegido] = useState("NUEVO");
   const [nota, setNota] = useState("");
   const [almacenId, setAlmacenId] = useState("");
   const [carteraId, setCarteraId] = useState("");
@@ -64,7 +80,7 @@ export function ProformaAcciones({
   const puedeCompletar = estado === "APROBADA";
   const requiereCartera = tipo === "VENTA" && montoAdelanto > 0;
 
-  function abrirModal(m: "aprobar" | "anular" | "eliminar" | "completar") {
+  function abrirModal(m: "aprobar" | "anular" | "eliminar" | "completar" | "envio") {
     setError("");
     setAlmacenId("");
     setCarteraId("");
@@ -125,7 +141,35 @@ export function ProformaAcciones({
       router.push(`/dashboard/proformas/${proformaId}/completar`);
     } else {
       // Una compra se completa al recibir su envío (ver EnviosService.confirmarRecepcion).
-      router.push("/dashboard/stock/envios");
+      abrirModal("envio");
+    }
+  }
+
+  useEffect(() => {
+    if (modal !== "envio") return;
+    setEnviosArmando(null);
+    setEnvioElegido("NUEVO");
+    getEnvios({ estado: "ARMANDO", limit: 100 })
+      .then((r) => setEnviosArmando(r.items))
+      .catch(() => setEnviosArmando([]));
+  }, [modal]);
+
+  async function ejecutarAgregarAEnvio() {
+    if (envioElegido === "NUEVO" && !almacenId) {
+      setError("Elegí el almacén de destino del nuevo envío.");
+      return;
+    }
+    setSubmitting("completar");
+    setError("");
+    try {
+      const envio =
+        envioElegido === "NUEVO"
+          ? await createEnvio({ almacenDestinoId: almacenId, compraIds: [proformaId] })
+          : await agregarCompraAEnvio(envioElegido, proformaId);
+      router.push(`/dashboard/stock/envios/${envio.id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+      setSubmitting(null);
     }
   }
 
@@ -142,10 +186,16 @@ export function ProformaAcciones({
             {submitting === "aprobar" ? "Aprobando..." : "Aprobar"}
           </button>
         )}
-        {puedeCompletar && (
-          <button type="button" className="action-btn" onClick={irACompletar} disabled={submitting !== null}>
-            {tipo === "COMPRA" ? "Agregar a un envío" : "Completar"}
-          </button>
+        {puedeCompletar && tipo === "COMPRA" && envioId ? (
+          <Link href={`/dashboard/stock/envios/${envioId}`} className="action-btn">
+            Ver envío
+          </Link>
+        ) : (
+          puedeCompletar && (
+            <button type="button" className="action-btn" onClick={irACompletar} disabled={submitting !== null}>
+              {tipo === "COMPRA" ? "Agregar a un envío" : "Completar"}
+            </button>
+          )
         )}
         {puede("anular") && (
           <button type="button" className="action-btn danger" onClick={() => abrirModal("anular")} disabled={submitting !== null}>
@@ -185,6 +235,38 @@ export function ProformaAcciones({
             </button>
             <button type="button" className="button" onClick={ejecutarAprobar} disabled={submitting !== null}>
               {submitting === "aprobar" ? "Aprobando..." : "Aprobar"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {modal === "envio" && (
+        <Modal title="Agregar a un envío" onClose={() => setModal(null)}>
+          <p>La compra se completa cuando se recibe su envío. Elegí en cuál va.</p>
+          <div className="filter-field" style={{ marginBottom: 12 }}>
+            <label className="filter-label">Envío</label>
+            <select className="field" value={envioElegido} onChange={(e) => setEnvioElegido(e.target.value)}>
+              <option value="NUEVO">+ Crear un envío nuevo</option>
+              {(enviosArmando ?? []).map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.codigo} — {e.almacenDestino.nombre} ({e.compras.length} compra{e.compras.length === 1 ? "" : "s"})
+                </option>
+              ))}
+            </select>
+          </div>
+          {envioElegido === "NUEVO" && (
+            <div className="filter-field" style={{ marginBottom: 12 }}>
+              <label className="filter-label">Almacén de destino</label>
+              <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
+            </div>
+          )}
+          {error && <p className="error-text">{error}</p>}
+          <div className="form-actions">
+            <button type="button" className="link-button" onClick={() => setModal(null)}>
+              Cancelar
+            </button>
+            <button type="button" className="button" onClick={ejecutarAgregarAEnvio} disabled={submitting !== null || enviosArmando === null}>
+              {submitting === "completar" ? "Agregando..." : "Agregar"}
             </button>
           </div>
         </Modal>

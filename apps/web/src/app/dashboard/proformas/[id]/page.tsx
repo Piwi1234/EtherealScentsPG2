@@ -103,6 +103,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           almacenes={almacenesPage.items.filter((a) => a.activo)}
           montoAdelanto={montoAdelanto}
           carterasBs={carterasBs}
+          envioId={proforma.envioId ?? null}
         />
       </div>
     </div>

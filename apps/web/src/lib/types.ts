@@ -494,6 +494,8 @@ export type Almacen = {
   id: string;
   nombre: string;
   activo: boolean;
+  /** Se preselecciona siempre que el sistema pide un almacén (a lo sumo uno). */
+  predeterminado: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -680,6 +682,8 @@ export type ProformaDetalle = {
 
 export type Proforma = {
   id: string;
+  /** Solo compras: envío al que pertenece (null si todavía no está en uno). */
+  envioId?: string | null;
   /** Código corto para mostrar/buscar en vez del id UUID — no secuencial (ver schema.prisma). */
   codigo: string;
   tipo: TipoProforma;

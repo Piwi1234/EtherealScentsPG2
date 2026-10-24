@@ -33,6 +33,7 @@ export default function AlmacenesPage() {
   const [editingAlmacen, setEditingAlmacen] = useState<Almacen | null>(null);
   const [almacenNombre, setAlmacenNombre] = useState("");
   const [almacenActivo, setAlmacenActivo] = useState(true);
+  const [almacenPredeterminado, setAlmacenPredeterminado] = useState(false);
   const [almacenFormError, setAlmacenFormError] = useState("");
   const [almacenSubmitting, setAlmacenSubmitting] = useState(false);
 
@@ -98,6 +99,7 @@ export default function AlmacenesPage() {
     setEditingAlmacen(null);
     setAlmacenNombre("");
     setAlmacenActivo(true);
+    setAlmacenPredeterminado(false);
     setAlmacenFormError("");
     setAlmacenModalOpen(true);
   }
@@ -106,6 +108,7 @@ export default function AlmacenesPage() {
     setEditingAlmacen(almacen);
     setAlmacenNombre(almacen.nombre);
     setAlmacenActivo(almacen.activo);
+    setAlmacenPredeterminado(almacen.predeterminado);
     setAlmacenFormError("");
     setAlmacenModalOpen(true);
   }
@@ -116,9 +119,9 @@ export default function AlmacenesPage() {
     setAlmacenSubmitting(true);
     try {
       if (editingAlmacen) {
-        await updateAlmacen(editingAlmacen.id, { nombre: almacenNombre, activo: almacenActivo });
+        await updateAlmacen(editingAlmacen.id, { nombre: almacenNombre, activo: almacenActivo, predeterminado: almacenPredeterminado });
       } else {
-        await createAlmacen({ nombre: almacenNombre });
+        await createAlmacen({ nombre: almacenNombre, predeterminado: almacenPredeterminado });
       }
       setAlmacenModalOpen(false);
       await loadAlmacenes();
@@ -185,6 +188,11 @@ export default function AlmacenesPage() {
                     <span className={`badge ${almacen.activo ? "badge-accent" : "badge-muted"}`}>
                       {almacen.activo ? "Activo" : "Inactivo"}
                     </span>
+                    {almacen.predeterminado && (
+                      <span className="badge badge-accent" style={{ marginLeft: 6 }}>
+                        Por defecto
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className="row-actions">
@@ -329,6 +337,17 @@ export default function AlmacenesPage() {
                 </label>
               </div>
             )}
+            <div>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={almacenPredeterminado}
+                  onChange={(e) => setAlmacenPredeterminado(e.target.checked)}
+                  disabled={!!editingAlmacen && !almacenActivo}
+                />
+                Almacén por defecto (se preselecciona al pedir un almacén)
+              </label>
+            </div>
             {almacenFormError && <p className="error-text">{almacenFormError}</p>}
             <div className="form-actions">
               <button type="button" className="link-button" onClick={() => setAlmacenModalOpen(false)}>

@@ -33,7 +33,10 @@ export class AlmacenService {
 
   async create(dto: CreateAlmacenDto) {
     try {
-      return await this.prisma.almacen.create({ data: dto });
+      return await this.prisma.$transaction(async (tx) => {
+        if (dto.predeterminado) await tx.almacen.updateMany({ where: { predeterminado: true }, data: { predeterminado: false } });
+        return tx.almacen.create({ data: dto });
+      });
     } catch (error) {
       rethrowPrismaError(error, "Almacén");
     }
@@ -42,7 +45,17 @@ export class AlmacenService {
   async update(id: string, dto: UpdateAlmacenDto) {
     await this.findOne(id);
     try {
-      return await this.prisma.almacen.update({ where: { id }, data: dto });
+      return await this.prisma.$transaction(async (tx) => {
+        // Un solo predeterminado: marcar este desmarca al anterior. Un almacén inactivo no puede serlo.
+        if (dto.predeterminado) {
+          const actual = await tx.almacen.findUniqueOrThrow({ where: { id } });
+          if (dto.activo === false || (dto.activo === undefined && !actual.activo)) {
+            throw new ConflictException("Un almacén inactivo no puede ser el predeterminado.");
+          }
+          await tx.almacen.updateMany({ where: { predeterminado: true, id: { not: id } }, data: { predeterminado: false } });
+        }
+        return tx.almacen.update({ where: { id }, data: dto.activo === false ? { ...dto, predeterminado: false } : dto });
+      });
     } catch (error) {
       rethrowPrismaError(error, "Almacén");
     }
@@ -73,7 +86,7 @@ export class AlmacenService {
     }
 
     try {
-      return await this.prisma.almacen.update({ where: { id }, data: { activo: false } });
+      return await this.prisma.almacen.update({ where: { id }, data: { activo: false, predeterminado: false } });
     } catch (error) {
       rethrowPrismaError(error, "Almacén");
     }

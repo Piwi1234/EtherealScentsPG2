@@ -568,11 +568,11 @@ export function getAlmacenes(query: { page?: number; pageSize?: number } = {}) {
   return apiGet<Page<Almacen>>(`/almacenes${qs ? `?${qs}` : ""}`);
 }
 
-export function createAlmacen(data: { nombre: string }) {
+export function createAlmacen(data: { nombre: string; predeterminado?: boolean }) {
   return apiPost<Almacen>("/almacenes", data);
 }
 
-export function updateAlmacen(id: string, data: { nombre?: string; activo?: boolean }) {
+export function updateAlmacen(id: string, data: { nombre?: string; activo?: boolean; predeterminado?: boolean }) {
   return apiPatch<Almacen>(`/almacenes/${id}`, data);
 }
 
