@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { guardarUltimaLista } from "./VolverALista";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Ciudad, Cliente, Proveedor } from "../../lib/types";
 import { DateRangeDropdown, type DateSelection } from "../DateRangeDropdown";
@@ -40,6 +41,13 @@ export function ProformaFiltros({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [codigoInput, setCodigoInput] = useState(initialCodigo);
+
+  // Cada vez que cambian filtros o página se recuerda la URL, para que "Volver" desde una proforma
+  // regrese a la lista tal como estaba.
+  const queryActual = searchParams.toString();
+  useEffect(() => {
+    guardarUltimaLista(queryActual ? `${pathname}?${queryActual}` : pathname);
+  }, [pathname, queryActual]);
 
   function pushParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());

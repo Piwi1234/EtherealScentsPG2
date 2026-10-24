@@ -8,7 +8,9 @@ import type { Proforma } from "../../lib/types";
  * variante+almacén (ver proforma-completion.service.ts).
  */
 export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
-  const lineasConAsignacion = proforma.detalles.filter((d) => d.asignaciones.length > 0);
+  // Las asignaciones en 0 (Procura ya resuelta o reserva liberada) son solo historial interno: no se muestran.
+  const detalles = proforma.detalles.map((d) => ({ ...d, asignaciones: d.asignaciones.filter((a) => a.cantidad > 0) }));
+  const lineasConAsignacion = detalles.filter((d) => d.asignaciones.length > 0);
 
   if (lineasConAsignacion.length === 0) return null;
 

@@ -9,6 +9,7 @@ import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaH
 import { ProformaDetalleTable } from "../../../../components/proformas/ProformaDetalleTable";
 import { ProformaTotales } from "../../../../components/proformas/ProformaTotales";
 import { AsignacionAlmacenTable } from "../../../../components/proformas/AsignacionAlmacenTable";
+import { VolverALista } from "../../../../components/proformas/VolverALista";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
 
 export default async function ProformaDetallePage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,9 +60,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           </h1>
           <EstadoBadge estado={proforma.estado} />
         </div>
-        <Link href="/dashboard/proformas" className="link-button">
-          Volver
-        </Link>
+        <VolverALista />
       </div>
 
       <ProformaHeaderEditor
