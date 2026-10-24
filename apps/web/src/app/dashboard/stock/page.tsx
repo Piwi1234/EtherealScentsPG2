@@ -334,6 +334,7 @@ export default function StockPage() {
                   <th>Producto</th>
                   <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Física</th>
                   <th className="num">Reservada</th>
+                  <th className="num">En tránsito</th>
                   <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Disponible</th>
                   <th>Actualizado</th>
                   <th></th>
@@ -360,6 +361,12 @@ export default function StockPage() {
                       {row.variante.unidad === "ML" ? " ml" : ""}
                     </td>
                     <td className="num">{row.cantidadReservada}{row.variante.unidad === "ML" ? " ml" : ""}</td>
+                    <td className="num">
+                      {row.cantidadEnTransito}
+                      {row.cantidadReservadaTransito > 0 && (
+                        <div className="cell-muted" style={{ fontSize: 12 }}>{row.cantidadReservadaTransito} reservadas</div>
+                      )}
+                    </td>
                     <td className="num" style={{ background: "#000000", color: "#ffffff" }}>
                       {row.cantidadFisica - row.cantidadReservada}
                       {row.variante.unidad === "ML" ? " ml" : ""}

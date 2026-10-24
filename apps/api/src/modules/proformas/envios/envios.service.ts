@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database";
+import { DestinoCompra, EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
@@ -8,6 +8,7 @@ import { ProformaHistorialService } from "../proforma-historial.service";
 import { includeDetails } from "../proformas.service";
 import { lockStockRows, stockKey } from "../stock-lock.util";
 import { resolverProcuraPendiente } from "../procura.util";
+import { liquidarTransito, reservarTransitoParaProcuras } from "../transito.util";
 import { CreateEnvioDto, QueryEnvioDto, UpdateEnvioDto, UpdateRecepcionLineaDto } from "./dto/envio.dto";
 
 const varianteInclude = {
@@ -165,22 +166,78 @@ export class EnviosService {
     return this.findOne(id);
   }
 
+  /** Unidades "para stock" del envío agrupadas por variante (las líneas "Pedido de cliente" no suman
+   * al stock en tránsito: ya están ligadas a la nota que las pidió). */
+  private async cantidadesStockDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
+    const lineas = await tx.proformaDetalle.findMany({
+      where: { proforma: { envioId }, destino: DestinoCompra.STOCK },
+      select: { varianteId: true, cantidad: true },
+    });
+    const porVariante = new Map<string, number>();
+    for (const l of lineas) porVariante.set(l.varianteId, (porVariante.get(l.varianteId) ?? 0) + l.cantidad);
+    return porVariante;
+  }
+
   async marcarEnTransito(id: string) {
     const envio = await this.findOne(id);
     this.assertEstado(envio, [EstadoEnvio.ARMANDO], "marcar en tránsito");
     if (envio.compras.length === 0) throw new ConflictException("El envío no tiene compras.");
-    await this.prisma.envio.update({ where: { id }, data: { estado: EstadoEnvio.EN_TRANSITO, fechaEnvio: new Date() } });
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          const rows = await tx.$queryRaw<{ estado: EstadoEnvio }[]>`SELECT "estado" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE`;
+          this.assertEstado(rows[0], [EstadoEnvio.ARMANDO], "marcar en tránsito");
+
+          const almacenId = envio.almacenDestinoId;
+          const porVariante = await this.cantidadesStockDelEnvio(tx, id);
+          await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
+          for (const [varianteId, cantidad] of porVariante) {
+            await tx.stock.update({
+              where: { varianteId_almacenId: { varianteId, almacenId } },
+              data: { cantidadEnTransito: { increment: cantidad } },
+            });
+            // Las ventas con faltante pendiente reservan por adelantado lo que viaja en este envío.
+            await reservarTransitoParaProcuras(tx, { varianteId, almacenId });
+          }
+          await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.EN_TRANSITO, fechaEnvio: new Date() } });
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Envío");
+    }
     return this.findOne(id);
   }
 
   async anular(id: string) {
     const envio = await this.findOne(id);
     this.assertEstado(envio, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "anular");
-    await this.prisma.$transaction(async (tx) => {
-      await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
-      await tx.proforma.updateMany({ where: { envioId: id }, data: { envioId: null } });
-      await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.ANULADO } });
-    });
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          const rows = await tx.$queryRaw<{ estado: EstadoEnvio }[]>`SELECT "estado" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE`;
+          this.assertEstado(rows[0], [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "anular");
+
+          if (rows[0].estado === EstadoEnvio.EN_TRANSITO) {
+            const almacenId = envio.almacenDestinoId;
+            const porVariante = await this.cantidadesStockDelEnvio(tx, id);
+            await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
+            // Lo reservado en tránsito que ya no tiene de dónde salir vuelve a Procura.
+            for (const [varianteId, quitar] of porVariante) {
+              await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: false });
+            }
+          }
+          await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
+          await tx.proforma.updateMany({ where: { envioId: id }, data: { envioId: null } });
+          await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.ANULADO } });
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Envío");
+    }
     return this.findOne(id);
   }
 
@@ -258,7 +315,15 @@ export class EnviosService {
 
           const almacenId = lock.almacenDestinoId;
           const recibidas = envio.recepcion.filter((l) => l.cantidadRecibida > 0);
-          const pares = Array.from(new Set(recibidas.map((l) => l.varianteRecibidaId))).map((varianteId) => ({ varianteId, almacenId }));
+          // Lo que este envío tenía contado como "en tránsito" (solo líneas para stock, por variante esperada).
+          const enTransito = new Map<string, number>();
+          if (lock.estado === EstadoEnvio.EN_TRANSITO) {
+            for (const l of envio.recepcion.filter((r) => r.compraDetalle.destino === DestinoCompra.STOCK)) {
+              enTransito.set(l.varianteEsperadaId, (enTransito.get(l.varianteEsperadaId) ?? 0) + l.cantidadEsperada);
+            }
+          }
+          const variantesPares = new Set([...recibidas.map((l) => l.varianteRecibidaId), ...enTransito.keys()]);
+          const pares = Array.from(variantesPares).map((varianteId) => ({ varianteId, almacenId }));
           const stockPorPar = await lockStockRows(tx, pares);
 
           for (const linea of recibidas) {
@@ -281,8 +346,14 @@ export class EnviosService {
             stockPorPar.get(stockKey(linea.varianteRecibidaId, almacenId))!.cantidadFisica += linea.cantidadRecibida;
           }
 
+          // Las reservas en tránsito de este envío pasan a stock físico reservado hasta lo que llegó; el
+          // resto vuelve a Procura.
+          for (const [varianteId, quitar] of enTransito) {
+            await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: true });
+          }
+
           for (const par of pares) {
-            const stock = stockPorPar.get(stockKey(par.varianteId, par.almacenId))!;
+            const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });
             await resolverProcuraPendiente(tx, {
               ...par,
               disponible: stock.cantidadFisica - stock.cantidadReservada,

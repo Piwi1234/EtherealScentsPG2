@@ -6,6 +6,7 @@ import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
+import { reservarTransitoParaProcuras } from "./transito.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
 
@@ -106,6 +107,7 @@ export class ProformaApprovalService {
     const stockPorPar = await lockStockRows(tx, pares);
 
     const faltantes: string[] = [];
+    const enTransito: string[] = [];
     for (const detalle of proforma.detalles) {
       const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
       const disponibleNeto = stock.cantidadFisica - stock.cantidadReservada;
@@ -122,7 +124,22 @@ export class ProformaApprovalService {
         });
       }
 
-      const restante = detalle.cantidad - tomar;
+      // Lo que no alcanza en físico se reserva por adelantado contra lo que viaja en envíos en tránsito.
+      const disponibleTransito = stock.cantidadEnTransito - stock.cantidadReservadaTransito;
+      const tomarTransito = Math.min(Math.max(0, disponibleTransito), detalle.cantidad - tomar);
+      if (tomarTransito > 0) {
+        await tx.stock.update({
+          where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
+          data: { cantidadReservadaTransito: { increment: tomarTransito } },
+        });
+        stock.cantidadReservadaTransito += tomarTransito;
+        await tx.proformaDetalleAsignacion.create({
+          data: { proformaDetalleId: detalle.id, almacenId, cantidad: tomarTransito, origen: OrigenAsignacion.EN_TRANSITO },
+        });
+        enTransito.push(`${tomarTransito} unidad(es) de la variante ${detalle.varianteId}`);
+      }
+
+      const restante = detalle.cantidad - tomar - tomarTransito;
       if (restante > 0) {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId: null, cantidad: restante, origen: OrigenAsignacion.PROCURA },
@@ -137,7 +154,12 @@ export class ProformaApprovalService {
       id,
       EstadoProforma.APROBADA,
       usuarioId,
-      faltantes.length > 0 ? `Stock insuficiente, a procura: ${faltantes.join(", ")}.` : undefined,
+      [
+        enTransito.length > 0 ? `Reservado en tránsito: ${enTransito.join(", ")}.` : "",
+        faltantes.length > 0 ? `Stock insuficiente, a procura: ${faltantes.join(", ")}.` : "",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     );
   }
 
@@ -151,30 +173,32 @@ export class ProformaApprovalService {
    * se necesita" para que deje de aparecer en Seguimiento.
    */
   private async liberarReservas(tx: Prisma.TransactionClient, proformaId: string) {
-    const stockAsignaciones = await tx.proformaDetalleAsignacion.findMany({
-      where: { origen: OrigenAsignacion.STOCK, proformaDetalle: { proformaId } },
+    const asignaciones = await tx.proformaDetalleAsignacion.findMany({
+      where: { origen: { in: [OrigenAsignacion.STOCK, OrigenAsignacion.EN_TRANSITO] }, proformaDetalle: { proformaId } },
       include: { proformaDetalle: true },
     });
 
-    if (stockAsignaciones.length > 0) {
-      const pares = stockAsignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
+    if (asignaciones.length > 0) {
+      const pares = asignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
       await lockStockRows(tx, pares);
 
-      for (const asignacion of stockAsignaciones) {
+      for (const asignacion of asignaciones) {
         const varianteId = asignacion.proformaDetalle.varianteId;
         const almacenId = asignacion.almacenId!;
+        const where = { varianteId_almacenId: { varianteId, almacenId } };
 
-        await tx.stock.update({
-          where: { varianteId_almacenId: { varianteId, almacenId } },
-          data: { cantidadReservada: { decrement: asignacion.cantidad } },
-        });
-
-        await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
+        if (asignacion.origen === OrigenAsignacion.EN_TRANSITO) {
+          await tx.stock.update({ where, data: { cantidadReservadaTransito: { decrement: asignacion.cantidad } } });
+          await reservarTransitoParaProcuras(tx, { varianteId, almacenId, excluirProformaId: proformaId });
+        } else {
+          await tx.stock.update({ where, data: { cantidadReservada: { decrement: asignacion.cantidad } } });
+          await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
+        }
       }
     }
 
     await tx.proformaDetalleAsignacion.updateMany({
-      where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
+      where: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
       data: { cantidad: 0 },
     });
   }

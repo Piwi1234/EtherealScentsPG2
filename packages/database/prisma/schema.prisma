@@ -641,10 +641,13 @@ enum EstadoProforma {
 }
 
 /// STOCK: cubierta con inventario físico de un almacén. PROCURA: remanente sin cobertura (almacenId
-/// null), a comprar/procurar aparte.
+/// null), a comprar/procurar aparte. EN_TRANSITO: reservada contra stock que viaja en un envío ya
+/// despachado hacia ese almacén (almacenId set) — cuando el envío se recibe pasa a STOCK, y si llega
+/// menos de lo esperado la parte sin cobertura vuelve a PROCURA.
 enum OrigenAsignacion {
   STOCK
   PROCURA
+  EN_TRANSITO
 
   @@map("origen_asignacion")
 }
@@ -763,13 +766,18 @@ model CarritoWhatsappContacto {
 /// CHECK agregado a mano en la migración: cantidad_fisica >= 0 AND cantidad_reservada >= 0 AND
 /// cantidad_reservada <= cantidad_fisica (Prisma no expresa CHECK en el schema).
 model Stock {
-  varianteId        String         @map("variante_id") @db.Uuid
-  variante          ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
-  almacenId         String         @map("almacen_id") @db.Uuid
-  almacen           Almacen        @relation(fields: [almacenId], references: [id], onDelete: Restrict)
-  cantidadFisica    Int            @default(0) @map("cantidad_fisica")
-  cantidadReservada Int            @default(0) @map("cantidad_reservada")
-  updatedAt         DateTime       @updatedAt @map("updated_at")
+  varianteId                String         @map("variante_id") @db.Uuid
+  variante                  ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  almacenId                 String         @map("almacen_id") @db.Uuid
+  almacen                   Almacen        @relation(fields: [almacenId], references: [id], onDelete: Restrict)
+  cantidadFisica            Int            @default(0) @map("cantidad_fisica")
+  cantidadReservada         Int            @default(0) @map("cantidad_reservada")
+  // Unidades "para stock" que viajan en envíos ya despachados (EN_TRANSITO) hacia este almacén — todavía
+  // no son físicas. cantidadReservadaTransito: parte de eso ya reservada por ventas aprobadas
+  // (asignaciones EN_TRANSITO). CHECK a mano en la migración: reservadaTransito <= enTransito.
+  cantidadEnTransito        Int            @default(0) @map("cantidad_en_transito")
+  cantidadReservadaTransito Int            @default(0) @map("cantidad_reservada_transito")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
 
   @@id([varianteId, almacenId])
   @@map("stock")

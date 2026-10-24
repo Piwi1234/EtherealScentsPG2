@@ -76,7 +76,7 @@ export class StockService {
 
     const where: Prisma.StockWhereInput = {
       almacenId: query.almacenId,
-      cantidadFisica: { gt: 0 },
+      OR: [{ cantidadFisica: { gt: 0 } }, { cantidadEnTransito: { gt: 0 } }],
       variante: {
         product: {
           categoryId: categoryIds ? { in: categoryIds } : undefined,

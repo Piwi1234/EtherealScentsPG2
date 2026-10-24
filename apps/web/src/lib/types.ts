@@ -502,7 +502,7 @@ export type Almacen = {
 
 export type TipoProforma = "COMPRA" | "VENTA";
 export type EstadoProforma = "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
-export type OrigenAsignacion = "STOCK" | "PROCURA";
+export type OrigenAsignacion = "STOCK" | "PROCURA" | "EN_TRANSITO";
 export type EstadoSeguimientoProcura = "PENDIENTE" | "COMPRADO" | "ENVIADO";
 
 export type ProformaHistorial = {
@@ -564,6 +564,9 @@ export type StockRow = {
   almacenId: string;
   cantidadFisica: number;
   cantidadReservada: number;
+  /** Unidades "para stock" que viajan en envíos ya despachados (todavía no son físicas). */
+  cantidadEnTransito: number;
+  cantidadReservadaTransito: number;
   updatedAt: string;
   variante: StockVariante;
   almacen: StockAlmacenRef;

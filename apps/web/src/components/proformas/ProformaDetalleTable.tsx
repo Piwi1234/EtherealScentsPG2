@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularPedido, getProcurasParaCompra, removeDetalle, updateDetalle, vincularPedido } from "../../lib/api";
 import type { DestinoCompra, ProcuraCandidata, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
@@ -282,7 +283,9 @@ function DetalleRow({
           </td>
         </tr>
       )}
-      {ligando && <LigarNotasModal detalle={detalle} onClose={() => setLigando(false)} onChanged={() => router.refresh()} />}
+      {/* Portal: el modal no puede ser hijo de <tbody> (HTML inválido → error de hidratación). */}
+      {ligando &&
+        createPortal(<LigarNotasModal detalle={detalle} onClose={() => setLigando(false)} onChanged={() => router.refresh()} />, document.body)}
     </>
   );
 }

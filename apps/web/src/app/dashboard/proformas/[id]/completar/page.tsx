@@ -19,7 +19,7 @@ export default async function CompletarVentaPage({ params }: { params: Promise<{
   const carterasBs = await apiGetServer<Cartera[]>("/contabilidad/carteras?moneda=BS&activo=true");
 
   const hayProcuraPendiente = proforma.detalles.some((d) =>
-    d.asignaciones.some((a) => a.origen === "PROCURA" && a.cantidad > 0),
+    d.asignaciones.some((a) => (a.origen === "PROCURA" || a.origen === "EN_TRANSITO") && a.cantidad > 0),
   );
 
   // COMPRA se completa con un modal simple (pide almacén) desde ProformaAcciones — esta pantalla es

@@ -5,6 +5,15 @@ type StockLockRow = {
   almacen_id: string;
   cantidad_fisica: number;
   cantidad_reservada: number;
+  cantidad_en_transito: number;
+  cantidad_reservada_transito: number;
+};
+
+export type StockBloqueado = {
+  cantidadFisica: number;
+  cantidadReservada: number;
+  cantidadEnTransito: number;
+  cantidadReservadaTransito: number;
 };
 
 export function stockKey(varianteId: string, almacenId: string): string {
@@ -25,23 +34,25 @@ export function stockKey(varianteId: string, almacenId: string): string {
 export async function lockStockRows(
   tx: Prisma.TransactionClient,
   pares: { varianteId: string; almacenId: string }[],
-): Promise<Map<string, { cantidadFisica: number; cantidadReservada: number }>> {
+): Promise<Map<string, StockBloqueado>> {
   const ordenados = [...pares].sort((a, b) =>
     a.varianteId === b.varianteId ? a.almacenId.localeCompare(b.almacenId) : a.varianteId.localeCompare(b.varianteId),
   );
 
-  const resultado = new Map<string, { cantidadFisica: number; cantidadReservada: number }>();
+  const resultado = new Map<string, StockBloqueado>();
   for (const { varianteId, almacenId } of ordenados) {
     const rows = await tx.$queryRaw<StockLockRow[]>`
       INSERT INTO "stock" ("variante_id", "almacen_id", "cantidad_fisica", "cantidad_reservada", "updated_at")
       VALUES (${varianteId}::uuid, ${almacenId}::uuid, 0, 0, now())
       ON CONFLICT ("variante_id", "almacen_id") DO UPDATE SET "updated_at" = now()
-      RETURNING "variante_id", "almacen_id", "cantidad_fisica", "cantidad_reservada"
+      RETURNING "variante_id", "almacen_id", "cantidad_fisica", "cantidad_reservada", "cantidad_en_transito", "cantidad_reservada_transito"
     `;
     const row = rows[0];
     resultado.set(stockKey(varianteId, almacenId), {
       cantidadFisica: row.cantidad_fisica,
       cantidadReservada: row.cantidad_reservada,
+      cantidadEnTransito: row.cantidad_en_transito,
+      cantidadReservadaTransito: row.cantidad_reservada_transito,
     });
   }
   return resultado;

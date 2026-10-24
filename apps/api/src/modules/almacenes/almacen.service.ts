@@ -56,10 +56,10 @@ export class AlmacenService {
     await this.findOne(id);
 
     const stockConExistencias = await this.prisma.stock.findFirst({
-      where: { almacenId: id, cantidadFisica: { gt: 0 } },
+      where: { almacenId: id, OR: [{ cantidadFisica: { gt: 0 } }, { cantidadEnTransito: { gt: 0 } }] },
     });
     if (stockConExistencias) {
-      throw new ConflictException("No se puede desactivar: el almacén todavía tiene stock físico.");
+      throw new ConflictException("No se puede desactivar: el almacén todavía tiene stock físico o en tránsito.");
     }
 
     const proformaActiva = await this.prisma.proforma.findFirst({

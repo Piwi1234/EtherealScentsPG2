@@ -70,13 +70,13 @@ export class ProformaCompletionService {
 
   private async assertSinProcuraPendiente(tx: Prisma.TransactionClient, proformaId: string) {
     const procuras = await tx.proformaDetalleAsignacion.findMany({
-      where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
+      where: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
       include: { proformaDetalle: { include: { variante: { include: { product: true } } } } },
     });
     if (procuras.length === 0) return;
 
     const detalleMsg = procuras
-      .map((p) => `${p.proformaDetalle.variante.product.name} (${p.proformaDetalle.variante.variantCode}): faltan ${p.cantidad}`)
+      .map((p) => `${p.proformaDetalle.variante.product.name} (${p.proformaDetalle.variante.variantCode}): faltan ${p.cantidad}${p.origen === OrigenAsignacion.EN_TRANSITO ? " (reservadas en tránsito, todavía no llegaron)" : ""}`)
       .join(", ");
     throw new ConflictException(`No se puede completar: todavía falta stock para ${detalleMsg}.`);
   }
