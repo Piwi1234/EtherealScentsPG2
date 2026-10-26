@@ -93,24 +93,22 @@ export default function RegistrosPage() {
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+        <div className="seg" role="tablist">
+          {(["VENTA", "COMPRA"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={tab === t ? "on" : undefined}
+              onClick={() => elegirTab(t)}
+            >
+              {t === "VENTA" ? "Ventas" : "Compras"}
+            </button>
+          ))}
+        </div>
         <h1 style={{ margin: 0, fontSize: 20 }}>Registros</h1>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }} role="tablist">
-        {(["VENTA", "COMPRA"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            className={tab === t ? "action-btn" : "link-button"}
-            style={tab === t ? { fontWeight: 700 } : undefined}
-            onClick={() => elegirTab(t)}
-          >
-            {t === "VENTA" ? "Ventas" : "Compras"}
-          </button>
-        ))}
       </div>
 
       {visitadas.map((t) => (
@@ -146,6 +144,7 @@ function RegistrosPanel({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pageNum, setPageNum] = useState(1);
+  const [estado, setEstado] = useState<"" | "APROBADA" | "COMPLETADA">("");
   // Nombres para los chips de filtros activos, y claves para reiniciar los controles que guardan su propio estado.
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteKey, setClienteKey] = useState(0);
@@ -200,6 +199,7 @@ function RegistrosPanel({
     setLoading(true);
     getRegistros({
       tipo,
+      estado: estado || undefined,
       codigo: codigo || undefined,
       search: search || undefined,
       fechaDesde: dateSelection.fechaDesde,
@@ -215,7 +215,7 @@ function RegistrosPanel({
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [activo, tipo, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
+  }, [activo, tipo, estado, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
 
   function handleCategoryChange(value: string) {
     setCategoryId(value);
@@ -250,6 +250,11 @@ function RegistrosPanel({
     else grupos.push({ proforma: linea.proforma, lineas: [linea] });
   }
 
+  function elegirEstado(valor: "" | "APROBADA" | "COMPLETADA") {
+    setEstado(valor);
+    setPageNum(1);
+  }
+
   function alternarGrupo(id: string) {
     setAbiertas((prev) => {
       const next = new Set(prev);
@@ -268,6 +273,7 @@ function RegistrosPanel({
   function limpiarTodo() {
     setSearchInput("");
     setCodigoInput("");
+    setEstado("");
     setDateSelection(TODO_EL_TIEMPO);
     setDateKey((k) => k + 1);
     setCategoryId("");
@@ -283,6 +289,7 @@ function RegistrosPanel({
   // Un chip por cada filtro activo, con su botón para quitarlo.
   const chips: { key: string; label: string; quitar: () => void }[] = [];
   if (search) chips.push({ key: "search", label: `Búsqueda: ${search}`, quitar: () => setSearchInput("") });
+  if (estado) chips.push({ key: "estado", label: estado === "APROBADA" ? "Aprobadas" : "Completadas", quitar: () => elegirEstado("") });
   if (codigo) chips.push({ key: "codigo", label: `Código: ${codigo}`, quitar: () => setCodigoInput("") });
   if (dateSelection.fechaDesde || dateSelection.fechaHasta) {
     chips.push({
@@ -331,6 +338,23 @@ function RegistrosPanel({
   return (
     <>
       <div className="filters-bar">
+        <div className="filter-field">
+          <label className="filter-label">Estado</label>
+          <div className="seg" role="group" aria-label="Estado de la proforma">
+            {(
+              [
+                ["", "Todas"],
+                ["APROBADA", "Aprobadas"],
+                ["COMPLETADA", "Completadas"],
+              ] as const
+            ).map(([valor, etiqueta]) => (
+              <button key={valor} type="button" className={estado === valor ? "on" : undefined} onClick={() => elegirEstado(valor)}>
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
           <label className="filter-label">Producto o marca</label>
           <input

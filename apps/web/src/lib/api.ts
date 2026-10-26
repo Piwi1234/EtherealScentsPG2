@@ -1002,6 +1002,7 @@ export function desvincularPedido(asignacionId: string) {
 export function getRegistros(
   query: {
     tipo: string;
+    estado?: "APROBADA" | "COMPLETADA";
     codigo?: string;
     fechaDesde?: string;
     fechaHasta?: string;
@@ -1017,6 +1018,7 @@ export function getRegistros(
 ) {
   const params = new URLSearchParams();
   params.set("tipo", query.tipo);
+  if (query.estado) params.set("estado", query.estado);
   if (query.search) params.set("search", query.search);
   if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);

@@ -9870,3 +9870,38 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   max-width: 150px;
   object-fit: contain;
 }
+
+/* Control segmentado (Ventas | Compras, Todas | Aprobadas | Completadas): contenedor en píldora con el
+   segmento activo relleno de acento. */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.seg button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.seg button:hover {
+  color: var(--color-text);
+}
+
+.seg button.on {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+}

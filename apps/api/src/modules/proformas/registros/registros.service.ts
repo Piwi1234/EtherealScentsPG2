@@ -72,7 +72,7 @@ export class RegistrosService {
         tipo: query.tipo,
         codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
         clienteId: query.clienteId,
-        estado: { in: ESTADOS_REGISTRABLES },
+        estado: query.estado ? EstadoProforma[query.estado] : { in: ESTADOS_REGISTRABLES },
         fecha: {
           gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
           lte: hasta,
