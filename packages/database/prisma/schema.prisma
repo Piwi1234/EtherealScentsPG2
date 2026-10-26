@@ -1073,6 +1073,8 @@ model Envio {
   almacenDestinoId String      @map("almacen_destino_id") @db.Uuid
   almacenDestino   Almacen     @relation(fields: [almacenDestinoId], references: [id], onDelete: Restrict)
   nota             String?
+  // Nota que se imprime al pie de cada página del PDF del envío (editable en cualquier estado).
+  notaPie          String?     @map("nota_pie")
   fechaEnvio       DateTime?   @map("fecha_envio")
   fechaRecepcion   DateTime?   @map("fecha_recepcion")
   creadoPorId      String      @map("creado_por_id") @db.Uuid

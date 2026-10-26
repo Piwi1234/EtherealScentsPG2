@@ -8,6 +8,7 @@ import {
   agregarItemEnvio,
   anularEnvio,
   cerrarEnvio,
+  downloadEnvioPdf,
   getEnvio,
   getEnviosDisponibles,
   getProducts,
@@ -15,6 +16,7 @@ import {
   quitarItemEnvio,
   recibirEnvio,
   updateItemEnvio,
+  updateNotaPieEnvio,
 } from "../../../../../lib/api";
 import type { Envio, EnvioDisponible, EnvioItem, EnvioVariante, Product } from "../../../../../lib/types";
 import { ESTADO_ENVIO_CLASE, ESTADO_ENVIO_LABEL } from "../../../../../lib/envio-estados";
@@ -126,6 +128,11 @@ export default function EnvioDetallePage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [notaPie, setNotaPie] = useState("");
+  const [notaPieOriginal, setNotaPieOriginal] = useState("");
+  const [guardandoNota, setGuardandoNota] = useState(false);
+  const [descargando, setDescargando] = useState(false);
+
   const [recibiendo, setRecibiendo] = useState(false);
   const [lineas, setLineas] = useState<Record<string, LineaRecepcion>>({});
   const [notaRecepcion, setNotaRecepcion] = useState("");
@@ -133,7 +140,11 @@ export default function EnvioDetallePage() {
 
   const load = useCallback(() => {
     getEnvio(id)
-      .then(setEnvio)
+      .then((e) => {
+        setEnvio(e);
+        setNotaPie(e.notaPie ?? "");
+        setNotaPieOriginal(e.notaPie ?? "");
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [id]);
 
@@ -168,6 +179,34 @@ export default function EnvioDetallePage() {
   const faltan = total - recibidas;
   const pendientes = envio.items.filter((i) => i.cantidad > i.cantidadRecibida);
   const hayRecepciones = envio.recepciones.length > 0;
+
+  async function guardarNotaPie() {
+    if (notaPie.trim() === notaPieOriginal.trim()) return;
+    setGuardandoNota(true);
+    setError("");
+    try {
+      const actualizado = await updateNotaPieEnvio(id, notaPie.trim());
+      setNotaPieOriginal(actualizado.notaPie ?? "");
+      setNotaPie(actualizado.notaPie ?? "");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setGuardandoNota(false);
+    }
+  }
+
+  async function descargarPdf() {
+    setDescargando(true);
+    setError("");
+    try {
+      await guardarNotaPie();
+      await downloadEnvioPdf(id, envio!.codigo);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDescargando(false);
+    }
+  }
 
   function abrirRecepcion() {
     setLineas({});
@@ -212,9 +251,14 @@ export default function EnvioDetallePage() {
           <h1 style={{ margin: 0, fontSize: 20 }}>Envío — {envio.codigo}</h1>
           <span className={`badge ${ESTADO_ENVIO_CLASE[envio.estado]}`}>{ESTADO_ENVIO_LABEL[envio.estado]}</span>
         </div>
-        <Link href="/dashboard/stock/envios" className="link-button">
-          Volver
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button type="button" className="action-btn" onClick={descargarPdf} disabled={descargando}>
+            {descargando ? "Generando..." : "Descargar PDF"}
+          </button>
+          <Link href="/dashboard/stock/envios" className="link-button">
+            Volver
+          </Link>
+        </div>
       </div>
 
       <div className="grid-2" style={{ marginBottom: 20, rowGap: 14 }}>
@@ -229,6 +273,10 @@ export default function EnvioDetallePage() {
         <div>
           <span className="filter-label">Salió</span>
           <p style={{ margin: "4px 0 0" }}>{formatDate(envio.fechaEnvio)}</p>
+        </div>
+        <div>
+          <span className="filter-label">Total de unidades</span>
+          <p style={{ margin: "4px 0 0" }}>{total}</p>
         </div>
         <div>
           <span className="filter-label">{envio.estado === "RECIBIDO" ? "Recibido" : "Avance"}</span>
@@ -294,9 +342,40 @@ export default function EnvioDetallePage() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={3} className="cell-muted" style={{ textAlign: "right", fontWeight: 600 }}>
+                  Total de unidades
+                </td>
+                <td className="num cell-primary">{total}</td>
+                {!armando && <td className="num cell-primary">{recibidas}</td>}
+                {!armando && <td className="num cell-primary">{faltan > 0 ? faltan : "—"}</td>}
+                {armando && <td></td>}
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
+
+      <div style={{ marginTop: 18 }}>
+        <label className="filter-label" htmlFor="envio-nota-pie">
+          Nota al pie (se imprime en el pie del PDF)
+        </label>
+        <textarea
+          id="envio-nota-pie"
+          className="field"
+          rows={2}
+          maxLength={600}
+          value={notaPie}
+          placeholder="Ej. Mercadería frágil: revisar al recibir."
+          onChange={(e) => setNotaPie(e.target.value)}
+          onBlur={guardarNotaPie}
+          style={{ width: "100%", marginTop: 6, resize: "vertical" }}
+        />
+        <p className="cell-muted" style={{ fontSize: 11.5, margin: "4px 0 0" }}>
+          {guardandoNota ? "Guardando..." : "Se guarda al salir del campo. Se puede editar en cualquier estado del envío."}
+        </p>
+      </div>
 
       {armando && disponibles.length > 0 && (
         <div style={{ marginTop: 18 }}>

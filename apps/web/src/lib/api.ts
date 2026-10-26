@@ -1286,6 +1286,14 @@ export function recibirEnvio(id: string, data: CreateRecepcionInput) {
   return apiPost<Envio>(`/envios/${id}/recepciones`, data);
 }
 
+export function downloadEnvioPdf(id: string, codigo: string) {
+  return apiDownload(`/envios/${id}/pdf`, `envio-${codigo}.pdf`);
+}
+
+export function updateNotaPieEnvio(id: string, notaPie: string) {
+  return apiPatch<Envio>(`/envios/${id}/nota-pie`, { notaPie });
+}
+
 export function cerrarEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/cerrar`, {});
 }

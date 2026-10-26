@@ -100,6 +100,33 @@ function leerEstado(tab: string, restaurar: boolean): EstadoGuardado | null {
   }
 }
 
+const ESTADO_PRODUCTO: Record<NonNullable<RegistroLinea["estadoLinea"]>["estado"], { label: string; clase: string }> = {
+  SALIO: { label: "Salió de stock", clase: "badge badge-success" },
+  EN_STOCK: { label: "En stock", clase: "badge badge-lista" },
+  RECIBIDO: { label: "Recibido", clase: "badge badge-success" },
+  EN_TRANSITO: { label: "Enviado", clase: "badge badge-accent" },
+  RECOGIDO: { label: "Recogido", clase: "badge badge-info" },
+  COMPRADO: { label: "Comprado", clase: "badge badge-accent" },
+  EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted" },
+  SIN_COMPRA: { label: "Sin compra", clase: "badge badge-warn" },
+};
+
+/** Estado de un producto dentro de su proforma, para saber cuál falta sin abrirla. */
+function EstadoProducto({ linea, tipo }: { linea: RegistroLinea; tipo: TipoProforma }) {
+  const e = linea.estadoLinea;
+  if (!e) return <span className="cell-muted">—</span>;
+  const info = ESTADO_PRODUCTO[e.estado];
+  // Detalle de avance: en una venta, cuántas unidades ya están listas; en una compra, cuántas ya llegaron.
+  const completo = e.estado === "SALIO" || e.estado === "EN_STOCK" || e.estado === "RECIBIDO";
+  const detalle = completo ? null : tipo === "VENTA" ? `${e.listas} de ${e.cantidad} listas` : `${e.listas} de ${e.cantidad} recibidas`;
+  return (
+    <>
+      <span className={info.clase}>{info.label}</span>
+      {detalle && e.listas > 0 && <div className="cell-muted" style={{ fontSize: 11.5 }}>{detalle}</div>}
+    </>
+  );
+}
+
 /** Entrega de una venta aprobada: con faltante, reservada en tránsito o lista para completar. */
 function EntregaResumen({ entrega }: { entrega: NonNullable<RegistroLinea["proforma"]["entrega"]> }) {
   if (entrega.faltante > 0) return <span className="badge badge-warn entrega-badge" title="Hay productos sin stock: falta comprarlos o esperar que lleguen.">Con faltante · {entrega.faltante}</span>;
@@ -759,6 +786,7 @@ function RegistrosPanel({
                   <th style={{ minWidth: 200 }}>Producto</th>
                   <th>Atributos</th>
                   <th className="num">Cant.</th>
+                  <th>Estado del producto</th>
                   <th className="num">{tipo === "COMPRA" ? "Costo unitario Bs" : "Precio unitario Bs"}</th>
                   <th className="num">Subtotal Bs</th>
                   {tipo === "COMPRA" && <th>Proveedor</th>}
@@ -814,7 +842,7 @@ function RegistrosPanel({
                             </div>
                           )}
                         </td>
-                        <td colSpan={2} />
+                        <td colSpan={3} />
                         <td className="num">{money(subtotalGrupo)}</td>
                         {tipo === "COMPRA" && <td colSpan={2} />}
                         {tipo === "VENTA" && (
@@ -838,6 +866,9 @@ function RegistrosPanel({
                               {atributosCompactos(etiqueta)}
                             </td>
                             <td className="num">{linea.cantidad}</td>
+                            <td>
+                              <EstadoProducto linea={linea} tipo={tipo} />
+                            </td>
                             <td className="num cell-muted">{money(unitarioBs(linea, tipo))}</td>
                             <td className="num">{money(subtotalBs(linea, tipo))}</td>
                             {tipo === "COMPRA" && <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>}
@@ -852,6 +883,7 @@ function RegistrosPanel({
                 <tr className="reg-total">
                   <td colSpan={3}>Total de esta página</td>
                   <td className="num">{data.items.reduce((n, l) => n + l.cantidad, 0)}</td>
+                  <td />
                   <td />
                   <td className="num">{money(sumaBs(data.items.map((l) => subtotalBs(l, tipo))))}</td>
                   {tipo === "COMPRA" && <td colSpan={2} />}

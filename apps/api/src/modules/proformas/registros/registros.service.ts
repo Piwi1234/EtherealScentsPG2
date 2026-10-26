@@ -3,7 +3,14 @@ import { EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, Pr
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { CategoryService } from "../../../catalog/category/category.service";
+import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace, type EstadoPedidoDerivado } from "../recojo.util";
 import { QueryRegistrosDto } from "./dto/query-registros.dto";
+
+/** Estado de un producto (línea) dentro de su proforma, para verlo sin abrirla. */
+export type EstadoLinea = "SALIO" | "EN_STOCK" | "RECIBIDO" | EstadoPedidoDerivado;
+
+// De menos a más avanzado: en una venta con faltantes se muestra el que MÁS atrasado está (el que falta).
+const ORDEN_AVANCE: EstadoPedidoDerivado[] = ["SIN_COMPRA", "EN_PREPARACION", "COMPRADO", "RECOGIDO", "EN_TRANSITO"];
 
 // Solo transacciones reales (ni Borrador todavía, ni Anulada que no llegó a pasar) — mismo criterio
 // que ya usa Seguimiento para "líneas con seguimiento habilitado".
@@ -170,7 +177,76 @@ export class RegistrosService {
       ),
     };
 
-    return { items: await this.conDatosDeProforma(items, query.tipo), total, page, pageSize, resumen };
+    const conProforma = await this.conDatosDeProforma(items, query.tipo);
+    return { items: await this.conEstadoDeLinea(conProforma, query.tipo), total, page, pageSize, resumen };
+  }
+
+  /**
+   * Suma a cada línea su estado: en una venta, si salió del stock, está en stock o falta (y cómo va su compra: sin compra,
+   * comprado, recogido o enviado); en una compra, comprado, recogido, enviado o recibido. Borradores y anuladas no tienen.
+   */
+  private async conEstadoDeLinea<T extends { id: string; cantidad: number; proforma: { estado: EstadoProforma } }>(items: T[], tipo: TipoProforma) {
+    const ids = items.map((i) => i.id);
+    if (ids.length === 0) return items;
+    const estadoDe = new Map<string, { estado: EstadoLinea; listas: number; cantidad: number }>();
+
+    if (tipo === TipoProforma.VENTA) {
+      const asignaciones = await this.prisma.proformaDetalleAsignacion.findMany({
+        where: { proformaDetalleId: { in: ids }, cantidad: { gt: 0 } },
+        select: {
+          id: true,
+          proformaDetalleId: true,
+          origen: true,
+          cantidad: true,
+          compraDetalle: { select: { proforma: { select: { estado: true } }, ...compraConEnlacesSelect } },
+        },
+      });
+      for (const item of items) {
+        if (item.proforma.estado === EstadoProforma.COMPLETADA) {
+          estadoDe.set(item.id, { estado: "SALIO", listas: item.cantidad, cantidad: item.cantidad });
+          continue;
+        }
+        if (item.proforma.estado !== EstadoProforma.APROBADA) continue;
+        const propias = asignaciones.filter((a) => a.proformaDetalleId === item.id);
+        const listas = propias.filter((a) => a.origen === OrigenAsignacion.STOCK).reduce((n, a) => n + a.cantidad, 0);
+        const estados: EstadoPedidoDerivado[] = [];
+        for (const a of propias) {
+          if (a.origen === OrigenAsignacion.EN_TRANSITO) estados.push("EN_TRANSITO");
+          else if (a.origen === OrigenAsignacion.PROCURA) {
+            const recogidas = a.compraDetalle ? recogidasDeEnlace(a.compraDetalle, a.id) : 0;
+            const enviadas = a.compraDetalle ? enviadasDeEnlace(a.compraDetalle, a.id) : 0;
+            estados.push(estadoSegunCompra(a.compraDetalle?.proforma.estado, a.cantidad, recogidas, enviadas));
+          }
+        }
+        const peor = estados.sort((x, y) => ORDEN_AVANCE.indexOf(x) - ORDEN_AVANCE.indexOf(y))[0];
+        estadoDe.set(item.id, { estado: peor ?? "EN_STOCK", listas, cantidad: item.cantidad });
+      }
+    } else {
+      const lineas = await this.prisma.proformaDetalle.findMany({
+        where: { id: { in: ids } },
+        select: {
+          id: true,
+          recojoLineas: { select: { cantidad: true } },
+          envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidad: true, cantidadRecibida: true, envio: { select: { estado: true } } } },
+        },
+      });
+      const porId = new Map(lineas.map((l) => [l.id, l]));
+      for (const item of items) {
+        if (item.proforma.estado === EstadoProforma.COMPLETADA) {
+          estadoDe.set(item.id, { estado: "RECIBIDO", listas: item.cantidad, cantidad: item.cantidad });
+          continue;
+        }
+        if (item.proforma.estado !== EstadoProforma.APROBADA) continue;
+        const l = porId.get(item.id);
+        const recogido = l?.recojoLineas.reduce((n, r) => n + r.cantidad, 0) ?? 0;
+        const enviado = l?.envioItems.filter((i) => i.envio.estado !== EstadoEnvio.ARMANDO).reduce((n, i) => n + i.cantidad, 0) ?? 0;
+        const recibido = l?.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0) ?? 0;
+        // El estado es el de las unidades que todavía faltan: recibido solo cuando llegó todo.
+        const estado: EstadoLinea = recibido >= item.cantidad ? "RECIBIDO" : enviado >= item.cantidad ? "EN_TRANSITO" : recogido >= item.cantidad ? "RECOGIDO" : "COMPRADO";
+        estadoDe.set(item.id, { estado, listas: recibido, cantidad: item.cantidad });
+      }
+    }
+    return items.map((i) => ({ ...i, estadoLinea: estadoDe.get(i.id) ?? null }));
   }
 
   /**

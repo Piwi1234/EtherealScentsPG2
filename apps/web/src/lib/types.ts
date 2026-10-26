@@ -1084,6 +1084,8 @@ export type RegistroLinea = {
     /** COMPRA: cuánto de lo comprado se recogió, salió en un envío y ya llegó. */
     avance?: { cantidad: number; recogido: number; enviado: number; recibido: number };
   };
+  /** Estado de este producto dentro de su proforma (null en borradores y anuladas). */
+  estadoLinea?: { estado: "SALIO" | "EN_STOCK" | "RECIBIDO" | EstadoPedido; listas: number; cantidad: number } | null;
   variante: ProformaDetalleVariante;
 };
 
@@ -1239,6 +1241,8 @@ export type Envio = {
   almacenDestinoId: string;
   almacenDestino: Almacen;
   nota: string | null;
+  /** Nota que se imprime al pie de cada página del PDF del envío. */
+  notaPie: string | null;
   fechaEnvio: string | null;
   fechaRecepcion: string | null;
   creadoPor: { id: string; nombre: string };
