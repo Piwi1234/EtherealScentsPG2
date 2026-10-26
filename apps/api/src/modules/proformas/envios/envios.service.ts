@@ -8,7 +8,7 @@ import { ProformaHistorialService } from "../proforma-historial.service";
 import { includeDetails } from "../proformas.service";
 import { lockStockRows, stockKey } from "../stock-lock.util";
 import { resolverProcuraPendiente } from "../procura.util";
-import { liquidarTransito, reservarTransitoParaProcuras } from "../transito.util";
+import { aporteEnTransito, liquidarTransito, reservarTransitoParaProcuras } from "../transito.util";
 import { CreateEnvioDto, QueryEnvioDto, UpdateEnvioDto, UpdateRecepcionLineaDto } from "./dto/envio.dto";
 
 const varianteInclude = {
@@ -166,15 +166,28 @@ export class EnviosService {
     return this.findOne(id);
   }
 
-  /** Unidades "para stock" del envío agrupadas por variante (las líneas "Pedido de cliente" no suman
-   * al stock en tránsito: ya están ligadas a la nota que las pidió). */
-  private async cantidadesStockDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
+  /** Lo que cada línea del envío aporta HOY al stock en tránsito (ver aporteEnTransito): las líneas
+   * "para stock" todo, las "pedido de cliente" solo la parte que no está ligada a notas de venta. */
+  private async aportesDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
     const lineas = await tx.proformaDetalle.findMany({
-      where: { proforma: { envioId }, destino: DestinoCompra.STOCK },
-      select: { varianteId: true, cantidad: true },
+      where: { proforma: { envioId } },
+      select: { id: true, varianteId: true, cantidad: true, destino: true, asignacionesCubiertas: { select: { cantidad: true } } },
+    });
+    return lineas.map((l) => ({
+      id: l.id,
+      varianteId: l.varianteId,
+      aporte: aporteEnTransito({ destino: l.destino, cantidad: l.cantidad, ligadas: l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) }),
+    }));
+  }
+
+  /** Lo que el envío tiene contado en tránsito por variante, según lo que cada línea aportó al despachar. */
+  private async contadoDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
+    const lineas = await tx.proformaDetalle.findMany({
+      where: { proforma: { envioId }, enTransitoContado: { gt: 0 } },
+      select: { varianteId: true, enTransitoContado: true },
     });
     const porVariante = new Map<string, number>();
-    for (const l of lineas) porVariante.set(l.varianteId, (porVariante.get(l.varianteId) ?? 0) + l.cantidad);
+    for (const l of lineas) porVariante.set(l.varianteId, (porVariante.get(l.varianteId) ?? 0) + l.enTransitoContado);
     return porVariante;
   }
 
@@ -190,9 +203,14 @@ export class EnviosService {
           this.assertEstado(rows[0], [EstadoEnvio.ARMANDO], "marcar en tránsito");
 
           const almacenId = envio.almacenDestinoId;
-          const porVariante = await this.cantidadesStockDelEnvio(tx, id);
+          const aportes = await this.aportesDelEnvio(tx, id);
+          const porVariante = new Map<string, number>();
+          for (const a of aportes) porVariante.set(a.varianteId, (porVariante.get(a.varianteId) ?? 0) + a.aporte);
           await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
+          // Se guarda lo que aportó cada línea para restar exactamente lo mismo al anular o recibir.
+          for (const a of aportes) await tx.proformaDetalle.update({ where: { id: a.id }, data: { enTransitoContado: a.aporte } });
           for (const [varianteId, cantidad] of porVariante) {
+            if (cantidad <= 0) continue;
             await tx.stock.update({
               where: { varianteId_almacenId: { varianteId, almacenId } },
               data: { cantidadEnTransito: { increment: cantidad } },
@@ -222,12 +240,13 @@ export class EnviosService {
 
           if (rows[0].estado === EstadoEnvio.EN_TRANSITO) {
             const almacenId = envio.almacenDestinoId;
-            const porVariante = await this.cantidadesStockDelEnvio(tx, id);
+            const porVariante = await this.contadoDelEnvio(tx, id);
             await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
             // Lo reservado en tránsito que ya no tiene de dónde salir vuelve a Procura.
             for (const [varianteId, quitar] of porVariante) {
               await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: false });
             }
+            await tx.proformaDetalle.updateMany({ where: { proforma: { envioId: id } }, data: { enTransitoContado: 0 } });
           }
           await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
           await tx.proforma.updateMany({ where: { envioId: id }, data: { envioId: null } });
@@ -315,13 +334,8 @@ export class EnviosService {
 
           const almacenId = lock.almacenDestinoId;
           const recibidas = envio.recepcion.filter((l) => l.cantidadRecibida > 0);
-          // Lo que este envío tenía contado como "en tránsito" (solo líneas para stock, por variante esperada).
-          const enTransito = new Map<string, number>();
-          if (lock.estado === EstadoEnvio.EN_TRANSITO) {
-            for (const l of envio.recepcion.filter((r) => r.compraDetalle.destino === DestinoCompra.STOCK)) {
-              enTransito.set(l.varianteEsperadaId, (enTransito.get(l.varianteEsperadaId) ?? 0) + l.cantidadEsperada);
-            }
-          }
+          // Lo que este envío tenía contado como "en tránsito" (lo que aportó cada línea al despachar).
+          const enTransito = lock.estado === EstadoEnvio.EN_TRANSITO ? await this.contadoDelEnvio(tx, id) : new Map<string, number>();
           const variantesPares = new Set([...recibidas.map((l) => l.varianteRecibidaId), ...enTransito.keys()]);
           const pares = Array.from(variantesPares).map((varianteId) => ({ varianteId, almacenId }));
           const stockPorPar = await lockStockRows(tx, pares);
@@ -351,6 +365,7 @@ export class EnviosService {
           for (const [varianteId, quitar] of enTransito) {
             await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: true });
           }
+          await tx.proformaDetalle.updateMany({ where: { proforma: { envioId: id } }, data: { enTransitoContado: 0 } });
 
           for (const par of pares) {
             const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });

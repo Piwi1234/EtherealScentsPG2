@@ -993,6 +993,9 @@ model ProformaDetalle {
 
   // COMPRA: para qué se compra esta línea (ver DestinoCompra). Las líneas de VENTA lo ignoran.
   destino               DestinoCompra               @default(STOCK)
+  // Stock en tránsito que esta línea aportó al despachar su envío (ver transito.util.ts): se resta tal cual
+  // al anular o recibir el envío. Una línea PEDIDO aporta solo la parte no ligada a notas de venta.
+  enTransitoContado     Int                         @default(0) @map("en_transito_contado")
   // COMPRA con destino PEDIDO: las asignaciones PROCURA de notas de venta que esta línea cubre.
   asignacionesCubiertas ProformaDetalleAsignacion[] @relation("AsignacionCubiertaPor")
 

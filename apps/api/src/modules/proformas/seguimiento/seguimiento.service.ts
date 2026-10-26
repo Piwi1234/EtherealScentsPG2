@@ -4,6 +4,7 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
+import { sincronizarEnTransitoLinea } from "../transito.util";
 
 // Mismo shape que ProformaDetalleTable/AgregarProductoBrowser necesitan para mostrar la variante
 // (opciones propias + atributos heredados marcados mostrarEnProforma) y para poder filtrar por
@@ -314,6 +315,7 @@ export class SeguimientoService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const ligar = async () => {
       // Si este mismo faltante ya tiene una fila ligada a esa compra, lo que se liga se suma a ella.
       const existente = await tx.proformaDetalleAsignacion.findFirst({
         where: { proformaDetalleId: asignacion.proformaDetalleId, origen: OrigenAsignacion.PROCURA, compraDetalleId, id: { not: asignacionId } },
@@ -343,6 +345,11 @@ export class SeguimientoService {
         },
         include: includeLinea,
       });
+      };
+      const resultado = await ligar();
+      // Si la compra viaja en un envío ya despachado, lo ligado deja de contar como stock en tránsito libre.
+      await sincronizarEnTransitoLinea(tx, compraDetalleId);
+      return resultado;
     });
   }
 
@@ -352,7 +359,9 @@ export class SeguimientoService {
     if (!asignacion) throw new NotFoundException("Línea de Procura no encontrada.");
     if (!asignacion.compraDetalleId) return this.prisma.proformaDetalleAsignacion.findUniqueOrThrow({ where: { id: asignacionId }, include: includeLinea });
 
+    const compraDetalleId = asignacion.compraDetalleId;
     return this.prisma.$transaction(async (tx) => {
+      const soltar = async () => {
       const libre = await tx.proformaDetalleAsignacion.findFirst({
         where: {
           proformaDetalleId: asignacion.proformaDetalleId,
@@ -366,6 +375,11 @@ export class SeguimientoService {
         return tx.proformaDetalleAsignacion.update({ where: { id: libre.id }, data: { cantidad: { increment: asignacion.cantidad } }, include: includeLinea });
       }
       return tx.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { compraDetalleId: null }, include: includeLinea });
+      };
+      const resultado = await soltar();
+      // Lo soltado vuelve a ser stock en tránsito libre si la compra ya viaja en un envío despachado.
+      await sincronizarEnTransitoLinea(tx, compraDetalleId);
+      return resultado;
     });
   }
 

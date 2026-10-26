@@ -1,4 +1,5 @@
-import { EstadoProforma, OrigenAsignacion, Prisma } from "@app/database";
+import { DestinoCompra, EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma } from "@app/database";
+import { lockStockRows } from "./stock-lock.util";
 
 /**
  * Stock "en tránsito": unidades "para stock" de compras cuyo envío ya salió (EN_TRANSITO) hacia un
@@ -127,4 +128,53 @@ export async function liquidarTransito(
       ...(aStockTotal > 0 ? { cantidadReservada: { increment: aStockTotal } } : {}),
     },
   });
+}
+
+/** Lo que una línea de compra aporta al stock en tránsito: "para stock" todo; "pedido de cliente" solo la
+ * parte que no está ligada a faltantes de notas de venta (esas unidades ya tienen dueño). */
+export function aporteEnTransito(linea: { destino: DestinoCompra; cantidad: number; ligadas: number }): number {
+  return linea.destino === DestinoCompra.STOCK ? linea.cantidad : Math.max(0, linea.cantidad - linea.ligadas);
+}
+
+/**
+ * Si la línea viaja en un envío ya despachado y cambió lo que tiene ligado a notas de venta, ajusta el
+ * stock en tránsito por la diferencia contra lo que ya había aportado. Ligar más resta del tránsito
+ * disponible (si ya había ventas reservadas encima y no alcanza, vuelven a Procura); soltar lo suma y lo
+ * ofrece a las ventas con faltante.
+ */
+export async function sincronizarEnTransitoLinea(tx: Prisma.TransactionClient, compraDetalleId: string): Promise<void> {
+  const linea = await tx.proformaDetalle.findUnique({
+    where: { id: compraDetalleId },
+    select: {
+      varianteId: true,
+      cantidad: true,
+      destino: true,
+      enTransitoContado: true,
+      asignacionesCubiertas: { select: { cantidad: true } },
+      proforma: { select: { envio: { select: { estado: true, almacenDestinoId: true } } } },
+    },
+  });
+  const envio = linea?.proforma.envio;
+  if (!linea || !envio || envio.estado !== EstadoEnvio.EN_TRANSITO) return;
+
+  const deseado = aporteEnTransito({
+    destino: linea.destino,
+    cantidad: linea.cantidad,
+    ligadas: linea.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0),
+  });
+  const delta = deseado - linea.enTransitoContado;
+  if (delta === 0) return;
+
+  const almacenId = envio.almacenDestinoId;
+  await lockStockRows(tx, [{ varianteId: linea.varianteId, almacenId }]);
+  if (delta > 0) {
+    await tx.stock.update({
+      where: { varianteId_almacenId: { varianteId: linea.varianteId, almacenId } },
+      data: { cantidadEnTransito: { increment: delta } },
+    });
+    await reservarTransitoParaProcuras(tx, { varianteId: linea.varianteId, almacenId });
+  } else {
+    await liquidarTransito(tx, { varianteId: linea.varianteId, almacenId, quitar: -delta, convertirAFisico: false });
+  }
+  await tx.proformaDetalle.update({ where: { id: compraDetalleId }, data: { enTransitoContado: deseado } });
 }
