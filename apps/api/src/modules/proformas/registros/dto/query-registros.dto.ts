@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 import { TipoProforma } from "@app/database";
 
 export class QueryRegistrosDto {
@@ -8,10 +8,21 @@ export class QueryRegistrosDto {
   @IsEnum(TipoProforma)
   tipo!: TipoProforma;
 
-  @ApiPropertyOptional({ enum: ["APROBADA", "COMPLETADA"], description: "Solo las proformas en ese estado; sin valor trae aprobadas y completadas." })
+  @ApiPropertyOptional({
+    enum: ["BORRADOR", "APROBADA", "COMPLETADA", "ANULADA"],
+    description: "Solo las proformas en ese estado; sin valor trae aprobadas y completadas (o borradores y anuladas con sinConcretar).",
+  })
   @IsOptional()
-  @IsIn(["APROBADA", "COMPLETADA"])
-  estado?: "APROBADA" | "COMPLETADA";
+  @IsIn(["BORRADOR", "APROBADA", "COMPLETADA", "ANULADA"])
+  estado?: "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
+
+  @ApiPropertyOptional({
+    description: "true: lo que no se concretó (borradores y anuladas) en vez de lo real (aprobadas y completadas). Un `estado` explícito manda sobre esto.",
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  sinConcretar?: boolean;
 
   @ApiPropertyOptional({ description: "Código corto de la proforma (Proforma.codigo), búsqueda exacta sin importar mayúsculas." })
   @IsOptional()

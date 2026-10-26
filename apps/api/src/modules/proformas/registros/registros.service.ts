@@ -8,6 +8,8 @@ import { QueryRegistrosDto } from "./dto/query-registros.dto";
 // Solo transacciones reales (ni Borrador todavía, ni Anulada que no llegó a pasar) — mismo criterio
 // que ya usa Seguimiento para "líneas con seguimiento habilitado".
 const ESTADOS_REGISTRABLES: EstadoProforma[] = [EstadoProforma.APROBADA, EstadoProforma.COMPLETADA];
+// Lo que no llegó a concretarse: cotizaciones sin aprobar y ventas/compras anuladas.
+const ESTADOS_SIN_CONCRETAR: EstadoProforma[] = [EstadoProforma.BORRADOR, EstadoProforma.ANULADA];
 
 const registroInclude = {
   proforma: {
@@ -16,6 +18,15 @@ const registroInclude = {
       codigo: true,
       estado: true,
       fecha: true,
+      createdAt: true,
+      creadoPor: { select: { id: true, nombre: true } },
+      // Cuándo, quién y por qué se anuló (la última entrada ANULADA del historial) — para "Sin concretar".
+      historial: {
+        where: { estado: EstadoProforma.ANULADA },
+        orderBy: { fecha: "desc" as const },
+        take: 1,
+        select: { fecha: true, nota: true, usuario: { select: { id: true, nombre: true } } },
+      },
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
       tipoCambioProf: true,
@@ -72,7 +83,9 @@ export class RegistrosService {
         tipo: query.tipo,
         codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
         clienteId: query.clienteId,
-        estado: query.estado ? EstadoProforma[query.estado] : { in: ESTADOS_REGISTRABLES },
+        estado: query.estado
+          ? EstadoProforma[query.estado]
+          : { in: query.sinConcretar ? ESTADOS_SIN_CONCRETAR : ESTADOS_REGISTRABLES },
         fecha: {
           gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
           lte: hasta,
@@ -117,7 +130,7 @@ export class RegistrosService {
           proformaId: true,
           presentacionVenta: { select: { cantidadMl: true } },
           variante: { select: { unidad: true } },
-          proforma: { select: { tipoCambioProf: true } },
+          proforma: { select: { tipoCambioProf: true, estado: true } },
         },
       }),
     ]);
@@ -127,17 +140,29 @@ export class RegistrosService {
     let totalBs = 0;
     let piezas = 0;
     const proformas = new Set<string>();
+    // Desglose por estado (para "Sin concretar": cuánto está en cotización y cuánto se anuló).
+    const porEstado: Record<string, { totalBs: number; proformas: Set<string> }> = {};
     for (const l of todas) {
       proformas.add(l.proformaId);
       const subtotal = Number(l.subtotal);
-      if (query.tipo === "VENTA") totalBs += subtotal;
-      else if (l.proforma.tipoCambioProf) totalBs += subtotal * Number(l.proforma.tipoCambioProf);
+      const subtotalEnBs = query.tipo === "VENTA" ? subtotal : l.proforma.tipoCambioProf ? subtotal * Number(l.proforma.tipoCambioProf) : 0;
+      const grupo = (porEstado[l.proforma.estado] ??= { totalBs: 0, proformas: new Set<string>() });
+      grupo.totalBs += subtotalEnBs;
+      grupo.proformas.add(l.proformaId);
+      totalBs += subtotalEnBs;
       // Una venta en ml cuenta frascos (presentaciones); una compra en ml, una unidad por línea.
       if (l.presentacionVenta?.cantidadMl) piezas += Math.round(l.cantidad / l.presentacionVenta.cantidadMl);
       else if (l.variante.unidad === "ML") piezas += 1;
       else piezas += l.cantidad;
     }
-    const resumen = { totalBs: Math.round(totalBs * 100) / 100, piezas, proformas: proformas.size };
+    const resumen = {
+      totalBs: Math.round(totalBs * 100) / 100,
+      piezas,
+      proformas: proformas.size,
+      porEstado: Object.fromEntries(
+        Object.entries(porEstado).map(([estado, g]) => [estado, { totalBs: Math.round(g.totalBs * 100) / 100, proformas: g.proformas.size }]),
+      ),
+    };
 
     return { items, total, page, pageSize, resumen };
   }

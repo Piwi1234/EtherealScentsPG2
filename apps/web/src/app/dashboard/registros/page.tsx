@@ -11,6 +11,26 @@ import { ProductoSearchSelect } from "../../../components/proformas/ProductoSear
 import { ClienteBuscador } from "../../../components/proformas/ClienteBuscador";
 import { ProveedorSelector } from "../../../components/proformas/selectors";
 
+type TabRegistros = TipoProforma | "SIN_CONCRETAR";
+
+const ETIQUETA_ESTADO = { "": "", BORRADOR: "Borradores", APROBADA: "Aprobadas", COMPLETADA: "Completadas", ANULADA: "Anuladas" } as const;
+
+/** Días enteros desde una fecha ISO hasta hoy. */
+function diasDesde(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+}
+
+/** Contexto de una proforma sin concretar: borrador → quién la creó y hace cuánto; anulada → quién y por qué. */
+function detalleSinConcretar(proforma: RegistroLinea["proforma"]): string {
+  if (proforma.estado === "ANULADA") {
+    const anulacion = proforma.historial[0];
+    const quien = anulacion?.usuario.nombre ?? "—";
+    return `Anulada por ${quien}${anulacion?.nota ? ` — "${anulacion.nota}"` : ""}`;
+  }
+  const dias = diasDesde(proforma.createdAt);
+  return `Creada por ${proforma.creadoPor.nombre} · hace ${dias} ${dias === 1 ? "día" : "días"}`;
+}
+
 const PAGE_SIZE = 20;
 const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
 
@@ -67,8 +87,8 @@ function atributosCompactos(label: string | null): string {
 }
 
 export default function RegistrosPage() {
-  const [tab, setTab] = useState<TipoProforma>("VENTA");
-  const [visitadas, setVisitadas] = useState<TipoProforma[]>(["VENTA"]);
+  const [tab, setTab] = useState<TabRegistros>("VENTA");
+  const [visitadas, setVisitadas] = useState<TabRegistros[]>(["VENTA"]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState("");
@@ -78,7 +98,7 @@ export default function RegistrosPage() {
     getBrands().then(setBrands).catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
-  function elegirTab(t: TipoProforma) {
+  function elegirTab(t: TabRegistros) {
     setTab(t);
     setVisitadas((v) => (v.includes(t) ? v : [...v, t]));
   }
@@ -95,7 +115,7 @@ export default function RegistrosPage() {
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <div className="seg" role="tablist">
-          {(["VENTA", "COMPRA"] as const).map((t) => (
+          {(["VENTA", "COMPRA", "SIN_CONCRETAR"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -104,7 +124,7 @@ export default function RegistrosPage() {
               className={tab === t ? "on" : undefined}
               onClick={() => elegirTab(t)}
             >
-              {t === "VENTA" ? "Ventas" : "Compras"}
+              {t === "VENTA" ? "Ventas" : t === "COMPRA" ? "Compras" : "Sin concretar"}
             </button>
           ))}
         </div>
@@ -113,7 +133,7 @@ export default function RegistrosPage() {
 
       {visitadas.map((t) => (
         <div key={t} hidden={tab !== t}>
-          <RegistrosPanel tipo={t} activo={tab === t} categories={categories} brands={brands} />
+          <RegistrosPanel tab={t} activo={tab === t} categories={categories} brands={brands} />
         </div>
       ))}
     </div>
@@ -121,16 +141,20 @@ export default function RegistrosPage() {
 }
 
 function RegistrosPanel({
-  tipo,
+  tab,
   activo,
   categories,
   brands,
 }: {
-  tipo: TipoProforma;
+  tab: TabRegistros;
   activo: boolean;
   categories: Category[];
   brands: Brand[];
 }) {
+  // "Sin concretar" lista borradores y anuladas (lo que no pasó a ser real); ahí el tipo se elige adentro.
+  const sinConcretar = tab === "SIN_CONCRETAR";
+  const [tipoElegido, setTipoElegido] = useState<TipoProforma>("VENTA");
+  const tipo: TipoProforma = sinConcretar ? tipoElegido : tab;
   const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [products, setProducts] = useState<Product[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -144,7 +168,7 @@ function RegistrosPanel({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pageNum, setPageNum] = useState(1);
-  const [estado, setEstado] = useState<"" | "APROBADA" | "COMPLETADA">("");
+  const [estado, setEstado] = useState<"" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA">("");
   // Nombres para los chips de filtros activos, y claves para reiniciar los controles que guardan su propio estado.
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteKey, setClienteKey] = useState(0);
@@ -200,6 +224,7 @@ function RegistrosPanel({
     getRegistros({
       tipo,
       estado: estado || undefined,
+      sinConcretar: sinConcretar || undefined,
       codigo: codigo || undefined,
       search: search || undefined,
       fechaDesde: dateSelection.fechaDesde,
@@ -215,7 +240,7 @@ function RegistrosPanel({
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [activo, tipo, estado, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
+  }, [activo, tipo, sinConcretar, estado, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
 
   function handleCategoryChange(value: string) {
     setCategoryId(value);
@@ -250,7 +275,7 @@ function RegistrosPanel({
     else grupos.push({ proforma: linea.proforma, lineas: [linea] });
   }
 
-  function elegirEstado(valor: "" | "APROBADA" | "COMPLETADA") {
+  function elegirEstado(valor: "" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA") {
     setEstado(valor);
     setPageNum(1);
   }
@@ -289,7 +314,7 @@ function RegistrosPanel({
   // Un chip por cada filtro activo, con su botón para quitarlo.
   const chips: { key: string; label: string; quitar: () => void }[] = [];
   if (search) chips.push({ key: "search", label: `Búsqueda: ${search}`, quitar: () => setSearchInput("") });
-  if (estado) chips.push({ key: "estado", label: estado === "APROBADA" ? "Aprobadas" : "Completadas", quitar: () => elegirEstado("") });
+  if (estado) chips.push({ key: "estado", label: ETIQUETA_ESTADO[estado], quitar: () => elegirEstado("") });
   if (codigo) chips.push({ key: "codigo", label: `Código: ${codigo}`, quitar: () => setCodigoInput("") });
   if (dateSelection.fechaDesde || dateSelection.fechaHasta) {
     chips.push({
@@ -338,15 +363,47 @@ function RegistrosPanel({
   return (
     <>
       <div className="filters-bar">
+        {sinConcretar && (
+          <div className="filter-field">
+            <label className="filter-label">Tipo</label>
+            <div className="seg" role="group" aria-label="Tipo de proforma">
+              {(
+                [
+                  ["VENTA", "Ventas"],
+                  ["COMPRA", "Compras"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={tipoElegido === valor ? "on" : undefined}
+                  onClick={() => {
+                    setTipoElegido(valor);
+                    setPageNum(1);
+                  }}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="filter-field">
           <label className="filter-label">Estado</label>
           <div className="seg" role="group" aria-label="Estado de la proforma">
             {(
-              [
-                ["", "Todas"],
-                ["APROBADA", "Aprobadas"],
-                ["COMPLETADA", "Completadas"],
-              ] as const
+              (sinConcretar
+                ? [
+                    ["", "Todas"],
+                    ["BORRADOR", "Borradores"],
+                    ["ANULADA", "Anuladas"],
+                  ]
+                : [
+                    ["", "Todas"],
+                    ["APROBADA", "Aprobadas"],
+                    ["COMPLETADA", "Completadas"],
+                  ]) as ["" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA", string][]
             ).map(([valor, etiqueta]) => (
               <button key={valor} type="button" className={estado === valor ? "on" : undefined} onClick={() => elegirEstado(valor)}>
                 {etiqueta}
@@ -457,7 +514,30 @@ function RegistrosPanel({
         </div>
       )}
 
-      {data && (
+      {data && sinConcretar && (
+        <div className="reg-kpis">
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">En cotización (borradores)</span>
+            <span className="dash-kpi-value">{money(data.resumen.porEstado.BORRADOR?.totalBs ?? 0)}</span>
+            <span className="dash-kpi-note">{data.resumen.porEstado.BORRADOR?.proformas ?? 0} proformas sin aprobar</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">{tipo === "VENTA" ? "Ventas anuladas" : "Compras anuladas"}</span>
+            <span className="dash-kpi-value">{money(data.resumen.porEstado.ANULADA?.totalBs ?? 0)}</span>
+            <span className="dash-kpi-note">{data.resumen.porEstado.ANULADA?.proformas ?? 0} proformas</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">Piezas</span>
+            <span className="dash-kpi-value">{data.resumen.piezas}</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">Proformas</span>
+            <span className="dash-kpi-value">{data.resumen.proformas}</span>
+          </div>
+        </div>
+      )}
+
+      {data && !sinConcretar && (
         <div className="reg-kpis">
           <div className="dash-kpi">
             <span className="dash-kpi-label">{tipo === "VENTA" ? "Total vendido" : "Total comprado"}</span>
@@ -532,6 +612,7 @@ function RegistrosPanel({
                         <td className="cell-muted" style={{ fontWeight: 400 }}>
                           {formatDate(g.proforma.fecha)}
                           {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
+                          {sinConcretar && ` · ${detalleSinConcretar(g.proforma)}`}
                           {!abiertas.has(g.proforma.id) && ` · ${g.lineas.length} producto${g.lineas.length === 1 ? "" : "s"}`}
                         </td>
                         <td>

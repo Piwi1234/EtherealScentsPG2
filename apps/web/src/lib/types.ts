@@ -904,6 +904,10 @@ export type RegistroLinea = {
     codigo: string;
     estado: EstadoProforma;
     fecha: string;
+    createdAt: string;
+    creadoPor: { id: string; nombre: string };
+    /** Última anulación (vacío si no está anulada): cuándo, quién y el motivo. */
+    historial: { fecha: string; nota: string | null; usuario: { id: string; nombre: string } }[];
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
@@ -912,7 +916,13 @@ export type RegistroLinea = {
 };
 
 /** Totales de TODO el filtro de Registros (no solo de la página visible). */
-export type RegistroResumen = { totalBs: number; piezas: number; proformas: number };
+export type RegistroResumen = {
+  totalBs: number;
+  piezas: number;
+  proformas: number;
+  /** Monto en Bs y cantidad de proformas por estado dentro del filtro. */
+  porEstado: Partial<Record<EstadoProforma, { totalBs: number; proformas: number }>>;
+};
 
 // --- Financiero (Contabilidad) ---
 
