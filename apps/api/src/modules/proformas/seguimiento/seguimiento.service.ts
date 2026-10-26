@@ -269,8 +269,17 @@ export class SeguimientoService {
     });
   }
 
-  async vincular(asignacionId: string, compraDetalleId: string) {
+  /**
+   * Liga (todo o parte de) un faltante a una línea de compra "Pedido de cliente". Una compra puede cubrir
+   * solo una parte del faltante y varias compras pueden cubrir el mismo faltante: si `cantidad` es menor
+   * a lo que falta, la fila se parte en dos — la cantidad ligada queda en una fila propia con la compra
+   * y el resto sigue libre para ligarse a otra. Sin `cantidad` se liga lo máximo que cabe.
+   */
+  async vincular(asignacionId: string, compraDetalleId: string, cantidad?: number) {
     const asignacion = await this.getProcura(asignacionId);
+    if (asignacion.compraDetalleId) {
+      throw new ConflictException("Ese faltante ya está ligado a una compra: soltalo primero para ligarlo a otra.");
+    }
     const compra = await this.prisma.proformaDetalle.findUnique({
       where: { id: compraDetalleId },
       select: {
@@ -291,19 +300,73 @@ export class SeguimientoService {
     if (compra.varianteId !== asignacion.proformaDetalle.varianteId) {
       throw new BadRequestException("La compra es de otro producto distinto al del faltante.");
     }
-    const yaCubierto = compra.asignacionesCubiertas.filter((a) => a.id !== asignacionId).reduce((s, a) => s + a.cantidad, 0);
-    if (yaCubierto + asignacion.cantidad > compra.cantidad) {
-      throw new ConflictException(
-        `La línea de compra solo tiene ${compra.cantidad - yaCubierto} unidad(es) sin cubrir y el faltante es de ${asignacion.cantidad}.`,
-      );
+
+    const libre = compra.cantidad - compra.asignacionesCubiertas.reduce((s, a) => s + a.cantidad, 0);
+    if (libre <= 0) {
+      throw new ConflictException(`La línea de compra de ${compra.proforma.codigo} ya tiene todas sus unidades ligadas.`);
     }
-    return this.prisma.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { compraDetalleId }, include: includeLinea });
+    const aLigar = cantidad ?? Math.min(asignacion.cantidad, libre);
+    if (aLigar > asignacion.cantidad) {
+      throw new BadRequestException(`El faltante es de ${asignacion.cantidad} unidad(es): no se pueden ligar ${aLigar}.`);
+    }
+    if (aLigar > libre) {
+      throw new ConflictException(`La línea de compra solo tiene ${libre} unidad(es) sin cubrir y quisiste ligar ${aLigar}.`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Si este mismo faltante ya tiene una fila ligada a esa compra, lo que se liga se suma a ella.
+      const existente = await tx.proformaDetalleAsignacion.findFirst({
+        where: { proformaDetalleId: asignacion.proformaDetalleId, origen: OrigenAsignacion.PROCURA, compraDetalleId, id: { not: asignacionId } },
+      });
+
+      if (aLigar === asignacion.cantidad) {
+        if (existente) {
+          await tx.proformaDetalleAsignacion.delete({ where: { id: asignacionId } });
+          return tx.proformaDetalleAsignacion.update({ where: { id: existente.id }, data: { cantidad: { increment: aLigar } }, include: includeLinea });
+        }
+        return tx.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { compraDetalleId }, include: includeLinea });
+      }
+
+      // Ligado parcial: se descuenta del faltante libre y se suma a la fila ya ligada a esta compra (o se crea una nueva).
+      await tx.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { cantidad: { decrement: aLigar } } });
+      if (existente) {
+        return tx.proformaDetalleAsignacion.update({ where: { id: existente.id }, data: { cantidad: { increment: aLigar } }, include: includeLinea });
+      }
+      return tx.proformaDetalleAsignacion.create({
+        data: {
+          proformaDetalleId: asignacion.proformaDetalleId,
+          almacenId: asignacion.almacenId,
+          cantidad: aLigar,
+          origen: OrigenAsignacion.PROCURA,
+          estadoSeguimiento: asignacion.estadoSeguimiento,
+          compraDetalleId,
+        },
+        include: includeLinea,
+      });
+    });
   }
 
+  /** Suelta un faltante de su compra. Si el mismo faltante ya tiene otra fila libre, se funden en una sola. */
   async desvincular(asignacionId: string) {
     const asignacion = await this.prisma.proformaDetalleAsignacion.findUnique({ where: { id: asignacionId } });
     if (!asignacion) throw new NotFoundException("Línea de Procura no encontrada.");
-    return this.prisma.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { compraDetalleId: null }, include: includeLinea });
+    if (!asignacion.compraDetalleId) return this.prisma.proformaDetalleAsignacion.findUniqueOrThrow({ where: { id: asignacionId }, include: includeLinea });
+
+    return this.prisma.$transaction(async (tx) => {
+      const libre = await tx.proformaDetalleAsignacion.findFirst({
+        where: {
+          proformaDetalleId: asignacion.proformaDetalleId,
+          origen: OrigenAsignacion.PROCURA,
+          compraDetalleId: null,
+          id: { not: asignacionId },
+        },
+      });
+      if (libre) {
+        await tx.proformaDetalleAsignacion.delete({ where: { id: asignacionId } });
+        return tx.proformaDetalleAsignacion.update({ where: { id: libre.id }, data: { cantidad: { increment: asignacion.cantidad } }, include: includeLinea });
+      }
+      return tx.proformaDetalleAsignacion.update({ where: { id: asignacionId }, data: { compraDetalleId: null }, include: includeLinea });
+    });
   }
 
   /**

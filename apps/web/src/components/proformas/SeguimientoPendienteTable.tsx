@@ -27,6 +27,7 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
   const [candidatas, setCandidatas] = useState<CompraCandidata[] | null>(null);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
   useEffect(() => {
     getComprasCandidatas(linea.id)
@@ -34,11 +35,11 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   }, [linea.id]);
 
-  async function handleLigar(compraDetalleId: string) {
+  async function handleLigar(compraDetalleId: string, cantidad: number) {
     setSavingId(compraDetalleId);
     setError("");
     try {
-      await vincularPedido(linea.id, compraDetalleId);
+      await vincularPedido(linea.id, compraDetalleId, cantidad);
       onSaved();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -47,10 +48,10 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
   }
 
   return (
-    <Modal title="Ligar a una compra" onClose={onClose}>
+    <Modal title="Ligar a una compra" onClose={onClose} maxWidth={640}>
       <p className="cell-muted" style={{ fontSize: 13, marginTop: 0 }}>
         Faltan <strong>{linea.cantidad}</strong> de {linea.proformaDetalle.variante.product.name} para la nota{" "}
-        {linea.proformaDetalle.proforma.codigo}. Elegí la línea de compra (marcada como "Pedido de cliente") que los va a cubrir.
+        {linea.proformaDetalle.proforma.codigo}. Elegí la línea de compra (marcada como "Pedido de cliente") que los va a cubrir. Si la compra trae menos, podés ligar solo una parte y completar el resto con otra compra.
       </p>
       {!candidatas && !error && <p>Cargando...</p>}
       {candidatas && candidatas.length === 0 && (
@@ -62,16 +63,31 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
       {candidatas && candidatas.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {candidatas.map((c) => {
-            const cabe = c.restante >= linea.cantidad;
+            const maximo = Math.min(c.restante, linea.cantidad);
+            const elegida = Math.min(cantidades[c.id] ?? maximo, maximo);
             return (
               <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span>
                   {c.proforma.codigo} · {c.proveedor?.nombre ?? "Sin proveedor"} · {c.restante} sin cubrir de {c.cantidad}
                   {c.proforma.envio ? ` · envío ${c.proforma.envio.codigo}` : ""}
                 </span>
-                <button type="button" className="action-btn" disabled={!cabe || savingId !== null} onClick={() => handleLigar(c.id)}>
-                  {savingId === c.id ? "Ligando..." : cabe ? "Ligar" : "No alcanza"}
-                </button>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {maximo > 0 && (
+                    <input
+                      className="field"
+                      type="number"
+                      min={1}
+                      max={maximo}
+                      value={elegida}
+                      aria-label="Cantidad a ligar"
+                      onChange={(e) => setCantidades((prev) => ({ ...prev, [c.id]: Math.max(1, Math.min(maximo, parseInt(e.target.value, 10) || 1)) }))}
+                      style={{ width: 64, textAlign: "center" }}
+                    />
+                  )}
+                  <button type="button" className="action-btn" disabled={maximo <= 0 || savingId !== null} onClick={() => handleLigar(c.id, elegida)}>
+                    {savingId === c.id ? "Ligando..." : maximo <= 0 ? "Sin cupo" : elegida < linea.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                  </button>
+                </span>
               </div>
             );
           })}

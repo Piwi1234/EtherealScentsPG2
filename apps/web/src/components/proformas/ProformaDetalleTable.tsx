@@ -51,12 +51,18 @@ function EditableNumber({
   );
 }
 
+function formatFechaNota(value: string): string {
+  return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
+}
+
 /** Liga/suelta los faltantes (Procura) de notas de venta aprobadas que esta línea de compra viene a
  * cubrir. Solo aplica a líneas con destino "Pedido de cliente". */
 function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDetalle; onClose: () => void; onChanged: () => void }) {
   const [procuras, setProcuras] = useState<ProcuraCandidata[] | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Cantidad elegida por faltante (por defecto, lo máximo que cabe).
+  const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
   function load() {
     getProcurasParaCompra(detalle.id)
@@ -65,12 +71,12 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
   }
   useEffect(load, [detalle.id]);
 
-  async function toggle(p: ProcuraCandidata) {
+  async function toggle(p: ProcuraCandidata, maximo: number) {
     setBusyId(p.id);
     setError("");
     try {
       if (p.compraDetalleId === detalle.id) await desvincularPedido(p.id);
-      else await vincularPedido(p.id, detalle.id);
+      else await vincularPedido(p.id, detalle.id, Math.min(cantidades[p.id] ?? maximo, maximo));
       load();
       onChanged();
     } catch (e) {
@@ -81,12 +87,14 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
   }
 
   const cubierto = (procuras ?? []).filter((p) => p.compraDetalleId === detalle.id).reduce((s, p) => s + p.cantidad, 0);
+  const libre = detalle.cantidad - cubierto;
 
   return (
-    <Modal title="Ligar a notas de venta" onClose={onClose}>
+    <Modal title="Ligar a notas de venta" onClose={onClose} maxWidth={720}>
       <p className="cell-muted" style={{ fontSize: 13, marginTop: 0 }}>
         Esta línea compra {detalle.cantidad} de {detalle.variante.product.name}. Elegí qué faltantes de notas de venta aprobadas viene
-        a cubrir ({cubierto} de {detalle.cantidad} ligadas).
+        a cubrir ({cubierto} de {detalle.cantidad} ligadas, {libre} libres). Podés ligar solo una parte de un faltante: el resto queda
+        disponible para otra compra.
       </p>
       {!procuras && !error && <p>Cargando...</p>}
       {procuras && procuras.length === 0 && <p className="cell-muted">No hay faltantes pendientes de este producto en notas de venta aprobadas.</p>}
@@ -94,14 +102,36 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {procuras.map((p) => {
             const ligada = p.compraDetalleId === detalle.id;
+            const maximo = Math.min(p.cantidad, libre);
+            const elegida = Math.min(cantidades[p.id] ?? maximo, maximo);
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <span>
-                  {p.proformaDetalle.proforma.codigo} · {p.proformaDetalle.proforma.cliente?.nombre ?? "—"} · faltan {p.cantidad}
+                <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                  {p.proformaDetalle.proforma.codigo} · {formatFechaNota(p.proformaDetalle.proforma.fecha)} · {p.proformaDetalle.proforma.cliente?.nombre ?? "—"} ·{" "}
+                  {ligada ? `${p.cantidad} ligadas a esta línea` : `faltan ${p.cantidad}`}
                 </span>
-                <button type="button" className={`action-btn${ligada ? " danger" : ""}`} disabled={busyId !== null} onClick={() => toggle(p)}>
-                  {ligada ? "Soltar" : "Ligar"}
-                </button>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {!ligada && maximo > 0 && (
+                    <input
+                      className="field"
+                      type="number"
+                      min={1}
+                      max={maximo}
+                      value={elegida}
+                      aria-label="Cantidad a ligar"
+                      onChange={(e) => setCantidades((prev) => ({ ...prev, [p.id]: Math.max(1, Math.min(maximo, parseInt(e.target.value, 10) || 1)) }))}
+                      style={{ width: 64, textAlign: "center" }}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className={`action-btn${ligada ? " danger" : ""}`}
+                    disabled={busyId !== null || (!ligada && maximo <= 0)}
+                    onClick={() => toggle(p, maximo)}
+                  >
+                    {ligada ? "Soltar" : maximo <= 0 ? "Sin cupo" : elegida < p.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                  </button>
+                </span>
               </div>
             );
           })}

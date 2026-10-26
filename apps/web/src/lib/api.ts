@@ -989,8 +989,8 @@ export function getProcurasParaCompra(compraDetalleId: string) {
   return apiGet<ProcuraCandidata[]>(`/proformas/seguimiento/compra/${compraDetalleId}/procuras`);
 }
 
-export function vincularPedido(asignacionId: string, compraDetalleId: string) {
-  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId });
+export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
+  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
 }
 
 export function desvincularPedido(asignacionId: string) {

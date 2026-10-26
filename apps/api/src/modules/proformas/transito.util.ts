@@ -16,7 +16,10 @@ export async function sumarAsignacion(
   almacenId: string | null,
   cantidad: number,
 ): Promise<void> {
-  const existente = await tx.proformaDetalleAsignacion.findFirst({ where: { proformaDetalleId, origen } });
+  // Una Procura se suma a la fila libre, no a una ya ligada a una compra (su cantidad ligada no debe crecer sola).
+  const existente = await tx.proformaDetalleAsignacion.findFirst({
+    where: { proformaDetalleId, origen, ...(origen === OrigenAsignacion.PROCURA ? { compraDetalleId: null } : {}) },
+  });
   if (existente) {
     await tx.proformaDetalleAsignacion.update({ where: { id: existente.id }, data: { cantidad: { increment: cantidad } } });
   } else {
