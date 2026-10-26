@@ -1,9 +1,12 @@
 "use client";
 
+import { Fragment, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Proforma } from "../../lib/types";
 import { EstadoBadge } from "./EstadoBadge";
 import { EntregaBadge } from "./EntregaBadge";
+import { formatAtributosVisibles } from "./AtributosVisibles";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -29,8 +32,42 @@ function proveedoresLabel(proforma: Proforma): string {
   return `Varios (${nombres.length})`;
 }
 
-export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Proforma[]; mostrarVendedor: boolean }) {
+function atributosDe(d: Proforma["detalles"][number]): string {
+  const opciones = d.variante.options.map((o) => o.optionValue.value);
+  const heredados = formatAtributosVisibles(d.variante.product.attributeValues, d.variante.product.variantOptionValues);
+  const partes = [...opciones, ...(heredados ? [heredados] : [])];
+  return partes.length > 0 ? partes.join(" · ") : "—";
+}
+
+/** Precio (venta) o costo (compra) unitario en Bs; en compras se convierte con el tipo de cambio de la proforma. */
+function unitarioBs(proforma: Proforma, d: Proforma["detalles"][number]): number | null {
+  if (proforma.tipo === "VENTA") return d.precioUnitario !== null ? Number(d.precioUnitario) : null;
+  const tc = proforma.tipoCambioProf ? Number(proforma.tipoCambioProf) : null;
+  if (!tc) return null;
+  return (Number(d.precioCompra ?? 0) + Number(d.costoEnvio ?? 0) + Number(d.costoSeguridad ?? 0) + Number(d.costoLogistica ?? 0)) * tc;
+}
+
+function subtotalBs(proforma: Proforma, d: Proforma["detalles"][number]): number | null {
+  if (proforma.tipo === "VENTA") return Number(d.subtotal);
+  const tc = proforma.tipoCambioProf ? Number(proforma.tipoCambioProf) : null;
+  return tc ? Number(d.subtotal) * tc : null;
+}
+
+/**
+ * `desplegable`: cada fila se puede abrir con un clic para ver los productos de la proforma (como en Registros); el
+ * código lleva al detalle. Sin `desplegable`, la fila entera lleva al detalle.
+ */
+export function ProformasTable({ proformas, mostrarVendedor, desplegable = false }: { proformas: Proforma[]; mostrarVendedor: boolean; desplegable?: boolean }) {
   const router = useRouter();
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  const alternar = (id: string) =>
+    setAbiertas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const columnas = 8 + (mostrarVendedor ? 2 : 0);
 
   return (
     <div className="table-scroll">
@@ -51,12 +88,23 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
       </thead>
       <tbody>
         {proformas.map((proforma) => (
+          <Fragment key={proforma.id}>
           <tr
-            key={proforma.id}
-            onClick={() => router.push(`/dashboard/proformas/${proforma.id}`)}
+            className={desplegable ? "reg-group" : undefined}
+            aria-expanded={desplegable ? abiertas.has(proforma.id) : undefined}
+            onClick={() => (desplegable ? alternar(proforma.id) : router.push(`/dashboard/proformas/${proforma.id}`))}
             style={{ cursor: "pointer" }}
           >
-            <td className="cell-primary">{proforma.codigo}</td>
+            <td className="cell-primary">
+              {desplegable && <span className="reg-chevron">{abiertas.has(proforma.id) ? "▾" : "▸"}</span>}
+              {desplegable ? (
+                <Link href={`/dashboard/proformas/${proforma.id}`} className="link-button" onClick={(e) => e.stopPropagation()}>
+                  {proforma.codigo}
+                </Link>
+              ) : (
+                proforma.codigo
+              )}
+            </td>
             <td className="cell-muted">{formatDate(proforma.fecha)}</td>
             <td className="cell-primary">{proforma.tipo === "VENTA" ? "Venta" : "Compra"}</td>
             <td>{proforma.empresa.nombre}</td>
@@ -72,6 +120,39 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             </td>
             <td className="num">{totalProductos(proforma)}</td>
           </tr>
+          {desplegable && abiertas.has(proforma.id) && (
+            <tr>
+              <td colSpan={columnas} style={{ padding: "4px 12px 12px 34px" }}>
+                <table className="table table-minimal table-compact">
+                  <thead>
+                    <tr>
+                      <th>Marca</th>
+                      <th style={{ minWidth: 200 }}>Producto</th>
+                      <th>Atributos</th>
+                      <th className="num">Cant.</th>
+                      {proforma.tipo === "COMPRA" && <th>Proveedor</th>}
+                      <th className="num">{proforma.tipo === "COMPRA" ? "Costo unit. Bs" : "Precio unit. Bs"}</th>
+                      <th className="num">Subtotal Bs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proforma.detalles.map((d) => (
+                      <tr key={d.id}>
+                        <td className="cell-muted">{d.variante.product.brand?.name ?? "—"}</td>
+                        <td className="cell-primary">{d.variante.product.name}</td>
+                        <td className="cell-muted">{atributosDe(d)}</td>
+                        <td className="num">{d.cantidad}</td>
+                        {proforma.tipo === "COMPRA" && <td className="cell-muted">{d.proveedor?.nombre ?? "—"}</td>}
+                        <td className="num cell-muted">{unitarioBs(proforma, d)?.toFixed(2) ?? "—"}</td>
+                        <td className="num">{subtotalBs(proforma, d)?.toFixed(2) ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          )}
+          </Fragment>
         ))}
       </tbody>
     </table>

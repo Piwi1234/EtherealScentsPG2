@@ -251,7 +251,7 @@ export default function PedidosClientesPage() {
 
       {clienteId && !loading && vista === "proformas" && proformas && proformas.items.length > 0 && (
         <div className="table-scroll">
-          <ProformasTable proformas={proformas.items} mostrarVendedor={true} />
+          <ProformasTable proformas={proformas.items} mostrarVendedor={true} desplegable />
         </div>
       )}
 
