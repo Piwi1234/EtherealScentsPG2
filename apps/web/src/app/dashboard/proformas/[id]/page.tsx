@@ -13,6 +13,7 @@ import { AsignacionAlmacenTable } from "../../../../components/proformas/Asignac
 import { VolverALista } from "../../../../components/proformas/VolverALista";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
 import { ProformaPagos } from "../../../../components/proformas/ProformaPagos";
+import { ProformaRecojos } from "../../../../components/proformas/ProformaRecojos";
 
 export default async function ProformaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -98,6 +99,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
       {proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && (
         <ProformaPagos proformaId={proforma.id} estado={proforma.estado} carterasBs={carterasBs} />
       )}
+
+      {proforma.tipo === "COMPRA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && <ProformaRecojos proforma={proforma} />}
 
       <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Historial</h2>
       <EstadoHistorialTimeline historial={proforma.historial} />

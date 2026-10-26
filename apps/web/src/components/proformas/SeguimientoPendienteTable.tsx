@@ -211,6 +211,11 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
                   <td className="num">{linea.cantidad}</td>
                   <td>
                     <span className={CLASES_PEDIDO[linea.estadoPedido]}>{LABELS_PEDIDO[linea.estadoPedido]}</span>
+                    {(linea.estadoPedido === "COMPRADO" || linea.estadoPedido === "RECOGIDO") && (
+                      <div className="cell-muted" style={{ fontSize: 12 }}>
+                        {linea.recogidas ?? 0} de {linea.cantidad} recogidas
+                      </div>
+                    )}
                   </td>
                   <td className="cell-muted">
                     {compra && linea.estadoPedido !== "SIN_COMPRA" ? (

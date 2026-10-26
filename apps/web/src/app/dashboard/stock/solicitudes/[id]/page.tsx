@@ -176,6 +176,11 @@ export default function SolicitudDetallePage() {
                     </td>
                     <td>
                       <span className={CLASES_LINEA_SOLICITUD[l.estadoLinea]}>{LABELS_LINEA_SOLICITUD[l.estadoLinea]}</span>
+                      {(l.estadoLinea === "COMPRADO" || l.estadoLinea === "RECOGIDO") && (
+                        <div className="cell-muted" style={{ fontSize: 12 }}>
+                          {l.recogidas ?? 0} de {l.cantidad} recogidas
+                        </div>
+                      )}
                     </td>
                     <td className="cell-muted">
                       {compra ? (

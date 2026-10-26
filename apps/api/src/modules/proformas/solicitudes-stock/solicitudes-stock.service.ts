@@ -3,6 +3,7 @@ import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, Prisma, TipoProforma
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
+import { compraConEnlacesSelect, recogidasDeEnlace, type CompraConEnlaces } from "../recojo.util";
 import {
   CreateSolicitudDto,
   LineaSolicitudDto,
@@ -11,7 +12,7 @@ import {
   UpdateSolicitudDto,
 } from "./dto/solicitud.dto";
 
-export type EstadoLineaSolicitud = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "EN_TRANSITO" | "RECIBIDA";
+export type EstadoLineaSolicitud = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "RECOGIDO" | "EN_TRANSITO" | "RECIBIDA";
 
 const varianteInclude = {
   product: {
@@ -34,6 +35,7 @@ const lineaInclude = {
       proforma: {
         select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } },
       },
+      ...compraConEnlacesSelect,
     },
   },
 } satisfies Prisma.SolicitudStockLineaInclude;
@@ -46,13 +48,14 @@ const solicitudInclude = {
 type LineaConCompra = { compraDetalle: { proforma: { estado: EstadoProforma; envio: { estado: EstadoEnvio } | null } } | null };
 
 /** Estado DERIVADO de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: la compra ya se completó). */
-export function estadoLineaSolicitud(linea: LineaConCompra): EstadoLineaSolicitud {
+export function estadoLineaSolicitud(linea: LineaConCompra & { cantidad?: number }, recogidas = 0): EstadoLineaSolicitud {
   const compra = linea.compraDetalle?.proforma;
   if (!compra) return "SIN_COMPRA";
   if (compra.estado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
   if (compra.estado === EstadoProforma.COMPLETADA) return "RECIBIDA";
   if (compra.estado !== EstadoProforma.APROBADA) return "SIN_COMPRA";
-  return compra.envio?.estado === EstadoEnvio.EN_TRANSITO ? "EN_TRANSITO" : "COMPRADO";
+  if (compra.envio?.estado === EstadoEnvio.EN_TRANSITO) return "EN_TRANSITO";
+  return linea.cantidad !== undefined && recogidas >= linea.cantidad ? "RECOGIDO" : "COMPRADO";
 }
 
 /** Estado de la solicitud entera: cancelada, cerrada (todo recibido) o abierta. */
@@ -75,8 +78,20 @@ const todoRecibido: Prisma.SolicitudStockWhereInput = {
 export class SolicitudesStockService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private conEstado<T extends { estado: EstadoSolicitudStock; lineas: (LineaConCompra & object)[] }>(s: T) {
-    return { ...s, estadoDerivado: estadoSolicitud(s), lineas: s.lineas.map((l) => ({ ...l, estadoLinea: estadoLineaSolicitud(l) })) };
+  private conEstado<
+    T extends {
+      estado: EstadoSolicitudStock;
+      lineas: (LineaConCompra & { id: string; cantidad: number; compraDetalle: (LineaConCompra["compraDetalle"] & CompraConEnlaces) | null })[];
+    },
+  >(s: T) {
+    return {
+      ...s,
+      estadoDerivado: estadoSolicitud(s),
+      lineas: s.lineas.map((l) => {
+        const recogidas = l.compraDetalle ? recogidasDeEnlace(l.compraDetalle, l.id) : 0;
+        return { ...l, recogidas, estadoLinea: estadoLineaSolicitud(l, recogidas) };
+      }),
+    };
   }
 
   async findAll(query: QuerySolicitudDto) {

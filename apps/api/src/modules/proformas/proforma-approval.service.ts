@@ -274,6 +274,9 @@ export class ProformaApprovalService {
           }
 
           if (lock.tipo === TipoProforma.COMPRA) {
+            if ((await tx.recojo.count({ where: { compraId: id } })) > 0) {
+              throw new ConflictException("No se puede anular: la compra tiene recojos registrados. Deshacelos primero.");
+            }
             // Una compra anulada ya no cubre nada: los faltantes de ventas y las líneas de solicitudes de
             // stock que tenía ligados quedan libres otra vez.
             await tx.proformaDetalleAsignacion.updateMany({ where: { compraDetalle: { proformaId: id } }, data: { compraDetalleId: null } });

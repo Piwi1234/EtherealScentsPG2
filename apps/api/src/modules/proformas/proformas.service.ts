@@ -55,6 +55,8 @@ export const includeDetails = {
       // COMPRA: cuánto de la línea está ligado a faltantes de notas de venta.
       asignacionesCubiertas: { select: { cantidad: true } },
       solicitudesCubiertas: { select: { cantidad: true } },
+      // COMPRA: lo recogido de esta línea (suma de los recojos).
+      recojoLineas: { select: { cantidad: true } },
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
     },

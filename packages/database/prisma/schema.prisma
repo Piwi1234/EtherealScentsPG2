@@ -30,6 +30,7 @@ model Usuario {
 
   proformasCreadas  Proforma[]          @relation("ProformaCreadaPor")
   solicitudesStock  SolicitudStock[]
+  recojosCreados    Recojo[]
   proformaHistorial ProformaHistorial[]
 
   movimientosCartera      MovimientoCartera[]
@@ -910,6 +911,8 @@ model Proforma {
   // (ProformaDetalle.proveedorId se mantiene igual). Null en compras viejas que mezclaban proveedores.
   proveedorId String?    @map("proveedor_id") @db.Uuid
   proveedor   Proveedor? @relation("ProformaProveedor", fields: [proveedorId], references: [id], onDelete: Restrict)
+  // Solo COMPRA: los retiros de mercadería del proveedor (parciales o completos).
+  recojos     Recojo[]
 
   // Solo COMPRA: en qué envío viaja esta compra (un envío agrupa varias compras de varios
   // proveedores). Null mientras no se agregó a ninguno. Una compra solo se completa al recibir su
@@ -1010,6 +1013,8 @@ model ProformaDetalle {
   asignacionesCubiertas ProformaDetalleAsignacion[] @relation("AsignacionCubiertaPor")
   // COMPRA: las líneas de solicitudes de stock que esta línea cubre (ver SolicitudStockLinea).
   solicitudesCubiertas  SolicitudStockLinea[]       @relation("SolicitudCubiertaPor")
+  // COMPRA: lo que se fue recogiendo de esta línea, recojo por recojo.
+  recojoLineas          RecojoLinea[]
 
   @@map("proforma_detalles")
 }
@@ -1457,4 +1462,35 @@ model SolicitudStockLinea {
   @@index([varianteId])
   @@index([compraDetalleId])
   @@map("solicitud_stock_lineas")
+}
+
+/// Un retiro de mercadería de una compra: fecha, nota y cuánto se recogió de cada línea. Puede ser parcial (el
+/// proveedor deja el resto para otro día): lo que falta queda "por recoger" y se completa en otro recojo.
+model Recojo {
+  id          String   @id @default(uuid()) @db.Uuid
+  compraId    String   @map("compra_id") @db.Uuid
+  compra      Proforma @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  fecha       DateTime @default(now())
+  nota        String?
+  creadoPorId String   @map("creado_por_id") @db.Uuid
+  creadoPor   Usuario  @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  lineas RecojoLinea[]
+
+  @@index([compraId])
+  @@map("recojos")
+}
+
+model RecojoLinea {
+  id              String          @id @default(uuid()) @db.Uuid
+  recojoId        String          @map("recojo_id") @db.Uuid
+  recojo          Recojo          @relation(fields: [recojoId], references: [id], onDelete: Cascade)
+  compraDetalleId String          @map("compra_detalle_id") @db.Uuid
+  compraDetalle   ProformaDetalle @relation(fields: [compraDetalleId], references: [id], onDelete: Cascade)
+  cantidad        Int
+
+  @@index([recojoId])
+  @@index([compraDetalleId])
+  @@map("recojo_lineas")
 }

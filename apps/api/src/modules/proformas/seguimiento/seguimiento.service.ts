@@ -3,6 +3,7 @@ import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Pr
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { ProformasService } from "../proformas.service";
+import { compraConEnlacesSelect, recogidasDeEnlace } from "../recojo.util";
 import { SolicitudesStockService, estadoLineaSolicitud } from "../solicitudes-stock/solicitudes-stock.service";
 import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
@@ -47,6 +48,7 @@ const includeLinea = {
       cantidad: true,
       proveedor: { select: { id: true, nombre: true } },
       proforma: { select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } } },
+      ...compraConEnlacesSelect,
     },
   },
 } satisfies Prisma.ProformaDetalleAsignacionInclude;
@@ -55,12 +57,20 @@ type LineaConCompra = Prisma.ProformaDetalleAsignacionGetPayload<{ include: type
 
 /** Estado de un pedido de cliente según la compra/envío que lo cubre. Si la compra ligada ya se cerró
  * (COMPLETADA/ANULADA) y la Procura sigue pendiente, es que no llegó todo: vuelve a "sin compra". */
-export function derivarEstadoPedido(linea: Pick<LineaConCompra, "compraDetalle">): EstadoPedido {
+export function derivarEstadoPedido(linea: Pick<LineaConCompra, "compraDetalle" | "cantidad">, recogidas = 0): EstadoPedido {
   const compra = linea.compraDetalle?.proforma;
   if (!compra) return "SIN_COMPRA";
   if (compra.estado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
   if (compra.estado !== EstadoProforma.APROBADA) return "SIN_COMPRA";
-  return compra.envio?.estado === EstadoEnvio.EN_TRANSITO ? "EN_TRANSITO" : "COMPRADO";
+  if (compra.envio?.estado === EstadoEnvio.EN_TRANSITO) return "EN_TRANSITO";
+  // Recogido: ya están físicamente recogidas todas las unidades que le tocan a este faltante.
+  return recogidas >= linea.cantidad ? "RECOGIDO" : "COMPRADO";
+}
+
+/** Agrega a una línea de Seguimiento cuántas unidades ya se recogieron para ella y su estado derivado. */
+function conEstadoPedido(item: LineaConCompra) {
+  const recogidas = item.compraDetalle ? recogidasDeEnlace(item.compraDetalle, item.id) : 0;
+  return { ...item, recogidas, estadoPedido: derivarEstadoPedido(item, recogidas) };
 }
 
 /** Misma lógica que derivarEstadoPedido pero como filtro de base de datos (para poder paginar). */
@@ -78,6 +88,9 @@ function whereEstadoPedido(estado: EstadoPedido): Prisma.ProformaDetalleAsignaci
     case "EN_TRANSITO":
       return { compraDetalle: { proforma: { estado: EstadoProforma.APROBADA, envio: { estado: EstadoEnvio.EN_TRANSITO } } } };
     case "COMPRADO":
+    case "RECOGIDO":
+      // Ambos comparten el filtro de base de datos (compra aprobada que no viaja); la diferencia
+      // (cuánto se recogió) se resuelve en memoria, ver findPendientes.
       return {
         compraDetalle: {
           proforma: {
@@ -137,22 +150,26 @@ export class SeguimientoService {
       pageSize: String(query.limit ?? 20),
     });
 
+    // Por producto, y dentro de cada producto de la más antigua a la más nueva.
+    const orderBy: Prisma.ProformaDetalleAsignacionOrderByWithRelationInput[] = [
+      { proformaDetalle: { variante: { product: { name: "asc" } } } },
+      { proformaDetalle: { proforma: { fecha: "asc" } } },
+    ];
+
+    // "Comprado" vs "Recogido" depende de cuánto se recogió (se reparte entre los vínculos de la línea de
+    // compra), así que para esos dos filtros se calcula en memoria y se pagina después.
+    if (query.estado === "COMPRADO" || query.estado === "RECOGIDO") {
+      const todos = await this.prisma.proformaDetalleAsignacion.findMany({ where, orderBy, include: includeLinea });
+      const filtrados = todos.map(conEstadoPedido).filter((i) => i.estadoPedido === query.estado);
+      return { items: filtrados.slice(skip, skip + take), total: filtrados.length, page, pageSize };
+    }
+
     const [items, total] = await Promise.all([
-      this.prisma.proformaDetalleAsignacion.findMany({
-        where,
-        // Por producto, y dentro de cada producto de la más antigua a la más nueva.
-        orderBy: [
-          { proformaDetalle: { variante: { product: { name: "asc" } } } },
-          { proformaDetalle: { proforma: { fecha: "asc" } } },
-        ],
-        include: includeLinea,
-        skip,
-        take,
-      }),
+      this.prisma.proformaDetalleAsignacion.findMany({ where, orderBy, include: includeLinea, skip, take }),
       this.prisma.proformaDetalleAsignacion.count({ where }),
     ]);
 
-    return { items: items.map((item) => ({ ...item, estadoPedido: derivarEstadoPedido(item) })), total, page, pageSize };
+    return { items: items.map(conEstadoPedido), total, page, pageSize };
   }
 
   /** Stock en compra: la parte de líneas de compra aprobadas, todavía sin recibir, que NO está ligada a
@@ -384,6 +401,7 @@ export class SeguimientoService {
         porEstado = { compraDetalle: { proforma: { estado: EstadoProforma.APROBADA, envio: { estado: EstadoEnvio.EN_TRANSITO } } } };
         break;
       case "COMPRADO":
+      case "RECOGIDO":
         porEstado = {
           compraDetalle: {
             proforma: { estado: EstadoProforma.APROBADA, OR: [{ envioId: null }, { envio: { estado: { not: EstadoEnvio.EN_TRANSITO } } }] },
@@ -402,27 +420,38 @@ export class SeguimientoService {
     };
     const { page, pageSize, skip, take } = getPagination({ page: String(query.page ?? 1), pageSize: String(query.limit ?? 20) });
 
-    const [items, total] = await Promise.all([
-      this.prisma.solicitudStockLinea.findMany({
-        where,
-        orderBy: [{ variante: { product: { name: "asc" } } }, { createdAt: "asc" }],
-        skip,
-        take,
-        include: {
-          solicitud: { select: { id: true, codigo: true, nota: true, createdAt: true, creadoPor: { select: { id: true, nombre: true } } } },
-          variante: varianteInclude,
-          compraDetalle: {
-            select: {
-              id: true,
-              proveedor: { select: { id: true, nombre: true } },
-              proforma: { select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } } },
-            },
-          },
+    const include = {
+      solicitud: { select: { id: true, codigo: true, nota: true, createdAt: true, creadoPor: { select: { id: true, nombre: true } } } },
+      variante: varianteInclude,
+      compraDetalle: {
+        select: {
+          id: true,
+          cantidad: true,
+          proveedor: { select: { id: true, nombre: true } },
+          proforma: { select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } } },
+          ...compraConEnlacesSelect,
         },
-      }),
+      },
+    } satisfies Prisma.SolicitudStockLineaInclude;
+    const orderBy: Prisma.SolicitudStockLineaOrderByWithRelationInput[] = [{ variante: { product: { name: "asc" } } }, { createdAt: "asc" }];
+    type LineaSol = Prisma.SolicitudStockLineaGetPayload<{ include: typeof include }>;
+    const decorar = (l: LineaSol) => {
+      const recogidas = l.compraDetalle ? recogidasDeEnlace(l.compraDetalle, l.id) : 0;
+      return { ...l, recogidas, estadoLinea: estadoLineaSolicitud(l, recogidas) };
+    };
+
+    // Igual que en los pedidos: "Comprado" vs "Recogido" se resuelve en memoria.
+    if (estado === "COMPRADO" || estado === "RECOGIDO") {
+      const todos = await this.prisma.solicitudStockLinea.findMany({ where, orderBy, include });
+      const filtrados = todos.map(decorar).filter((l) => l.estadoLinea === estado);
+      return { items: filtrados.slice(skip, skip + take), total: filtrados.length, page, pageSize };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.solicitudStockLinea.findMany({ where, orderBy, skip, take, include }),
       this.prisma.solicitudStockLinea.count({ where }),
     ]);
-    return { items: items.map((l) => ({ ...l, estadoLinea: estadoLineaSolicitud(l) })), total, page, pageSize };
+    return { items: items.map(decorar), total, page, pageSize };
   }
 
   /** Faltantes de ventas y líneas de solicitudes todavía sin compra de estos productos (para "Crear compras"). */

@@ -6,6 +6,7 @@ export const LABELS_PEDIDO: Record<EstadoPedido, string> = {
   SIN_COMPRA: "Sin compra",
   EN_PREPARACION: "Compra en preparación",
   COMPRADO: "Comprado",
+  RECOGIDO: "Recogido",
   EN_TRANSITO: "En tránsito",
 };
 
@@ -13,6 +14,7 @@ export const CLASES_PEDIDO: Record<EstadoPedido, string> = {
   SIN_COMPRA: "badge badge-muted",
   EN_PREPARACION: "badge badge-muted",
   COMPRADO: "badge badge-accent",
+  RECOGIDO: "badge badge-info",
   EN_TRANSITO: "badge badge-accent",
 };
 

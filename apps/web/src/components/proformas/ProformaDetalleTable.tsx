@@ -224,6 +224,7 @@ function DetalleRow({
   proveedores,
   mostrarProveedor,
   puedeLigar,
+  mostrarRecogido,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
@@ -235,12 +236,15 @@ function DetalleRow({
   mostrarProveedor: boolean;
   /** La compra todavía admite cambios de vínculos con ventas (borrador o aprobada). */
   puedeLigar: boolean;
+  /** Compra aprobada o completada: se muestra cuánto de la línea ya se recogió. */
+  mostrarRecogido: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
   const [ligando, setLigando] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : mostrarProveedor ? 13 : 12) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
+  const recogidas = (detalle.recojoLineas ?? []).reduce((n, r) => n + r.cantidad, 0);
   const ligadas = (detalle.asignacionesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
   const solicitadas = (detalle.solicitudesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
 
@@ -320,6 +324,11 @@ function DetalleRow({
             detalle.cantidad
           )}
         </td>
+        {tipo === "COMPRA" && mostrarRecogido && (
+          <td className="num">
+            {recogidas >= detalle.cantidad ? <span className="badge badge-success">{recogidas}</span> : <span className={recogidas > 0 ? "badge badge-warn" : "cell-muted"}>{recogidas} / {detalle.cantidad}</span>}
+          </td>
+        )}
         {tipo === "VENTA" ? (
           <td className="num">
             {editable ? (
@@ -414,6 +423,7 @@ export function ProformaDetalleTable({
   const { tipo, detalles } = proforma;
   // Una nota de compra es de un proveedor; solo las viejas (sin proveedor de cabecera) lo llevan por línea.
   const mostrarProveedor = tipo === "COMPRA" && !proforma.proveedorId;
+  const mostrarRecogido = tipo === "COMPRA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA");
 
   if (detalles.length === 0) {
     return <p className="cell-muted">Todavía no hay líneas en esta proforma.</p>;
@@ -422,7 +432,7 @@ export function ProformaDetalleTable({
   // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
   const colsEtiqueta = tipo === "COMPRA" ? 4 + (mostrarProveedor ? 1 : 0) : 3;
-  const totalCols = (tipo === "VENTA" ? 6 : mostrarProveedor ? 13 : 12) + (editable ? 1 : 0);
+  const totalCols = (tipo === "VENTA" ? 6 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
   const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
   return (
@@ -436,6 +446,7 @@ export function ProformaDetalleTable({
             {mostrarProveedor && <th>Proveedor</th>}
             {tipo === "COMPRA" && <th>Ligado a</th>}
             <th className="num">Cant.</th>
+            {mostrarRecogido && <th className="num">Recogido</th>}
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>
             ) : (
@@ -464,6 +475,7 @@ export function ProformaDetalleTable({
               proveedores={proveedores}
               mostrarProveedor={mostrarProveedor}
               puedeLigar={proforma.estado === "BORRADOR" || proforma.estado === "APROBADA"}
+              mostrarRecogido={mostrarRecogido}
             />
           ))}
         </tbody>

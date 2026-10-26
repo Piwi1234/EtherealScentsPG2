@@ -51,6 +51,7 @@ import type {
   CrearComprasInput,
   PagosVenta,
   PendientesPorVariante,
+  RecojosCompra,
   SolicitudLinea,
   SolicitudLineaParaCompra,
   SolicitudStock,
@@ -997,6 +998,20 @@ export function getProcurasParaCompra(compraDetalleId: string) {
 
 export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
   return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+// --- Recojos ---
+
+export function getRecojos(compraId: string) {
+  return apiGet<RecojosCompra>(`/proformas/${compraId}/recojos`);
+}
+
+export function crearRecojo(compraId: string, data: { fecha?: string; nota?: string; lineas: { compraDetalleId: string; cantidad: number }[] }) {
+  return apiPost<RecojosCompra>(`/proformas/${compraId}/recojos`, data);
+}
+
+export function anularRecojo(recojoId: string) {
+  return apiDelete<RecojosCompra>(`/proformas/recojos/${recojoId}`);
 }
 
 // --- Solicitudes de stock ---

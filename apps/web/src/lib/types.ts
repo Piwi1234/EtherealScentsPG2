@@ -677,6 +677,8 @@ export type ProformaDetalle = {
   asignacionesCubiertas?: { cantidad: number }[];
   /** COMPRA: unidades de la línea ligadas a líneas de solicitudes de stock. */
   solicitudesCubiertas?: { cantidad: number }[];
+  /** COMPRA: lo recogido de esta línea, recojo por recojo. */
+  recojoLineas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -840,6 +842,8 @@ export type SeguimientoLinea = {
   estadoSeguimiento: EstadoSeguimientoProcura;
   /** Derivado de la compra/envío ligados (ya no es una etiqueta manual). */
   estadoPedido: EstadoPedido;
+  /** Unidades de este faltante que ya se recogieron del proveedor. */
+  recogidas?: number;
   proformaDetalle: {
     proforma: {
       id: string;
@@ -861,6 +865,22 @@ export type SeguimientoLinea = {
 
 export type DestinoCompra = "STOCK" | "PEDIDO";
 
+// --- Recojos ---
+
+export type Recojo = {
+  id: string;
+  fecha: string;
+  nota: string | null;
+  creadoPor: { id: string; nombre: string };
+  lineas: { id: string; cantidad: number; compraDetalle: { id: string; variante: { id: string; variantCode: string; product: { name: string; brand: { name: string } | null } } } }[];
+};
+
+export type RecojosCompra = {
+  recojos: Recojo[];
+  /** Por línea de la compra: comprado, recogido y lo que falta por recoger. */
+  resumen: { compraDetalleId: string; cantidad: number; recogido: number; porRecoger: number }[];
+};
+
 // --- Solicitudes de stock ---
 
 /** Estado derivado de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: la compra ya llegó). */
@@ -872,6 +892,8 @@ export type SolicitudLinea = {
   nota: string | null;
   compraDetalleId: string | null;
   estadoLinea: EstadoLineaSolicitud;
+  /** Unidades de esta línea que ya se recogieron del proveedor. */
+  recogidas?: number;
   variante: ProformaDetalleVariante;
   compraDetalle: {
     id: string;
@@ -927,7 +949,7 @@ export type CompraCreada = {
 };
 
 /** SIN_COMPRA: nada ligado (o la compra ligada ya cerró sin cubrirlo). */
-export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "EN_TRANSITO";
+export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "RECOGIDO" | "EN_TRANSITO";
 
 /** Una línea de compra "para stock" ya aprobada y todavía sin recibir (vista "Stock pedido"). */
 export type SeguimientoStockLinea = {

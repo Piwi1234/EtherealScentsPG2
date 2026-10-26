@@ -56,6 +56,7 @@ export function SeguimientoFiltros({
           {vista !== "stock" && <option value="SIN_COMPRA">Sin compra</option>}
           {vista !== "stock" && <option value="EN_PREPARACION">Compra en preparación</option>}
           <option value="COMPRADO">Comprado</option>
+          {vista !== "stock" && <option value="RECOGIDO">Recogido</option>}
           <option value="EN_TRANSITO">En tránsito</option>
         </select>
       </div>
