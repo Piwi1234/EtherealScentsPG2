@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { DestinoCompra, EstadoProforma, Prisma, TipoProforma } from "@app/database";
+import { DestinoCompra, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -101,6 +101,19 @@ export class ProformasService {
         lte: hasta,
       },
     };
+    // Estado de entrega de una venta aprobada: pendiente = faltante (Procura) o reserva en tránsito sin llegar.
+    const conPendiente: Prisma.ProformaWhereInput = {
+      detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
+    };
+    const extra: Prisma.ProformaWhereInput[] = [];
+    if (query.entrega) {
+      where.tipo = TipoProforma.VENTA;
+      where.estado = EstadoProforma.APROBADA;
+      extra.push(query.entrega === "LISTA" ? { NOT: conPendiente } : conPendiente);
+    }
+    if (query.sinEnvio) extra.push({ tipo: TipoProforma.COMPRA, envioId: null });
+    if (extra.length > 0) where.AND = extra;
+
     const [items, total] = await Promise.all([
       this.prisma.proforma.findMany({ where, skip, take, orderBy: [{ estadoActualizadoAt: "desc" }, { createdAt: "desc" }], include: includeDetails }),
       this.prisma.proforma.count({ where }),

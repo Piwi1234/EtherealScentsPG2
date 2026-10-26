@@ -10123,3 +10123,48 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   font-size: 11px;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
+
+/* Estado de entrega de una venta aprobada (EntregaBadge): al lado del estado, sin competir con él. */
+.entrega-badge {
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.badge-warn {
+  background: rgba(194, 122, 5, 0.12);
+  border-color: #c27a05;
+  color: #c27a05;
+  font-weight: 600;
+}
+
+.badge-info {
+  background: rgba(47, 111, 228, 0.12);
+  border-color: #2f6fe4;
+  color: #2f6fe4;
+  font-weight: 600;
+}
+
+.badge-lista {
+  background: rgba(20, 150, 140, 0.12);
+  border-color: #14968c;
+  color: #14968c;
+  font-weight: 600;
+}
+
+.nocturne-theme .badge-warn {
+  background: color-mix(in srgb, #e4a23a 14%, transparent);
+  border-color: #e4a23a;
+  color: #e4a23a;
+}
+
+.nocturne-theme .badge-info {
+  background: color-mix(in srgb, #5b95ff 14%, transparent);
+  border-color: #5b95ff;
+  color: #5b95ff;
+}
+
+.nocturne-theme .badge-lista {
+  background: color-mix(in srgb, #3dd6c6 14%, transparent);
+  border-color: #3dd6c6;
+  color: #3dd6c6;
+}

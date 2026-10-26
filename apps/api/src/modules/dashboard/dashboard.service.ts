@@ -308,9 +308,9 @@ export class DashboardService {
     return { totalBs: round2(Number(result._sum.montoAdeudado ?? 0)), cantidad: result._count };
   }
 
-  /** Lo que está esperando una acción: faltantes sin compra, envíos por recibir, borradores y ventas por completar. */
+  /** Lo que está esperando una acción: faltantes sin compra, envíos, borradores, compras sin envío y ventas (listas o esperando mercadería). */
   async pendientes() {
-    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasPorCompletar] = await Promise.all([
+    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio] = await Promise.all([
       this.prisma.proformaDetalleAsignacion.count({
         where: {
           origen: OrigenAsignacion.PROCURA,
@@ -328,7 +328,23 @@ export class DashboardService {
       this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.VENTA } }),
       this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.COMPRA } }),
       this.prisma.proforma.findFirst({ where: { estado: EstadoProforma.BORRADOR }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-      this.prisma.proforma.count({ where: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.VENTA } }),
+      // Ventas aprobadas listas para completar: todo reservado en stock físico (sin faltante ni tránsito pendiente).
+      this.prisma.proforma.count({
+        where: {
+          estado: EstadoProforma.APROBADA,
+          tipo: TipoProforma.VENTA,
+          NOT: { detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } } },
+        },
+      }),
+      // Ventas aprobadas que esperan mercadería: con faltante o con reservas en tránsito.
+      this.prisma.proforma.count({
+        where: {
+          estado: EstadoProforma.APROBADA,
+          tipo: TipoProforma.VENTA,
+          detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
+        },
+      }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.COMPRA, envioId: null } }),
     ]);
     const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;
     return {
@@ -339,7 +355,9 @@ export class DashboardService {
       borradoresVenta,
       borradoresCompra,
       diasBorradorMasViejo,
-      ventasPorCompletar,
+      ventasListas,
+      ventasEsperando,
+      comprasSinEnvio,
     };
   }
 }

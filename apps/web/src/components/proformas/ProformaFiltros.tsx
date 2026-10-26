@@ -11,6 +11,8 @@ import { ProveedorSearchSelect } from "./ProveedorSearchSelect";
 export function ProformaFiltros({
   initialTipo,
   initialEstado,
+  initialEntrega,
+  initialSinEnvio,
   initialCodigo,
   initialCreadoPorId,
   initialClienteId,
@@ -25,6 +27,8 @@ export function ProformaFiltros({
 }: {
   initialTipo: string;
   initialEstado: string;
+  initialEntrega: string;
+  initialSinEnvio: boolean;
   initialCodigo: string;
   initialCreadoPorId: string;
   initialClienteId: string;
@@ -105,6 +109,8 @@ export function ProformaFiltros({
               clienteId: "",
               proveedorId: "",
               ciudadEntregaId: "",
+              entrega: "",
+              sinEnvio: "",
             })
           }
         >
@@ -123,6 +129,30 @@ export function ProformaFiltros({
           <option value="ANULADA">Anulada</option>
         </select>
       </div>
+      {initialTipo === "VENTA" && (
+        <div className="filter-field">
+          <label className="filter-label">Entrega</label>
+          <select
+            className="field"
+            defaultValue={initialEntrega}
+            // Estos estados solo existen en ventas aprobadas: al elegirlos se fija ese estado.
+            onChange={(e) => pushParams({ entrega: e.target.value, estado: e.target.value ? "APROBADA" : initialEstado })}
+          >
+            <option value="">Todas</option>
+            <option value="LISTA">Lista para completar</option>
+            <option value="ESPERANDO">Esperando mercadería</option>
+          </select>
+        </div>
+      )}
+      {initialTipo === "COMPRA" && (
+        <div className="filter-field">
+          <label className="filter-label">Envío</label>
+          <select className="field" defaultValue={initialSinEnvio ? "true" : ""} onChange={(e) => pushParams({ sinEnvio: e.target.value })}>
+            <option value="">Todas</option>
+            <option value="true">Sin envío</option>
+          </select>
+        </div>
+      )}
       {initialTipo === "VENTA" && (
         <div className="filter-field">
           <label className="filter-label">Ciudad</label>

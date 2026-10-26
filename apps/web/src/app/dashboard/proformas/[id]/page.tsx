@@ -4,6 +4,7 @@ import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
 import type { Almacen, Cartera, Ciudad, Empresa, Page, Proforma, Proveedor } from "../../../../lib/types";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
+import { EntregaBadge } from "../../../../components/proformas/EntregaBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
 import { ProformaDetalleTable } from "../../../../components/proformas/ProformaDetalleTable";
@@ -60,6 +61,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
             — {proforma.codigo}
           </h1>
           <EstadoBadge estado={proforma.estado} />
+          <EntregaBadge proforma={proforma} />
         </div>
         <VolverALista />
       </div>

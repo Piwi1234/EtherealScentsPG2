@@ -768,7 +768,12 @@ export type DashPendientes = {
   borradoresVenta: number;
   borradoresCompra: number;
   diasBorradorMasViejo: number;
-  ventasPorCompletar: number;
+  /** Ventas aprobadas con todo reservado en stock físico (se pueden completar). */
+  ventasListas: number;
+  /** Ventas aprobadas con faltante o reservas en tránsito sin llegar. */
+  ventasEsperando: number;
+  /** Compras aprobadas que todavía no están en ningún envío. */
+  comprasSinEnvio: number;
 };
 
 export type ProformaInput = {

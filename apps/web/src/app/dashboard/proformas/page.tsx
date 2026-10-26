@@ -15,6 +15,8 @@ export default async function ProformasPage({
     tipo?: string;
     codigo?: string;
     estado?: string;
+    entrega?: string;
+    sinEnvio?: string;
     creadoPorId?: string;
     clienteId?: string;
     proveedorId?: string;
@@ -31,6 +33,8 @@ export default async function ProformasPage({
   if (params.tipo) qs.set("tipo", params.tipo);
   if (params.codigo) qs.set("codigo", params.codigo);
   if (params.estado) qs.set("estado", params.estado);
+  if (params.tipo === "VENTA" && (params.entrega === "LISTA" || params.entrega === "ESPERANDO")) qs.set("entrega", params.entrega);
+  if (params.tipo === "COMPRA" && params.sinEnvio === "true") qs.set("sinEnvio", "true");
   if (params.tipo === "VENTA" && params.creadoPorId) qs.set("creadoPorId", params.creadoPorId);
   if (params.tipo === "VENTA" && params.clienteId) qs.set("clienteId", params.clienteId);
   if (params.tipo === "COMPRA" && params.proveedorId) qs.set("proveedorId", params.proveedorId);
@@ -87,6 +91,8 @@ export default async function ProformasPage({
           initialTipo={params.tipo ?? ""}
           initialCodigo={params.codigo ?? ""}
           initialEstado={params.estado ?? ""}
+          initialEntrega={params.tipo === "VENTA" ? (params.entrega ?? "") : ""}
+          initialSinEnvio={params.tipo === "COMPRA" && params.sinEnvio === "true"}
           initialCreadoPorId={params.creadoPorId ?? ""}
           initialClienteId={params.clienteId ?? ""}
           initialProveedorId={params.proveedorId ?? ""}

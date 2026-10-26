@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { Proforma } from "../../lib/types";
 import { EstadoBadge } from "./EstadoBadge";
+import { EntregaBadge } from "./EntregaBadge";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
@@ -67,6 +68,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             {mostrarVendedor && <td className="cell-muted">{proforma.ciudadEntrega?.nombre ?? "—"}</td>}
             <td>
               <EstadoBadge estado={proforma.estado} />
+              <EntregaBadge proforma={proforma} />
             </td>
             <td className="num">{totalProductos(proforma)}</td>
           </tr>

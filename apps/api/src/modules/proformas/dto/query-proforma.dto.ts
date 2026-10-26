@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 import { EstadoProforma, TipoProforma } from "@app/database";
 
 export class QueryProformaDto {
@@ -43,6 +43,21 @@ export class QueryProformaDto {
   @IsOptional()
   @IsUUID()
   creadoPorId?: string;
+
+  @ApiPropertyOptional({
+    enum: ["LISTA", "ESPERANDO"],
+    description:
+      "Solo VENTA aprobada. LISTA: todo reservado en stock físico (se puede completar). ESPERANDO: tiene faltante o reservas en tránsito sin llegar.",
+  })
+  @IsOptional()
+  @IsIn(["LISTA", "ESPERANDO"])
+  entrega?: "LISTA" | "ESPERANDO";
+
+  @ApiPropertyOptional({ description: "Solo COMPRA: proformas que todavía no están en ningún envío." })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  sinEnvio?: boolean;
 
   @ApiPropertyOptional({ description: "Rango de fechas: desde (inclusive), sobre Proforma.fecha." })
   @IsOptional()
