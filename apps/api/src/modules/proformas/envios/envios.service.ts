@@ -35,7 +35,14 @@ const itemInclude = {
 const envioInclude = {
   almacenDestino: true,
   creadoPor: { select: { id: true, nombre: true } },
-  items: { include: itemInclude, orderBy: { createdAt: "asc" as const } },
+  // Alfabético por producto (y por variante dentro del mismo producto).
+  items: {
+    include: itemInclude,
+    orderBy: [
+      { compraDetalle: { variante: { product: { name: "asc" as const } } } },
+      { compraDetalle: { variante: { variantCode: "asc" as const } } },
+    ],
+  },
   recepciones: {
     orderBy: { fecha: "desc" as const },
     include: {
@@ -91,7 +98,7 @@ export class EnviosService {
   async findDisponibles() {
     const lineas = await this.prisma.proformaDetalle.findMany({
       where: { proforma: { tipo: TipoProforma.COMPRA, estado: EstadoProforma.APROBADA }, recojoLineas: { some: {} } },
-      orderBy: [{ proforma: { createdAt: "asc" } }, { createdAt: "asc" }],
+      orderBy: [{ variante: { product: { name: "asc" } } }, { proforma: { createdAt: "asc" } }],
       select: {
         id: true,
         cantidad: true,
@@ -198,6 +205,14 @@ export class EnviosService {
     } catch (error) {
       rethrowPrismaError(error, "Envío");
     }
+  }
+
+  /** La nota al pie se puede editar en cualquier estado (es solo texto del PDF). */
+  async updateNotaPie(id: string, notaPie: string | undefined) {
+    const envio = await this.prisma.envio.findUnique({ where: { id }, select: { id: true } });
+    if (!envio) throw new NotFoundException("Envío no encontrado.");
+    await this.prisma.envio.update({ where: { id }, data: { notaPie: notaPie?.trim() || null } });
+    return this.findOne(id);
   }
 
   async update(id: string, dto: UpdateEnvioDto) {

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from "class-validator";
 import { EstadoEnvio } from "@app/database";
 
 export class EnvioItemDto {
@@ -43,6 +43,14 @@ export class UpdateEnvioDto {
   @IsOptional()
   @IsString()
   nota?: string;
+}
+
+export class UpdateNotaPieDto {
+  @ApiPropertyOptional({ description: "Nota que se imprime al pie de cada página del PDF del envío. Vacía la quita." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  notaPie?: string;
 }
 
 export class UpdateEnvioItemDto {

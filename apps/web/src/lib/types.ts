@@ -1241,6 +1241,8 @@ export type Envio = {
   almacenDestinoId: string;
   almacenDestino: Almacen;
   nota: string | null;
+  /** Nota que se imprime al pie de cada página del PDF del envío. */
+  notaPie: string | null;
   fechaEnvio: string | null;
   fechaRecepcion: string | null;
   creadoPor: { id: string; nombre: string };

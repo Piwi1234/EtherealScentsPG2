@@ -13,12 +13,12 @@ import { ProformasService } from "./proformas.service";
 // un bloque de cabecera. Compra tampoco lleva el disclaimer de envío del pie (ver
 // drawFooterVenta/Compra), que está escrito desde la perspectiva de que nosotros le entregamos algo
 // al cliente.
-const ES_NAVY_900 = "#0D1A30";
+export const ES_NAVY_900 = "#0D1A30";
 const ES_NAVY_700 = "#1C3561";
-const ES_GOLD = "#C9A96E";
-const ES_GOLD_INK = "#86672F";
-const ES_MUTED = "#5F6778";
-const ES_LINE = "#DDE2EB";
+export const ES_GOLD = "#C9A96E";
+export const ES_GOLD_INK = "#86672F";
+export const ES_MUTED = "#5F6778";
+export const ES_LINE = "#DDE2EB";
 const ES_SALE = "#B8412F";
 const VALIDEZ_PROFORMA = "1 día";
 const DISCLAIMER_ENTREGA =
@@ -26,8 +26,8 @@ const DISCLAIMER_ENTREGA =
 
 // Media carta horizontal (8.5 x 5.5 in = 612 x 396 pt) — más chico que A4, por eso los márgenes y
 // tamaños de fuente de acá son más ajustados que un documento tamaño carta/A4 normal.
-const PAGE_SIZE: [number, number] = [612, 396];
-const PAGE_MARGIN = 24;
+export const PAGE_SIZE: [number, number] = [612, 396];
+export const PAGE_MARGIN = 24;
 // El pie (línea + disclaimer/paginado) se dibuja cerca de page.height - 32 (ver drawFooterVenta/
 // Compra); el contenido puede llegar hasta un poco antes. Queda por encima del margen inferior de
 // pdfkit (24), así ningún .text() dispara una página automática.
@@ -38,14 +38,14 @@ const CONTENT_BOTTOM = FOOTER_TOP - 6;
 // el texto se ve/extrae mal ("Tama�o"). Roboto sí es Unicode completo; se embebe desde acá en vez
 // de depender de fuentes del sistema operativo (no hay garantía de que existan en el servidor).
 const FONTS_DIR = join(process.cwd(), "assets", "fonts");
-const FONT_REGULAR = join(FONTS_DIR, "Roboto-Regular.ttf");
-const FONT_BOLD = join(FONTS_DIR, "Roboto-Medium.ttf");
+export const FONT_REGULAR = join(FONTS_DIR, "Roboto-Regular.ttf");
+export const FONT_BOLD = join(FONTS_DIR, "Roboto-Medium.ttf");
 
 // El encabezado va sobre fondo blanco con el logo centrado — el logoUrl que cada empresa carga en
 // Gestión suele ser la versión blanca (pensada para el header oscuro del sitio público/panel), que
 // ahí se ve invisible. Por eso usa siempre este archivo fijo (versión negra) en vez de
 // proforma.empresa.logoUrl, sin importar qué empresa sea.
-const LOGO_PATH = join(process.cwd(), "assets", "logos", "ethereal-scents-black.png");
+export const LOGO_PATH = join(process.cwd(), "assets", "logos", "ethereal-scents-black.png");
 
 type Proforma = Awaited<ReturnType<ProformasService["findOne"]>>;
 type Detalle = Proforma["detalles"][number];
@@ -61,7 +61,7 @@ function formatDate(value: Date | string): string {
 /** Mismo criterio que AtributosVisibles.tsx (frontend): junta attributeValues (NONE) +
  * variantOptionValues (MULTI_VALUE), solo mostrarEnProforma=true, ordenados por `orden` — pero acá
  * solo el valor, sin el nombre del atributo (a pedido, ver conceptoLabel). */
-function atributosHeredadosLabel(product: Detalle["variante"]["product"]): string {
+export function atributosHeredadosLabel(product: Detalle["variante"]["product"]): string {
   const porAtributo = new Map<string, { orden: number; valor: string }>();
 
   for (const pv of product.attributeValues) {

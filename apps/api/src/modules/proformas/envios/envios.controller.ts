@@ -1,18 +1,23 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../../auth/decorators/roles.decorator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../../auth/strategies/jwt.strategy";
 import { EnviosService } from "./envios.service";
-import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto } from "./dto/envio.dto";
+import { EnvioPdfService } from "./envio-pdf.service";
+import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto, UpdateNotaPieDto } from "./dto/envio.dto";
 
 @ApiTags("envios")
 @ApiBearerAuth()
 @Roles(Rol.ADMIN, Rol.SELLER)
 @Controller("envios")
 export class EnviosController {
-  constructor(private readonly envios: EnviosService) {}
+  constructor(
+    private readonly envios: EnviosService,
+    private readonly pdf: EnvioPdfService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "Lista envíos (paginado, filtro por estado)." })
@@ -25,6 +30,20 @@ export class EnviosController {
   @ApiOperation({ summary: "Productos ya recogidos que todavía no están (del todo) en ningún envío." })
   disponibles() {
     return this.envios.findDisponibles();
+  }
+
+  @Get(":id/pdf")
+  @ApiOperation({ summary: "Descarga el PDF del envío: productos en orden alfabético, total de unidades y nota al pie." })
+  async downloadPdf(@Param("id", ParseUUIDPipe) id: string, @Res() res: Response) {
+    const buffer = await this.pdf.generate(id);
+    res.set({ "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="envio-${id}.pdf"` });
+    res.send(buffer);
+  }
+
+  @Patch(":id/nota-pie")
+  @ApiOperation({ summary: "Guarda la nota que se imprime al pie del PDF (en cualquier estado del envío)." })
+  updateNotaPie(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateNotaPieDto) {
+    return this.envios.updateNotaPie(id, dto.notaPie);
   }
 
   @Get(":id")

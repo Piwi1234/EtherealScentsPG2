@@ -14,6 +14,7 @@ import { RegistrosController } from "./registros/registros.controller";
 import { RegistrosService } from "./registros/registros.service";
 import { EnviosController } from "./envios/envios.controller";
 import { EnviosService } from "./envios/envios.service";
+import { EnvioPdfService } from "./envios/envio-pdf.service";
 import { RecojosController } from "./recojos/recojos.controller";
 import { RecojosService } from "./recojos/recojos.service";
 import { SolicitudesStockController } from "./solicitudes-stock/solicitudes-stock.controller";
@@ -35,6 +36,7 @@ import { SolicitudesStockService } from "./solicitudes-stock/solicitudes-stock.s
     SeguimientoService,
     RegistrosService,
     EnviosService,
+    EnvioPdfService,
     SolicitudesStockService,
     RecojosService,
   ],
