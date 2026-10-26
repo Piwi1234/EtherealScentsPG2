@@ -13,7 +13,7 @@ export function ClientesTable({ clientes }: { clientes: Cliente[] }) {
   const router = useRouter();
 
   return (
-    <table className="table table-minimal">
+    <table className="table table-minimal table-compact">
       <thead>
         <tr>
           <th>Nombre</th>

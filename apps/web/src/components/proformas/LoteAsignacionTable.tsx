@@ -70,7 +70,7 @@ export function LoteAsignacionTable({
       {lotes.length === 0 ? (
         <p className="error-text">No hay lotes disponibles para esta variante en el almacén elegido.</p>
       ) : (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Fecha</th>

@@ -287,7 +287,7 @@ export default function ContactoPage() {
         {!redes && !redesError && <p>Cargando...</p>}
         {redes && redes.length === 0 && <p>No hay redes sociales todavía.</p>}
         {redes && redes.length > 0 && (
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Logo</th>

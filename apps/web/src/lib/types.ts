@@ -494,6 +494,8 @@ export type Almacen = {
   id: string;
   nombre: string;
   activo: boolean;
+  /** Se preselecciona siempre que el sistema pide un almacén (a lo sumo uno). */
+  predeterminado: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -502,7 +504,7 @@ export type Almacen = {
 
 export type TipoProforma = "COMPRA" | "VENTA";
 export type EstadoProforma = "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
-export type OrigenAsignacion = "STOCK" | "PROCURA";
+export type OrigenAsignacion = "STOCK" | "PROCURA" | "EN_TRANSITO";
 export type EstadoSeguimientoProcura = "PENDIENTE" | "COMPRADO" | "ENVIADO";
 
 export type ProformaHistorial = {
@@ -525,6 +527,11 @@ export type ProformaDetalleAsignacion = {
   /** Solo tiene sentido mientras origen=PROCURA y cantidad>0 — ver módulo Seguimiento. */
   estadoSeguimiento: EstadoSeguimientoProcura;
   createdAt: string;
+  /** Faltante (Procura) con compra ligada: la compra que lo cubre y cómo va (derivado, se actualiza solo). */
+  compraDetalle?: { id: string; cantidad: number; proforma: { id: string; codigo: string; estado: EstadoProforma } } | null;
+  estadoPedido?: EstadoPedido | null;
+  recogidas?: number;
+  enviadas?: number;
 };
 
 export type LoteCompra = {
@@ -564,9 +571,62 @@ export type StockRow = {
   almacenId: string;
   cantidadFisica: number;
   cantidadReservada: number;
+  /** Unidades "para stock" que viajan en envíos ya despachados (todavía no son físicas). */
+  cantidadEnTransito: number;
+  cantidadReservadaTransito: number;
   updatedAt: string;
   variante: StockVariante;
   almacen: StockAlmacenRef;
+};
+
+/** Existencias de un producto sumando almacenes (GET /stock/resumen). */
+export type StockResumenRow = {
+  varianteId: string;
+  almacenes: number;
+  cantidadFisica: number;
+  cantidadReservada: number;
+  cantidadEnTransito: number;
+  cantidadReservadaTransito: number;
+  disponible: number;
+  valorBs: number;
+  variante: StockVariante;
+};
+
+export type StockResumen = Page<StockResumenRow> & {
+  indicadores: { productos: number; unidadesFisicas: number; reservadas: number; enTransito: number; sinDisponible: number; valorBs: number };
+};
+
+type ClienteRef = { id: string; nombre: string } | null;
+type VentaRef = { id: string; codigo: string; fecha: string; cliente: ClienteRef };
+
+/** Todo lo que hay detrás de un producto (GET /stock/variante/:id). */
+export type StockDetalle = {
+  almacenes: StockRow[];
+  lotes: {
+    id: string;
+    fecha: string;
+    costoUsd: number;
+    costoBs: number | null;
+    cantidadInicial: number;
+    cantidadDisponible: number;
+    almacen: { id: string; nombre: string };
+    proformaDetalle: { proveedor: { id: string; nombre: string } | null; proforma: { id: string; codigo: string; tipoCambioProf: string | null } };
+  }[];
+  costoPromedioBs: number | null;
+  valorBs: number;
+  reservas: { id: string; cantidad: number; origen: OrigenAsignacion; almacen: { id: string; nombre: string } | null; proformaDetalle: { proforma: VentaRef } }[];
+  faltantes: { id: string; cantidad: number; compraDetalle: { proforma: { id: string; codigo: string } } | null; proformaDetalle: { proforma: VentaRef } }[];
+  enCamino: {
+    id: string;
+    compra: { id: string; codigo: string; almacen: { id: string; nombre: string } | null };
+    proveedor: { id: string; nombre: string } | null;
+    cantidad: number;
+    recogido: number;
+    enviado: number;
+    recibido: number;
+    pendiente: number;
+  }[];
+  solicitudes: { id: string; cantidad: number; cantidadRecibida: number; solicitud: { id: string; codigo: string }; compraDetalle: { proforma: { id: string; codigo: string } } | null }[];
 };
 
 /** LoteCompra anidado con variante/almacén — para el historial de movimientos del módulo de Stock,
@@ -666,6 +726,14 @@ export type ProformaDetalle = {
    * varios proveedores distintos, cada línea el suyo. Null en líneas de venta. */
   proveedorId: string | null;
   proveedor: Proveedor | null;
+  /** COMPRA (en desuso): antes distinguía stock de pedido; hoy lo no ligado a ventas es stock. */
+  destino?: DestinoCompra;
+  /** COMPRA: unidades de la línea ligadas a faltantes de notas de venta. */
+  asignacionesCubiertas?: { cantidad: number }[];
+  /** COMPRA: unidades de la línea ligadas a líneas de solicitudes de stock. */
+  solicitudesCubiertas?: { cantidad: number }[];
+  /** COMPRA: lo recogido de esta línea, recojo por recojo. */
+  recojoLineas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -675,6 +743,9 @@ export type ProformaDetalle = {
 
 export type Proforma = {
   id: string;
+  /** Solo compras: proveedor de la nota (null en compras viejas que mezclaban proveedores línea por línea). */
+  proveedorId?: string | null;
+  proveedor?: { id: string; nombre: string } | null;
   /** Código corto para mostrar/buscar en vez del id UUID — no secuencial (ver schema.prisma). */
   codigo: string;
   tipo: TipoProforma;
@@ -714,6 +785,9 @@ export type EstadoCuentaPorCobrar = "PENDIENTE" | "COMPLETADO";
 
 export type CuentaPorCobrar = {
   id: string;
+  /** Total de la venta, fijo desde que se aprueba. */
+  montoTotal: string;
+  /** Lo que falta cobrar. */
   montoAdeudado: string;
   estado: EstadoCuentaPorCobrar;
   createdAt: string;
@@ -724,12 +798,56 @@ export type CuentaPorCobrar = {
  * de Cuentas por Cobrar (GET/POST /contabilidad/cuentas-por-cobrar). La que cuelga embebida de
  * Proforma.cuentaPorCobrar es la versión sin este campo (evita el ciclo proforma → cuenta → proforma). */
 export type CuentaPorCobrarConProforma = CuentaPorCobrar & {
-  proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
+  proforma: { id: string; codigo: string; estado: EstadoProforma; fecha: string; cliente: { id: string; nombre: string } | null };
+};
+
+/** GET /proformas/:id/pagos: lo cobrado de una venta y los movimientos de cartera ligados. */
+export type PagoMovimiento = {
+  id: string;
+  fecha: string;
+  detalle: string;
+  naturaleza: "INGRESO" | "GASTO";
+  monto: string;
+  cartera: { id: string; nombre: string; moneda: string };
+  creadoPor: { id: string; nombre: string };
+};
+
+export type PagosVenta = {
+  total: number;
+  montoAdelanto: number;
+  adelantoPendiente: number;
+  pagado: number;
+  saldo: number;
+  movimientos: PagoMovimiento[];
+};
+
+/** GET /dashboard/pendientes: lo que está esperando una acción. */
+export type DashPendientes = {
+  pedidosSinCompra: number;
+  enviosEnTransito: number;
+  piezasEnTransito: number;
+  enviosArmando: number;
+  borradoresVenta: number;
+  borradoresCompra: number;
+  diasBorradorMasViejo: number;
+  /** Ventas aprobadas con todo reservado en stock físico (se pueden completar). */
+  ventasListas: number;
+  /** Ventas aprobadas con faltante o reservas en tránsito sin llegar. */
+  ventasEsperando: number;
+  /** Compras aprobadas que todavía no están en ningún envío. */
+  comprasSinEnvio: number;
+  /** Ventas con faltante sin compra ligada para las que ya hay stock libre sin reservar. */
+  ventasConStockLibre: number;
+  /** Líneas de solicitudes de stock abiertas que todavía no tienen compra. */
+  solicitudesSinComprar: number;
 };
 
 export type ProformaInput = {
   tipo: TipoProforma;
   empresaId: string;
+  proveedorId?: string;
+  /** Solo compras: almacén destino de la mercadería (donde cuenta su stock en tránsito). */
+  almacenId?: string;
   clienteId?: string;
   ciudadEntregaId?: string;
   tipoCambioProf?: number;
@@ -779,9 +897,160 @@ export type SeguimientoLinea = {
   id: string;
   cantidad: number;
   estadoSeguimiento: EstadoSeguimientoProcura;
+  /** Derivado de la compra/envío ligados (ya no es una etiqueta manual). */
+  estadoPedido: EstadoPedido;
+  /** Unidades de este faltante que ya se recogieron del proveedor. */
+  recogidas?: number;
+  /** Unidades de este faltante que ya salieron en un envío. */
+  enviadas?: number;
   proformaDetalle: {
-    proforma: { id: string; fecha: string; empresa: { id: string; nombre: string } };
+    proforma: {
+      id: string;
+      codigo: string;
+      fecha: string;
+      empresa: { id: string; nombre: string };
+      cliente: { id: string; nombre: string } | null;
+    };
     variante: ProformaDetalleVariante;
+  };
+  /** La línea de compra que viene a cubrir este faltante, si hay una ligada. */
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    envioItems?: { cantidad: number; envio: { id: string; codigo: string; estado: EstadoEnvio } }[];
+  } | null;
+};
+
+export type DestinoCompra = "STOCK" | "PEDIDO";
+
+// --- Recojos ---
+
+export type Recojo = {
+  id: string;
+  fecha: string;
+  nota: string | null;
+  creadoPor: { id: string; nombre: string };
+  lineas: { id: string; cantidad: number; compraDetalle: { id: string; variante: { id: string; variantCode: string; product: { name: string; brand: { name: string } | null } } } }[];
+};
+
+export type RecojosCompra = {
+  recojos: Recojo[];
+  /** Por línea de la compra: comprado, recogido y lo que falta por recoger. */
+  resumen: { compraDetalleId: string; cantidad: number; recogido: number; porRecoger: number }[];
+};
+
+// --- Solicitudes de stock ---
+
+/** Estado derivado de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: la compra ya llegó). */
+export type EstadoLineaSolicitud = EstadoPedido | "RECIBIDA";
+
+export type SolicitudLinea = {
+  id: string;
+  cantidad: number;
+  nota: string | null;
+  compraDetalleId: string | null;
+  estadoLinea: EstadoLineaSolicitud;
+  /** Unidades de esta línea que ya se recogieron del proveedor. */
+  recogidas?: number;
+  /** Unidades de esta línea que ya salieron en un envío. */
+  enviadas?: number;
+  /** Unidades de esta línea que ya llegaron al almacén. */
+  cantidadRecibida: number;
+  variante: ProformaDetalleVariante;
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    envioItems?: { cantidad: number; envio: { id: string; codigo: string; estado: EstadoEnvio } }[];
+  } | null;
+};
+
+export type SolicitudStock = {
+  id: string;
+  codigo: string;
+  nota: string | null;
+  estado: "ABIERTA" | "CANCELADA";
+  estadoDerivado: "ABIERTA" | "CERRADA" | "CANCELADA";
+  createdAt: string;
+  creadoPor: { id: string; nombre: string };
+  lineas: SolicitudLinea[];
+};
+
+/** Línea de solicitud vista desde Seguimiento (lleva su solicitud). */
+export type SolicitudLineaSeguimiento = SolicitudLinea & {
+  solicitud: { id: string; codigo: string; nota: string | null; createdAt: string; creadoPor: { id: string; nombre: string } };
+};
+
+/** Línea de solicitud que una línea de compra puede cubrir (GET .../compra/:id/solicitudes). */
+export type SolicitudLineaParaCompra = {
+  id: string;
+  cantidad: number;
+  compraDetalleId: string | null;
+  solicitud: { id: string; codigo: string; creadoPor: { id: string; nombre: string } };
+};
+
+export type PendientesPorVariante = {
+  pedidos: { id: string; varianteId: string; cantidad: number; codigo: string }[];
+  stock: { id: string; varianteId: string; cantidad: number; codigo: string }[];
+};
+
+/** POST /proformas/seguimiento/crear-compras: un grupo por proveedor, con las líneas y los faltantes que cubre. */
+export type CrearComprasInput = {
+  grupos: {
+    proveedorId: string;
+    lineas: { varianteId: string; asignacionIds: string[]; solicitudLineaIds?: string[]; cantidadExtra?: number }[];
+  }[];
+};
+
+export type CompraCreada = {
+  id: string;
+  codigo: string;
+  proveedor: { id: string; nombre: string } | null;
+  lineas: number;
+  unidades: number;
+};
+
+/** SIN_COMPRA: nada ligado (o la compra ligada ya cerró sin cubrirlo). */
+export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "RECOGIDO" | "EN_TRANSITO";
+
+/** Una línea de compra "para stock" ya aprobada y todavía sin recibir (vista "Stock pedido"). */
+export type SeguimientoStockLinea = {
+  id: string;
+  cantidad: number;
+  estadoStock: "COMPRADO" | "RECOGIDO" | "EN_TRANSITO";
+  /** Unidades libres (para stock) de esta línea que ya se recogieron. */
+  recogidas?: number;
+  proveedor: { id: string; nombre: string } | null;
+  proforma: {
+    id: string;
+    codigo: string;
+    fecha: string;
+    empresa: { id: string; nombre: string };
+  };
+  /** Envíos despachados en los que viaja esta línea. */
+  envios: { id: string; codigo: string; estado: EstadoEnvio }[];
+  variante: ProformaDetalleVariante;
+};
+
+/** Línea de compra (pedido) a la que se puede ligar un faltante, con cuánto le queda por cubrir. */
+export type CompraCandidata = {
+  id: string;
+  cantidad: number;
+  restante: number;
+  proveedor: { id: string; nombre: string } | null;
+  proforma: { id: string; codigo: string; estado: EstadoProforma };
+};
+
+/** Faltante de una nota de venta aprobada que una línea de compra puede cubrir. */
+export type ProcuraCandidata = {
+  id: string;
+  cantidad: number;
+  compraDetalleId: string | null;
+  proformaDetalle: {
+    proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
   };
 };
 
@@ -801,12 +1070,34 @@ export type RegistroLinea = {
   proforma: {
     id: string;
     codigo: string;
+    estado: EstadoProforma;
     fecha: string;
+    createdAt: string;
+    creadoPor: { id: string; nombre: string };
+    /** Última anulación (vacío si no está anulada): cuándo, quién y el motivo. */
+    historial: { fecha: string; nota: string | null; usuario: { id: string; nombre: string } }[];
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
+    almacen?: { id: string; nombre: string } | null;
+    /** VENTA aprobada: unidades con faltante y reservadas en tránsito (null en otros estados). */
+    entrega?: { faltante: number; transito: number } | null;
+    /** VENTA: total con descuento y lo cobrado hasta ahora, en Bs. */
+    total?: number;
+    pagado?: number;
+    /** COMPRA: cuánto de lo comprado se recogió, salió en un envío y ya llegó. */
+    avance?: { cantidad: number; recogido: number; enviado: number; recibido: number };
   };
   variante: ProformaDetalleVariante;
+};
+
+/** Totales de TODO el filtro de Registros (no solo de la página visible). */
+export type RegistroResumen = {
+  totalBs: number;
+  piezas: number;
+  proformas: number;
+  /** Monto en Bs y cantidad de proformas por estado dentro del filtro. */
+  porEstado: Partial<Record<EstadoProforma, { totalBs: number; proformas: number }>>;
 };
 
 // --- Financiero (Contabilidad) ---
@@ -901,4 +1192,83 @@ export type TraspasoInput = {
   montoOrigen: number;
   tipoCambio?: number;
   nota?: string;
+};
+
+// --- Envíos (agrupan productos ya recogidos; la recepción puede ser parcial) ---
+
+export type EstadoEnvio = "ARMANDO" | "EN_TRANSITO" | "RECIBIDO" | "ANULADO";
+
+export type EnvioVariante = {
+  id: string;
+  variantCode: string;
+  unidad: UnidadVariante;
+  product: { id: string; name: string; productCode: string; brand: { id: string; name: string } | null };
+  options: { optionValue: { value: string; attribute: { name: string } } }[];
+};
+
+/** Un producto recogido (parte de una línea de compra) que viaja en el envío. */
+export type EnvioItem = {
+  id: string;
+  envioId: string;
+  compraDetalleId: string;
+  cantidad: number;
+  cantidadRecibida: number;
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    variante: EnvioVariante;
+    /** Estimados de la compra (USD por unidad): el precio de compra no se edita, los costos se corrigen al recibir. */
+    precioCompra: string | null;
+    costoEnvio: string | null;
+    costoSeguridad: string | null;
+    costoLogistica: string | null;
+  };
+};
+
+/** Un evento de recepción: lo que llegó en esa fecha (puede ser parte del envío). */
+export type EnvioRecepcion = {
+  id: string;
+  fecha: string;
+  nota: string | null;
+  creadoPor: { id: string; nombre: string };
+  items: { id: string; cantidad: number; nota: string | null; costoEnvio: string | null; costoSeguridad: string | null; costoLogistica: string | null; varianteRecibidaId: string; varianteRecibida: EnvioVariante; envioItem: { id: string; compraDetalleId: string } }[];
+};
+
+export type Envio = {
+  id: string;
+  codigo: string;
+  estado: EstadoEnvio;
+  almacenDestinoId: string;
+  almacenDestino: Almacen;
+  nota: string | null;
+  fechaEnvio: string | null;
+  fechaRecepcion: string | null;
+  creadoPor: { id: string; nombre: string };
+  createdAt: string;
+  items: EnvioItem[];
+  recepciones: EnvioRecepcion[];
+};
+
+/** Fila del listado: solo cantidades y códigos de las compras que viajan. */
+export type EnvioResumen = Omit<Envio, "items" | "recepciones"> & {
+  items: { cantidad: number; cantidadRecibida: number; compraDetalle: { proforma: { id: string; codigo: string } } }[];
+};
+
+/** Línea de compra con unidades ya recogidas que todavía se pueden sumar a un envío. */
+export type EnvioDisponible = {
+  id: string;
+  cantidad: number;
+  recogido: number;
+  disponible: number;
+  proveedor: { id: string; nombre: string } | null;
+  proforma: { id: string; codigo: string; fecha: string; almacenId: string | null; proveedor: { id: string; nombre: string } | null };
+  variante: EnvioVariante;
+};
+
+export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?: { compraDetalleId: string; cantidad: number }[] };
+export type CreateRecepcionInput = {
+  nota?: string;
+  items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
 };

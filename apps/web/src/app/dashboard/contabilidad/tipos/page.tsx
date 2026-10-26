@@ -115,7 +115,7 @@ export default function TiposContabilidadPage() {
       {!tipos && <p>Cargando...</p>}
       {tipos && tipos.length === 0 && <p>No hay tipos todavía.</p>}
       {tipos && tipos.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Cartera</th>

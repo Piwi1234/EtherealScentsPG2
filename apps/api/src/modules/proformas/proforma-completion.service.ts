@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -7,6 +7,7 @@ import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
+import { totalPagado } from "./proforma-pagos.service";
 import { AsignacionLoteDto, CompletarProformaDto } from "./dto/completar-proforma.dto";
 
 /**
@@ -41,12 +42,10 @@ export class ProformaCompletionService {
           }
 
           if (lock.tipo === TipoProforma.COMPRA) {
-            if (!dto.almacenId) throw new BadRequestException("almacenId es obligatorio para completar una proforma de compra.");
-            const almacen = await tx.almacen.findUnique({ where: { id: dto.almacenId } });
-            if (!almacen) throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
-
-            await tx.proforma.update({ where: { id }, data: { almacenId: dto.almacenId } });
-            await this.completarCompra(tx, id, dto.almacenId);
+            // Una compra solo se completa al confirmar la recepción de su envío (ver
+            // EnviosService.confirmarRecepcion): ahí se corrige lo que realmente llegó antes de
+            // crear lotes y stock.
+            throw new ConflictException("Una compra se completa al recibir su envío: agregala a un envío y confirmá la recepción.");
           } else {
             if (!lock.almacenId) throw new ConflictException("La proforma no tiene almacén asignado (debería haberse fijado al aprobar).");
             await this.assertSinProcuraPendiente(tx, id);
@@ -72,62 +71,15 @@ export class ProformaCompletionService {
 
   private async assertSinProcuraPendiente(tx: Prisma.TransactionClient, proformaId: string) {
     const procuras = await tx.proformaDetalleAsignacion.findMany({
-      where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
+      where: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
       include: { proformaDetalle: { include: { variante: { include: { product: true } } } } },
     });
     if (procuras.length === 0) return;
 
     const detalleMsg = procuras
-      .map((p) => `${p.proformaDetalle.variante.product.name} (${p.proformaDetalle.variante.variantCode}): faltan ${p.cantidad}`)
+      .map((p) => `${p.proformaDetalle.variante.product.name} (${p.proformaDetalle.variante.variantCode}): faltan ${p.cantidad}${p.origen === OrigenAsignacion.EN_TRANSITO ? " (reservadas en tránsito, todavía no llegaron)" : ""}`)
       .join(", ");
     throw new ConflictException(`No se puede completar: todavía falta stock para ${detalleMsg}.`);
-  }
-
-  /**
-   * Crea un LoteCompra por línea con el costo real de esa compra e incrementa el stock físico del
-   * almacén. El catálogo (Product/ProductVariant) NUNCA se toca acá. Después de sumar el stock de cada
-   * línea, resuelve sola cualquier Procura pendiente de ventas ya aprobadas para esa misma
-   * variante+almacén (por orden de aprobación, la más antigua primero) — reserva el stock recién
-   * llegado contra ellas, convirtiendo Procura en Reservado sin intervención manual.
-   */
-  private async completarCompra(tx: Prisma.TransactionClient, proformaId: string, almacenId: string) {
-    const proforma = await tx.proforma.findUniqueOrThrow({
-      where: { id: proformaId },
-      include: { detalles: true },
-    });
-    if (proforma.detalles.length === 0) {
-      throw new ConflictException("La proforma no tiene líneas.");
-    }
-
-    const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
-    const stockPorPar = await lockStockRows(tx, pares);
-
-    for (const detalle of proforma.detalles) {
-      const costoUnitario =
-        Number(detalle.precioCompra) + Number(detalle.costoEnvio) + Number(detalle.costoSeguridad) + Number(detalle.costoLogistica);
-
-      await tx.loteCompra.create({
-        data: {
-          varianteId: detalle.varianteId,
-          almacenId,
-          proformaDetalleId: detalle.id,
-          costoUnitario,
-          cantidadInicial: detalle.cantidad,
-          cantidadDisponible: detalle.cantidad,
-        },
-      });
-
-      await tx.stock.update({
-        where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
-        data: { cantidadFisica: { increment: detalle.cantidad } },
-      });
-
-      const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
-      stock.cantidadFisica += detalle.cantidad;
-      const disponible = stock.cantidadFisica - stock.cantidadReservada;
-
-      await resolverProcuraPendiente(tx, { varianteId: detalle.varianteId, almacenId, disponible });
-    }
   }
 
   /**
@@ -207,11 +159,21 @@ export class ProformaCompletionService {
    * saldo (sin adelanto pero total=0, o adelanto al 100%) no se crea nada — no hay nada que cobrar.
    */
   private async crearCuentaPorCobrarSiCorresponde(tx: Prisma.TransactionClient, proformaId: string): Promise<void> {
-    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id: proformaId }, include: { detalles: true } });
-    const { saldo } = calcularTotalesVenta(proforma);
-    if (saldo <= 0) return;
+    // La cuenta por cobrar nace al aprobar la venta (ver proforma-approval.service.ts): acá solo se
+    // asegura que exista, por si la venta se aprobó antes de ese cambio.
+    if (await tx.cuentaPorCobrar.findUnique({ where: { proformaId } })) return;
 
-    await tx.cuentaPorCobrar.create({ data: { proformaId, montoAdeudado: saldo } });
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id: proformaId }, include: { detalles: true } });
+    const { total } = calcularTotalesVenta(proforma);
+    const saldo = Math.round((total - (await totalPagado(tx, proformaId))) * 100) / 100;
+    await tx.cuentaPorCobrar.create({
+      data: {
+        proformaId,
+        montoTotal: total,
+        montoAdeudado: Math.max(0, saldo),
+        estado: saldo <= 0 ? EstadoCuentaPorCobrar.COMPLETADO : EstadoCuentaPorCobrar.PENDIENTE,
+      },
+    });
     this.logger.debug(`Cuenta por cobrar creada para proforma ${proformaId}: Bs ${saldo}.`);
   }
 }

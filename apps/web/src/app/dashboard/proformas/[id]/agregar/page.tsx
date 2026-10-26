@@ -20,6 +20,13 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
     redirect(`/dashboard/proformas/${id}`);
   }
 
+  // Piezas ya cargadas por variante (las líneas de venta en ml no se cuentan: van por presentación).
+  const cantidadesIniciales: Record<string, number> = {};
+  for (const d of proforma.detalles) {
+    if (d.variante?.unidad === "ML" && proforma.tipo === "VENTA") continue;
+    cantidadesIniciales[d.varianteId] = (cantidadesIniciales[d.varianteId] ?? 0) + d.cantidad;
+  }
+
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -30,7 +37,7 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
           ← Volver a la proforma
         </Link>
       </div>
-      <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} />
+      <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} cantidadesIniciales={cantidadesIniciales} />
     </div>
   );
 }

@@ -111,7 +111,7 @@ export default function UsersPage() {
       {!usuarios && !error && <p>Cargando...</p>}
       {usuarios && usuarios.length === 0 && <p>No hay usuarios todavía.</p>}
       {usuarios && usuarios.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Nombre</th>

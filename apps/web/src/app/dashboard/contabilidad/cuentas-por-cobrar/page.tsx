@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ApiError, cobrarCuenta, getCarteras, getClientes, getCuentasPorCobrar } from "../../../../lib/api";
 import type { Cartera, Cliente, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
+import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { CarteraSelector } from "../../../../components/proformas/selectors";
 import { ClienteSearchSelect } from "../../../../components/proformas/ClienteSearchSelect";
 import { DateRangeDropdown, type DateSelection } from "../../../../components/DateRangeDropdown";
@@ -137,13 +138,16 @@ export default function CuentasPorCobrarPage() {
         <p>No hay cuentas por cobrar para estos filtros.</p>
       ) : (
         <>
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Fecha</th>
                 <th>N° proforma</th>
                 <th>Cliente</th>
-                <th className="num">Monto</th>
+                <th>Proforma</th>
+                <th className="num">Total</th>
+                <th className="num">Cobrado</th>
+                <th className="num">Saldo</th>
                 <th>Estado</th>
                 <th></th>
               </tr>
@@ -158,7 +162,12 @@ export default function CuentasPorCobrarPage() {
                     </Link>
                   </td>
                   <td className="cell-muted">{cuenta.proforma.cliente?.nombre ?? "—"}</td>
-                  <td className="num cell-primary">Bs {cuenta.montoAdeudado}</td>
+                  <td>
+                    <EstadoBadge estado={cuenta.proforma.estado} />
+                  </td>
+                  <td className="num cell-muted">Bs {Number(cuenta.montoTotal).toFixed(2)}</td>
+                  <td className="num cell-muted">Bs {(Number(cuenta.montoTotal) - Number(cuenta.montoAdeudado)).toFixed(2)}</td>
+                  <td className="num cell-primary">Bs {Number(cuenta.montoAdeudado).toFixed(2)}</td>
                   <td>
                     <EstadoCuentaBadge estado={cuenta.estado} />
                   </td>

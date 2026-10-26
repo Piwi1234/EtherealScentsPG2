@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsInt, IsNumber, IsOptional, IsUUID, Min } from "class-validator";
+import { IsEnum, IsInt, IsNumber, IsOptional, IsUUID, Min } from "class-validator";
 
 /** Los 4 costos son de ESTA línea/compra puntual, no heredados del catálogo. proveedorId también es
  * por línea (una misma proforma, un mismo envío, puede traer productos de varios proveedores
@@ -19,6 +19,7 @@ export class AddDetalleCompraDto {
   @IsOptional()
   @IsUUID()
   proveedorId?: string;
+
 
   @ApiProperty()
   @IsNumber()

@@ -4,7 +4,6 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { lockStockRows, stockKey } from "../proformas/stock-lock.util";
-import { resolverProcuraPendiente } from "../proformas/procura.util";
 import { CreateTraspasoAlmacenDto } from "./dto/create-traspaso-almacen.dto";
 
 const traspasoInclude = {
@@ -191,12 +190,6 @@ export class TraspasoAlmacenService {
           // una compra (proforma-completion.service.ts) o anular una venta aprobada
           // (proforma-approval.service.ts), pero disparado acá porque un traspaso también hace que
           // haya stock "nuevo" disponible en el destino.
-          await resolverProcuraPendiente(tx, {
-            varianteId: dto.varianteId,
-            almacenId: dto.almacenDestinoId,
-            disponible: cantidadTotal,
-          });
-
           return traspaso.id;
         },
         { timeout: 15000, maxWait: 5000 },

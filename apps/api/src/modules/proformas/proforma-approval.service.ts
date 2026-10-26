@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
+import { recalcularTransitoLinea, reservarTransitoParaProcuras } from "./transito.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
 
@@ -29,6 +30,111 @@ export class ProformaApprovalService {
     private readonly proformas: ProformasService,
   ) {}
 
+  /**
+   * Cambia el almacén destino de una compra aprobada (donde cuenta su stock en tránsito). No se puede si alguno
+   * de sus productos ya está en un envío vigente: el envío define a dónde llega.
+   */
+  async cambiarAlmacenCompra(id: string, almacenId: string) {
+    const compra = await this.prisma.proforma.findUnique({ where: { id }, select: { tipo: true, estado: true } });
+    if (!compra) throw new NotFoundException("Proforma no encontrada.");
+    if (compra.tipo !== TipoProforma.COMPRA || compra.estado !== EstadoProforma.APROBADA) {
+      throw new ConflictException("Solo se cambia el almacén destino de una compra aprobada.");
+    }
+    if (!(await this.prisma.almacen.findFirst({ where: { id: almacenId, activo: true }, select: { id: true } }))) {
+      throw new BadRequestException("almacenId inválido o inactivo.");
+    }
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          await tx.$queryRaw`SELECT "id" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE`;
+          if ((await tx.envioItem.count({ where: { compraDetalle: { proformaId: id }, envio: { estado: { not: EstadoEnvio.ANULADO } } } })) > 0) {
+            throw new ConflictException("Hay productos de esta compra en un envío: el envío define el almacén. Sacalos del envío primero.");
+          }
+          await tx.proforma.update({ where: { id }, data: { almacenId } });
+          const lineas = await tx.proformaDetalle.findMany({ where: { proformaId: id }, select: { id: true } });
+          for (const l of lineas) await recalcularTransitoLinea(tx, l.id);
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Proforma");
+    }
+    return this.proformas.findOne(id);
+  }
+
+  /**
+   * Reserva a mano el stock libre (físico y en tránsito) para el faltante de ventas aprobadas, la más antigua
+   * primero. Con `proformaId` solo para esa nota; sin él, "reservar todo lo posible". Solo toca faltantes que
+   * no están ligados a una compra (los ligados se cubren al recibirla).
+   */
+  async reservarFaltantes(usuarioId: string, proformaId?: string) {
+    const where: Prisma.ProformaDetalleAsignacionWhereInput = {
+      origen: OrigenAsignacion.PROCURA,
+      cantidad: { gt: 0 },
+      compraDetalleId: null,
+      proformaDetalle: { proforma: { tipo: TipoProforma.VENTA, estado: EstadoProforma.APROBADA, ...(proformaId ? { id: proformaId } : {}) } },
+    };
+    const antes = await this.prisma.proformaDetalleAsignacion.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      select: { cantidad: true, proformaDetalle: { select: { varianteId: true, proforma: { select: { almacenId: true } } } } },
+    });
+    if (proformaId && antes.length === 0) {
+      const p = await this.prisma.proforma.findUnique({ where: { id: proformaId }, select: { tipo: true, estado: true } });
+      if (!p) throw new NotFoundException("Proforma no encontrada.");
+      if (p.tipo !== TipoProforma.VENTA || p.estado !== EstadoProforma.APROBADA) throw new ConflictException("Solo se reserva stock para ventas aprobadas.");
+    }
+    const pares = new Map<string, { varianteId: string; almacenId: string }>();
+    for (const a of antes) {
+      const almacenId = a.proformaDetalle.proforma.almacenId;
+      if (almacenId) pares.set(stockKey(a.proformaDetalle.varianteId, almacenId), { varianteId: a.proformaDetalle.varianteId, almacenId });
+    }
+    const totalAntes = antes.reduce((n, a) => n + a.cantidad, 0);
+    const detalleAntes = await this.prisma.proformaDetalleAsignacion.findMany({
+      where,
+      select: { id: true, cantidad: true, proformaDetalle: { select: { proformaId: true, variante: { select: { product: { select: { name: true } } } } } } },
+    });
+
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCK_TIMEOUT = '5s'`;
+          await lockStockRows(tx, Array.from(pares.values()));
+          for (const par of pares.values()) {
+            const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });
+            await resolverProcuraPendiente(tx, {
+              ...par,
+              disponible: stock.cantidadFisica - stock.cantidadReservada,
+              soloLibres: true,
+              soloProformaId: proformaId,
+            });
+            await reservarTransitoParaProcuras(tx, { ...par, soloProformaId: proformaId });
+          }
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Proforma");
+    }
+    const despues = await this.prisma.proformaDetalleAsignacion.aggregate({ where, _sum: { cantidad: true } });
+
+    // Rastro en el historial de cada venta que recibió stock.
+    const quedan = new Map((await this.prisma.proformaDetalleAsignacion.findMany({ where, select: { id: true, cantidad: true } })).map((a) => [a.id, a.cantidad]));
+    const porVenta = new Map<string, string[]>();
+    for (const a of detalleAntes) {
+      const reservadas = a.cantidad - (quedan.get(a.id) ?? 0);
+      if (reservadas <= 0) continue;
+      const lista = porVenta.get(a.proformaDetalle.proformaId) ?? [];
+      lista.push(`${reservadas} unidad(es) de ${a.proformaDetalle.variante.product.name}`);
+      porVenta.set(a.proformaDetalle.proformaId, lista);
+    }
+    for (const [id, lista] of porVenta) {
+      await this.prisma.$transaction((tx) => this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId, `Stock reservado: ${lista.join(", ")}.`));
+    }
+    return { unidadesReservadas: totalAntes - (despues._sum.cantidad ?? 0) };
+  }
+
   async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string) {
     try {
       await this.prisma.$transaction(
@@ -51,6 +157,11 @@ export class ProformaApprovalService {
 
           if (lock.tipo === TipoProforma.COMPRA) {
             if (almacenId) throw new BadRequestException("almacenId no aplica a una proforma de compra.");
+            // Una nota de compra es de un proveedor (compras viejas: cada línea con el suyo).
+            const compra = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: { select: { proveedorId: true } } } });
+            if (!compra.proveedorId && compra.detalles.some((d) => !d.proveedorId)) {
+              throw new BadRequestException("Elegí el proveedor de la compra antes de aprobarla.");
+            }
             await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.APROBADA } });
             await this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId);
             return;
@@ -77,11 +188,15 @@ export class ProformaApprovalService {
    * proforma-completion.service.ts).
    */
   private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
-    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true, cliente: true } });
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: { include: { variante: { include: { product: { select: { name: true } } } } } }, cliente: true } });
 
-    const { montoAdelanto } = calcularTotalesVenta(proforma);
-    if (montoAdelanto > 0) {
-      if (!carteraId) throw new BadRequestException("carteraId es obligatorio: la proforma tiene un adelanto a registrar en una cartera en Bs.");
+    if (!proforma.clienteId) throw new BadRequestException("Elegí un cliente antes de aprobar la proforma de venta.");
+
+    // El adelanto se puede cobrar ya al aprobar (si llega carteraId) o después, desde los pagos de la
+    // proforma — mientras esté APROBADA el cliente puede ir pagando (ver proforma-pagos.service.ts).
+    const { total, montoAdelanto } = calcularTotalesVenta(proforma);
+    let adelantoCobrado = 0;
+    if (montoAdelanto > 0 && carteraId) {
       const cartera = await tx.cartera.findUnique({ where: { id: carteraId } });
       if (!cartera || !cartera.activo) throw new BadRequestException(`carteraId inválido o inactivo: ${carteraId}`);
       if (cartera.moneda !== MonedaCartera.BS) throw new BadRequestException("La cartera del adelanto debe ser en Bs.");
@@ -100,12 +215,26 @@ export class ProformaApprovalService {
         },
       });
       await tx.cartera.update({ where: { id: carteraId }, data: { saldoActual: { increment: montoAdelanto } } });
+      adelantoCobrado = montoAdelanto;
     }
+
+    // La cuenta por cobrar nace con la venta aprobada (no al completarla): así se le da seguimiento
+    // mientras está aprobada y también después de completada.
+    const adeudado = Math.round((total - adelantoCobrado) * 100) / 100;
+    await tx.cuentaPorCobrar.create({
+      data: {
+        proformaId: id,
+        montoTotal: total,
+        montoAdeudado: Math.max(0, adeudado),
+        estado: adeudado <= 0 ? EstadoCuentaPorCobrar.COMPLETADO : EstadoCuentaPorCobrar.PENDIENTE,
+      },
+    });
 
     const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
     const stockPorPar = await lockStockRows(tx, pares);
 
     const faltantes: string[] = [];
+    const enTransito: string[] = [];
     for (const detalle of proforma.detalles) {
       const stock = stockPorPar.get(stockKey(detalle.varianteId, almacenId))!;
       const disponibleNeto = stock.cantidadFisica - stock.cantidadReservada;
@@ -122,12 +251,27 @@ export class ProformaApprovalService {
         });
       }
 
-      const restante = detalle.cantidad - tomar;
+      // Lo que no alcanza en físico se reserva por adelantado contra lo que viaja en envíos en tránsito.
+      const disponibleTransito = stock.cantidadEnTransito - stock.cantidadReservadaTransito;
+      const tomarTransito = Math.min(Math.max(0, disponibleTransito), detalle.cantidad - tomar);
+      if (tomarTransito > 0) {
+        await tx.stock.update({
+          where: { varianteId_almacenId: { varianteId: detalle.varianteId, almacenId } },
+          data: { cantidadReservadaTransito: { increment: tomarTransito } },
+        });
+        stock.cantidadReservadaTransito += tomarTransito;
+        await tx.proformaDetalleAsignacion.create({
+          data: { proformaDetalleId: detalle.id, almacenId, cantidad: tomarTransito, origen: OrigenAsignacion.EN_TRANSITO },
+        });
+        enTransito.push(`${tomarTransito} unidad(es) de ${detalle.variante.product.name}`);
+      }
+
+      const restante = detalle.cantidad - tomar - tomarTransito;
       if (restante > 0) {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId: null, cantidad: restante, origen: OrigenAsignacion.PROCURA },
         });
-        faltantes.push(`${restante} unidad(es) de la variante ${detalle.varianteId}`);
+        faltantes.push(`${restante} unidad(es) de ${detalle.variante.product.name}`);
       }
     }
 
@@ -137,7 +281,12 @@ export class ProformaApprovalService {
       id,
       EstadoProforma.APROBADA,
       usuarioId,
-      faltantes.length > 0 ? `Stock insuficiente, a procura: ${faltantes.join(", ")}.` : undefined,
+      [
+        enTransito.length > 0 ? `Reservado en tránsito: ${enTransito.join(", ")}.` : "",
+        faltantes.length > 0 ? `Stock insuficiente, a procura: ${faltantes.join(", ")}.` : "",
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined,
     );
   }
 
@@ -151,57 +300,61 @@ export class ProformaApprovalService {
    * se necesita" para que deje de aparecer en Seguimiento.
    */
   private async liberarReservas(tx: Prisma.TransactionClient, proformaId: string) {
-    const stockAsignaciones = await tx.proformaDetalleAsignacion.findMany({
-      where: { origen: OrigenAsignacion.STOCK, proformaDetalle: { proformaId } },
+    const asignaciones = await tx.proformaDetalleAsignacion.findMany({
+      where: { origen: { in: [OrigenAsignacion.STOCK, OrigenAsignacion.EN_TRANSITO] }, proformaDetalle: { proformaId } },
       include: { proformaDetalle: true },
     });
 
-    if (stockAsignaciones.length > 0) {
-      const pares = stockAsignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
+    if (asignaciones.length > 0) {
+      const pares = asignaciones.map((a) => ({ varianteId: a.proformaDetalle.varianteId, almacenId: a.almacenId! }));
       await lockStockRows(tx, pares);
 
-      for (const asignacion of stockAsignaciones) {
+      for (const asignacion of asignaciones) {
         const varianteId = asignacion.proformaDetalle.varianteId;
         const almacenId = asignacion.almacenId!;
+        const where = { varianteId_almacenId: { varianteId, almacenId } };
 
-        await tx.stock.update({
-          where: { varianteId_almacenId: { varianteId, almacenId } },
-          data: { cantidadReservada: { decrement: asignacion.cantidad } },
-        });
-
-        await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
+        if (asignacion.origen === OrigenAsignacion.EN_TRANSITO) {
+          await tx.stock.update({ where, data: { cantidadReservadaTransito: { decrement: asignacion.cantidad } } });
+        } else {
+          await tx.stock.update({ where, data: { cantidadReservada: { decrement: asignacion.cantidad } } });
+        }
       }
     }
 
     await tx.proformaDetalleAsignacion.updateMany({
-      where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
+      where: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 }, proformaDetalle: { proformaId } },
       data: { cantidad: 0 },
     });
   }
 
-  /** Si esta venta tuvo un adelanto registrado al aprobarla (ver aprobarVenta), revertirlo con un
-   * gasto por el mismo monto en la misma cartera — mismo formato de detalle que el ingreso original,
-   * agregando al final la marca ANULADA y el motivo escrito al anular (si lo hay). */
-  private async revertirAdelanto(tx: Prisma.TransactionClient, proformaId: string, usuarioId: string, nota?: string) {
-    const ingreso = await tx.movimientoCartera.findFirst({
+  /** Revierte TODO lo cobrado de esta venta (adelanto y pagos hechos mientras estaba aprobada): un
+   * gasto por el mismo monto en la misma cartera por cada ingreso — mismo formato de detalle que el
+   * ingreso original, agregando al final la marca ANULADA y el motivo escrito al anular (si lo hay).
+   * Solo se llama al anular desde APROBADA, y una venta anulada no admite más pagos, así que cada
+   * ingreso se revierte una sola vez. */
+  private async revertirPagos(tx: Prisma.TransactionClient, proformaId: string, usuarioId: string, nota?: string) {
+    const ingresos = await tx.movimientoCartera.findMany({
       where: { proformaId, naturaleza: NaturalezaMovimiento.INGRESO },
       orderBy: { createdAt: "asc" },
     });
-    if (!ingreso) return;
+    if (ingresos.length === 0) return;
 
-    await lockCarteras(tx, [ingreso.carteraId]);
-    await tx.movimientoCartera.create({
-      data: {
-        carteraId: ingreso.carteraId,
-        fecha: new Date(),
-        detalle: `${ingreso.detalle} - ANULADA${nota ? ` - MOTIVO: ${nota}` : ""}`,
-        naturaleza: NaturalezaMovimiento.GASTO,
-        monto: ingreso.monto,
-        proformaId,
-        creadoPorId: usuarioId,
-      },
-    });
-    await tx.cartera.update({ where: { id: ingreso.carteraId }, data: { saldoActual: { decrement: ingreso.monto } } });
+    await lockCarteras(tx, Array.from(new Set(ingresos.map((i) => i.carteraId))));
+    for (const ingreso of ingresos) {
+      await tx.movimientoCartera.create({
+        data: {
+          carteraId: ingreso.carteraId,
+          fecha: new Date(),
+          detalle: `${ingreso.detalle} - ANULADA${nota ? ` - MOTIVO: ${nota}` : ""}`,
+          naturaleza: NaturalezaMovimiento.GASTO,
+          monto: ingreso.monto,
+          proformaId,
+          creadoPorId: usuarioId,
+        },
+      });
+      await tx.cartera.update({ where: { id: ingreso.carteraId }, data: { saldoActual: { decrement: ingreso.monto } } });
+    }
   }
 
   /** APROBADA → ANULADA únicamente (BORRADOR se elimina en vez de anularse; COMPLETADA es terminal). */
@@ -220,9 +373,23 @@ export class ProformaApprovalService {
             throw new ConflictException(`No se puede anular: la proforma está en estado ${lock.estado} (solo se puede anular desde APROBADA).`);
           }
 
+          if (lock.tipo === TipoProforma.COMPRA) {
+            if ((await tx.envioItem.count({ where: { compraDetalle: { proformaId: id }, envio: { estado: { not: EstadoEnvio.ANULADO } } } })) > 0) {
+              throw new ConflictException("No se puede anular: la compra tiene productos en un envío. Sacalos del envío primero.");
+            }
+            if ((await tx.recojo.count({ where: { compraId: id } })) > 0) {
+              throw new ConflictException("No se puede anular: la compra tiene recojos registrados. Deshacelos primero.");
+            }
+            // Una compra anulada ya no cubre nada: los faltantes de ventas y las líneas de solicitudes de
+            // stock que tenía ligados quedan libres otra vez.
+            await tx.proformaDetalleAsignacion.updateMany({ where: { compraDetalle: { proformaId: id } }, data: { compraDetalleId: null } });
+            await tx.solicitudStockLinea.updateMany({ where: { compraDetalle: { proformaId: id } }, data: { compraDetalleId: null } });
+          }
+
           if (lock.tipo === TipoProforma.VENTA) {
             await this.liberarReservas(tx, id);
-            await this.revertirAdelanto(tx, id, usuarioId, nota);
+            await this.revertirPagos(tx, id, usuarioId, nota);
+            await tx.cuentaPorCobrar.deleteMany({ where: { proformaId: id } });
           }
 
           await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.ANULADA } });

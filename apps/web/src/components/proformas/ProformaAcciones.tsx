@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, anularProforma, aprobarProforma, completarProforma, deleteProforma, downloadProformaPdf } from "../../lib/api";
+import Link from "next/link";
+import {
+  ApiError,
+  anularProforma,
+  aprobarProforma,
+  deleteProforma,
+  downloadProformaPdf,
+  reservarVenta,
+} from "../../lib/api";
 import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
@@ -39,9 +47,9 @@ export function ProformaAcciones({
   carterasBs?: Cartera[];
 }) {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState<Transicion | "completar" | null>(null);
+  const [submitting, setSubmitting] = useState<Transicion | null>(null);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState<"aprobar" | "anular" | "eliminar" | "completar" | null>(null);
+  const [modal, setModal] = useState<"aprobar" | "anular" | "eliminar" | null>(null);
   const [nota, setNota] = useState("");
   const [almacenId, setAlmacenId] = useState("");
   const [carteraId, setCarteraId] = useState("");
@@ -60,11 +68,28 @@ export function ProformaAcciones({
     }
   }
 
+  const [reservando, setReservando] = useState(false);
+  const [avisoReserva, setAvisoReserva] = useState("");
+
+  async function handleReservar() {
+    setReservando(true);
+    setError("");
+    setAvisoReserva("");
+    try {
+      const r = await reservarVenta(proformaId);
+      setAvisoReserva(r.unidadesReservadas > 0 ? `Se reservaron ${r.unidadesReservadas} unidad(es).` : "No hay stock libre para reservar.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setReservando(false);
+    }
+  }
+
   const puede = (t: Transicion) => PERMITIDAS[t].includes(estado);
-  const puedeCompletar = estado === "APROBADA";
   const requiereCartera = tipo === "VENTA" && montoAdelanto > 0;
 
-  function abrirModal(m: "aprobar" | "anular" | "eliminar" | "completar") {
+  function abrirModal(m: "aprobar" | "anular" | "eliminar") {
     setError("");
     setAlmacenId("");
     setCarteraId("");
@@ -77,14 +102,10 @@ export function ProformaAcciones({
       setError("Elegí el almacén contra el que se reserva stock.");
       return;
     }
-    if (requiereCartera && !carteraId) {
-      setError("Elegí la cartera en Bs donde se registra el adelanto.");
-      return;
-    }
     setSubmitting("aprobar");
     setError("");
     try {
-      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera ? { carteraId } : {}) } : {});
+      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera && carteraId ? { carteraId } : {}) } : {});
       setModal(null);
       router.refresh();
     } catch (e) {
@@ -113,18 +134,10 @@ export function ProformaAcciones({
     setError("");
     try {
       await deleteProforma(proformaId);
-      router.push("/dashboard/proformas");
+      router.push("/dashboard/registros");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setSubmitting(null);
-    }
-  }
-
-  function irACompletar() {
-    if (tipo === "VENTA") {
-      router.push(`/dashboard/proformas/${proformaId}/completar`);
-    } else {
-      abrirModal("completar");
     }
   }
 
@@ -141,10 +154,20 @@ export function ProformaAcciones({
             {submitting === "aprobar" ? "Aprobando..." : "Aprobar"}
           </button>
         )}
-        {puedeCompletar && (
-          <button type="button" className="action-btn" onClick={irACompletar} disabled={submitting !== null}>
+        {estado === "APROBADA" && tipo === "VENTA" && (
+          <button type="button" className="action-btn" onClick={handleReservar} disabled={submitting !== null || reservando}>
+            {reservando ? "Reservando..." : "Reservar stock"}
+          </button>
+        )}
+        {estado === "APROBADA" && tipo === "VENTA" && (
+          <button type="button" className="action-btn" onClick={() => router.push(`/dashboard/proformas/${proformaId}/completar`)} disabled={submitting !== null}>
             Completar
           </button>
+        )}
+        {estado === "APROBADA" && tipo === "COMPRA" && (
+          <Link href="/dashboard/stock/envios?nuevo=1" className="action-btn">
+            Armar envío
+          </Link>
         )}
         {puede("anular") && (
           <button type="button" className="action-btn danger" onClick={() => abrirModal("anular")} disabled={submitting !== null}>
@@ -161,6 +184,7 @@ export function ProformaAcciones({
         </button>
       </div>
 
+      {avisoReserva && <p className="cell-muted" style={{ marginTop: 8, fontSize: 13 }}>{avisoReserva}</p>}
       {errorPdf && <p className="error-text" style={{ marginTop: 8 }}>{errorPdf}</p>}
       {error && !modal && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
 
@@ -173,8 +197,11 @@ export function ProformaAcciones({
           </div>
           {requiereCartera && (
             <div className="filter-field" style={{ marginBottom: 12 }}>
-              <label className="filter-label">Cartera del adelanto (Bs)</label>
-              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} />
+              <label className="filter-label">Cobrar el adelanto ahora en (opcional)</label>
+              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} placeholder="— Cobrar después —" />
+              <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                Si no eliges cartera, el adelanto queda pendiente y se cobra desde la sección Pagos de la proforma.
+              </p>
             </div>
           )}
           {error && <p className="error-text">{error}</p>}
@@ -223,69 +250,6 @@ export function ProformaAcciones({
         </Modal>
       )}
 
-      {modal === "completar" && (
-        <ModalCompletarCompra
-          proformaId={proformaId}
-          almacenes={almacenes}
-          onClose={() => setModal(null)}
-          onDone={() => {
-            setModal(null);
-            router.refresh();
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-function ModalCompletarCompra({
-  proformaId,
-  almacenes,
-  onClose,
-  onDone,
-}: {
-  proformaId: string;
-  almacenes: Almacen[];
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [almacenId, setAlmacenId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  async function confirmar() {
-    if (!almacenId) {
-      setError("Elegí el almacén que recibe la mercadería.");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    try {
-      await completarProforma(proformaId, { almacenId });
-      onDone();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal title="Completar proforma" onClose={onClose}>
-      <p>Elegí el almacén que recibe la mercadería.</p>
-      <div className="filter-field" style={{ marginBottom: 12 }}>
-        <label className="filter-label">Almacén</label>
-        <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
-      </div>
-      {error && <p className="error-text">{error}</p>}
-      <div className="form-actions">
-        <button type="button" className="link-button" onClick={onClose}>
-          Cancelar
-        </button>
-        <button type="button" className="button" onClick={confirmar} disabled={submitting}>
-          {submitting ? "Completando..." : "Completar"}
-        </button>
-      </div>
-    </Modal>
   );
 }

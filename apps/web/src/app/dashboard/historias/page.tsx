@@ -108,7 +108,7 @@ export default function HistoriasPage() {
       {historias && historias.length === 0 && <p>No hay historias todavía.</p>}
 
       {historias && historias.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th></th>

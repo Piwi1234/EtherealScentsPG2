@@ -16,9 +16,14 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   DetalleCompraInput,
+  CreateEnvioInput,
+  CreateRecepcionInput,
+  EnvioDisponible,
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
+  Envio,
+  EnvioResumen,
   EstadoCuentaPorCobrar,
   EstadoSeguimientoProcura,
   HistoriaBloque,
@@ -44,8 +49,22 @@ import type {
   ProformaInput,
   Proveedor,
   ProveedorInput,
+  CompraCreada,
+  CrearComprasInput,
+  PagosVenta,
+  PendientesPorVariante,
+  RecojosCompra,
+  StockDetalle,
+  StockResumen,
+  SolicitudLinea,
+  SolicitudLineaParaCompra,
+  SolicitudStock,
   RegistroLinea,
+  RegistroResumen,
   SeguimientoLinea,
+  SeguimientoStockLinea,
+  CompraCandidata,
+  ProcuraCandidata,
   StockRow,
   TipoMovimiento,
   TipoMovimientoConCartera,
@@ -561,11 +580,11 @@ export function getAlmacenes(query: { page?: number; pageSize?: number } = {}) {
   return apiGet<Page<Almacen>>(`/almacenes${qs ? `?${qs}` : ""}`);
 }
 
-export function createAlmacen(data: { nombre: string }) {
+export function createAlmacen(data: { nombre: string; predeterminado?: boolean }) {
   return apiPost<Almacen>("/almacenes", data);
 }
 
-export function updateAlmacen(id: string, data: { nombre?: string; activo?: boolean }) {
+export function updateAlmacen(id: string, data: { nombre?: string; activo?: boolean; predeterminado?: boolean }) {
   return apiPatch<Almacen>(`/almacenes/${id}`, data);
 }
 
@@ -574,6 +593,25 @@ export function deleteAlmacen(id: string) {
 }
 
 // --- Stock ---
+
+export function getStockResumen(
+  query: { almacenId?: string; search?: string; categoryId?: string; brandId?: string; estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE"; page?: number; pageSize?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.search) params.set("search", query.search);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.estado) params.set("estado", query.estado);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<StockResumen>(`/stock/resumen${qs ? `?${qs}` : ""}`);
+}
+
+export function getStockDetalle(varianteId: string) {
+  return apiGet<StockDetalle>(`/stock/variante/${varianteId}`);
+}
 
 export function getStock(
   query: {
@@ -882,12 +920,24 @@ export function getVendedores() {
   return apiGet<{ id: string; nombre: string }[]>("/proformas/vendedores");
 }
 
+export function getPagosProforma(id: string) {
+  return apiGet<PagosVenta>(`/proformas/${id}/pagos`);
+}
+
+export function registrarPagoProforma(id: string, data: { carteraId: string; monto: number; nota?: string }) {
+  return apiPost<PagosVenta>(`/proformas/${id}/pagos`, data);
+}
+
 export function createProforma(data: ProformaInput) {
   return apiPost<Proforma>("/proformas", data);
 }
 
 export function updateProforma(id: string, data: Partial<ProformaInput>) {
   return apiPatch<Proforma>(`/proformas/${id}`, data);
+}
+
+export function cambiarAlmacenCompra(id: string, almacenId: string) {
+  return apiPost<Proforma>(`/proformas/${id}/almacen-destino`, { almacenId });
 }
 
 export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
@@ -953,8 +1003,122 @@ export function getSeguimientoPendientes(
   return apiGet<Page<SeguimientoLinea>>(`/proformas/seguimiento${qs ? `?${qs}` : ""}`);
 }
 
-export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoProcura, cantidad: number) {
-  return apiPatch<SeguimientoLinea>(`/proformas/seguimiento/${id}`, { estado, cantidad });
+export function getSeguimientoStock(query: { estado?: string; empresaId?: string; categoryId?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.empresaId) params.set("empresaId", query.empresaId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<SeguimientoStockLinea>>(`/proformas/seguimiento/stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getComprasCandidatas(asignacionId: string) {
+  return apiGet<CompraCandidata[]>(`/proformas/seguimiento/${asignacionId}/compras-candidatas`);
+}
+
+export function getProcurasParaCompra(compraDetalleId: string) {
+  return apiGet<ProcuraCandidata[]>(`/proformas/seguimiento/compra/${compraDetalleId}/procuras`);
+}
+
+export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
+  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+// --- Reserva manual de stock libre ---
+
+export function reservarVenta(id: string) {
+  return apiPost<{ unidadesReservadas: number }>(`/proformas/${id}/reservar`, {});
+}
+
+export function reservarTodoElStockLibre() {
+  return apiPost<{ unidadesReservadas: number }>("/proformas/reservar-todo", {});
+}
+
+// --- Recojos ---
+
+export function getRecojos(compraId: string) {
+  return apiGet<RecojosCompra>(`/proformas/${compraId}/recojos`);
+}
+
+export function crearRecojo(compraId: string, data: { fecha?: string; nota?: string; lineas: { compraDetalleId: string; cantidad: number }[] }) {
+  return apiPost<RecojosCompra>(`/proformas/${compraId}/recojos`, data);
+}
+
+export function anularRecojo(recojoId: string) {
+  return apiDelete<RecojosCompra>(`/proformas/recojos/${recojoId}`);
+}
+
+// --- Solicitudes de stock ---
+
+export function getSolicitudes(query: { estado?: string; search?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.search) params.set("search", query.search);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<SolicitudStock>>(`/solicitudes-stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getSolicitud(id: string) {
+  return apiGet<SolicitudStock>(`/solicitudes-stock/${id}`);
+}
+
+export function createSolicitud(data: { nota?: string; lineas?: { varianteId: string; cantidad: number; nota?: string }[] } = {}) {
+  return apiPost<SolicitudStock>("/solicitudes-stock", data);
+}
+
+export function updateSolicitud(id: string, data: { nota?: string }) {
+  return apiPatch<SolicitudStock>(`/solicitudes-stock/${id}`, data);
+}
+
+export function cancelarSolicitud(id: string) {
+  return apiPost<SolicitudStock>(`/solicitudes-stock/${id}/cancelar`, {});
+}
+
+export function addLineaSolicitud(id: string, data: { varianteId: string; cantidad: number; nota?: string }) {
+  return apiPost<SolicitudStock>(`/solicitudes-stock/${id}/lineas`, data);
+}
+
+export function updateLineaSolicitud(id: string, lineaId: string, data: { cantidad?: number; nota?: string }) {
+  return apiPatch<SolicitudStock>(`/solicitudes-stock/${id}/lineas/${lineaId}`, data);
+}
+
+export function removeLineaSolicitud(id: string, lineaId: string) {
+  return apiDelete<SolicitudStock>(`/solicitudes-stock/${id}/lineas/${lineaId}`);
+}
+
+export function vincularLineaSolicitud(lineaId: string, compraDetalleId: string, cantidad?: number) {
+  return apiPost<SolicitudLinea>(`/solicitudes-stock/lineas/${lineaId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+export function desvincularLineaSolicitud(lineaId: string) {
+  return apiDelete<SolicitudLinea>(`/solicitudes-stock/lineas/${lineaId}/vincular`);
+}
+
+/** Faltantes de ventas y líneas de solicitud sin compra de estos productos (para "Crear compras"). */
+export function getPendientesPorVariante(varianteIds: string[]) {
+  return apiGet<PendientesPorVariante>(`/proformas/seguimiento/pendientes-por-variante?varianteIds=${varianteIds.join(",")}`);
+}
+
+/** Líneas de solicitud que esta línea de compra puede cubrir (libres, o ya ligadas a ella). */
+export function getSolicitudesParaCompra(compraDetalleId: string) {
+  return apiGet<SolicitudLineaParaCompra[]>(`/proformas/seguimiento/compra/${compraDetalleId}/solicitudes`);
+}
+
+export function crearComprasDesdeFaltantes(data: CrearComprasInput) {
+  return apiPost<CompraCreada[]>("/proformas/seguimiento/crear-compras", data);
+}
+
+/** Último proveedor al que se le compró cada producto: { varianteId: proveedorId }. */
+export function getSugerenciasCompra(varianteIds: string[]) {
+  return apiGet<Record<string, string>>(`/proformas/seguimiento/sugerencias-compra?varianteIds=${varianteIds.join(",")}`);
+}
+
+export function desvincularPedido(asignacionId: string) {
+  return apiDelete<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`);
 }
 
 // --- Registros ---
@@ -962,12 +1126,16 @@ export function updateSeguimientoEstado(id: string, estado: EstadoSeguimientoPro
 export function getRegistros(
   query: {
     tipo: string;
+    estado?: "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
+    sinConcretar?: boolean;
+    entrega?: "LISTA" | "ESPERANDO";
     codigo?: string;
     fechaDesde?: string;
     fechaHasta?: string;
     categoryId?: string;
     brandId?: string;
     productId?: string;
+    search?: string;
     clienteId?: string;
     proveedorId?: string;
     page?: number;
@@ -976,6 +1144,10 @@ export function getRegistros(
 ) {
   const params = new URLSearchParams();
   params.set("tipo", query.tipo);
+  if (query.estado) params.set("estado", query.estado);
+  if (query.sinConcretar) params.set("sinConcretar", "true");
+  if (query.entrega) params.set("entrega", query.entrega);
+  if (query.search) params.set("search", query.search);
   if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
   if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
@@ -986,7 +1158,7 @@ export function getRegistros(
   if (query.proveedorId) params.set("proveedorId", query.proveedorId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
-  return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);
+  return apiGet<Page<RegistroLinea> & { resumen: RegistroResumen }>(`/proformas/registros?${params.toString()}`);
 }
 
 // --- Financiero (Contabilidad) ---
@@ -1086,4 +1258,59 @@ export function getCuentasPorCobrar(
 
 export function cobrarCuenta(id: string, data: { monto: number; carteraId: string }) {
   return apiPost<CuentaPorCobrarConProforma>(`/contabilidad/cuentas-por-cobrar/${id}/cobrar`, data);
+}
+
+// --- Envíos ---
+
+export function getEnvios(query: { estado?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<EnvioResumen>>(`/envios${qs ? `?${qs}` : ""}`);
+}
+
+export function getEnvio(id: string) {
+  return apiGet<Envio>(`/envios/${id}`);
+}
+
+export function getEnviosDisponibles() {
+  return apiGet<EnvioDisponible[]>("/envios/disponibles");
+}
+
+export function createEnvio(data: CreateEnvioInput) {
+  return apiPost<Envio>("/envios", data);
+}
+
+export function updateEnvio(id: string, data: { almacenDestinoId?: string; nota?: string }) {
+  return apiPatch<Envio>(`/envios/${id}`, data);
+}
+
+export function agregarItemEnvio(id: string, data: { compraDetalleId: string; cantidad: number }) {
+  return apiPost<Envio>(`/envios/${id}/items`, data);
+}
+
+export function updateItemEnvio(id: string, itemId: string, data: { cantidad: number }) {
+  return apiPatch<Envio>(`/envios/${id}/items/${itemId}`, data);
+}
+
+export function quitarItemEnvio(id: string, itemId: string) {
+  return apiDelete<Envio>(`/envios/${id}/items/${itemId}`);
+}
+
+export function marcarEnvioEnTransito(id: string) {
+  return apiPost<Envio>(`/envios/${id}/en-transito`, {});
+}
+
+export function anularEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/anular`, {});
+}
+
+export function recibirEnvio(id: string, data: CreateRecepcionInput) {
+  return apiPost<Envio>(`/envios/${id}/recepciones`, data);
+}
+
+export function cerrarEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/cerrar`, {});
 }

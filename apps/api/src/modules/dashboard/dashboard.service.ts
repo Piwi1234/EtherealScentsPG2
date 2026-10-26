@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EstadoCuentaPorCobrar, EstadoProforma, NaturalezaMovimiento, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 
 // Solo cuentan como "reales" las proformas aprobadas o completadas — ni borrador (todavía no pasó
@@ -306,5 +306,86 @@ export class DashboardService {
       _count: true,
     });
     return { totalBs: round2(Number(result._sum.montoAdeudado ?? 0)), cantidad: result._count };
+  }
+
+  /** Lo que está esperando una acción: faltantes sin compra, envíos, borradores, compras sin envío y ventas (listas o esperando mercadería). */
+  async pendientes() {
+    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio, solicitudesSinComprar, ventasConStockLibre] = await Promise.all([
+      this.prisma.proformaDetalleAsignacion.count({
+        where: {
+          origen: OrigenAsignacion.PROCURA,
+          cantidad: { gt: 0 },
+          compraDetalleId: null,
+          proformaDetalle: { proforma: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.VENTA } },
+        },
+      }),
+      this.prisma.envio.count({ where: { estado: EstadoEnvio.EN_TRANSITO } }),
+      // Piezas que viajan: lo despachado y todavía no recibido.
+      this.prisma.$queryRaw<{ piezas: bigint | null }[]>`
+        SELECT SUM(i."cantidad" - i."cantidad_recibida") AS "piezas"
+        FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id"
+        WHERE e."estado" = 'EN_TRANSITO'
+      `,
+      this.prisma.envio.count({ where: { estado: EstadoEnvio.ARMANDO } }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.VENTA } }),
+      this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.COMPRA } }),
+      this.prisma.proforma.findFirst({ where: { estado: EstadoProforma.BORRADOR }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+      // Ventas aprobadas listas para completar: todo reservado en stock físico (sin faltante ni tránsito pendiente).
+      this.prisma.proforma.count({
+        where: {
+          estado: EstadoProforma.APROBADA,
+          tipo: TipoProforma.VENTA,
+          NOT: { detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } } },
+        },
+      }),
+      // Ventas aprobadas que esperan mercadería: con faltante o con reservas en tránsito.
+      this.prisma.proforma.count({
+        where: {
+          estado: EstadoProforma.APROBADA,
+          tipo: TipoProforma.VENTA,
+          detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
+        },
+      }),
+      // Compras con productos ya recogidos que todavía no entraron a ningún envío.
+      this.prisma.$queryRaw<{ compras: bigint }[]>`
+        SELECT COUNT(*) AS "compras" FROM (
+          SELECT p."id"
+          FROM "proformas" p
+          JOIN "proforma_detalles" d ON d."proforma_id" = p."id"
+          WHERE p."estado" = 'APROBADA' AND p."tipo" = 'COMPRA'
+          GROUP BY p."id"
+          HAVING SUM(COALESCE((SELECT SUM(rl."cantidad") FROM "recojo_lineas" rl WHERE rl."compra_detalle_id" = d."id"), 0))
+               > SUM(COALESCE((SELECT SUM(i."cantidad") FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id" WHERE i."compra_detalle_id" = d."id" AND e."estado" <> 'ANULADO'), 0))
+        ) t
+      `,
+      // Líneas de solicitudes de stock abiertas que todavía no tienen compra.
+      this.prisma.solicitudStockLinea.count({ where: { compraDetalleId: null, solicitud: { estado: "ABIERTA" } } }),
+      // Ventas con faltante sin compra ligada para las que ya hay stock libre (físico o en tránsito) sin reservar.
+      this.prisma.$queryRaw<{ ventas: bigint }[]>`
+        SELECT COUNT(DISTINCT p."id") AS "ventas"
+        FROM "proforma_detalle_asignaciones" a
+        JOIN "proforma_detalles" d ON d."id" = a."proforma_detalle_id"
+        JOIN "proformas" p ON p."id" = d."proforma_id"
+        JOIN "stock" s ON s."variante_id" = d."variante_id" AND s."almacen_id" = p."almacen_id"
+        WHERE a."origen" = 'PROCURA' AND a."cantidad" > 0 AND a."compra_detalle_id" IS NULL
+          AND p."estado" = 'APROBADA' AND p."tipo" = 'VENTA'
+          AND ((s."cantidad_fisica" - s."cantidad_reservada") > 0 OR (s."cantidad_en_transito" - s."cantidad_reservada_transito") > 0)
+      `,
+    ]);
+    const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;
+    return {
+      pedidosSinCompra,
+      enviosEnTransito,
+      piezasEnTransito: Number(piezasEnTransito[0]?.piezas ?? 0),
+      enviosArmando,
+      borradoresVenta,
+      borradoresCompra,
+      diasBorradorMasViejo,
+      ventasListas,
+      ventasEsperando,
+      ventasConStockLibre: Number(ventasConStockLibre[0]?.ventas ?? 0),
+      comprasSinEnvio: Number(comprasSinEnvio[0]?.compras ?? 0),
+      solicitudesSinComprar,
+    };
   }
 }

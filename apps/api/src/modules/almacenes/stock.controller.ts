@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Query, Res } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { Rol } from "@app/database";
@@ -37,6 +37,26 @@ export class StockController {
       "Content-Disposition": 'attachment; filename="existencias-por-lote.xlsx"',
     });
     res.send(buffer);
+  }
+
+  @Get("resumen")
+  @ApiOperation({ summary: "Existencias por producto (suma de almacenes) con valor en Bs e indicadores de lo filtrado." })
+  resumen(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("almacenId") almacenId?: string,
+    @Query("search") search?: string,
+    @Query("categoryId") categoryId?: string,
+    @Query("brandId") brandId?: string,
+    @Query("estado") estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE",
+  ) {
+    return this.stock.resumen({ page, pageSize, almacenId, search, categoryId, brandId, estado });
+  }
+
+  @Get("variante/:varianteId")
+  @ApiOperation({ summary: "Detalle de un producto: almacenes, lotes y costo, reservas, faltantes, compras en camino y solicitudes." })
+  detalleVariante(@Param("varianteId", ParseUUIDPipe) varianteId: string) {
+    return this.stock.detalleVariante(varianteId);
   }
 
   @Get()

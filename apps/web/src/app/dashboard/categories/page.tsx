@@ -192,7 +192,7 @@ export default function CategoriesPage() {
       {!tree && !error && <p>Cargando...</p>}
       {tree && tree.length === 0 && <p>No hay categorías todavía.</p>}
       {tree && tree.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Nombre</th>

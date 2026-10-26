@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { TopClientes } from "../../components/dashboard/TopClientes";
+import { NuevaProformaBoton } from "../../components/proformas/NuevaProformaBoton";
 import { apiGet } from "../../lib/api";
 import type {
   DashCategoriaTotal,
@@ -8,6 +11,7 @@ import type {
   DashCuentasPorCobrar,
   DashIngresoEgresoCartera,
   DashMargenMes,
+  DashPendientes,
   DashMesTotal,
   DashProveedorCategoriaTotal,
   DashSaldoCartera,
@@ -61,6 +65,7 @@ export default function DashboardPage() {
   const [saldosCartera, setSaldosCartera] = useState<DashSaldoCartera[] | null>(null);
   const [ingresosEgresos, setIngresosEgresos] = useState<DashIngresoEgresoCartera[] | null>(null);
   const [cuentasPorCobrar, setCuentasPorCobrar] = useState<DashCuentasPorCobrar | null>(null);
+  const [pendientes, setPendientes] = useState<DashPendientes | null>(null);
 
   useEffect(() => {
     apiGet<Page<Empresa>>("/empresas?pageSize=100")
@@ -71,6 +76,7 @@ export default function DashboardPage() {
     apiGet<DashStockValorizado>("/dashboard/stock-valorizado").then(setStockValorizado).catch(() => {});
     apiGet<DashSaldoCartera[]>("/dashboard/saldos-cartera").then(setSaldosCartera).catch(() => {});
     apiGet<DashCuentasPorCobrar>("/dashboard/cuentas-por-cobrar").then(setCuentasPorCobrar).catch(() => {});
+    apiGet<DashPendientes>("/dashboard/pendientes").then(setPendientes).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -145,10 +151,113 @@ export default function DashboardPage() {
     }));
   }, [ingresosEgresos]);
 
+  // Las proformas nuevas arrancan con la casa matriz (se puede cambiar después en la cabecera).
+  const empresasActivas = empresas.filter((e) => e.activo);
+  const empresaPorDefectoId = (empresasActivas.find((e) => e.tipo === "CASA_MATRIZ") ?? empresasActivas[0])?.id ?? "";
+
+  // Indicadores del mes en curso (último mes del rango) contra el anterior.
+  const ventasMes = ventasMensuales?.[ventasMensuales.length - 1]?.total ?? null;
+  const ventasMesAnterior = ventasMensuales && ventasMensuales.length > 1 ? ventasMensuales[ventasMensuales.length - 2].total : null;
+  const comprasMes = comprasMensuales?.[comprasMensuales.length - 1]?.total ?? null;
+  const variacionVentas =
+    ventasMes !== null && ventasMesAnterior !== null && ventasMesAnterior > 0
+      ? Math.round(((ventasMes - ventasMesAnterior) / ventasMesAnterior) * 100)
+      : null;
+
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+  const atencion = pendientes
+    ? [
+        {
+          n: pendientes.pedidosSinCompra,
+          tono: "warn",
+          titulo: `${plural(pendientes.pedidosSinCompra, "pedido", "pedidos")} de clientes sin comprar`,
+          detalle: "Faltantes de notas de venta aprobadas",
+          href: "/dashboard/seguimiento",
+          accion: "Ver seguimiento",
+        },
+        {
+          n: pendientes.enviosEnTransito,
+          tono: "info",
+          titulo: `${plural(pendientes.enviosEnTransito, "envío", "envíos")} en camino`,
+          detalle: `${plural(pendientes.piezasEnTransito, "pieza", "piezas")} por recibir`,
+          href: "/dashboard/stock/envios",
+          accion: "Recibir",
+        },
+        {
+          n: pendientes.enviosArmando,
+          tono: "info",
+          titulo: `${plural(pendientes.enviosArmando, "envío", "envíos")} armándose`,
+          detalle: "Todavía no salieron",
+          href: "/dashboard/stock/envios",
+          accion: "Abrir envíos",
+        },
+        {
+          n: pendientes.ventasListas,
+          tono: "ok",
+          titulo: `${plural(pendientes.ventasListas, "venta lista", "ventas listas")} para completar`,
+          detalle: "Todo reservado en stock: falta entregar y cobrar",
+          href: "/dashboard/registros?tab=VENTA&entrega=LISTA",
+          accion: "Completar",
+        },
+        {
+          n: pendientes.ventasConStockLibre,
+          tono: "warn",
+          titulo: `${plural(pendientes.ventasConStockLibre, "venta con faltante", "ventas con faltante")} y hay stock libre`,
+          detalle: "El stock no se reserva solo: reservalo desde la venta o en Seguimiento",
+          href: "/dashboard/seguimiento",
+          accion: "Reservar",
+        },
+        {
+          n: pendientes.ventasEsperando,
+          tono: "warn",
+          titulo: `${plural(pendientes.ventasEsperando, "venta", "ventas")} esperando mercadería`,
+          detalle: "Con faltante o reservada en tránsito",
+          href: "/dashboard/registros?tab=VENTA&entrega=ESPERANDO",
+          accion: "Ver ventas",
+        },
+        {
+          n: pendientes.solicitudesSinComprar,
+          tono: "warn",
+          titulo: `${plural(pendientes.solicitudesSinComprar, "producto solicitado", "productos solicitados")} para stock sin comprar`,
+          detalle: "Pedidos de stock que todavía no tienen compra",
+          href: "/dashboard/stock/solicitudes?estado=ABIERTA",
+          accion: "Ver solicitudes",
+        },
+        {
+          n: pendientes.comprasSinEnvio,
+          tono: "info",
+          titulo: `${plural(pendientes.comprasSinEnvio, "compra", "compras")} con productos recogidos sin enviar`,
+          detalle: "Todavía no salieron: armá un envío con ellos",
+          href: "/dashboard/stock/envios?nuevo=1",
+          accion: "Armar envío",
+        },
+        {
+          n: pendientes.borradoresVenta,
+          tono: "ok",
+          titulo: `${plural(pendientes.borradoresVenta, "borrador", "borradores")} de venta sin aprobar`,
+          detalle: `El más antiguo tiene ${plural(pendientes.diasBorradorMasViejo, "día", "días")}`,
+          href: "/dashboard/registros?tab=SIN_CONCRETAR&estado=BORRADOR",
+          accion: "Abrir",
+        },
+        {
+          n: pendientes.borradoresCompra,
+          tono: "ok",
+          titulo: `${plural(pendientes.borradoresCompra, "borrador", "borradores")} de compra sin aprobar`,
+          detalle: "Pedidos a proveedores sin confirmar",
+          href: "/dashboard/registros?tab=SIN_CONCRETAR&estado=BORRADOR",
+          accion: "Abrir",
+        },
+      ].filter((r) => r.n > 0)
+    : null;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Dashboard</h1>
+        <div className="dash-acciones">
+          <NuevaProformaBoton tipo="VENTA" empresaId={empresaPorDefectoId} variante="primario" />
+          <NuevaProformaBoton tipo="COMPRA" empresaId={empresaPorDefectoId} variante="secundario" />
+        </div>
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -177,6 +286,56 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="dash-kpis">
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Ventas del mes</span>
+          <span className="dash-kpi-value">{ventasMes === null ? "—" : bs(ventasMes)}</span>
+          <span className={`dash-kpi-note${variacionVentas !== null ? (variacionVentas < 0 ? " neg" : " pos") : ""}`}>
+            {variacionVentas === null ? "Sin mes anterior para comparar" : `${variacionVentas > 0 ? "+" : ""}${variacionVentas}% vs. el mes anterior`}
+          </span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Por cobrar</span>
+          <span className="dash-kpi-value">{cuentasPorCobrar ? bs(cuentasPorCobrar.totalBs) : "—"}</span>
+          <span className="dash-kpi-note">
+            {cuentasPorCobrar ? plural(cuentasPorCobrar.cantidad, "cuenta pendiente", "cuentas pendientes") : ""}
+          </span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">Compras del mes</span>
+          <span className="dash-kpi-value">{comprasMes === null ? "—" : bs(comprasMes)}</span>
+          <span className="dash-kpi-note">Aprobadas o completadas</span>
+        </div>
+        <div className="dash-kpi">
+          <span className="dash-kpi-label">En tránsito</span>
+          <span className="dash-kpi-value">{pendientes ? `${pendientes.piezasEnTransito} pzs` : "—"}</span>
+          <span className="dash-kpi-note">{pendientes ? `${plural(pendientes.enviosEnTransito, "envío", "envíos")} en camino` : ""}</span>
+        </div>
+      </div>
+
+      <div className="card dash-attention">
+        <p className="dash-widget-title">Requiere atención</p>
+        <p className="dash-widget-note">Lo que está esperando una acción tuya.</p>
+        {atencion === null ? (
+          <p className="dash-empty">Cargando...</p>
+        ) : atencion.length === 0 ? (
+          <p className="dash-empty">Todo al día: no hay nada pendiente.</p>
+        ) : (
+          <div className="dash-attention-list">
+            {atencion.map((r) => (
+              <Link key={r.titulo} href={r.href} className="dash-attention-row">
+                <span className={`dash-attention-dot ${r.tono}`} />
+                <span className="dash-attention-text">
+                  <b>{r.titulo}</b>
+                  <small>{r.detalle}</small>
+                </span>
+                <span className="dash-attention-go">{r.accion} →</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ================= Ventas ================= */}
       <p className="dash-section-title">Ventas</p>
       <div className="dash-grid">
@@ -198,26 +357,7 @@ export default function DashboardPage() {
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ minWidth: 0 }}>
-              <p className="dash-widget-title">Top 10 clientes</p>
-              <p className="dash-widget-note">Total comprado en el mes elegido.</p>
-            </div>
-            <input
-              className="field"
-              type="month"
-              value={topClientesMonth}
-              onChange={(e) => setTopClientesMonth(e.target.value)}
-              style={{ width: 150 }}
-            />
-          </div>
-          {topClientes ? (
-            <RankedBarList items={topClientes.map((c) => ({ label: c.cliente, value: c.total }))} formatValue={bs} />
-          ) : (
-            <p className="dash-empty">Cargando...</p>
-          )}
-        </div>
+        <TopClientes items={topClientes} month={topClientesMonth} maxMonth={currentMonth()} onMonthChange={setTopClientesMonth} />
         <div className="card">
           <p className="dash-widget-title">Proformas aprobadas</p>
           <p className="dash-widget-note">En el período elegido.</p>

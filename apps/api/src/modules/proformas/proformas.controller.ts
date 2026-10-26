@@ -8,6 +8,8 @@ import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { ProformasService } from "./proformas.service";
 import { ProformaApprovalService } from "./proforma-approval.service";
 import { ProformaCompletionService } from "./proforma-completion.service";
+import { ProformaPagosService } from "./proforma-pagos.service";
+import { RegistrarPagoDto } from "./dto/registrar-pago.dto";
 import { ProformaPdfService } from "./proforma-pdf.service";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
@@ -32,6 +34,7 @@ export class ProformasController {
     private readonly proformas: ProformasService,
     private readonly approval: ProformaApprovalService,
     private readonly completion: ProformaCompletionService,
+    private readonly pagos: ProformaPagosService,
     private readonly pdf: ProformaPdfService,
   ) {}
 
@@ -114,6 +117,28 @@ export class ProformasController {
     return this.proformas.removeDetalle(id, detalleId);
   }
 
+  // Ruta estática antes de las de ":id".
+  @Post("reservar-todo")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reserva todo el stock libre posible para los faltantes de ventas aprobadas (la más antigua primero)." })
+  reservarTodo(@CurrentUser() user: AuthenticatedUser) {
+    return this.approval.reservarFaltantes(user.id);
+  }
+
+  @Post(":id/almacen-destino")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Cambia el almacén destino de una compra aprobada (mueve su stock en tránsito)." })
+  cambiarAlmacen(@Param("id", ParseUUIDPipe) id: string, @Body() dto: { almacenId: string }) {
+    return this.approval.cambiarAlmacenCompra(id, dto.almacenId);
+  }
+
+  @Post(":id/reservar")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reserva el stock libre disponible para el faltante de esta venta aprobada." })
+  reservar(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.approval.reservarFaltantes(user.id, id);
+  }
+
   @Post(":id/aprobar")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -123,6 +148,22 @@ export class ProformasController {
   @ApiResponse({ status: 409, description: "Ya no está en BORRADOR (aprobación concurrente u otro estado)." })
   aprobar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AprobarProformaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.approval.aprobar(id, user.id, dto.almacenId, dto.carteraId);
+  }
+
+  @Get(":id/pagos")
+  @ApiOperation({ summary: "Pagos de una venta: total, pagado, saldo y los movimientos de cartera ligados." })
+  pagosDe(@Param("id", ParseUUIDPipe) id: string) {
+    return this.pagos.resumen(id);
+  }
+
+  @Post(":id/pagos")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Registra un pago (adelanto o abono) de una venta APROBADA: entra a la cartera elegida y descuenta del saldo.",
+  })
+  @ApiResponse({ status: 409, description: "La venta no está APROBADA." })
+  registrarPago(@Param("id", ParseUUIDPipe) id: string, @Body() dto: RegistrarPagoDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.pagos.registrar(id, dto, user.id);
   }
 
   @Post(":id/anular")

@@ -94,7 +94,7 @@ export function CarterasList({ moneda, titulo }: { moneda: MonedaCartera; titulo
       {!carteras && <p>Cargando...</p>}
       {carteras && carteras.length === 0 && <p>No hay carteras todavía.</p>}
       {carteras && carteras.length > 0 && (
-        <table className="table table-minimal">
+        <table className="table table-minimal table-compact">
           <thead>
             <tr>
               <th>Nombre</th>

@@ -4,12 +4,16 @@ import { apiGetServer } from "../../../../lib/api-server";
 import { ApiError } from "../../../../lib/api";
 import type { Almacen, Cartera, Ciudad, Empresa, Page, Proforma, Proveedor } from "../../../../lib/types";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
+import { EntregaBadge } from "../../../../components/proformas/EntregaBadge";
 import { EstadoHistorialTimeline } from "../../../../components/proformas/EstadoHistorialTimeline";
 import { ProformaHeaderEditor } from "../../../../components/proformas/ProformaHeaderEditor";
 import { ProformaDetalleTable } from "../../../../components/proformas/ProformaDetalleTable";
 import { ProformaTotales } from "../../../../components/proformas/ProformaTotales";
 import { AsignacionAlmacenTable } from "../../../../components/proformas/AsignacionAlmacenTable";
+import { VolverALista } from "../../../../components/proformas/VolverALista";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
+import { ProformaPagos } from "../../../../components/proformas/ProformaPagos";
+import { ProformaRecojos } from "../../../../components/proformas/ProformaRecojos";
 
 export default async function ProformaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,10 +62,9 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
             — {proforma.codigo}
           </h1>
           <EstadoBadge estado={proforma.estado} />
+          <EntregaBadge proforma={proforma} />
         </div>
-        <Link href="/dashboard/proformas" className="link-button">
-          Volver
-        </Link>
+        <VolverALista />
       </div>
 
       <ProformaHeaderEditor
@@ -69,6 +72,8 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         editable={editableHeader}
         empresas={empresasPage.items.filter((e) => e.activo)}
         ciudades={ciudadesPage.items}
+        proveedores={proveedoresPage.items}
+        almacenes={almacenesPage.items.filter((a) => a.activo)}
       />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 12px" }}>
@@ -91,6 +96,12 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           <AsignacionAlmacenTable proforma={proforma} />
         </>
       )}
+
+      {proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && (
+        <ProformaPagos proformaId={proforma.id} estado={proforma.estado} carterasBs={carterasBs} />
+      )}
+
+      {proforma.tipo === "COMPRA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && <ProformaRecojos proforma={proforma} />}
 
       <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Historial</h2>
       <EstadoHistorialTimeline historial={proforma.historial} />

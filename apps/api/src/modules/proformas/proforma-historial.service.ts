@@ -11,8 +11,10 @@ export class ProformaHistorialService {
     usuarioId: string,
     nota?: string,
   ) {
+    const ahora = new Date();
     await tx.proformaHistorial.create({
-      data: { proformaId, estado, usuarioId, nota },
+      data: { proformaId, estado, usuarioId, nota, fecha: ahora },
     });
+    await tx.proforma.update({ where: { id: proformaId }, data: { estadoActualizadoAt: ahora } });
   }
 }

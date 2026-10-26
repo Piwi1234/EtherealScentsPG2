@@ -65,7 +65,7 @@ export function CompletarVentaForm({ proforma, carterasBs }: { proforma: Proform
         })),
       );
       const actualizada = await completarProforma(proforma.id, { asignaciones });
-      if (actualizada.cuentaPorCobrar) {
+      if (actualizada.cuentaPorCobrar && actualizada.cuentaPorCobrar.estado === "PENDIENTE") {
         setCuenta(actualizada.cuentaPorCobrar);
         setMontoInput(actualizada.cuentaPorCobrar.montoAdeudado);
         setSubmitting(false);

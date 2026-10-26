@@ -1,13 +1,17 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsOptional, IsUUID, Min } from "class-validator";
-import { EstadoSeguimientoProcura } from "@app/database";
+import { IsIn, IsInt, IsOptional, IsUUID, Min } from "class-validator";
+
+/** Estado DERIVADO de un pedido de cliente (Procura) según la compra/envío que lo cubre — ya no es una
+ * etiqueta manual. SIN_COMPRA: nada ligado (o la compra ligada ya cerró sin cubrirlo). */
+export const ESTADOS_PEDIDO = ["SIN_COMPRA", "EN_PREPARACION", "COMPRADO", "RECOGIDO", "EN_TRANSITO"] as const;
+export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
 export class QuerySeguimientoDto {
-  @ApiPropertyOptional({ enum: EstadoSeguimientoProcura })
+  @ApiPropertyOptional({ enum: ESTADOS_PEDIDO })
   @IsOptional()
-  @IsEnum(EstadoSeguimientoProcura)
-  estado?: EstadoSeguimientoProcura;
+  @IsIn(ESTADOS_PEDIDO)
+  estado?: EstadoPedido;
 
   @ApiPropertyOptional()
   @IsOptional()

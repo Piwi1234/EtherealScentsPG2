@@ -3,9 +3,20 @@
 import { useRouter } from "next/navigation";
 import type { Proforma } from "../../lib/types";
 import { EstadoBadge } from "./EstadoBadge";
+import { EntregaBadge } from "./EntregaBadge";
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** Piezas totales de la proforma (suma de cantidades). Una venta en ml se cuenta por presentaciones
+ * (frascos), no por ml; una compra en ml cuenta una unidad por línea. */
+function totalProductos(proforma: Proforma): number {
+  return proforma.detalles.reduce((total, d) => {
+    if (d.presentacionVenta?.cantidadMl) return total + Math.round(d.cantidad / d.presentacionVenta.cantidadMl);
+    if (d.variante?.unidad === "ML") return total + 1;
+    return total + d.cantidad;
+  }, 0);
 }
 
 /** El proveedor es por línea, no por proforma entera (una misma compra puede traer productos de
@@ -22,7 +33,8 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
   const router = useRouter();
 
   return (
-    <table className="table table-minimal">
+    <div className="table-scroll">
+    <table className="table table-minimal table-compact">
       <thead>
         <tr>
           <th>Código</th>
@@ -34,7 +46,7 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
           {mostrarVendedor && <th>Vendedor</th>}
           {mostrarVendedor && <th>Ciudad</th>}
           <th>Estado</th>
-          <th className="num">Líneas</th>
+          <th className="num">Productos</th>
         </tr>
       </thead>
       <tbody>
@@ -56,11 +68,13 @@ export function ProformasTable({ proformas, mostrarVendedor }: { proformas: Prof
             {mostrarVendedor && <td className="cell-muted">{proforma.ciudadEntrega?.nombre ?? "—"}</td>}
             <td>
               <EstadoBadge estado={proforma.estado} />
+              <EntregaBadge proforma={proforma} />
             </td>
-            <td className="num">{proforma.detalles.length}</td>
+            <td className="num">{totalProductos(proforma)}</td>
           </tr>
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

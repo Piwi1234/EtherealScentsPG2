@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
+import { addLineaSolicitud, API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
 import type {
   AttributeType,
   AttributeVariantMode,
@@ -62,7 +62,20 @@ function defaultVariantId(product: Product): string | undefined {
  * no se cargan productos hasta elegir al menos uno (2000+ productos en catálogo, no tiene sentido
  * traer todo de una).
  */
-export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: string; tipo: TipoProforma }) {
+export function AgregarProductoBrowser({
+  proformaId,
+  tipo,
+  modo,
+  cantidadesIniciales = {},
+}: {
+  /** Id de la proforma, o de la solicitud de stock cuando `modo` es "SOLICITUD". */
+  proformaId: string;
+  tipo: TipoProforma;
+  /** "SOLICITUD": agrega productos a una solicitud de stock (solo producto y cantidad, sin costos ni precios). */
+  modo?: "SOLICITUD";
+  /** Piezas que la proforma ya tiene por variante (varianteId → cantidad), para no duplicar líneas. */
+  cantidadesIniciales?: Record<string, number>;
+}) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [rootCategoryId, setRootCategoryId] = useState("");
@@ -77,7 +90,10 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
 
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
+  const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
+  // Productos cuya cantidad se está eligiendo: el botón "Agregar" pasa a - n + y aparece "Confirmar".
+  const [editando, setEditando] = useState<Record<string, boolean>>({});
   // Venta de variantes unidad=ML: se elige una presentación (subvariante) en vez de cantidad+precio
   // libres — ver AgregarProductoBrowser.tsx en el plan de "Variantes fraccionadas por ml".
   const [presentacionesByVariant, setPresentacionesByVariant] = useState<Record<string, PresentacionVenta[]>>({});
@@ -293,7 +309,11 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
     setSubmittingId(product.id);
     setRowError((prev) => ({ ...prev, [product.id]: "" }));
     try {
-      if (tipo === "VENTA" && variant.unidad === "ML") {
+      if (modo === "SOLICITUD") {
+        const cantidad = cantidadByProduct[product.id] ?? 1;
+        await addLineaSolicitud(proformaId, { varianteId: variant.id, cantidad });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
+      } else if (tipo === "VENTA" && variant.unidad === "ML") {
         const presentacionVentaId = presentacionIdByProduct[product.id];
         const numPresentaciones = numPresentacionesByProduct[product.id] ?? 1;
         if (!presentacionVentaId) {
@@ -306,6 +326,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
         const cantidad = cantidadByProduct[product.id] ?? 1;
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
         await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       } else {
         // Sin proveedor acá a propósito — se elige después, directo en la proforma ya creada (ver
         // ProformaDetalleTable), para no interrumpir el flujo rápido de cargar varios productos.
@@ -318,10 +339,12 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
           costoSeguridad: Number(product.category.securityCost ?? 0),
           costoLogistica: Number(product.category.logisticsCost ?? 0),
         });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
       setAddedFlash((prev) => ({ ...prev, [product.id]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [product.id]: false })), FLASH_MS);
       setCantidadByProduct((prev) => ({ ...prev, [product.id]: 1 }));
+      setEditando((prev) => ({ ...prev, [product.id]: false }));
       setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: 1 }));
     } catch (e) {
       setRowError((prev) => ({ ...prev, [product.id]: e instanceof ApiError ? e.message : String(e) }));
@@ -423,7 +446,7 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                 </h3>
               )}
               <div className="table-scroll">
-                <table className="table table-minimal">
+                <table className="table table-minimal table-compact">
                   <thead>
                     <tr>
                       <th>Stock</th>
@@ -518,34 +541,64 @@ export function AgregarProductoBrowser({ proformaId, tipo }: { proformaId: strin
                         )}
                       </td>
                       <td className="num">
-                        <input
-                          className="field"
-                          type="number"
-                          min={1}
-                          value={(esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1}
-                          onChange={(e) => {
-                            const parsed = parseInt(e.target.value, 10) || 1;
-                            if (esVentaMl) {
-                              setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: parsed }));
-                            } else {
-                              setCantidadByProduct((prev) => ({ ...prev, [product.id]: parsed }));
-                            }
-                          }}
-                          style={{ width: 70, textAlign: "center" }}
-                        />
+                        {(() => {
+                          const cantidadActual = (esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1;
+                          const fijar = (n: number) => {
+                            if (esVentaMl) setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: n }));
+                            else setCantidadByProduct((prev) => ({ ...prev, [product.id]: n }));
+                          };
+                          if (!editando[product.id]) {
+                            return (
+                              <button
+                                type="button"
+                                className="action-btn"
+                                onClick={() => {
+                                  fijar(1);
+                                  setRowError((prev) => ({ ...prev, [product.id]: "" }));
+                                  setEditando((prev) => ({ ...prev, [product.id]: true }));
+                                }}
+                              >
+                                {addedFlash[product.id] ? "Agregada ✓" : "Agregar"}
+                              </button>
+                            );
+                          }
+                          return (
+                            <span className="qty-stepper">
+                              <button
+                                type="button"
+                                aria-label="Menos"
+                                onClick={() => (cantidadActual <= 1 ? setEditando((prev) => ({ ...prev, [product.id]: false })) : fijar(cantidadActual - 1))}
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                value={cantidadActual}
+                                aria-label={`Cantidad de ${product.name}`}
+                                onChange={(e) => fijar(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              />
+                              <button type="button" aria-label="Más" onClick={() => fijar(cantidadActual + 1)}>
+                                +
+                              </button>
+                            </span>
+                          );
+                        })()}
                         {esCompraMl && (
                           <span className="cell-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>ml</span>
                         )}
+                        {!esVentaMl && selectedVariant && (enProforma[selectedVariant.id] ?? 0) > 0 && (
+                          <span className="badge badge-muted" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                            Ya en {modo === "SOLICITUD" ? "la solicitud" : "proforma"}: {enProforma[selectedVariant.id]}
+                          </span>
+                        )}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="action-btn"
-                          onClick={() => handleAgregar(product)}
-                          disabled={submittingId === product.id}
-                        >
-                          {addedFlash[product.id] ? "Agregada ✓" : submittingId === product.id ? "Agregando..." : "Agregar"}
-                        </button>
+                        {editando[product.id] && (
+                          <button type="button" className="button" onClick={() => handleAgregar(product)} disabled={submittingId === product.id}>
+                            {submittingId === product.id ? "Agregando..." : "Confirmar"}
+                          </button>
+                        )}
                         {rowError[product.id] && (
                           <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[product.id]}</p>
                         )}

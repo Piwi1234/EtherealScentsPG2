@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, Prisma, TipoProforma } from "@app/database";
+import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -7,6 +7,7 @@ import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
 import { generateUniqueEntityCode } from "../../catalog/entity-code";
 import { ProformaHistorialService } from "./proforma-historial.service";
+import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace } from "./recojo.util";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
@@ -52,7 +53,20 @@ export const includeDetails = {
       // COMPRA: a quién se le compra ESTA línea puntual (ver comentario en schema.prisma) — null
       // para líneas de VENTA.
       proveedor: true,
-      asignaciones: { include: { almacen: true } },
+      // COMPRA: cuánto de la línea está ligado a faltantes de notas de venta.
+      asignacionesCubiertas: { select: { cantidad: true } },
+      solicitudesCubiertas: { select: { cantidad: true } },
+      // COMPRA: lo recogido de esta línea (suma de los recojos).
+      recojoLineas: { select: { cantidad: true } },
+      // VENTA: la compra que cubre cada faltante (Procura), con lo recogido/enviado para derivar su estado.
+      asignaciones: {
+        include: {
+          almacen: true,
+          compraDetalle: {
+            select: { id: true, cantidad: true, proforma: { select: { id: true, codigo: true, estado: true } }, ...compraConEnlacesSelect },
+          },
+        },
+      },
       loteCompras: true,
     },
   },
@@ -60,6 +74,8 @@ export const includeDetails = {
     orderBy: { fecha: "desc" as const },
     include: { usuario: { select: { id: true, nombre: true } } },
   },
+  // COMPRA: proveedor de la nota (null en compras viejas que mezclaban proveedores).
+  proveedor: { select: { id: true, nombre: true } },
   // Solo VENTA, y solo si quedó saldo pendiente al completar (ver proforma-completion.service.ts).
   cuentaPorCobrar: true,
 } satisfies Prisma.ProformaInclude;
@@ -95,14 +111,26 @@ export class ProformasService {
       // línea de ese proveedor (ver ProformaDetalle.proveedorId).
       detalles: query.proveedorId ? { some: { proveedorId: query.proveedorId } } : undefined,
       ciudadEntregaId: query.ciudadEntregaId,
-      codigo: query.codigo ? query.codigo.trim().toUpperCase() : undefined,
+      codigo: query.codigo ? { contains: query.codigo.trim(), mode: "insensitive" } : undefined,
       fecha: {
         gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
         lte: hasta,
       },
     };
+    // Estado de entrega de una venta aprobada: pendiente = faltante (Procura) o reserva en tránsito sin llegar.
+    const conPendiente: Prisma.ProformaWhereInput = {
+      detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
+    };
+    const extra: Prisma.ProformaWhereInput[] = [];
+    if (query.entrega) {
+      where.tipo = TipoProforma.VENTA;
+      where.estado = EstadoProforma.APROBADA;
+      extra.push(query.entrega === "LISTA" ? { NOT: conPendiente } : conPendiente);
+    }
+    if (extra.length > 0) where.AND = extra;
+
     const [items, total] = await Promise.all([
-      this.prisma.proforma.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: includeDetails }),
+      this.prisma.proforma.findMany({ where, skip, take, orderBy: [{ estadoActualizadoAt: "desc" }, { createdAt: "desc" }], include: includeDetails }),
       this.prisma.proforma.count({ where }),
     ]);
     return { items, total, page, pageSize };
@@ -123,7 +151,23 @@ export class ProformasService {
     if (!proforma) {
       throw new NotFoundException("Proforma no encontrada.");
     }
-    return proforma;
+    return this.conEstadoDeFaltantes(proforma);
+  }
+
+  /** A cada faltante (Procura) de una venta le suma el estado de la compra que lo cubre: comprado, recogido o enviado. */
+  private conEstadoDeFaltantes<T extends { detalles: { asignaciones: { id: string; origen: OrigenAsignacion; cantidad: number; compraDetalle: Prisma.ProformaDetalleGetPayload<{ select: { id: true; cantidad: true; proforma: { select: { id: true; codigo: true; estado: true } } } }> & { recojoLineas: { cantidad: number }[]; envioItems: { cantidad: number }[]; asignacionesCubiertas: { id: string; cantidad: number; createdAt: Date }[]; solicitudesCubiertas: { id: string; cantidad: number; createdAt: Date }[] } | null }[] }[] }>(proforma: T) {
+    return {
+      ...proforma,
+      detalles: proforma.detalles.map((d) => ({
+        ...d,
+        asignaciones: d.asignaciones.map((a) => {
+          if (a.origen !== OrigenAsignacion.PROCURA || a.cantidad <= 0) return { ...a, estadoPedido: null, recogidas: 0, enviadas: 0 };
+          const recogidas = a.compraDetalle ? recogidasDeEnlace(a.compraDetalle, a.id) : 0;
+          const enviadas = a.compraDetalle ? enviadasDeEnlace(a.compraDetalle, a.id) : 0;
+          return { ...a, recogidas, enviadas, estadoPedido: estadoSegunCompra(a.compraDetalle?.proforma.estado, a.cantidad, recogidas, enviadas) };
+        }),
+      })),
+    };
   }
 
   private assertBorrador(proforma: { estado: EstadoProforma }) {
@@ -184,8 +228,8 @@ export class ProformasService {
     await this.assertEmpresaExists(dto.empresaId);
 
     if (dto.tipo === TipoProforma.VENTA) {
-      if (!dto.clienteId) throw new BadRequestException("clienteId es obligatorio para una proforma de venta.");
-      await this.assertClienteExists(dto.clienteId);
+      // El cliente puede elegirse después, en la cabecera del BORRADOR; es obligatorio recién al aprobar.
+      if (dto.clienteId) await this.assertClienteExists(dto.clienteId);
       if (dto.ciudadEntregaId) await this.assertCiudadExists(dto.ciudadEntregaId);
       if (dto.tipoCambioProf !== undefined) throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
     } else {
@@ -193,6 +237,10 @@ export class ProformasService {
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+    }
+    if (dto.tipo === TipoProforma.VENTA && dto.proveedorId) {
+      throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
     }
 
     // Para COMPRA, si no se manda un tipo de cambio propio, arranca con el del sistema — queda
@@ -201,16 +249,34 @@ export class ProformasService {
       dto.tipo === TipoProforma.COMPRA ? dto.tipoCambioProf ?? (await this.settings.getExchangeRate()) : undefined;
     const codigo = await this.generateCodigo();
 
+    // COMPRA: almacén destino de la mercadería (el predeterminado si no se elige).
+    let almacenCompraId: string | undefined;
+    if (dto.tipo === TipoProforma.COMPRA) {
+      if (dto.almacenId) {
+        if (!(await this.prisma.almacen.findUnique({ where: { id: dto.almacenId }, select: { id: true } }))) throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
+        almacenCompraId = dto.almacenId;
+      } else {
+        almacenCompraId = (
+          (await this.prisma.almacen.findFirst({ where: { activo: true, predeterminado: true }, select: { id: true } })) ??
+          (await this.prisma.almacen.findFirst({ where: { activo: true }, orderBy: { createdAt: "asc" }, select: { id: true } }))
+        )?.id;
+      }
+    } else if (dto.almacenId) {
+      throw new BadRequestException("almacenId no aplica a una proforma de venta al crearla (se elige al aprobar).");
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         const proforma = await tx.proforma.create({
           data: {
+            almacenId: almacenCompraId,
             tipo: dto.tipo,
             codigo,
             empresaId: dto.empresaId,
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
             tipoCambioProf,
+            proveedorId: dto.tipo === TipoProforma.COMPRA ? dto.proveedorId : undefined,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
             adelantoPorcentaje: dto.adelantoPorcentaje,
@@ -234,7 +300,13 @@ export class ProformasService {
       if (dto.tipoCambioProf !== undefined) {
         throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
       }
+      if (dto.proveedorId !== undefined) throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
+      if (dto.almacenId !== undefined) throw new BadRequestException("almacenId no aplica a una proforma de venta.");
     } else {
+      if (dto.almacenId && !(await this.prisma.almacen.findUnique({ where: { id: dto.almacenId }, select: { id: true } }))) {
+        throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
+      }
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
       if (dto.clienteId !== undefined) {
         throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       }
@@ -247,7 +319,13 @@ export class ProformasService {
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
 
     try {
-      await this.prisma.proforma.update({ where: { id }, data: dto });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proforma.update({ where: { id }, data: dto });
+        // Las líneas heredan el proveedor de la nota: al cambiarlo en la cabecera se actualizan todas.
+        if (existing.tipo === TipoProforma.COMPRA && dto.proveedorId) {
+          await tx.proformaDetalle.updateMany({ where: { proformaId: id }, data: { proveedorId: dto.proveedorId } });
+        }
+      });
       return this.findOne(id);
     } catch (error) {
       rethrowPrismaError(error, "Proforma");
@@ -289,6 +367,21 @@ export class ProformasService {
       precioUnitario = dto.precioUnitario ?? (await this.computePrecioFinalBs(variante));
     }
 
+    // Mismo producto (y misma presentación) → se acumula en la línea existente, no se duplica la fila.
+    const existente = proforma.detalles.find((d) => d.varianteId === dto.varianteId && (d.presentacionVentaId ?? null) === presentacionVentaId);
+    if (existente) {
+      const nuevaCantidad = existente.cantidad + cantidad;
+      try {
+        await this.prisma.proformaDetalle.update({
+          where: { id: existente.id },
+          data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * Number(existente.precioUnitario) },
+        });
+        return this.findOne(id);
+      } catch (error) {
+        rethrowPrismaError(error, "Línea de proforma");
+      }
+    }
+
     const subtotal = cantidad * precioUnitario;
 
     try {
@@ -308,7 +401,29 @@ export class ProformasService {
       throw new BadRequestException("Esta proforma no es de compra.");
     }
     await this.getVarianteParaPrecio(dto.varianteId);
-    if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+    // La línea hereda el proveedor de la nota; solo en compras viejas sin proveedor de cabecera se
+    // acepta el de la línea.
+    const proveedorId = proforma.proveedorId ?? dto.proveedorId;
+    if (proveedorId) await this.assertProveedorExists(proveedorId);
+
+    // Misma variante (y mismo proveedor, en compras viejas mezcladas) → se acumula en la línea existente.
+    const existente = proforma.detalles.find(
+      (d) => d.varianteId === dto.varianteId && (d.proveedorId ?? null) === (proveedorId ?? null),
+    );
+    if (existente) {
+      const nuevaCantidad = existente.cantidad + dto.cantidad;
+      const costoExistente =
+        Number(existente.precioCompra) + Number(existente.costoEnvio) + Number(existente.costoSeguridad) + Number(existente.costoLogistica);
+      try {
+        await this.prisma.proformaDetalle.update({
+          where: { id: existente.id },
+          data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * costoExistente },
+        });
+        return this.findOne(id);
+      } catch (error) {
+        rethrowPrismaError(error, "Línea de proforma");
+      }
+    }
 
     const costoUnitario = dto.precioCompra + dto.costoEnvio + dto.costoSeguridad + dto.costoLogistica;
     const subtotal = dto.cantidad * costoUnitario;
@@ -323,7 +438,7 @@ export class ProformasService {
           costoEnvio: dto.costoEnvio,
           costoSeguridad: dto.costoSeguridad,
           costoLogistica: dto.costoLogistica,
-          proveedorId: dto.proveedorId,
+          proveedorId,
           subtotal,
         },
       });
@@ -355,8 +470,9 @@ export class ProformasService {
       const costoSeguridad = dto.costoSeguridad ?? Number(detalle.costoSeguridad);
       const costoLogistica = dto.costoLogistica ?? Number(detalle.costoLogistica);
       const costoUnitario = precioCompra + costoEnvio + costoSeguridad + costoLogistica;
-      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
-      const proveedorId = dto.proveedorId ?? detalle.proveedorId ?? undefined;
+      // Con proveedor de cabecera, la línea siempre usa ese; el de la línea solo se edita en compras viejas.
+      if (dto.proveedorId && !proforma.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+      const proveedorId = proforma.proveedorId ?? dto.proveedorId ?? detalle.proveedorId ?? undefined;
       data = {
         cantidad,
         precioCompra,
@@ -369,7 +485,55 @@ export class ProformasService {
     }
 
     try {
-      await this.prisma.proformaDetalle.update({ where: { id: detalleId }, data });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proformaDetalle.update({ where: { id: detalleId }, data });
+        // Si la cantidad baja por debajo de lo ligado a notas de venta, se sueltan los vínculos sobrantes.
+        if (proforma.tipo === TipoProforma.COMPRA && dto.cantidad !== undefined) {
+          // Primero se sueltan las solicitudes de stock (las ventas tienen prioridad), luego los faltantes.
+          const solicitudes = await tx.solicitudStockLinea.findMany({ where: { compraDetalleId: detalleId }, orderBy: { createdAt: "desc" } });
+          const ligadasVentas = await tx.proformaDetalleAsignacion.aggregate({ where: { compraDetalleId: detalleId }, _sum: { cantidad: true } });
+          let excesoSolicitudes = (ligadasVentas._sum.cantidad ?? 0) + solicitudes.reduce((n, s) => n + s.cantidad, 0) - cantidad;
+          for (const s of solicitudes) {
+            if (excesoSolicitudes <= 0) break;
+            if (s.cantidad <= excesoSolicitudes) {
+              await tx.solicitudStockLinea.update({ where: { id: s.id }, data: { compraDetalleId: null } });
+              excesoSolicitudes -= s.cantidad;
+            } else {
+              await tx.solicitudStockLinea.update({ where: { id: s.id }, data: { cantidad: { decrement: excesoSolicitudes } } });
+              await tx.solicitudStockLinea.create({
+                data: { solicitudId: s.solicitudId, varianteId: s.varianteId, cantidad: excesoSolicitudes, nota: s.nota, compraDetalleId: null },
+              });
+              excesoSolicitudes = 0;
+            }
+          }
+          const ligadas = await tx.proformaDetalleAsignacion.findMany({
+            where: { compraDetalleId: detalleId },
+            orderBy: { createdAt: "desc" },
+          });
+          let exceso = ligadas.reduce((n, a) => n + a.cantidad, 0) - cantidad;
+          for (const a of ligadas) {
+            if (exceso <= 0) break;
+            if (a.cantidad <= exceso) {
+              await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { compraDetalleId: null } });
+              exceso -= a.cantidad;
+            } else {
+              // Se suelta solo una parte: la fila se parte en una libre y otra que sigue ligada.
+              await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { cantidad: { decrement: exceso } } });
+              await tx.proformaDetalleAsignacion.create({
+                data: {
+                  proformaDetalleId: a.proformaDetalleId,
+                  almacenId: a.almacenId,
+                  cantidad: exceso,
+                  origen: a.origen,
+                  estadoSeguimiento: a.estadoSeguimiento,
+                  compraDetalleId: null,
+                },
+              });
+              exceso = 0;
+            }
+          }
+        }
+      });
       return this.findOne(id);
     } catch (error) {
       rethrowPrismaError(error, "Línea de proforma");

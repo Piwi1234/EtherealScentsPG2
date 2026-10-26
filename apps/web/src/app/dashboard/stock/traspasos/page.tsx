@@ -175,7 +175,7 @@ export default function TraspasosAlmacenPage() {
         <p>No hay traspasos registrados.</p>
       ) : (
         <>
-          <table className="table table-minimal">
+          <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Fecha</th>

@@ -112,4 +112,10 @@ export class DashboardController {
   cuentasPorCobrar() {
     return this.dashboard.cuentasPorCobrar();
   }
+
+  @Get("pendientes")
+  @ApiOperation({ summary: "Conteos de lo que espera una acción: faltantes sin compra, envíos, borradores, ventas por completar." })
+  pendientes() {
+    return this.dashboard.pendientes();
+  }
 }
