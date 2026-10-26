@@ -68,6 +68,38 @@ function sumaBs(valores: (number | null)[]): number | null {
 
 type EntregaFiltro = "" | "LISTA" | "ESPERANDO";
 
+// Al abrir una proforma desde Registros se guarda el estado de cada pestaña (filtros, página, proformas abiertas) para
+// restaurarlo cuando se vuelve: "Volver" o el botón atrás del navegador.
+const FLAG_RESTAURAR = "registros:restaurar";
+const claveEstado = (tab: string) => `registros:estado:${tab}`;
+
+type EstadoGuardado = {
+  tipoElegido?: TipoProforma;
+  dateSelection?: DateSelection;
+  categoryId?: string;
+  brandId?: string;
+  productId?: string;
+  clienteId?: string;
+  clienteNombre?: string;
+  proveedorId?: string;
+  codigo?: string;
+  search?: string;
+  estado?: "" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
+  entrega?: EntregaFiltro;
+  pageNum?: number;
+  abiertas?: string[];
+};
+
+function leerEstado(tab: string, restaurar: boolean): EstadoGuardado | null {
+  if (!restaurar) return null;
+  try {
+    const raw = sessionStorage.getItem(claveEstado(tab));
+    return raw ? (JSON.parse(raw) as EstadoGuardado) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Entrega de una venta aprobada: con faltante, reservada en tránsito o lista para completar. */
 function EntregaResumen({ entrega }: { entrega: NonNullable<RegistroLinea["proforma"]["entrega"]> }) {
   if (entrega.faltante > 0) return <span className="badge badge-warn entrega-badge" title="Hay productos sin stock: falta comprarlos o esperar que lleguen.">Con faltante · {entrega.faltante}</span>;
@@ -119,7 +151,31 @@ const TABS_VALIDAS: TabRegistros[] = ["VENTA", "COMPRA", "SIN_CONCRETAR"];
 
 function RegistrosContenido() {
   const params = useSearchParams();
-  const tabInicial = TABS_VALIDAS.find((t) => t === params.get("tab")) ?? "VENTA";
+  // Se restaura lo que había antes de abrir una proforma (la marca la pone el clic en el código); una visita nueva, o un
+  // enlace con filtros del tablero, empieza limpia.
+  const [restaurar] = useState(() => {
+    try {
+      return sessionStorage.getItem(FLAG_RESTAURAR) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(FLAG_RESTAURAR);
+    } catch {
+      // sin sessionStorage: no hay nada que limpiar
+    }
+  }, []);
+  const tabGuardada = (() => {
+    if (!restaurar) return null;
+    try {
+      return TABS_VALIDAS.find((t) => t === sessionStorage.getItem("registros:tab")) ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  const tabInicial = tabGuardada ?? TABS_VALIDAS.find((t) => t === params.get("tab")) ?? "VENTA";
   const estadoInicial = (["BORRADOR", "APROBADA", "COMPLETADA", "ANULADA"] as const).find((e) => e === params.get("estado")) ?? "";
   const entregaInicial: EntregaFiltro = params.get("entrega") === "LISTA" ? "LISTA" : params.get("entrega") === "ESPERANDO" ? "ESPERANDO" : "";
   const [tab, setTab] = useState<TabRegistros>(tabInicial);
@@ -186,7 +242,7 @@ function RegistrosContenido() {
 
       {visitadas.map((t) => (
         <div key={t} hidden={tab !== t}>
-          <RegistrosPanel tab={t} activo={tab === t} categories={categories} brands={brands} estadoInicial={t === tabInicial ? estadoInicial : ""} entregaInicial={t === tabInicial ? entregaInicial : ""} />
+          <RegistrosPanel tab={t} activo={tab === t} categories={categories} brands={brands} estadoInicial={t === tabInicial ? estadoInicial : ""} entregaInicial={t === tabInicial ? entregaInicial : ""} restaurar={restaurar} />
         </div>
       ))}
     </div>
@@ -200,6 +256,7 @@ function RegistrosPanel({
   brands,
   estadoInicial,
   entregaInicial,
+  restaurar,
 }: {
   tab: TabRegistros;
   activo: boolean;
@@ -207,32 +264,34 @@ function RegistrosPanel({
   brands: Brand[];
   estadoInicial: "" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
   entregaInicial: EntregaFiltro;
+  restaurar: boolean;
 }) {
+  const [guardado] = useState(() => leerEstado(tab, restaurar));
   // "Sin concretar" lista borradores y anuladas (lo que no pasó a ser real); ahí el tipo se elige adentro.
   const sinConcretar = tab === "SIN_CONCRETAR";
-  const [tipoElegido, setTipoElegido] = useState<TipoProforma>("VENTA");
+  const [tipoElegido, setTipoElegido] = useState<TipoProforma>(guardado?.tipoElegido ?? "VENTA");
   const tipo: TipoProforma = sinConcretar ? tipoElegido : tab;
-  const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
+  const [dateSelection, setDateSelection] = useState<DateSelection>(guardado?.dateSelection ?? TODO_EL_TIEMPO);
   const [products, setProducts] = useState<Product[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [categoryId, setCategoryId] = useState("");
-  const [brandId, setBrandId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [clienteId, setClienteId] = useState("");
-  const [proveedorId, setProveedorId] = useState("");
-  const [codigoInput, setCodigoInput] = useState("");
-  const [codigo, setCodigo] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [pageNum, setPageNum] = useState(1);
-  const [estado, setEstado] = useState<"" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA">(estadoInicial);
-  const [entrega, setEntrega] = useState<EntregaFiltro>(entregaInicial);
+  const [categoryId, setCategoryId] = useState(guardado?.categoryId ?? "");
+  const [brandId, setBrandId] = useState(guardado?.brandId ?? "");
+  const [productId, setProductId] = useState(guardado?.productId ?? "");
+  const [clienteId, setClienteId] = useState(guardado?.clienteId ?? "");
+  const [proveedorId, setProveedorId] = useState(guardado?.proveedorId ?? "");
+  const [codigoInput, setCodigoInput] = useState(guardado?.codigo ?? "");
+  const [codigo, setCodigo] = useState(guardado?.codigo ?? "");
+  const [searchInput, setSearchInput] = useState(guardado?.search ?? "");
+  const [search, setSearch] = useState(guardado?.search ?? "");
+  const [pageNum, setPageNum] = useState(guardado?.pageNum ?? 1);
+  const [estado, setEstado] = useState<"" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA">(guardado?.estado ?? estadoInicial);
+  const [entrega, setEntrega] = useState<EntregaFiltro>(guardado?.entrega ?? entregaInicial);
   // Nombres para los chips de filtros activos, y claves para reiniciar los controles que guardan su propio estado.
-  const [clienteNombre, setClienteNombre] = useState("");
+  const [clienteNombre, setClienteNombre] = useState(guardado?.clienteNombre ?? "");
   const [clienteKey, setClienteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
   // Proformas abiertas (por id): por defecto todas plegadas, se abren con un clic en su encabezado.
-  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set(guardado?.abiertas ?? []));
 
   const [data, setData] = useState<RegistrosData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -261,19 +320,23 @@ function RegistrosPanel({
 
   // Búsqueda con debounce: espera a que el usuario deje de tipear antes de disparar el pedido.
   useEffect(() => {
+    if (codigoInput.trim() === codigo) return;
     const timeout = setTimeout(() => {
       setCodigo(codigoInput.trim());
       setPageNum(1);
     }, 300);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigoInput]);
 
   useEffect(() => {
+    if (searchInput.trim() === search) return;
     const timeout = setTimeout(() => {
       setSearch(searchInput.trim());
       setPageNum(1);
     }, 300);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   useEffect(() => {
@@ -300,6 +363,30 @@ function RegistrosPanel({
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, [activo, tipo, sinConcretar, estado, entrega, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
+
+  useEffect(() => {
+    const estadoActual: EstadoGuardado = {
+      tipoElegido,
+      dateSelection,
+      categoryId,
+      brandId,
+      productId,
+      clienteId,
+      clienteNombre,
+      proveedorId,
+      codigo,
+      search,
+      estado,
+      entrega,
+      pageNum,
+      abiertas: Array.from(abiertas),
+    };
+    try {
+      sessionStorage.setItem(claveEstado(tab), JSON.stringify(estadoActual));
+    } catch {
+      // sin sessionStorage: no se recuerda el estado
+    }
+  }, [tab, tipoElegido, dateSelection, categoryId, brandId, productId, clienteId, clienteNombre, proveedorId, codigo, search, estado, entrega, pageNum, abiertas]);
 
   function handleCategoryChange(value: string) {
     setCategoryId(value);
@@ -528,6 +615,7 @@ function RegistrosPanel({
             <ClienteBuscador
               key={clienteKey}
               value={clienteId}
+              initialNombre={clienteNombre}
               onChange={(cliente) => {
                 setClienteId(cliente?.id ?? "");
                 setClienteNombre(cliente?.nombre ?? "");
@@ -550,7 +638,7 @@ function RegistrosPanel({
           </div>
         )}
 
-        <DateRangeDropdown key={dateKey} onApply={handleDateApply} />
+        <DateRangeDropdown key={dateKey} onApply={handleDateApply} initialSelection={dateSelection} />
 
         <div className="filter-field">
           <label className="filter-label">Categoría</label>
@@ -694,7 +782,14 @@ function RegistrosPanel({
                           <Link
                             href={`/dashboard/proformas/${g.proforma.id}`}
                             className="link-button"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              try {
+                                sessionStorage.setItem(FLAG_RESTAURAR, "1");
+                              } catch {
+                                // sin sessionStorage: al volver se empieza de cero
+                              }
+                            }}
                           >
                             {g.proforma.codigo}
                           </Link>
