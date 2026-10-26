@@ -10327,7 +10327,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 .landing-catx-media {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: linear-gradient(150deg, #1c3561, #0d1a30);
 }
@@ -10436,7 +10436,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   }
 
   .landing-catx-media {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 3 / 2;
   }
 
   .landing-catx-name {
