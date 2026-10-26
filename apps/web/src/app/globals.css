@@ -2881,7 +2881,7 @@ a {
 }
 
 .landing-navbar--dark .landing-navbar-mobile {
-  background: #111114;
+  background: var(--es-navy-900, #0d1a30);
 }
 
 .landing-navbar--dark .landing-navbar-mobile-header,
@@ -2911,11 +2911,11 @@ a {
 }
 
 .landing-navbar--dark .landing-navbar-mobile-section-title {
-  color: rgba(245, 244, 240, 0.4);
+  color: var(--es-gold, #c9a96e);
 }
 
 .landing-navbar--dark .landing-navbar-mobile-link--ofertas {
-  color: #e08585;
+  color: var(--es-gold, #c9a96e);
 }
 
 .landing-navbar-inner {
@@ -2951,6 +2951,8 @@ a {
    pontocom.com. Sin fondo/borde propio: hereda el color de .landing-navbar/--dark de arriba. */
 .landing-navbar-categories {
   width: 100%;
+  /* El menú desplegable abarca todo el ancho del navbar: se ancla a esta fila, no a cada ítem. */
+  position: relative;
 }
 
 .landing-navbar-links {
@@ -2959,6 +2961,12 @@ a {
   font-size: 14px;
   font-weight: 500;
   justify-content: center;
+  padding: 0;
+}
+
+/* Los links sueltos (Marcas, Historias) y los ítems con menú ocupan todo el alto de la fila: así el cursor no
+   "se cae" del ítem entre el link y el menú que cuelga justo debajo. */
+.landing-navbar-links > a {
   padding: 10px 0;
 }
 
@@ -3011,9 +3019,21 @@ a {
 }
 
 .landing-navbar-item {
-  position: relative;
+  position: static;
   display: flex;
   align-items: center;
+  padding: 10px 0;
+}
+
+/* Ítem con el menú abierto: queda dorado y subrayado, como pestaña activa. */
+.landing-navbar-item:hover > a,
+.landing-navbar-item:focus-within > a {
+  color: var(--es-gold, #c9a96e);
+}
+
+.landing-navbar-item:hover > a::after,
+.landing-navbar-item:focus-within > a::after {
+  transform: scaleX(1);
 }
 
 /* Paleta y comportamiento calcados del mega-menú de squarespace.com: panel negro puro
@@ -3024,43 +3044,84 @@ a {
    home). */
 .landing-navbar-dropdown {
   position: absolute;
-  /* No pegado al botón: arranca desde el borde inferior de la fila de categorías (10px = su propio
-     padding-bottom), no del propio link que lo dispara. */
-  top: calc(100% + 10px);
-  left: 50%;
-  transform: translate(-50%, 10px);
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(150px, auto);
-  align-items: start;
-  gap: 20px;
-  padding: 14px;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 28px 0 32px;
   background: #000000;
-  border-radius: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 40px 32px rgba(0, 0, 0, 0.06), 0 20px 20px rgba(0, 0, 0, 0.1), 0 8px 12px rgba(0, 0, 0, 0.14);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.3s;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.25s;
 }
 
 .landing-navbar-item:hover .landing-navbar-dropdown,
 .landing-navbar-item:focus-within .landing-navbar-dropdown {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0);
-  transition: opacity 0.3s 0.15s ease, transform 0.3s 0.15s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.3s;
+  transform: translateY(0);
+  transition: opacity 0.25s 0.1s ease, transform 0.25s 0.1s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0.25s;
 }
 
-/* Una columna por categoría padre: encabezado arriba + subcategorías debajo. */
-.landing-navbar-dropdown-group {
+/* Contenido del menú: columnas con título a la izquierda y el botón "Ver todos" a la derecha. */
+.landing-navbar-mega {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  text-align: left;
+}
+
+.landing-navbar-mega-cols {
+  display: flex;
+  gap: 72px;
+  align-items: flex-start;
+}
+
+.landing-navbar-mega-col {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 140px;
 }
 
-.landing-navbar-dropdown-group + .landing-navbar-dropdown-group {
-  padding-left: 18px;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
+.landing-navbar-mega-title {
+  margin: 0 0 8px;
+  color: var(--es-gold, #c9a96e);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-navbar-dropdown a.landing-navbar-mega-cta {
+  flex-shrink: 0;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: var(--es-gold, #c9a96e);
+  color: #0d1a30;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.landing-navbar-dropdown a.landing-navbar-mega-cta:hover {
+  background: #d8bb82;
+  color: #0d1a30;
+}
+
+.landing-navbar-dropdown .landing-navbar-mega-col a {
+  padding: 6px 0;
+  background: none;
+  color: #f5f4f0;
+  font-size: 14px;
+}
+
+.landing-navbar-dropdown .landing-navbar-mega-col a:hover {
+  background: none;
+  color: var(--es-gold, #c9a96e);
 }
 
 .landing-navbar-dropdown a {
@@ -3339,8 +3400,9 @@ a {
   width: min(84vw, 320px);
   display: flex;
   flex-direction: column;
-  background: var(--lp-surface);
-  box-shadow: 12px 0 32px rgba(26, 26, 46, 0.2);
+  background: var(--es-navy-900, #0d1a30);
+  color: #f5f4f0;
+  box-shadow: 12px 0 32px rgba(0, 0, 0, 0.4);
   animation: landing-navbar-mobile-slide-in 0.25s ease;
 }
 
@@ -3350,7 +3412,7 @@ a {
   justify-content: space-between;
   gap: 12px;
   padding: 18px 20px;
-  border-bottom: 1px solid #e8e0d0;
+  border-bottom: 1px solid rgba(245, 244, 240, 0.14);
   flex-shrink: 0;
 }
 
@@ -3361,7 +3423,7 @@ a {
 .landing-navbar-mobile-brand {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #f5f4f0;
 }
 
 .landing-navbar-mobile-close {
@@ -3374,7 +3436,7 @@ a {
   border: none;
   border-radius: 0;
   background: transparent;
-  color: #1a1a2e;
+  color: #f5f4f0;
   cursor: pointer;
 }
 
@@ -3384,7 +3446,7 @@ a {
 }
 
 .landing-navbar-mobile-close:hover {
-  background: rgba(26, 26, 46, 0.06);
+  background: rgba(245, 244, 240, 0.08);
 }
 
 .landing-navbar-mobile-body {
@@ -3403,7 +3465,7 @@ a {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(26, 26, 46, 0.45);
+  color: var(--es-gold, #c9a96e);
 }
 
 .landing-navbar-mobile-row {
@@ -3417,7 +3479,18 @@ a {
   padding: 11px 4px;
   font-size: 14.5px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: #f5f4f0;
+}
+
+/* Los ítems con submenú son botones: se ven igual que un link. */
+.landing-navbar-mobile-link--toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: none;
 }
 
 /* El "Marcas" suelto (sin chevron ni fila propia) reusa esta misma clase pero cuelga directo de
@@ -3430,7 +3503,7 @@ a {
 }
 
 .landing-navbar-mobile-link--ofertas {
-  color: #c0392b;
+  color: var(--es-gold, #c9a96e);
 }
 
 .landing-navbar-mobile-chevron {
@@ -3442,7 +3515,7 @@ a {
   padding: 0;
   border: none;
   background: transparent;
-  color: rgba(26, 26, 46, 0.55);
+  color: rgba(245, 244, 240, 0.6);
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -3456,11 +3529,47 @@ a {
   transform: rotate(180deg);
 }
 
+/* Desplegado animado de los submenús: el alto pasa de 0 a su tamaño real (grid 0fr -> 1fr) y el contenido entra con un
+   fundido y un leve deslizamiento, igual que el menú de escritorio. Cerrado queda oculto, sin foco. */
+.landing-navbar-mobile-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.32s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0s linear 0.32s;
+}
+
+.landing-navbar-mobile-collapse--open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.32s cubic-bezier(0.165, 0.84, 0.44, 1), visibility 0s;
+}
+
+.landing-navbar-mobile-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.25s ease, transform 0.32s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.landing-navbar-mobile-collapse--open > .landing-navbar-mobile-collapse-inner {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.06s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-navbar-mobile-collapse,
+  .landing-navbar-mobile-collapse-inner {
+    transition: none;
+  }
+}
+
 .landing-navbar-mobile-subgroup {
   display: flex;
   flex-direction: column;
-  padding: 0 0 6px 14px;
-  border-left: 1.5px solid #e8e0d0;
+  padding: 0 0 8px 14px;
+  border-left: 1.5px solid rgba(201, 169, 110, 0.45);
   margin-left: 6px;
 }
 
@@ -3468,12 +3577,28 @@ a {
   padding: 8px 4px;
   font-size: 13.5px;
   font-weight: 500;
-  color: rgba(26, 26, 46, 0.75);
+  color: rgba(245, 244, 240, 0.85);
+}
+
+.landing-navbar-mobile-sublink:hover {
+  color: var(--es-gold, #c9a96e);
+}
+
+/* Botón "Ver todos" del final de cada submenú, igual al del menú de escritorio. */
+.landing-navbar-mobile-cta {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--es-gold, #c9a96e);
+  color: #0d1a30;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .landing-navbar-mobile-divider {
   height: 1px;
-  background: #e8e0d0;
+  background: rgba(245, 244, 240, 0.14);
   margin: 14px 0;
   flex-shrink: 0;
 }
@@ -3482,7 +3607,7 @@ a {
   padding: 9px 4px;
   font-size: 13.5px;
   font-weight: 500;
-  color: rgba(26, 26, 46, 0.7);
+  color: rgba(245, 244, 240, 0.7);
 }
 
 /* El navbar es fixed y no reserva espacio en el flujo — compensamos el scroll
