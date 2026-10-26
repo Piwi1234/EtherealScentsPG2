@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, getBrands, getCategories, getProducts, getRegistros } from "../../../lib/api";
-import type { Brand, Category, Page, Product, RegistroLinea, TipoProforma } from "../../../lib/types";
+import { ApiError, getBrands, getCategories, getProducts, getProveedores, getRegistros } from "../../../lib/api";
+import type { Brand, Category, Page, Product, Proveedor, RegistroLinea, TipoProforma } from "../../../lib/types";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
 import { ProductoSearchSelect } from "../../../components/proformas/ProductoSearchSelect";
+import { ClienteBuscador } from "../../../components/proformas/ClienteBuscador";
+import { ProveedorSelector } from "../../../components/proformas/selectors";
 
 const PAGE_SIZE = 20;
 const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
@@ -26,17 +28,91 @@ function atributosLabel(variante: RegistroLinea["variante"]): string | null {
   return partes.length > 0 ? partes.join(", ") : null;
 }
 
+/**
+ * Dos pestañas (Ventas por defecto / Compras) dentro de la misma página. Cada pestaña es su propio
+ * panel con sus filtros (fecha, categoría, marca, producto, código y cliente/proveedor): al cambiar
+ * de pestaña no se pierde lo que se había filtrado en la otra. Un panel recién carga datos la
+ * primera vez que se abre.
+ */
 export default function RegistrosPage() {
-  const [tipo, setTipo] = useState<"" | TipoProforma>("");
-  const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
+  const [tab, setTab] = useState<TipoProforma>("VENTA");
+  const [visitadas, setVisitadas] = useState<TipoProforma[]>(["VENTA"]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getCategories().then(setCategories).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    getBrands().then(setBrands).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  function elegirTab(t: TipoProforma) {
+    setTab(t);
+    setVisitadas((v) => (v.includes(t) ? v : [...v, t]));
+  }
+
+  if (error) {
+    return (
+      <div className="card">
+        <p className="error-text">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h1 style={{ margin: 0, fontSize: 20 }}>Registros</h1>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }} role="tablist">
+        {(["VENTA", "COMPRA"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            className={tab === t ? "action-btn" : "link-button"}
+            style={tab === t ? { fontWeight: 700 } : undefined}
+            onClick={() => elegirTab(t)}
+          >
+            {t === "VENTA" ? "Ventas" : "Compras"}
+          </button>
+        ))}
+      </div>
+
+      {visitadas.map((t) => (
+        <div key={t} hidden={tab !== t}>
+          <RegistrosPanel tipo={t} activo={tab === t} categories={categories} brands={brands} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RegistrosPanel({
+  tipo,
+  activo,
+  categories,
+  brands,
+}: {
+  tipo: TipoProforma;
+  activo: boolean;
+  categories: Category[];
+  brands: Brand[];
+}) {
+  const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [products, setProducts] = useState<Product[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [brandId, setBrandId] = useState("");
   const [productId, setProductId] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [proveedorId, setProveedorId] = useState("");
   const [codigoInput, setCodigoInput] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [pageNum, setPageNum] = useState(1);
 
   const [data, setData] = useState<Page<RegistroLinea> | null>(null);
@@ -48,9 +124,11 @@ export default function RegistrosPage() {
   const marcasDisponibles = brands.filter((b) => b.categories.some((bc) => subCategoryIds.includes(bc.categoryId)));
 
   useEffect(() => {
-    getCategories().then(setCategories).catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getBrands().then(setBrands).catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+    if (tipo !== "COMPRA") return;
+    getProveedores({ activo: "true", pageSize: 500 })
+      .then((page) => setProveedores(page.items))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [tipo]);
 
   useEffect(() => {
     if (!categoryId) {
@@ -72,31 +150,34 @@ export default function RegistrosPage() {
   }, [codigoInput]);
 
   useEffect(() => {
-    if (!tipo) {
-      setData(null);
-      return;
-    }
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPageNum(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!activo) return;
     setLoading(true);
     getRegistros({
       tipo,
       codigo: codigo || undefined,
+      search: search || undefined,
       fechaDesde: dateSelection.fechaDesde,
       fechaHasta: dateSelection.fechaHasta,
       categoryId: categoryId || undefined,
       brandId: brandId || undefined,
       productId: productId || undefined,
+      clienteId: tipo === "VENTA" ? clienteId || undefined : undefined,
+      proveedorId: tipo === "COMPRA" ? proveedorId || undefined : undefined,
       page: pageNum,
       limit: PAGE_SIZE,
     })
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [tipo, codigo, dateSelection, categoryId, brandId, productId, pageNum]);
-
-  function handleTipoChange(value: string) {
-    setTipo(value as "" | TipoProforma);
-    setPageNum(1);
-  }
+  }, [activo, tipo, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
 
   function handleCategoryChange(value: string) {
     setCategoryId(value);
@@ -123,88 +204,100 @@ export default function RegistrosPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
-  if (error) {
-    return (
-      <div className="card">
-        <p className="error-text">{error}</p>
-      </div>
-    );
-  }
+  if (error) return <p className="error-text">{error}</p>;
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 20 }}>Registros</h1>
-      </div>
-
+    <>
       <div className="filters-bar">
+        <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
+          <label className="filter-label">Producto o marca</label>
+          <input
+            className="field"
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Nombre o marca"
+          />
+        </div>
+
         <div className="filter-field">
-          <label className="filter-label">Tipo</label>
-          <select className="field" value={tipo} onChange={(e) => handleTipoChange(e.target.value)}>
-            <option value="">Elegí un tipo…</option>
-            <option value="COMPRA">Compra</option>
-            <option value="VENTA">Venta</option>
+          <label className="filter-label">Código proforma</label>
+          <input
+            className="field"
+            placeholder="Ej. 4HRNPZW"
+            value={codigoInput}
+            onChange={(e) => setCodigoInput(e.target.value)}
+            style={{ width: 130 }}
+          />
+        </div>
+
+        {tipo === "VENTA" ? (
+          <div className="filter-field" style={{ minWidth: 200 }}>
+            <label className="filter-label">Cliente</label>
+            <ClienteBuscador
+              value={clienteId}
+              onChange={(cliente) => {
+                setClienteId(cliente?.id ?? "");
+                setPageNum(1);
+              }}
+            />
+          </div>
+        ) : (
+          <div className="filter-field" style={{ minWidth: 200 }}>
+            <label className="filter-label">Proveedor</label>
+            <ProveedorSelector
+              options={proveedores}
+              value={proveedorId}
+              placeholder="Todos"
+              onChange={(id) => {
+                setProveedorId(id);
+                setPageNum(1);
+              }}
+            />
+          </div>
+        )}
+
+        <DateRangeDropdown onApply={handleDateApply} />
+
+        <div className="filter-field">
+          <label className="filter-label">Categoría</label>
+          <select className="field" value={categoryId} onChange={(e) => handleCategoryChange(e.target.value)}>
+            <option value="">Todas</option>
+            {parentCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
 
-        {tipo && (
-          <>
-            <div className="filter-field">
-              <label className="filter-label">Código proforma</label>
-              <input
-                className="field"
-                placeholder="Ej. 4HRNPZW"
-                value={codigoInput}
-                onChange={(e) => setCodigoInput(e.target.value)}
-                style={{ width: 130 }}
-              />
-            </div>
+        {categoryId && (
+          <div className="filter-field">
+            <label className="filter-label">Marca</label>
+            <select className="field" value={brandId} onChange={(e) => handleBrandChange(e.target.value)}>
+              <option value="">Todas</option>
+              {marcasDisponibles.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-            <DateRangeDropdown onApply={handleDateApply} />
-
-            <div className="filter-field">
-              <label className="filter-label">Categoría</label>
-              <select className="field" value={categoryId} onChange={(e) => handleCategoryChange(e.target.value)}>
-                <option value="">Todas</option>
-                {parentCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {categoryId && (
-              <div className="filter-field">
-                <label className="filter-label">Marca</label>
-                <select className="field" value={brandId} onChange={(e) => handleBrandChange(e.target.value)}>
-                  <option value="">Todas</option>
-                  {marcasDisponibles.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {categoryId && (
-              <div className="filter-field">
-                <label className="filter-label">Producto</label>
-                <ProductoSearchSelect products={products} value={productId} onChange={handleProductChange} />
-              </div>
-            )}
-          </>
+        {categoryId && (
+          <div className="filter-field">
+            <label className="filter-label">Producto</label>
+            <ProductoSearchSelect products={products} value={productId} onChange={handleProductChange} />
+          </div>
         )}
       </div>
 
-      {!tipo && <p className="cell-muted">Elegí un tipo arriba para ver los registros.</p>}
+      {loading && <p className="cell-muted">Cargando...</p>}
 
-      {tipo && loading && <p className="cell-muted">Cargando...</p>}
+      {!loading && data && data.items.length === 0 && <p>No hay registros para estos filtros.</p>}
 
-      {tipo && !loading && data && data.items.length === 0 && <p>No hay registros para estos filtros.</p>}
-
-      {tipo && !loading && data && data.items.length > 0 && (
+      {!loading && data && data.items.length > 0 && (
         <>
           <div className="table-scroll">
             <table className="table table-minimal table-compact">
@@ -212,13 +305,13 @@ export default function RegistrosPage() {
                 <tr>
                   <th>Fecha</th>
                   <th>Código proforma</th>
-                  <th>Proforma</th>
                   <th>Código</th>
                   <th>Marca</th>
                   <th style={{ minWidth: 220 }}>Producto</th>
                   <th className="num">Cant.</th>
                   <th className="num">{tipo === "COMPRA" ? "Costo unitario Bs" : "Precio unitario Bs"}</th>
                   <th className="num">Subtotal Bs</th>
+                  {tipo === "VENTA" && <th>Cliente</th>}
                   {tipo === "COMPRA" && <th>Proveedor</th>}
                   {tipo === "COMPRA" && <th>País de origen</th>}
                 </tr>
@@ -253,11 +346,6 @@ export default function RegistrosPage() {
                           {linea.proforma.codigo}
                         </Link>
                       </td>
-                      <td>
-                        <Link href={`/dashboard/proformas/${linea.proforma.id}`} className="link-button">
-                          {linea.proforma.empresa.nombre}
-                        </Link>
-                      </td>
                       <td className="cell-code">{linea.variante.product.productCode}</td>
                       <td className="cell-muted">{linea.variante.product.brand?.name ?? "—"}</td>
                       <td className="cell-primary">
@@ -267,6 +355,7 @@ export default function RegistrosPage() {
                       <td className="num">{linea.cantidad}</td>
                       <td className="num">{money(unitarioBs)}</td>
                       <td className="num cell-primary">{money(subtotalBs)}</td>
+                      {tipo === "VENTA" && <td className="cell-muted">{linea.proforma.cliente?.nombre ?? "—"}</td>}
                       {tipo === "COMPRA" && <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>}
                       {tipo === "COMPRA" && <td>{linea.proveedor?.paisProcedencia?.nombre ?? "—"}</td>}
                     </tr>
@@ -300,6 +389,6 @@ export default function RegistrosPage() {
           )}
         </>
       )}
-    </div>
+    </>
   );
 }

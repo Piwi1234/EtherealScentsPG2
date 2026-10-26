@@ -61,6 +61,10 @@ export class RegistrosService {
     const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
     if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
+    // Mismo criterio que la búsqueda de Productos: cada palabra exige su propio match (nombre, código
+    // o marca) y todas las palabras van en AND, así "waka double" encuentra la marca y el producto.
+    const searchWords = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
+
     const where: Prisma.ProformaDetalleWhereInput = {
       proveedorId: query.proveedorId,
       proforma: {
@@ -78,6 +82,17 @@ export class RegistrosService {
         product: {
           categoryId: categoryIds ? { in: categoryIds } : undefined,
           brandId: query.brandId,
+          ...(searchWords.length > 0
+            ? {
+                AND: searchWords.map((word) => ({
+                  OR: [
+                    { name: { contains: word, mode: "insensitive" as const } },
+                    { productCode: { contains: word, mode: "insensitive" as const } },
+                    { brand: { name: { contains: word, mode: "insensitive" as const } } },
+                  ],
+                })),
+              }
+            : {}),
         },
       },
     };

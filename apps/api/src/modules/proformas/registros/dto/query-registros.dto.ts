@@ -33,6 +33,13 @@ export class QueryRegistrosDto {
   @IsUUID()
   brandId?: string;
 
+  @ApiPropertyOptional({
+    description: "Búsqueda por texto, igual que en Productos: cada palabra debe coincidir con el nombre, el código o la marca (todas las palabras a la vez).",
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: "Producto específico (no variante)." })
   @IsOptional()
   @IsUUID()

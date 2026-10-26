@@ -998,6 +998,7 @@ export function getRegistros(
     categoryId?: string;
     brandId?: string;
     productId?: string;
+    search?: string;
     clienteId?: string;
     proveedorId?: string;
     page?: number;
@@ -1006,6 +1007,7 @@ export function getRegistros(
 ) {
   const params = new URLSearchParams();
   params.set("tipo", query.tipo);
+  if (query.search) params.set("search", query.search);
   if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
   if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
