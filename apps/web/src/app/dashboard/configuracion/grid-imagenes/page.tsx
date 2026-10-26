@@ -9,25 +9,20 @@ import {
   apiGet,
   getHeroCarouselImages,
   getWeeklyCollectionBannerCarouselImages,
-  moveCategoryCarouselImage,
   moveHeroCarouselImage,
   moveWeeklyCollectionBannerCarouselImage,
   getPromoModal,
   removeCategoryCarouselImage,
-  removeCategoryCarouselImageMobile,
   removeHeroCarouselImage,
   removeHeroCarouselImageMobile,
   removePromoModalImage,
   removeWeeklyCollectionBannerCarouselImage,
   removeWeeklyCollectionBannerCarouselImageMobile,
-  setCategoryCarouselImageMobile,
   setHeroCarouselImageMobile,
   setPromoModalEnabled,
   setPromoModalImage,
   setPromoModalUrl,
   setWeeklyCollectionBannerCarouselImageMobile,
-  updateCategoryCarouselImageTitulos,
-  updateCategoryCarouselImageUrl,
   updateHeroCarouselImageUrl,
   updateWeeklyCollectionBannerCarouselImageUrl,
 } from "../../../../lib/api";
@@ -40,16 +35,16 @@ function imgSrc(url: string | null): string | null {
   return url.startsWith("http") ? url : `${API_ORIGIN}${url}`;
 }
 
-// site-hero: el Hero principal del home (categoryId null, singleton). feature: bloque "Producto
-// destacado" del home, uno por categoría raíz. weekly-collection-banner: banner de "Colección de la
-// semana" del home (categoryId null, singleton).
+// site-hero: el Hero principal del home (categoryId null, singleton). feature: imagen de la tarjeta de cada categoría
+// raíz en "Explora por categoría" del home (una sola). weekly-collection-banner: banner de "Colección de la semana"
+// del home (categoryId null, singleton).
 type SlotKind = "site-hero" | "feature" | "weekly-collection-banner";
 type CarouselSlot = { key: string; kind: SlotKind; title: string; hint: string; images: CarouselImage[]; categoryId: string | null };
 
 /**
  * Imágenes usadas en las secciones visuales del home: Hero principal, banner de "Colección de la
- * semana" y "Producto destacado" por categoría raíz. Si un carrusel queda sin ninguna imagen, esa
- * sección muestra un degradado de relleno en su lugar.
+ * semana" y la imagen de cada categoría en "Explora por categoría". Si algo queda sin imagen, esa sección muestra un
+ * degradado de relleno en su lugar.
  */
 export default function GridImagenesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -112,7 +107,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await moveHeroCarouselImage(imageId, direction);
       else if (kind === "weekly-collection-banner") await moveWeeklyCollectionBannerCarouselImage(imageId, direction);
-      else await moveCategoryCarouselImage(categoryId!, imageId, direction);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -127,7 +121,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await setHeroCarouselImageMobile(imageId, file);
       else if (kind === "weekly-collection-banner") await setWeeklyCollectionBannerCarouselImageMobile(imageId, file);
-      else await setCategoryCarouselImageMobile(categoryId!, imageId, file);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -142,7 +135,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await removeHeroCarouselImageMobile(imageId);
       else if (kind === "weekly-collection-banner") await removeWeeklyCollectionBannerCarouselImageMobile(imageId);
-      else await removeCategoryCarouselImageMobile(categoryId!, imageId);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -163,28 +155,6 @@ export default function GridImagenesPage() {
     try {
       if (kind === "site-hero") await updateHeroCarouselImageUrl(imageId, url);
       else if (kind === "weekly-collection-banner") await updateWeeklyCollectionBannerCarouselImageUrl(imageId, url);
-      else await updateCategoryCarouselImageUrl(categoryId!, imageId, url);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusySlot(null);
-    }
-  }
-
-  // Solo tiene sentido en el carrusel "feature" (Producto destacado) — es el único slot que le pasa
-  // `onSetTitulos` a CarouselSlotEditor, así que no hace falta ramificar por `kind` acá.
-  async function handleSetCarouselImageTitulos(
-    slotKey: string,
-    categoryId: string,
-    imageId: string,
-    titulo1: string | null,
-    titulo2: string | null,
-  ) {
-    setBusySlot(slotKey);
-    setError("");
-    try {
-      await updateCategoryCarouselImageTitulos(categoryId, imageId, titulo1, titulo2);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -272,20 +242,6 @@ export default function GridImagenesPage() {
         "2000×492px o más, panorámica (relación ~4:1), 332px de alto fijo. Mobile (opcional, usa la de PC si no " +
         "se carga): 1000×750px o más, más compacta (relación 4:3) — el marco cambia de forma en pantallas chicas.",
     },
-    ...rootCategories.map((cat) => ({
-      key: `${cat.id}-feature`,
-      kind: "feature" as const,
-      title: `${cat.name} — Producto destacado`,
-      categoryId: cat.id,
-      images: cat.carouselImages,
-      hint:
-        "Se muestran 3 imágenes lado a lado (recorte vertical) con título superpuesto arriba de cada una " +
-        "(Título 1/Título 2) — si no cargás Título 2, se usa el nombre de la categoría. Toda la tarjeta es " +
-        "clickeable: va al link propio de la imagen si tiene, si no a la categoría. En mobile se muestra 1 sola a " +
-        "la vez (mismo recorte 4:5, no cambia de forma). PC: 850×1050px o más (relación 4:5). Mobile (opcional, " +
-        "usa la de PC si no se carga): 680×850px o más (misma relación 4:5), por si querés otro recorte/foco para " +
-        "la vista de 1 sola columna.",
-    })),
   ];
 
   return (
@@ -309,14 +265,15 @@ export default function GridImagenesPage() {
               onSetUrl={(imageId, url) => handleSetCarouselImageUrl(slot.key, slot.kind, slot.categoryId, imageId, url)}
               onSetMobileImage={(imageId, file) => handleSetMobileImage(slot.key, slot.kind, slot.categoryId, imageId, file)}
               onRemoveMobileImage={(imageId) => handleRemoveMobileImage(slot.key, slot.kind, slot.categoryId, imageId)}
-              onSetTitulos={
-                slot.kind === "feature"
-                  ? (imageId, titulo1, titulo2) =>
-                      handleSetCarouselImageTitulos(slot.key, slot.categoryId!, imageId, titulo1, titulo2)
-                  : undefined
-              }
             />
           ))}
+
+          <CategoryTilesEditor
+            categories={rootCategories}
+            busySlot={busySlot}
+            onSet={(cat, file) => handleAddCarouselImage(`${cat.id}-feature`, "feature", cat.id, file)}
+            onRemove={(cat, imageId) => handleRemoveCarouselImage(`${cat.id}-feature`, "feature", cat.id, imageId)}
+          />
 
           {promoModal && (
             <PromoModalEditor
@@ -478,7 +435,6 @@ function CarouselSlotEditor({
   onSetUrl,
   onSetMobileImage,
   onRemoveMobileImage,
-  onSetTitulos,
 }: {
   title: string;
   hint: string;
@@ -490,9 +446,6 @@ function CarouselSlotEditor({
   onSetUrl: (imageId: string, url: string | null) => void;
   onSetMobileImage: (imageId: string, file: File) => void;
   onRemoveMobileImage: (imageId: string) => void;
-  // Solo lo pasa el slot "feature" (Producto destacado) — el resto de los carruseles no tiene título
-  // superpuesto, así que el bloque de inputs de abajo queda oculto para ellos.
-  onSetTitulos?: (imageId: string, titulo1: string | null, titulo2: string | null) => void;
 }) {
   return (
     <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
@@ -508,7 +461,7 @@ function CarouselSlotEditor({
           </p>
         )}
         {images.map((image, index) => (
-          <div key={image.id} style={{ width: onSetTitulos ? 220 : 200 }}>
+          <div key={image.id} style={{ width: 200 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p className="cell-muted" style={{ fontSize: 9.5, margin: "0 0 3px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -567,13 +520,6 @@ function CarouselSlotEditor({
               busy={busy}
               onSave={(url) => onSetUrl(image.id, url)}
             />
-            {onSetTitulos && (
-              <CarouselImageTitulosInput
-                image={image}
-                busy={busy}
-                onSave={(titulo1, titulo2) => onSetTitulos(image.id, titulo1, titulo2)}
-              />
-            )}
           </div>
         ))}
       </div>
@@ -711,64 +657,67 @@ function CarouselImageUrlInput({
   );
 }
 
-/** Texto superpuesto sobre la imagen en el bloque "Producto destacado" del home — titulo1 (chico,
- * arriba) y titulo2 (grande, debajo). Mismo mecanismo que la URL: se guarda al salir del campo o con
- * Enter, solo si cambió. Vacío = no se muestra esa línea. */
-function CarouselImageTitulosInput({
-  image,
-  busy,
-  onSave,
+/**
+ * Imagen de cada categoría en el bloque "Explora por categoría" del home: una sola por categoría raíz. Subir otra
+ * reemplaza la anterior; sin imagen, la tarjeta muestra un degradado azul.
+ */
+function CategoryTilesEditor({
+  categories,
+  busySlot,
+  onSet,
+  onRemove,
 }: {
-  image: CarouselImage;
-  busy: boolean;
-  onSave: (titulo1: string | null, titulo2: string | null) => void;
+  categories: Category[];
+  busySlot: string | null;
+  onSet: (category: Category, file: File) => void;
+  onRemove: (category: Category, imageId: string) => void;
 }) {
-  const [titulo1, setTitulo1] = useState(image.titulo1 ?? "");
-  const [titulo2, setTitulo2] = useState(image.titulo2 ?? "");
-
-  useEffect(() => {
-    setTitulo1(image.titulo1 ?? "");
-    setTitulo2(image.titulo2 ?? "");
-  }, [image.titulo1, image.titulo2]);
-
-  function commit() {
-    const trimmed1 = titulo1.trim();
-    const trimmed2 = titulo2.trim();
-    if (trimmed1 === (image.titulo1 ?? "") && trimmed2 === (image.titulo2 ?? "")) return;
-    onSave(trimmed1 || null, trimmed2 || null);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      (e.target as HTMLInputElement).blur();
-    }
-  }
-
   return (
-    <>
-      <input
-        className="field"
-        type="text"
-        placeholder="Título 1 (subtítulo chico, opcional)"
-        value={titulo1}
-        disabled={busy}
-        onChange={(e) => setTitulo1(e.target.value)}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        style={{ fontSize: 11, padding: "5px 8px", marginTop: 4 }}
-      />
-      <input
-        className="field"
-        type="text"
-        placeholder="Título 2 (título grande, opcional)"
-        value={titulo2}
-        disabled={busy}
-        onChange={(e) => setTitulo2(e.target.value)}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        style={{ fontSize: 11, padding: "5px 8px", marginTop: 4 }}
-      />
-    </>
+    <div style={{ border: "1px solid var(--color-divider, var(--line))", borderRadius: 8, padding: 14 }}>
+      <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 4 }}>Explora por categoría</label>
+      <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.4, maxWidth: 720 }}>
+        Una imagen por categoría para su tarjeta en el home (debajo de &quot;Descuento y Ofertas&quot;). El nombre de la categoría y sus
+        subcategorías se muestran solos sobre la imagen. Recorte apaisado: 1200×750px o más (relación 16:10); en el celular se
+        recorta a 16:9, así que conviene dejar el producto al centro. Si subes otra imagen, reemplaza la anterior.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+        {categories.map((cat) => {
+          const imagen = cat.carouselImages[0] ?? null;
+          const busy = busySlot === `${cat.id}-feature`;
+          return (
+            <div key={cat.id} style={{ width: 240 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 6px" }}>{cat.name}</p>
+              <div className="image-uploader" style={{ padding: 6, justifyContent: "center", position: "relative" }}>
+                {imagen ? (
+                  <img src={imgSrc(imagen.imageUrl)!} alt={cat.name} style={{ aspectRatio: "16 / 10", objectFit: "cover", width: "100%" }} />
+                ) : (
+                  <span className="cell-muted" style={{ fontSize: 12, padding: "28px 0" }}>Sin imagen (se usa un degradado)</span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                <input
+                  className="field"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onSet(cat, file);
+                    e.target.value = "";
+                  }}
+                  style={{ fontSize: 11, padding: "5px 8px", flex: 1, minWidth: 0 }}
+                />
+                {imagen && (
+                  <button type="button" className="action-btn danger" disabled={busy} onClick={() => onRemove(cat, imagen.id)}>
+                    Quitar
+                  </button>
+                )}
+              </div>
+              {busy && <p className="cell-muted" style={{ fontSize: 11, margin: "4px 0 0" }}>Guardando...</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { CategoryExplorer } from "../../components/landing/CategoryExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
@@ -33,7 +34,6 @@ const HERO_AUTOPLAY_MS = 10000;
 // Mismo breakpoint que usa el navbar para pasar a mobile — abajo de esto el carrusel de ofertas
 // pagina de a 2 (en vez de 5). El hero ya muestra 1 sola imagen a cualquier ancho (ver heroWindow).
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
-const FEATURE_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_SIZE = 5;
 
@@ -648,6 +648,9 @@ export function HomeClient({
         </div>
       </section>
 
+      {/* ================= 3a. Explora por categoría (reemplaza a los bloques de carrusel por categoría) ================= */}
+      <CategoryExplorer categories={categories} />
+
       {/* ================= 3b. Colección de la semana ================= */}
       {landingImages?.weeklyCollectionBrand && weeklyCollectionProducts.length > 0 && (
         <section className="landing-section landing-section-alt">
@@ -756,63 +759,6 @@ export function HomeClient({
           </section>
         );
       })()}
-
-      {/* ========== 4. Producto destacado: banner con título superpuesto (alterna fondo) ========== */}
-      {rootCategories.map((cat, i) => {
-        // Fondo negro (Black Steel) para el primer bloque, papel para el siguiente, y así alterna —
-        // .landing-feature-block--dark/--light ajustan el color de letras/tema para cada caso.
-        const isDark = i % 2 === 0;
-        return (
-          <section
-            className={`landing-feature-block ${isDark ? "landing-feature-block--dark" : "landing-feature-block--light"}`}
-            key={cat.id}
-          >
-            <div className="landing-container">
-              <h2 className="landing-section-title landing-feature-block-title">
-                <span className="landing-feature-block-title-inner">{cat.name}</span>
-              </h2>
-
-              {cat.carouselImages.length > 0 ? (
-                // Frame con padding a los costados — mismo mecanismo que .landing-carousel
-                // (Descuento y Ofertas / Explora Nuestras Marcas): las flechas de ImageCarousel
-                // (position:absolute) anclan a ESTE contenedor en vez de a .landing-feature-visual,
-                // así quedan en ese margen, afuera de la imagen, no superpuestas encima.
-                <div className="landing-feature-visual-frame">
-                  <div className="landing-feature-visual">
-                    <ImageCarousel
-                      images={cat.carouselImages}
-                      alt={cat.name}
-                      imgClassName="landing-feature-visual-image"
-                      autoplayMs={FEATURE_AUTOPLAY_MS}
-                      visibleCount={isMobile ? 1 : 3}
-                      mobileMediaQuery={MOBILE_BREAKPOINT}
-                      renderOverlay={(image) => (
-                        <div className="landing-feature-overlay">
-                          <div className="landing-feature-overlay-text">
-                            {image.titulo1 && <p className="landing-feature-overlay-subtitle">{image.titulo1}</p>}
-                            {image.titulo2 && <h3 className="landing-feature-overlay-title">{image.titulo2}</h3>}
-                          </div>
-                          {image.url && (
-                            <a href={image.url} className="landing-btn landing-btn-primary landing-feature-overlay-btn">
-                              Ver Todo
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <Link
-                  href={`/categoria/${cat.slug}`}
-                  className="landing-feature-visual landing-feature-visual--fallback"
-                  style={{ background: isDark ? "linear-gradient(150deg, #594d46, #080706)" : "linear-gradient(150deg, #d1b280, #594d46)" }}
-                />
-              )}
-            </div>
-          </section>
-        );
-      })}
 
       {/* ======== 6. Sobre nosotros + Newsletter: misma fila, 2 columnas con difuminado ======== */}
       <section id="nosotros" className="landing-about-newsletter-row">

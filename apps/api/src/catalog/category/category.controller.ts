@@ -22,7 +22,6 @@ import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { MoveCarouselImageDto } from "../carousel-image/dto/move-carousel-image.dto";
 import { UpdateCarouselImageUrlDto } from "../carousel-image/dto/update-carousel-image-url.dto";
-import { UpdateCarouselImageTitulosDto } from "../carousel-image/dto/update-carousel-image-titulos.dto";
 import { carouselImageMulterOptions } from "../carousel-image/carousel-image.multer";
 
 @ApiTags("categories")
@@ -66,7 +65,8 @@ export class CategoryController {
     return this.categories.remove(id);
   }
 
-  // "Producto destacado" del home (bloque cuadrado).
+  // Imagen de la tarjeta de la categoría en "Explora por categoría" del home: una sola por categoría raíz (subir otra la
+  // reemplaza).
   @Get(":id/carousel-images")
   listCarouselImages(@Param("id", ParseUUIDPipe) id: string) {
     return this.categories.listCarouselImages(id, "FEATURE");
@@ -80,7 +80,7 @@ export class CategoryController {
     if (!file) {
       throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
     }
-    return this.categories.addCarouselImage(id, "FEATURE", file);
+    return this.categories.replaceFeatureImage(id, file);
   }
 
   @Delete(":id/carousel-images/:imageId")
@@ -88,51 +88,6 @@ export class CategoryController {
     return this.categories.removeCarouselImage(id, imageId);
   }
 
-  @Patch(":id/carousel-images/:imageId/move")
-  moveCarouselImage(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Param("imageId", ParseUUIDPipe) imageId: string,
-    @Body() dto: MoveCarouselImageDto,
-  ) {
-    return this.categories.moveCarouselImage(id, imageId, dto.direction);
-  }
-
-  @Patch(":id/carousel-images/:imageId/url")
-  setCarouselImageUrl(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Param("imageId", ParseUUIDPipe) imageId: string,
-    @Body() dto: UpdateCarouselImageUrlDto,
-  ) {
-    return this.categories.setCarouselImageUrl(id, imageId, dto.url ?? null);
-  }
-
-  @Patch(":id/carousel-images/:imageId/titulos")
-  setCarouselImageTitulos(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Param("imageId", ParseUUIDPipe) imageId: string,
-    @Body() dto: UpdateCarouselImageTitulosDto,
-  ) {
-    return this.categories.setCarouselImageTitulos(id, imageId, dto.titulo1 ?? null, dto.titulo2 ?? null);
-  }
-
-  // Variante de esta misma imagen para pantallas chicas — ver CarouselImageService.setMobileImage.
-  @Post(":id/carousel-images/:imageId/mobile-image")
-  @UseInterceptors(FileInterceptor("file", carouselImageMulterOptions), WebpUploadInterceptor)
-  setCarouselImageMobile(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Param("imageId", ParseUUIDPipe) imageId: string,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    if (!file) {
-      throw new BadRequestException("Archivo inválido: debe ser una imagen JPEG, PNG, WEBP o GIF de hasta 5MB.");
-    }
-    return this.categories.setCarouselImageMobile(id, imageId, file);
-  }
-
-  @Delete(":id/carousel-images/:imageId/mobile-image")
-  removeCarouselImageMobile(@Param("id", ParseUUIDPipe) id: string, @Param("imageId", ParseUUIDPipe) imageId: string) {
-    return this.categories.removeCarouselImageMobile(id, imageId);
-  }
 
   // Hero de /categoria/[id] (panorámico) — carrusel independiente del de arriba, compartido con
   // todas las subcategorías de esta raíz.
