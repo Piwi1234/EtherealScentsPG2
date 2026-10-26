@@ -1,4 +1,19 @@
-import { EstadoEnvio, Prisma } from "@app/database";
+import { EstadoEnvio, EstadoProforma, Prisma } from "@app/database";
+
+export type EstadoPedidoDerivado = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "RECOGIDO" | "EN_TRANSITO";
+
+/**
+ * Estado de lo que cubre una compra (un faltante de venta o una línea de solicitud) según su compra: sin compra,
+ * en preparación (borrador), comprado, recogido (todas sus unidades ya recogidas) o enviado (ya salieron en un
+ * envío). Si la compra ya se cerró (completada o anulada) y el faltante sigue pendiente, vuelve a "sin compra".
+ */
+export function estadoSegunCompra(compraEstado: EstadoProforma | undefined, cantidad: number, recogidas: number, enviadas: number): EstadoPedidoDerivado {
+  if (!compraEstado) return "SIN_COMPRA";
+  if (compraEstado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
+  if (compraEstado !== EstadoProforma.APROBADA) return "SIN_COMPRA";
+  if (enviadas >= cantidad) return "EN_TRANSITO";
+  return recogidas >= cantidad ? "RECOGIDO" : "COMPRADO";
+}
 
 /** Lo que hace falta leer de una línea de compra para repartir lo recogido/enviado entre lo que la cubre. */
 export const compraConEnlacesSelect = {

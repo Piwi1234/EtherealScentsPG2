@@ -7,6 +7,7 @@ import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
 import { generateUniqueEntityCode } from "../../catalog/entity-code";
 import { ProformaHistorialService } from "./proforma-historial.service";
+import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace } from "./recojo.util";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
@@ -57,7 +58,15 @@ export const includeDetails = {
       solicitudesCubiertas: { select: { cantidad: true } },
       // COMPRA: lo recogido de esta línea (suma de los recojos).
       recojoLineas: { select: { cantidad: true } },
-      asignaciones: { include: { almacen: true } },
+      // VENTA: la compra que cubre cada faltante (Procura), con lo recogido/enviado para derivar su estado.
+      asignaciones: {
+        include: {
+          almacen: true,
+          compraDetalle: {
+            select: { id: true, cantidad: true, proforma: { select: { id: true, codigo: true, estado: true } }, ...compraConEnlacesSelect },
+          },
+        },
+      },
       loteCompras: true,
     },
   },
@@ -142,7 +151,23 @@ export class ProformasService {
     if (!proforma) {
       throw new NotFoundException("Proforma no encontrada.");
     }
-    return proforma;
+    return this.conEstadoDeFaltantes(proforma);
+  }
+
+  /** A cada faltante (Procura) de una venta le suma el estado de la compra que lo cubre: comprado, recogido o enviado. */
+  private conEstadoDeFaltantes<T extends { detalles: { asignaciones: { id: string; origen: OrigenAsignacion; cantidad: number; compraDetalle: Prisma.ProformaDetalleGetPayload<{ select: { id: true; cantidad: true; proforma: { select: { id: true; codigo: true; estado: true } } } }> & { recojoLineas: { cantidad: number }[]; envioItems: { cantidad: number }[]; asignacionesCubiertas: { id: string; cantidad: number; createdAt: Date }[]; solicitudesCubiertas: { id: string; cantidad: number; createdAt: Date }[] } | null }[] }[] }>(proforma: T) {
+    return {
+      ...proforma,
+      detalles: proforma.detalles.map((d) => ({
+        ...d,
+        asignaciones: d.asignaciones.map((a) => {
+          if (a.origen !== OrigenAsignacion.PROCURA || a.cantidad <= 0) return { ...a, estadoPedido: null, recogidas: 0, enviadas: 0 };
+          const recogidas = a.compraDetalle ? recogidasDeEnlace(a.compraDetalle, a.id) : 0;
+          const enviadas = a.compraDetalle ? enviadasDeEnlace(a.compraDetalle, a.id) : 0;
+          return { ...a, recogidas, enviadas, estadoPedido: estadoSegunCompra(a.compraDetalle?.proforma.estado, a.cantidad, recogidas, enviadas) };
+        }),
+      })),
+    };
   }
 
   private assertBorrador(proforma: { estado: EstadoProforma }) {

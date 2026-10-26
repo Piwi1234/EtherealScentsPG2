@@ -527,6 +527,11 @@ export type ProformaDetalleAsignacion = {
   /** Solo tiene sentido mientras origen=PROCURA y cantidad>0 — ver módulo Seguimiento. */
   estadoSeguimiento: EstadoSeguimientoProcura;
   createdAt: string;
+  /** Faltante (Procura) con compra ligada: la compra que lo cubre y cómo va (derivado, se actualiza solo). */
+  compraDetalle?: { id: string; cantidad: number; proforma: { id: string; codigo: string; estado: EstadoProforma } } | null;
+  estadoPedido?: EstadoPedido | null;
+  recogidas?: number;
+  enviadas?: number;
 };
 
 export type LoteCompra = {

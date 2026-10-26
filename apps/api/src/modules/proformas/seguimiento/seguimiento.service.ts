@@ -3,7 +3,7 @@ import { EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Prisma, TipoPro
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { ProformasService } from "../proformas.service";
-import { compraConEnlacesSelect, enviadasDeEnlace, recogidasDeEnlace, totalEnviado, totalRecogido } from "../recojo.util";
+import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace, totalEnviado, totalRecogido } from "../recojo.util";
 import { SolicitudesStockService, estadoLineaSolicitud } from "../solicitudes-stock/solicitudes-stock.service";
 import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
@@ -58,14 +58,7 @@ type LineaConCompra = Prisma.ProformaDetalleAsignacionGetPayload<{ include: type
 /** Estado de un pedido de cliente según la compra/envío que lo cubre. Si la compra ligada ya se cerró
  * (COMPLETADA/ANULADA) y la Procura sigue pendiente, es que no llegó todo: vuelve a "sin compra". */
 export function derivarEstadoPedido(linea: Pick<LineaConCompra, "compraDetalle" | "cantidad">, recogidas = 0, enviadas = 0): EstadoPedido {
-  const compra = linea.compraDetalle?.proforma;
-  if (!compra) return "SIN_COMPRA";
-  if (compra.estado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
-  if (compra.estado !== EstadoProforma.APROBADA) return "SIN_COMPRA";
-  // Enviado: ya salieron en un envío todas las unidades que le tocan a este faltante.
-  if (enviadas >= linea.cantidad) return "EN_TRANSITO";
-  // Recogido: ya están físicamente recogidas todas las unidades que le tocan a este faltante.
-  return recogidas >= linea.cantidad ? "RECOGIDO" : "COMPRADO";
+  return estadoSegunCompra(linea.compraDetalle?.proforma.estado, linea.cantidad, recogidas, enviadas);
 }
 
 /** Agrega a una línea de Seguimiento cuántas unidades ya se recogieron/enviaron para ella y su estado derivado. */

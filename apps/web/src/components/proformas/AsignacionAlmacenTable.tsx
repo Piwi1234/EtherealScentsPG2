@@ -1,4 +1,6 @@
+import Link from "next/link";
 import type { Proforma } from "../../lib/types";
+import { CLASES_PEDIDO, LABELS_PEDIDO } from "./seguimiento-estados";
 
 /**
  * Desglose por línea de lo que se reservó al aprobar una VENTA (solo VENTA — resultado de reservar
@@ -37,8 +39,21 @@ export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
                       <span className="badge badge-muted">En tránsito</span> — {asig.almacen?.nombre ?? "—"}
                       <div className="cell-muted" style={{ fontSize: 12 }}>Reservado en un envío en camino; se puede completar cuando llegue.</div>
                     </span>
+                  ) : asig.estadoPedido && asig.estadoPedido !== "SIN_COMPRA" && asig.compraDetalle ? (
+                    <span>
+                      <span className={CLASES_PEDIDO[asig.estadoPedido]}>{LABELS_PEDIDO[asig.estadoPedido]}</span>
+                      <div className="cell-muted" style={{ fontSize: 12 }}>
+                        {asig.estadoPedido === "EN_PREPARACION" ? "Compra " : `${asig.recogidas ?? 0} de ${asig.cantidad} recogidas · ${asig.enviadas ?? 0} enviadas · compra `}
+                        <Link href={`/dashboard/proformas/${asig.compraDetalle.proforma.id}`} className="link-button">
+                          {asig.compraDetalle.proforma.codigo}
+                        </Link>
+                      </div>
+                    </span>
                   ) : (
-                    <span className="badge badge-muted">Procura</span>
+                    <span>
+                      <span className="badge badge-muted">Sin compra</span>
+                      <div className="cell-muted" style={{ fontSize: 12 }}>Falta comprarlo.</div>
+                    </span>
                   )}
                 </td>
                 <td className="num">{asig.cantidad}</td>
