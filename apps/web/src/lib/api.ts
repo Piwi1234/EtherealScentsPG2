@@ -50,6 +50,10 @@ import type {
   CompraCreada,
   CrearComprasInput,
   PagosVenta,
+  PendientesPorVariante,
+  SolicitudLinea,
+  SolicitudLineaParaCompra,
+  SolicitudStock,
   RegistroLinea,
   RegistroResumen,
   SeguimientoLinea,
@@ -993,6 +997,64 @@ export function getProcurasParaCompra(compraDetalleId: string) {
 
 export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
   return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+// --- Solicitudes de stock ---
+
+export function getSolicitudes(query: { estado?: string; search?: string; page?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.search) params.set("search", query.search);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<SolicitudStock>>(`/solicitudes-stock${qs ? `?${qs}` : ""}`);
+}
+
+export function getSolicitud(id: string) {
+  return apiGet<SolicitudStock>(`/solicitudes-stock/${id}`);
+}
+
+export function createSolicitud(data: { nota?: string; lineas?: { varianteId: string; cantidad: number; nota?: string }[] } = {}) {
+  return apiPost<SolicitudStock>("/solicitudes-stock", data);
+}
+
+export function updateSolicitud(id: string, data: { nota?: string }) {
+  return apiPatch<SolicitudStock>(`/solicitudes-stock/${id}`, data);
+}
+
+export function cancelarSolicitud(id: string) {
+  return apiPost<SolicitudStock>(`/solicitudes-stock/${id}/cancelar`, {});
+}
+
+export function addLineaSolicitud(id: string, data: { varianteId: string; cantidad: number; nota?: string }) {
+  return apiPost<SolicitudStock>(`/solicitudes-stock/${id}/lineas`, data);
+}
+
+export function updateLineaSolicitud(id: string, lineaId: string, data: { cantidad?: number; nota?: string }) {
+  return apiPatch<SolicitudStock>(`/solicitudes-stock/${id}/lineas/${lineaId}`, data);
+}
+
+export function removeLineaSolicitud(id: string, lineaId: string) {
+  return apiDelete<SolicitudStock>(`/solicitudes-stock/${id}/lineas/${lineaId}`);
+}
+
+export function vincularLineaSolicitud(lineaId: string, compraDetalleId: string, cantidad?: number) {
+  return apiPost<SolicitudLinea>(`/solicitudes-stock/lineas/${lineaId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+export function desvincularLineaSolicitud(lineaId: string) {
+  return apiDelete<SolicitudLinea>(`/solicitudes-stock/lineas/${lineaId}/vincular`);
+}
+
+/** Faltantes de ventas y líneas de solicitud sin compra de estos productos (para "Crear compras"). */
+export function getPendientesPorVariante(varianteIds: string[]) {
+  return apiGet<PendientesPorVariante>(`/proformas/seguimiento/pendientes-por-variante?varianteIds=${varianteIds.join(",")}`);
+}
+
+/** Líneas de solicitud que esta línea de compra puede cubrir (libres, o ya ligadas a ella). */
+export function getSolicitudesParaCompra(compraDetalleId: string) {
+  return apiGet<SolicitudLineaParaCompra[]>(`/proformas/seguimiento/compra/${compraDetalleId}/solicitudes`);
 }
 
 export function crearComprasDesdeFaltantes(data: CrearComprasInput) {

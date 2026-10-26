@@ -14,7 +14,7 @@ export function SeguimientoFiltros({
   initialCategoryId: string;
   initialEstado: string;
   initialEmpresaId: string;
-  vista: "pedidos" | "stock";
+  vista: "pedidos" | "stock" | "solicitudes";
   categories: Category[];
   empresas: Empresa[];
 }) {
@@ -53,8 +53,8 @@ export function SeguimientoFiltros({
         <label className="filter-label">Estado</label>
         <select className="field" defaultValue={initialEstado} onChange={(e) => pushParams({ estado: e.target.value })}>
           <option value="">Todos</option>
-          {vista === "pedidos" && <option value="SIN_COMPRA">Sin compra</option>}
-          {vista === "pedidos" && <option value="EN_PREPARACION">Compra en preparación</option>}
+          {vista !== "stock" && <option value="SIN_COMPRA">Sin compra</option>}
+          {vista !== "stock" && <option value="EN_PREPARACION">Compra en preparación</option>}
           <option value="COMPRADO">Comprado</option>
           <option value="EN_TRANSITO">En tránsito</option>
         </select>

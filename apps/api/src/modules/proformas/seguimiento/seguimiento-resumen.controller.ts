@@ -30,6 +30,18 @@ export class SeguimientoResumenController {
     return this.seguimiento.findStockPedido(query);
   }
 
+  @Get("stock-solicitado")
+  @ApiOperation({ summary: "Stock solicitado: líneas de solicitudes de stock abiertas que todavía no llegaron." })
+  findStockSolicitado(@Query() query: QuerySeguimientoDto) {
+    return this.seguimiento.findStockSolicitado(query);
+  }
+
+  @Get("pendientes-por-variante")
+  @ApiOperation({ summary: "Faltantes de ventas y líneas de solicitud sin compra de estos productos (varianteIds separados por coma)." })
+  pendientesPorVariante(@Query("varianteIds") varianteIds?: string) {
+    return this.seguimiento.pendientesPorVariante((varianteIds ?? "").split(",").map((v) => v.trim()).filter(Boolean));
+  }
+
   @Get("sugerencias-compra")
   @ApiOperation({ summary: "Último proveedor al que se le compró cada producto (varianteIds separados por coma)." })
   sugerenciasCompra(@Query("varianteIds") varianteIds?: string) {
@@ -40,6 +52,12 @@ export class SeguimientoResumenController {
   @ApiOperation({ summary: "Crea una nota de compra (borrador) por proveedor desde faltantes de ventas, ya ligadas." })
   crearCompras(@Body() dto: CrearComprasDto, @CurrentUser() user: AuthenticatedUser) {
     return this.seguimiento.crearCompras(dto, user.id);
+  }
+
+  @Get("compra/:compraDetalleId/solicitudes")
+  @ApiOperation({ summary: "Líneas de solicitudes de stock que esta línea de compra puede cubrir." })
+  solicitudesParaCompra(@Param("compraDetalleId", ParseUUIDPipe) compraDetalleId: string) {
+    return this.seguimiento.solicitudesPendientesParaCompra(compraDetalleId);
   }
 
   @Get("compra/:compraDetalleId/procuras")

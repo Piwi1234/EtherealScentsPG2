@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { ProformasService } from "../proformas.service";
+import { SolicitudesStockService, estadoLineaSolicitud } from "../solicitudes-stock/solicitudes-stock.service";
 import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
 import { CrearComprasDto } from "./dto/crear-compras.dto";
@@ -100,6 +101,7 @@ export class SeguimientoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly proformas: ProformasService,
+    private readonly solicitudes: SolicitudesStockService,
   ) {}
 
   /** El filtro de categoría del frontend solo ofrece categorías padre — acá se expande a ese padre
@@ -185,6 +187,7 @@ export class SeguimientoService {
         id: true,
         cantidad: true,
         asignacionesCubiertas: { select: { cantidad: true } },
+        solicitudesCubiertas: { select: { cantidad: true } },
         proveedor: { select: { id: true, nombre: true } },
         proforma: {
           select: {
@@ -200,9 +203,9 @@ export class SeguimientoService {
     });
 
     const conLibre = rows
-      .map(({ asignacionesCubiertas, ...r }) => ({
+      .map(({ asignacionesCubiertas, solicitudesCubiertas, ...r }) => ({
         ...r,
-        cantidad: r.cantidad - asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0),
+        cantidad: r.cantidad - asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) - solicitudesCubiertas.reduce((n, a) => n + a.cantidad, 0),
         estadoStock: r.proforma.envio?.estado === EstadoEnvio.EN_TRANSITO ? ("EN_TRANSITO" as const) : ("COMPRADO" as const),
       }))
       .filter((r) => r.cantidad > 0);
@@ -242,12 +245,16 @@ export class SeguimientoService {
         proveedor: { select: { id: true, nombre: true } },
         proforma: { select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } } },
         asignacionesCubiertas: { select: { id: true, cantidad: true } },
+        solicitudesCubiertas: { select: { cantidad: true } },
       },
       orderBy: { createdAt: "asc" },
     });
-    return compras.map(({ asignacionesCubiertas, ...c }) => ({
+    return compras.map(({ asignacionesCubiertas, solicitudesCubiertas, ...c }) => ({
       ...c,
-      restante: c.cantidad - asignacionesCubiertas.filter((a) => a.id !== asignacionId).reduce((s, a) => s + a.cantidad, 0),
+      restante:
+        c.cantidad -
+        asignacionesCubiertas.filter((a) => a.id !== asignacionId).reduce((s, a) => s + a.cantidad, 0) -
+        solicitudesCubiertas.reduce((s, a) => s + a.cantidad, 0),
     }));
   }
 
@@ -295,6 +302,7 @@ export class SeguimientoService {
         cantidad: true,
         proforma: { select: { tipo: true, estado: true, codigo: true } },
         asignacionesCubiertas: { select: { id: true, cantidad: true } },
+        solicitudesCubiertas: { select: { cantidad: true } },
       },
     });
     if (!compra || compra.proforma.tipo !== TipoProforma.COMPRA) throw new BadRequestException("Línea de compra inválida.");
@@ -305,7 +313,10 @@ export class SeguimientoService {
       throw new BadRequestException("La compra es de otro producto distinto al del faltante.");
     }
 
-    const libre = compra.cantidad - compra.asignacionesCubiertas.reduce((s, a) => s + a.cantidad, 0);
+    const libre =
+      compra.cantidad -
+      compra.asignacionesCubiertas.reduce((s, a) => s + a.cantidad, 0) -
+      compra.solicitudesCubiertas.reduce((s, a) => s + a.cantidad, 0);
     if (libre <= 0) {
       throw new ConflictException(`La línea de compra de ${compra.proforma.codigo} ya tiene todas sus unidades ligadas.`);
     }
@@ -356,6 +367,114 @@ export class SeguimientoService {
     });
   }
 
+  /** Líneas de solicitudes de stock abiertas que todavía no llegaron, con el estado derivado de la compra que las cubre. */
+  async findStockSolicitado(query: QuerySeguimientoDto) {
+    const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
+    const estado = query.estado as EstadoPedido | undefined;
+
+    let porEstado: Prisma.SolicitudStockLineaWhereInput;
+    switch (estado) {
+      case "SIN_COMPRA":
+        porEstado = { compraDetalleId: null };
+        break;
+      case "EN_PREPARACION":
+        porEstado = { compraDetalle: { proforma: { estado: EstadoProforma.BORRADOR } } };
+        break;
+      case "EN_TRANSITO":
+        porEstado = { compraDetalle: { proforma: { estado: EstadoProforma.APROBADA, envio: { estado: EstadoEnvio.EN_TRANSITO } } } };
+        break;
+      case "COMPRADO":
+        porEstado = {
+          compraDetalle: {
+            proforma: { estado: EstadoProforma.APROBADA, OR: [{ envioId: null }, { envio: { estado: { not: EstadoEnvio.EN_TRANSITO } } }] },
+          },
+        };
+        break;
+      default:
+        // Sin filtro: todo lo que todavía no llegó (las ya recibidas salen del Seguimiento).
+        porEstado = { OR: [{ compraDetalleId: null }, { compraDetalle: { proforma: { estado: { not: EstadoProforma.COMPLETADA } } } }] };
+    }
+
+    const where: Prisma.SolicitudStockLineaWhereInput = {
+      solicitud: { estado: EstadoSolicitudStock.ABIERTA },
+      variante: categoryIds ? { product: { categoryId: { in: categoryIds } } } : undefined,
+      ...porEstado,
+    };
+    const { page, pageSize, skip, take } = getPagination({ page: String(query.page ?? 1), pageSize: String(query.limit ?? 20) });
+
+    const [items, total] = await Promise.all([
+      this.prisma.solicitudStockLinea.findMany({
+        where,
+        orderBy: [{ variante: { product: { name: "asc" } } }, { createdAt: "asc" }],
+        skip,
+        take,
+        include: {
+          solicitud: { select: { id: true, codigo: true, nota: true, createdAt: true, creadoPor: { select: { id: true, nombre: true } } } },
+          variante: varianteInclude,
+          compraDetalle: {
+            select: {
+              id: true,
+              proveedor: { select: { id: true, nombre: true } },
+              proforma: { select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } } },
+            },
+          },
+        },
+      }),
+      this.prisma.solicitudStockLinea.count({ where }),
+    ]);
+    return { items: items.map((l) => ({ ...l, estadoLinea: estadoLineaSolicitud(l) })), total, page, pageSize };
+  }
+
+  /** Faltantes de ventas y líneas de solicitudes todavía sin compra de estos productos (para "Crear compras"). */
+  async pendientesPorVariante(varianteIds: string[]) {
+    if (varianteIds.length === 0) return { pedidos: [], stock: [] };
+    const [procuras, lineas] = await Promise.all([
+      this.prisma.proformaDetalleAsignacion.findMany({
+        where: {
+          origen: OrigenAsignacion.PROCURA,
+          cantidad: { gt: 0 },
+          compraDetalleId: null,
+          proformaDetalle: { varianteId: { in: varianteIds }, proforma: { tipo: TipoProforma.VENTA, estado: EstadoProforma.APROBADA } },
+        },
+        select: { id: true, cantidad: true, proformaDetalle: { select: { varianteId: true, proforma: { select: { codigo: true } } } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.solicitudStockLinea.findMany({
+        where: { compraDetalleId: null, varianteId: { in: varianteIds }, solicitud: { estado: EstadoSolicitudStock.ABIERTA } },
+        select: { id: true, cantidad: true, varianteId: true, solicitud: { select: { codigo: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    return {
+      pedidos: procuras.map((p) => ({ id: p.id, varianteId: p.proformaDetalle.varianteId, cantidad: p.cantidad, codigo: p.proformaDetalle.proforma.codigo })),
+      stock: lineas.map((l) => ({ id: l.id, varianteId: l.varianteId, cantidad: l.cantidad, codigo: l.solicitud.codigo })),
+    };
+  }
+
+  /** Líneas de solicitudes de stock (de la misma variante) que esta línea de compra puede cubrir. */
+  async solicitudesPendientesParaCompra(compraDetalleId: string) {
+    const compra = await this.prisma.proformaDetalle.findUnique({
+      where: { id: compraDetalleId },
+      select: { varianteId: true, proforma: { select: { tipo: true } } },
+    });
+    if (!compra || compra.proforma.tipo !== TipoProforma.COMPRA) throw new NotFoundException("Línea de compra no encontrada.");
+    return this.prisma.solicitudStockLinea.findMany({
+      where: {
+        varianteId: compra.varianteId,
+        cantidad: { gt: 0 },
+        OR: [{ compraDetalleId: null }, { compraDetalleId }],
+        solicitud: { estado: EstadoSolicitudStock.ABIERTA },
+      },
+      select: {
+        id: true,
+        cantidad: true,
+        compraDetalleId: true,
+        solicitud: { select: { id: true, codigo: true, creadoPor: { select: { id: true, nombre: true } } } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   /** Último proveedor al que se le compró cada producto (para sugerirlo al crear compras desde los faltantes). */
   async sugerenciasCompra(varianteIds: string[]) {
     if (varianteIds.length === 0) return {};
@@ -377,9 +496,12 @@ export class SeguimientoService {
   async crearCompras(dto: CrearComprasDto, usuarioId: string) {
     const todas = dto.grupos.flatMap((g) => g.lineas.flatMap((l) => l.asignacionIds ?? []));
     if (new Set(todas).size !== todas.length) throw new BadRequestException("Un mismo faltante no puede ir en dos compras.");
+    const todasSolicitud = dto.grupos.flatMap((g) => g.lineas.flatMap((l) => l.solicitudLineaIds ?? []));
+    if (new Set(todasSolicitud).size !== todasSolicitud.length) throw new BadRequestException("Una misma línea de solicitud no puede ir en dos compras.");
 
     // Se validan todos los faltantes antes de crear nada.
     const cantidadPorAsignacion = new Map<string, number>();
+    const cantidadPorSolicitud = new Map<string, number>();
     for (const grupo of dto.grupos) {
       for (const linea of grupo.lineas) {
         for (const asignacionId of linea.asignacionIds ?? []) {
@@ -388,7 +510,15 @@ export class SeguimientoService {
           if (a.proformaDetalle.varianteId !== linea.varianteId) throw new BadRequestException("Un faltante no corresponde al producto de su línea.");
           cantidadPorAsignacion.set(asignacionId, a.cantidad);
         }
-        const total = (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) + (linea.cantidadExtra ?? 0);
+        for (const solicitudLineaId of linea.solicitudLineaIds ?? []) {
+          const sl = await this.solicitudes.getLineaParaLigar(solicitudLineaId);
+          if (sl.varianteId !== linea.varianteId) throw new BadRequestException("Una línea de solicitud no corresponde al producto de su línea.");
+          cantidadPorSolicitud.set(solicitudLineaId, sl.cantidad);
+        }
+        const total =
+          (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) +
+          (linea.solicitudLineaIds ?? []).reduce((n, id) => n + (cantidadPorSolicitud.get(id) ?? 0), 0) +
+          (linea.cantidadExtra ?? 0);
         if (total <= 0) throw new BadRequestException("Cada línea de la compra necesita al menos una unidad.");
       }
     }
@@ -404,7 +534,10 @@ export class SeguimientoService {
         const compra = await this.proformas.create({ tipo: TipoProforma.COMPRA, empresaId: empresa.id, proveedorId: grupo.proveedorId }, usuarioId);
         let unidades = 0;
         for (const linea of grupo.lineas) {
-          const cantidad = (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) + (linea.cantidadExtra ?? 0);
+          const cantidad =
+            (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) +
+            (linea.solicitudLineaIds ?? []).reduce((n, id) => n + (cantidadPorSolicitud.get(id) ?? 0), 0) +
+            (linea.cantidadExtra ?? 0);
           const variante = await this.prisma.productVariant.findUniqueOrThrow({
             where: { id: linea.varianteId },
             include: { product: { include: { category: true } } },
@@ -421,6 +554,7 @@ export class SeguimientoService {
           const detalle = conLinea.detalles.find((d) => d.varianteId === linea.varianteId);
           if (!detalle) throw new ConflictException("No se pudo crear la línea de compra.");
           for (const asignacionId of linea.asignacionIds ?? []) await this.vincular(asignacionId, detalle.id);
+          for (const solicitudLineaId of linea.solicitudLineaIds ?? []) await this.solicitudes.vincularLinea(solicitudLineaId, detalle.id);
           unidades += cantidad;
         }
         const proveedor = await this.prisma.proveedor.findUnique({ where: { id: grupo.proveedorId }, select: { id: true, nombre: true } });

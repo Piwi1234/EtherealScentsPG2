@@ -675,6 +675,8 @@ export type ProformaDetalle = {
   destino?: DestinoCompra;
   /** COMPRA: unidades de la línea ligadas a faltantes de notas de venta. */
   asignacionesCubiertas?: { cantidad: number }[];
+  /** COMPRA: unidades de la línea ligadas a líneas de solicitudes de stock. */
+  solicitudesCubiertas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -779,6 +781,8 @@ export type DashPendientes = {
   ventasEsperando: number;
   /** Compras aprobadas que todavía no están en ningún envío. */
   comprasSinEnvio: number;
+  /** Líneas de solicitudes de stock abiertas que todavía no tienen compra. */
+  solicitudesSinComprar: number;
 };
 
 export type ProformaInput = {
@@ -857,9 +861,61 @@ export type SeguimientoLinea = {
 
 export type DestinoCompra = "STOCK" | "PEDIDO";
 
+// --- Solicitudes de stock ---
+
+/** Estado derivado de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: la compra ya llegó). */
+export type EstadoLineaSolicitud = EstadoPedido | "RECIBIDA";
+
+export type SolicitudLinea = {
+  id: string;
+  cantidad: number;
+  nota: string | null;
+  compraDetalleId: string | null;
+  estadoLinea: EstadoLineaSolicitud;
+  variante: ProformaDetalleVariante;
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+  } | null;
+};
+
+export type SolicitudStock = {
+  id: string;
+  codigo: string;
+  nota: string | null;
+  estado: "ABIERTA" | "CANCELADA";
+  estadoDerivado: "ABIERTA" | "CERRADA" | "CANCELADA";
+  createdAt: string;
+  creadoPor: { id: string; nombre: string };
+  lineas: SolicitudLinea[];
+};
+
+/** Línea de solicitud vista desde Seguimiento (lleva su solicitud). */
+export type SolicitudLineaSeguimiento = SolicitudLinea & {
+  solicitud: { id: string; codigo: string; nota: string | null; createdAt: string; creadoPor: { id: string; nombre: string } };
+};
+
+/** Línea de solicitud que una línea de compra puede cubrir (GET .../compra/:id/solicitudes). */
+export type SolicitudLineaParaCompra = {
+  id: string;
+  cantidad: number;
+  compraDetalleId: string | null;
+  solicitud: { id: string; codigo: string; creadoPor: { id: string; nombre: string } };
+};
+
+export type PendientesPorVariante = {
+  pedidos: { id: string; varianteId: string; cantidad: number; codigo: string }[];
+  stock: { id: string; varianteId: string; cantidad: number; codigo: string }[];
+};
+
 /** POST /proformas/seguimiento/crear-compras: un grupo por proveedor, con las líneas y los faltantes que cubre. */
 export type CrearComprasInput = {
-  grupos: { proveedorId: string; lineas: { varianteId: string; asignacionIds: string[]; cantidadExtra?: number }[] }[];
+  grupos: {
+    proveedorId: string;
+    lineas: { varianteId: string; asignacionIds: string[]; solicitudLineaIds?: string[]; cantidadExtra?: number }[];
+  }[];
 };
 
 export type CompraCreada = {

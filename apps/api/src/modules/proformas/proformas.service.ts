@@ -54,6 +54,7 @@ export const includeDetails = {
       proveedor: true,
       // COMPRA: cuánto de la línea está ligado a faltantes de notas de venta.
       asignacionesCubiertas: { select: { cantidad: true } },
+      solicitudesCubiertas: { select: { cantidad: true } },
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
     },
@@ -441,6 +442,23 @@ export class ProformasService {
         await tx.proformaDetalle.update({ where: { id: detalleId }, data });
         // Si la cantidad baja por debajo de lo ligado a notas de venta, se sueltan los vínculos sobrantes.
         if (proforma.tipo === TipoProforma.COMPRA && dto.cantidad !== undefined) {
+          // Primero se sueltan las solicitudes de stock (las ventas tienen prioridad), luego los faltantes.
+          const solicitudes = await tx.solicitudStockLinea.findMany({ where: { compraDetalleId: detalleId }, orderBy: { createdAt: "desc" } });
+          const ligadasVentas = await tx.proformaDetalleAsignacion.aggregate({ where: { compraDetalleId: detalleId }, _sum: { cantidad: true } });
+          let excesoSolicitudes = (ligadasVentas._sum.cantidad ?? 0) + solicitudes.reduce((n, s) => n + s.cantidad, 0) - cantidad;
+          for (const s of solicitudes) {
+            if (excesoSolicitudes <= 0) break;
+            if (s.cantidad <= excesoSolicitudes) {
+              await tx.solicitudStockLinea.update({ where: { id: s.id }, data: { compraDetalleId: null } });
+              excesoSolicitudes -= s.cantidad;
+            } else {
+              await tx.solicitudStockLinea.update({ where: { id: s.id }, data: { cantidad: { decrement: excesoSolicitudes } } });
+              await tx.solicitudStockLinea.create({
+                data: { solicitudId: s.solicitudId, varianteId: s.varianteId, cantidad: excesoSolicitudes, nota: s.nota, compraDetalleId: null },
+              });
+              excesoSolicitudes = 0;
+            }
+          }
           const ligadas = await tx.proformaDetalleAsignacion.findMany({
             where: { compraDetalleId: detalleId },
             orderBy: { createdAt: "desc" },

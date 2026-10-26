@@ -208,6 +208,14 @@ export default function DashboardPage() {
           accion: "Ver ventas",
         },
         {
+          n: pendientes.solicitudesSinComprar,
+          tono: "warn",
+          titulo: `${plural(pendientes.solicitudesSinComprar, "producto solicitado", "productos solicitados")} para stock sin comprar`,
+          detalle: "Pedidos de stock que todavía no tienen compra",
+          href: "/dashboard/stock/solicitudes?estado=ABIERTA",
+          accion: "Ver solicitudes",
+        },
+        {
           n: pendientes.comprasSinEnvio,
           tono: "info",
           titulo: `${plural(pendientes.comprasSinEnvio, "compra aprobada", "compras aprobadas")} sin envío`,

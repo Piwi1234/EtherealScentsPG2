@@ -29,6 +29,7 @@ model Usuario {
   clientesCreados Cliente[]
 
   proformasCreadas  Proforma[]          @relation("ProformaCreadaPor")
+  solicitudesStock  SolicitudStock[]
   proformaHistorial ProformaHistorial[]
 
   movimientosCartera      MovimientoCartera[]
@@ -547,6 +548,8 @@ model ProductVariant {
   recepcionesEsperadas EnvioRecepcionLinea[] @relation("RecepcionVarianteEsperada")
   recepcionesRecibidas EnvioRecepcionLinea[] @relation("RecepcionVarianteRecibida")
 
+  solicitudStockLineas SolicitudStockLinea[]
+
   @@map("product_variants")
 }
 
@@ -730,13 +733,13 @@ model Empresa {
 }
 
 model Almacen {
-  id        String   @id @default(uuid()) @db.Uuid
-  nombre    String
-  activo    Boolean  @default(true)
+  id             String   @id @default(uuid()) @db.Uuid
+  nombre         String
+  activo         Boolean  @default(true)
   /// Almacén que se preselecciona cada vez que el sistema pide uno. A lo sumo uno (índice único parcial en la migración).
-  predeterminado Boolean @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  predeterminado Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   stock            Stock[]
   lotesCompra      LoteCompra[]
@@ -875,11 +878,11 @@ model TraspasoAlmacenLote {
 }
 
 model Proforma {
-  id     String         @id @default(uuid()) @db.Uuid
-  tipo   TipoProforma
-  estado EstadoProforma @default(BORRADOR)
+  id                  String         @id @default(uuid()) @db.Uuid
+  tipo                TipoProforma
+  estado              EstadoProforma @default(BORRADOR)
   /// Última vez que cambió el estado (lo escribe ProformaHistorialService.registrar): ordena el listado.
-  estadoActualizadoAt DateTime @default(now()) @map("estado_actualizado_at")
+  estadoActualizadoAt DateTime       @default(now()) @map("estado_actualizado_at")
 
   // Código corto para mostrar/buscar en vez del id UUID (mismo mecanismo que Product.productCode /
   // ProductVariant.variantCode — generateUniqueEntityCode, alfanumérico de 7, no lo escribe el
@@ -1005,6 +1008,8 @@ model ProformaDetalle {
   enTransitoContado     Int                         @default(0) @map("en_transito_contado")
   // COMPRA con destino PEDIDO: las asignaciones PROCURA de notas de venta que esta línea cubre.
   asignacionesCubiertas ProformaDetalleAsignacion[] @relation("AsignacionCubiertaPor")
+  // COMPRA: las líneas de solicitudes de stock que esta línea cubre (ver SolicitudStockLinea).
+  solicitudesCubiertas  SolicitudStockLinea[]       @relation("SolicitudCubiertaPor")
 
   @@map("proforma_detalles")
 }
@@ -1406,4 +1411,50 @@ model HistoriaRelacionada {
 
   @@id([historiaAId, historiaBId])
   @@map("historia_relacionadas")
+}
+
+enum EstadoSolicitudStock {
+  ABIERTA
+  CANCELADA
+
+  @@map("estado_solicitud_stock")
+}
+
+/// Pedido interno de mercadería para inventario (sin venta de por medio). Aparece en Seguimiento junto a los
+/// faltantes de clientes y se compra con "Crear compras". "Cerrada" no se guarda: se deriva de que todas sus
+/// líneas estén en compras ya recibidas.
+model SolicitudStock {
+  id          String               @id @default(uuid()) @db.Uuid
+  codigo      String               @unique
+  estado      EstadoSolicitudStock @default(ABIERTA)
+  nota        String?
+  creadoPorId String               @map("creado_por_id") @db.Uuid
+  creadoPor   Usuario              @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  lineas SolicitudStockLinea[]
+
+  @@index([estado])
+  @@map("solicitudes_stock")
+}
+
+/// Una línea de solicitud. Igual que los faltantes de ventas, una línea ligada a una compra puede cubrir solo
+/// parte de lo pedido: la fila se parte en una ligada (compraDetalleId) y otra libre con el resto.
+model SolicitudStockLinea {
+  id              String           @id @default(uuid()) @db.Uuid
+  solicitudId     String           @map("solicitud_id") @db.Uuid
+  solicitud       SolicitudStock   @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  varianteId      String           @map("variante_id") @db.Uuid
+  variante        ProductVariant   @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  cantidad        Int
+  nota            String?
+  compraDetalleId String?          @map("compra_detalle_id") @db.Uuid
+  compraDetalle   ProformaDetalle? @relation("SolicitudCubiertaPor", fields: [compraDetalleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@index([solicitudId])
+  @@index([varianteId])
+  @@index([compraDetalleId])
+  @@map("solicitud_stock_lineas")
 }

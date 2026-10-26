@@ -20,3 +20,26 @@ export const LABELS_STOCK: Record<"COMPRADO" | "EN_TRANSITO", string> = {
   COMPRADO: "Comprado",
   EN_TRANSITO: "En tránsito",
 };
+
+/** Estado derivado de una línea de solicitud de stock (igual que un pedido, más "Recibida" cuando ya llegó). */
+export const LABELS_LINEA_SOLICITUD: Record<EstadoPedido | "RECIBIDA", string> = {
+  ...LABELS_PEDIDO,
+  RECIBIDA: "Recibida",
+};
+
+export const CLASES_LINEA_SOLICITUD: Record<EstadoPedido | "RECIBIDA", string> = {
+  ...CLASES_PEDIDO,
+  RECIBIDA: "badge badge-success",
+};
+
+export const LABELS_SOLICITUD: Record<"ABIERTA" | "CERRADA" | "CANCELADA", string> = {
+  ABIERTA: "Abierta",
+  CERRADA: "Cerrada",
+  CANCELADA: "Cancelada",
+};
+
+export const CLASES_SOLICITUD: Record<"ABIERTA" | "CERRADA" | "CANCELADA", string> = {
+  ABIERTA: "badge badge-accent",
+  CERRADA: "badge badge-success",
+  CANCELADA: "badge badge-danger",
+};

@@ -3,8 +3,18 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ApiError, desvincularPedido, getProcurasParaCompra, removeDetalle, updateDetalle, vincularPedido } from "../../lib/api";
-import type { ProcuraCandidata, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
+import {
+  ApiError,
+  desvincularLineaSolicitud,
+  desvincularPedido,
+  getProcurasParaCompra,
+  getSolicitudesParaCompra,
+  removeDetalle,
+  updateDetalle,
+  vincularLineaSolicitud,
+  vincularPedido,
+} from "../../lib/api";
+import type { ProcuraCandidata, SolicitudLineaParaCompra, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { ProveedorSelector } from "./selectors";
@@ -59,6 +69,7 @@ function formatFechaNota(value: string): string {
  * cubrir. Aplica a cualquier línea de compra: lo que no se liga queda como stock. */
 function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDetalle; onClose: () => void; onChanged: () => void }) {
   const [procuras, setProcuras] = useState<ProcuraCandidata[] | null>(null);
+  const [solicitudes, setSolicitudes] = useState<SolicitudLineaParaCompra[] | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   // Cantidad elegida por faltante (por defecto, lo máximo que cabe).
@@ -67,6 +78,9 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
   function load() {
     getProcurasParaCompra(detalle.id)
       .then(setProcuras)
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
+    getSolicitudesParaCompra(detalle.id)
+      .then(setSolicitudes)
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   }
   useEffect(load, [detalle.id]);
@@ -86,18 +100,36 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
     }
   }
 
-  const cubierto = (procuras ?? []).filter((p) => p.compraDetalleId === detalle.id).reduce((s, p) => s + p.cantidad, 0);
+  async function toggleSolicitud(s: SolicitudLineaParaCompra, maximo: number) {
+    setBusyId(s.id);
+    setError("");
+    try {
+      if (s.compraDetalleId === detalle.id) await desvincularLineaSolicitud(s.id);
+      else await vincularLineaSolicitud(s.id, detalle.id, Math.min(cantidades[s.id] ?? maximo, maximo));
+      load();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const cubiertoVentas = (procuras ?? []).filter((p) => p.compraDetalleId === detalle.id).reduce((s, p) => s + p.cantidad, 0);
+  const cubiertoSolicitudes = (solicitudes ?? []).filter((s) => s.compraDetalleId === detalle.id).reduce((s, p) => s + p.cantidad, 0);
+  const cubierto = cubiertoVentas + cubiertoSolicitudes;
   const libre = detalle.cantidad - cubierto;
 
   return (
-    <Modal title="Ligar a notas de venta" onClose={onClose} maxWidth={720}>
+    <Modal title="Ligar a ventas y solicitudes" onClose={onClose} maxWidth={720}>
       <p className="cell-muted" style={{ fontSize: 13, marginTop: 0 }}>
-        Esta línea compra {detalle.cantidad} de {detalle.variante.product.name}. Elegí qué faltantes de notas de venta aprobadas viene
-        a cubrir ({cubierto} de {detalle.cantidad} ligadas, {libre} libres). Podés ligar solo una parte de un faltante: el resto queda
-        disponible para otra compra.
+        Esta línea compra {detalle.cantidad} de {detalle.variante.product.name}. Elegí qué faltantes de notas de venta aprobadas y qué
+        solicitudes de stock viene a cubrir ({cubierto} de {detalle.cantidad} ligadas, {libre} libres). Podés ligar solo una parte: el
+        resto queda disponible para otra compra. Lo que no ligues es stock.
       </p>
       {!procuras && !error && <p>Cargando...</p>}
       {procuras && procuras.length === 0 && <p className="cell-muted">No hay faltantes pendientes de este producto en notas de venta aprobadas.</p>}
+      {procuras && procuras.length > 0 && <p className="filter-label" style={{ margin: "4px 0" }}>Ventas con faltante</p>}
       {procuras && procuras.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {procuras.map((p) => {
@@ -137,6 +169,47 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
           })}
         </div>
       )}
+      {solicitudes && solicitudes.length > 0 && (
+        <>
+          <p className="filter-label" style={{ margin: "16px 0 4px" }}>Solicitudes de stock</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {solicitudes.map((s) => {
+              const ligada = s.compraDetalleId === detalle.id;
+              const maximo = Math.min(s.cantidad, libre);
+              const elegida = Math.min(cantidades[s.id] ?? maximo, maximo);
+              return (
+                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                    {s.solicitud.codigo} · {s.solicitud.creadoPor.nombre} · {ligada ? `${s.cantidad} ligadas a esta línea` : `piden ${s.cantidad}`}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    {!ligada && maximo > 0 && (
+                      <input
+                        className="field"
+                        type="number"
+                        min={1}
+                        max={maximo}
+                        value={elegida}
+                        aria-label="Cantidad a ligar"
+                        onChange={(e) => setCantidades((prev) => ({ ...prev, [s.id]: Math.max(1, Math.min(maximo, parseInt(e.target.value, 10) || 1)) }))}
+                        style={{ width: 64, textAlign: "center" }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className={`action-btn${ligada ? " danger" : ""}`}
+                      disabled={busyId !== null || (!ligada && maximo <= 0)}
+                      onClick={() => toggleSolicitud(s, maximo)}
+                    >
+                      {ligada ? "Soltar" : maximo <= 0 ? "Sin cupo" : elegida < s.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
       {error && <p className="error-text">{error}</p>}
     </Modal>
   );
@@ -169,6 +242,7 @@ function DetalleRow({
   const [ligando, setLigando] = useState(false);
   const colSpan = (tipo === "VENTA" ? 6 : mostrarProveedor ? 13 : 12) + (editable ? 1 : 0);
   const ligadas = (detalle.asignacionesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
+  const solicitadas = (detalle.solicitudesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -227,8 +301,10 @@ function DetalleRow({
         )}
         {tipo === "COMPRA" && (
           <td style={{ minWidth: 150 }}>
-            <span className={ligadas > 0 ? undefined : "cell-muted"}>
-              {ligadas > 0 ? `${ligadas} de ${detalle.cantidad} ligadas` : "Sin ligar (stock)"}
+            <span className={ligadas + solicitadas > 0 ? undefined : "cell-muted"}>
+              {ligadas + solicitadas > 0
+                ? [ligadas > 0 ? `${ligadas} a ventas` : null, solicitadas > 0 ? `${solicitadas} a solicitudes` : null].filter(Boolean).join(" · ")
+                : "Sin ligar (stock)"}
             </span>
             {puedeLigar && (
               <button type="button" className="link-button" style={{ display: "block", fontSize: 12 }} onClick={() => setLigando(true)}>
@@ -358,7 +434,7 @@ export function ProformaDetalleTable({
             <th>Marca</th>
             <th style={{ minWidth: 240 }}>Producto</th>
             {mostrarProveedor && <th>Proveedor</th>}
-            {tipo === "COMPRA" && <th>Ventas ligadas</th>}
+            {tipo === "COMPRA" && <th>Ligado a</th>}
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>

@@ -39,6 +39,7 @@ const GROUPS: NavGroup[] = [
       {
         items: [
           { href: "/dashboard/proformas?tipo=COMPRA", tipo: "COMPRA", label: "Proformas de compra", desc: "Crea y aprueba pedidos a proveedores" },
+          { href: "/dashboard/stock/solicitudes", label: "Solicitudes de stock", desc: "Pide mercadería para inventario, sin venta de por medio" },
           { href: "/dashboard/stock/envios", label: "Envíos", desc: "Agrupa compras y recibe la mercadería" },
           { href: "/dashboard/proveedores/pedidos", label: "Pedidos a proveedores", desc: "Seguimiento de lo pedido a cada proveedor" },
         ],

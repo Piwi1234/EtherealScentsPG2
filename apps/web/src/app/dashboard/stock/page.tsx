@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApiError, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
+import { useRouter } from "next/navigation";
+import { ApiError, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
@@ -27,6 +28,7 @@ function formatDateTime(value: string): string {
 }
 
 export default function StockPage() {
+  const router = useRouter();
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -60,6 +62,12 @@ export default function StockPage() {
   const [lotesCargados, setLotesCargados] = useState(false);
 
   const [traspasoRow, setTraspasoRow] = useState<StockRow | null>(null);
+  // "Solicitar": crea una solicitud de stock con este producto (se compra desde Seguimiento).
+  const [solicitarRow, setSolicitarRow] = useState<StockRow | null>(null);
+  const [solicitarCantidad, setSolicitarCantidad] = useState("1");
+  const [solicitarNota, setSolicitarNota] = useState("");
+  const [solicitarError, setSolicitarError] = useState("");
+  const [solicitando, setSolicitando] = useState(false);
   const [traspasoDestinoId, setTraspasoDestinoId] = useState("");
   const [traspasoCantidad, setTraspasoCantidad] = useState("");
   const [traspasoLotes, setTraspasoLotes] = useState<{ loteCompraId: string; cantidad: number }[]>([]);
@@ -170,6 +178,32 @@ export default function StockPage() {
   const traspasoDisponible = traspasoRow ? traspasoRow.cantidadFisica - traspasoRow.cantidadReservada : 0;
   const traspasoRepartido = traspasoLotes.reduce((sum, l) => sum + l.cantidad, 0);
   const traspasoCuadra = traspasoCantidadNum > 0 && traspasoRepartido === traspasoCantidadNum;
+
+  function openSolicitarModal(row: StockRow) {
+    setSolicitarRow(row);
+    setSolicitarCantidad("1");
+    setSolicitarNota("");
+    setSolicitarError("");
+  }
+
+  async function handleSolicitar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!solicitarRow) return;
+    const cantidad = parseInt(solicitarCantidad, 10);
+    if (!cantidad || cantidad < 1) {
+      setSolicitarError("Ingresá una cantidad mayor a cero.");
+      return;
+    }
+    setSolicitando(true);
+    setSolicitarError("");
+    try {
+      const nueva = await createSolicitud({ nota: solicitarNota.trim() || undefined, lineas: [{ varianteId: solicitarRow.varianteId, cantidad }] });
+      router.push(`/dashboard/stock/solicitudes/${nueva.id}`);
+    } catch (err) {
+      setSolicitarError(err instanceof ApiError ? err.message : String(err));
+      setSolicitando(false);
+    }
+  }
 
   function openTraspasoModal(row: StockRow) {
     setTraspasoRow(row);
@@ -380,6 +414,9 @@ export default function StockPage() {
                         <button type="button" className="action-btn" onClick={() => openTraspasoModal(row)}>
                           Trasladar
                         </button>
+                        <button type="button" className="action-btn" onClick={() => openSolicitarModal(row)}>
+                          Solicitar
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -544,6 +581,33 @@ export default function StockPage() {
           </>
         )}
       </div>
+
+      {solicitarRow && (
+        <Modal title={`Solicitar ${solicitarRow.variante.product.name}`} onClose={() => setSolicitarRow(null)} maxWidth={440}>
+          <form className="form-grid" onSubmit={handleSolicitar}>
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Crea una solicitud de stock con este producto. Después se compra desde Seguimiento con "Crear compras".
+            </p>
+            <div>
+              <label>Cantidad</label>
+              <input className="field" type="number" min={1} value={solicitarCantidad} onChange={(e) => setSolicitarCantidad(e.target.value)} required />
+            </div>
+            <div>
+              <label>Nota (opcional)</label>
+              <input className="field" value={solicitarNota} maxLength={300} onChange={(e) => setSolicitarNota(e.target.value)} placeholder="Ej. reposición de temporada" />
+            </div>
+            {solicitarError && <p className="error-text">{solicitarError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setSolicitarRow(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="button" disabled={solicitando}>
+                {solicitando ? "Creando..." : "Crear solicitud"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {traspasoRow && (
         <Modal

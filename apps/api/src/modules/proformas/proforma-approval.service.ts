@@ -273,6 +273,13 @@ export class ProformaApprovalService {
             throw new ConflictException("No se puede anular: la compra está en un envío. Quitala del envío primero.");
           }
 
+          if (lock.tipo === TipoProforma.COMPRA) {
+            // Una compra anulada ya no cubre nada: los faltantes de ventas y las líneas de solicitudes de
+            // stock que tenía ligados quedan libres otra vez.
+            await tx.proformaDetalleAsignacion.updateMany({ where: { compraDetalle: { proformaId: id } }, data: { compraDetalleId: null } });
+            await tx.solicitudStockLinea.updateMany({ where: { compraDetalle: { proformaId: id } }, data: { compraDetalleId: null } });
+          }
+
           if (lock.tipo === TipoProforma.VENTA) {
             await this.liberarReservas(tx, id);
             await this.revertirPagos(tx, id, usuarioId, nota);

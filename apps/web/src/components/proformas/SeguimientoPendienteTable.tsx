@@ -253,7 +253,8 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
       </div>
       {creando && (
         <CrearComprasModal
-          lineas={lineas.filter((l) => seleccion.has(l.id))}
+          pedidos={lineas.filter((l) => seleccion.has(l.id))}
+          solicitudes={[]}
           onClose={() => setCreando(false)}
           onCreated={() => {
             setCreando(false);

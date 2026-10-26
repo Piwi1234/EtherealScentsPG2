@@ -310,7 +310,7 @@ export class DashboardService {
 
   /** Lo que está esperando una acción: faltantes sin compra, envíos, borradores, compras sin envío y ventas (listas o esperando mercadería). */
   async pendientes() {
-    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio] = await Promise.all([
+    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio, solicitudesSinComprar] = await Promise.all([
       this.prisma.proformaDetalleAsignacion.count({
         where: {
           origen: OrigenAsignacion.PROCURA,
@@ -345,6 +345,8 @@ export class DashboardService {
         },
       }),
       this.prisma.proforma.count({ where: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.COMPRA, envioId: null } }),
+      // Líneas de solicitudes de stock abiertas que todavía no tienen compra.
+      this.prisma.solicitudStockLinea.count({ where: { compraDetalleId: null, solicitud: { estado: "ABIERTA" } } }),
     ]);
     const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;
     return {
@@ -358,6 +360,7 @@ export class DashboardService {
       ventasListas,
       ventasEsperando,
       comprasSinEnvio,
+      solicitudesSinComprar,
     };
   }
 }

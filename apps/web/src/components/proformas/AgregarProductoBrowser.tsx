@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
+import { addLineaSolicitud, API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
 import type {
   AttributeType,
   AttributeVariantMode,
@@ -65,10 +65,14 @@ function defaultVariantId(product: Product): string | undefined {
 export function AgregarProductoBrowser({
   proformaId,
   tipo,
+  modo,
   cantidadesIniciales = {},
 }: {
+  /** Id de la proforma, o de la solicitud de stock cuando `modo` es "SOLICITUD". */
   proformaId: string;
   tipo: TipoProforma;
+  /** "SOLICITUD": agrega productos a una solicitud de stock (solo producto y cantidad, sin costos ni precios). */
+  modo?: "SOLICITUD";
   /** Piezas que la proforma ya tiene por variante (varianteId → cantidad), para no duplicar líneas. */
   cantidadesIniciales?: Record<string, number>;
 }) {
@@ -303,7 +307,11 @@ export function AgregarProductoBrowser({
     setSubmittingId(product.id);
     setRowError((prev) => ({ ...prev, [product.id]: "" }));
     try {
-      if (tipo === "VENTA" && variant.unidad === "ML") {
+      if (modo === "SOLICITUD") {
+        const cantidad = cantidadByProduct[product.id] ?? 1;
+        await addLineaSolicitud(proformaId, { varianteId: variant.id, cantidad });
+        setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
+      } else if (tipo === "VENTA" && variant.unidad === "ML") {
         const presentacionVentaId = presentacionIdByProduct[product.id];
         const numPresentaciones = numPresentacionesByProduct[product.id] ?? 1;
         if (!presentacionVentaId) {
@@ -550,7 +558,7 @@ export function AgregarProductoBrowser({
                         )}
                         {!esVentaMl && selectedVariant && (enProforma[selectedVariant.id] ?? 0) > 0 && (
                           <span className="badge badge-muted" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
-                            Ya en proforma: {enProforma[selectedVariant.id]}
+                            Ya en {modo === "SOLICITUD" ? "la solicitud" : "proforma"}: {enProforma[selectedVariant.id]}
                           </span>
                         )}
                       </td>

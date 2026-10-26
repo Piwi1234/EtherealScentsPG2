@@ -14,6 +14,13 @@ export class LineaCrearCompraDto {
   @IsUUID(undefined, { each: true })
   asignacionIds?: string[];
 
+  @ApiPropertyOptional({ type: [String], description: "Líneas de solicitudes de stock que esta línea viene a cubrir: se ligan completas." })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  solicitudLineaIds?: string[];
+
   @ApiPropertyOptional({ default: 0, description: "Unidades de más (para stock) que se suman a lo ligado." })
   @IsOptional()
   @Type(() => Number)
