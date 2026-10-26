@@ -54,6 +54,8 @@ import type {
   PagosVenta,
   PendientesPorVariante,
   RecojosCompra,
+  StockDetalle,
+  StockResumen,
   SolicitudLinea,
   SolicitudLineaParaCompra,
   SolicitudStock,
@@ -591,6 +593,25 @@ export function deleteAlmacen(id: string) {
 }
 
 // --- Stock ---
+
+export function getStockResumen(
+  query: { almacenId?: string; search?: string; categoryId?: string; brandId?: string; estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE"; page?: number; pageSize?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.search) params.set("search", query.search);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.estado) params.set("estado", query.estado);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<StockResumen>(`/stock/resumen${qs ? `?${qs}` : ""}`);
+}
+
+export function getStockDetalle(varianteId: string) {
+  return apiGet<StockDetalle>(`/stock/variante/${varianteId}`);
+}
 
 export function getStock(
   query: {

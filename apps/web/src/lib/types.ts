@@ -579,6 +579,56 @@ export type StockRow = {
   almacen: StockAlmacenRef;
 };
 
+/** Existencias de un producto sumando almacenes (GET /stock/resumen). */
+export type StockResumenRow = {
+  varianteId: string;
+  almacenes: number;
+  cantidadFisica: number;
+  cantidadReservada: number;
+  cantidadEnTransito: number;
+  cantidadReservadaTransito: number;
+  disponible: number;
+  valorBs: number;
+  variante: StockVariante;
+};
+
+export type StockResumen = Page<StockResumenRow> & {
+  indicadores: { productos: number; unidadesFisicas: number; reservadas: number; enTransito: number; sinDisponible: number; valorBs: number };
+};
+
+type ClienteRef = { id: string; nombre: string } | null;
+type VentaRef = { id: string; codigo: string; fecha: string; cliente: ClienteRef };
+
+/** Todo lo que hay detrás de un producto (GET /stock/variante/:id). */
+export type StockDetalle = {
+  almacenes: StockRow[];
+  lotes: {
+    id: string;
+    fecha: string;
+    costoUsd: number;
+    costoBs: number | null;
+    cantidadInicial: number;
+    cantidadDisponible: number;
+    almacen: { id: string; nombre: string };
+    proformaDetalle: { proveedor: { id: string; nombre: string } | null; proforma: { id: string; codigo: string; tipoCambioProf: string | null } };
+  }[];
+  costoPromedioBs: number | null;
+  valorBs: number;
+  reservas: { id: string; cantidad: number; origen: OrigenAsignacion; almacen: { id: string; nombre: string } | null; proformaDetalle: { proforma: VentaRef } }[];
+  faltantes: { id: string; cantidad: number; compraDetalle: { proforma: { id: string; codigo: string } } | null; proformaDetalle: { proforma: VentaRef } }[];
+  enCamino: {
+    id: string;
+    compra: { id: string; codigo: string; almacen: { id: string; nombre: string } | null };
+    proveedor: { id: string; nombre: string } | null;
+    cantidad: number;
+    recogido: number;
+    enviado: number;
+    recibido: number;
+    pendiente: number;
+  }[];
+  solicitudes: { id: string; cantidad: number; cantidadRecibida: number; solicitud: { id: string; codigo: string }; compraDetalle: { proforma: { id: string; codigo: string } } | null }[];
+};
+
 /** LoteCompra anidado con variante/almacén — para el historial de movimientos del módulo de Stock,
  * distinto del LoteCompra "crudo" (solo FKs) que se usa dentro de ProformaDetalle. */
 export type LoteCompraConDetalle = LoteCompra & {

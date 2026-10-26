@@ -10205,3 +10205,104 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* Existencias: panel lateral con el detalle de un producto */
+.stock-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 60;
+}
+.stock-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 100vw);
+  background: var(--card, #232535);
+  border-left: 1px solid var(--line);
+  z-index: 61;
+  overflow-y: auto;
+  padding: 20px 22px 32px;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.35);
+}
+.stock-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.stock-panel-head h2 {
+  margin: 0 0 2px;
+  font-size: 18px;
+}
+.stock-panel-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stock-panel-kpis > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stock-panel-kpis span {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.stock-panel-kpis strong {
+  font-size: 17px;
+}
+.stock-panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.stock-panel-sec {
+  margin-top: 20px;
+}
+.stock-panel-sec h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.stock-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.stock-panel-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+.stock-row {
+  cursor: pointer;
+}
+.stock-row:hover td {
+  background: rgba(255, 255, 255, 0.04);
+}
+.stock-bar {
+  display: flex;
+  height: 6px;
+  min-width: 90px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: 4px;
+}
+.stock-bar i:nth-child(1) { background: #3fb68b; }
+.stock-bar i:nth-child(2) { background: #c9a96e; }
+.stock-bar i:nth-child(3) { background: #6f8cff; }

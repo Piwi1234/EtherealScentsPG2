@@ -53,7 +53,7 @@ function EnviosContenido() {
       .then((page) => {
         const activos = page.items.filter((a) => a.activo);
         setAlmacenes(activos);
-        setAlmacenId((prev) => prev || activos[0]?.id || "");
+        setAlmacenId((prev) => prev || (activos.find((a) => a.predeterminado) ?? activos[0])?.id || "");
       })
       .catch(() => {});
     getEnviosDisponibles()

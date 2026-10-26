@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStock } from "../../../lib/api";
-import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockRow } from "../../../lib/types";
+import { ApiError, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
+import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockDetalle, StockResumen, StockResumenRow, StockRow } from "../../../lib/types";
+import { ExistenciaPanel } from "../../../components/stock/ExistenciaPanel";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
@@ -12,7 +13,7 @@ const PAGE_SIZE = 20;
 
 /** Atributos que distinguen esta variante puntual (ej. "Sabor: Menta") + los heredados de la
  * categoría marcados mostrarEnProforma — reemplaza al código de producto en la tabla de Existencias. */
-function atributosLabel(row: StockRow): string | null {
+function atributosLabel(row: { variante: StockRow["variante"] }): string | null {
   const opciones = row.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
   const heredados = formatAtributosVisibles(row.variante.product.attributeValues, row.variante.product.variantOptionValues);
   const partes = [...opciones, ...(heredados ? [heredados] : [])];
@@ -34,7 +35,12 @@ export default function StockPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState("");
 
-  const [stockPage, setStockPage] = useState<Page<StockRow> | null>(null);
+  const [stockPage, setStockPage] = useState<StockResumen | null>(null);
+  const [stockEstado, setStockEstado] = useState<"" | "SIN_DISPONIBLE" | "CON_DISPONIBLE">("");
+  // Producto abierto en el panel lateral y su detalle.
+  const [abierto, setAbierto] = useState<StockResumenRow | null>(null);
+  const [detalle, setDetalle] = useState<StockDetalle | null>(null);
+  const [detalleCargando, setDetalleCargando] = useState(false);
   const [stockSearchInput, setStockSearchInput] = useState("");
   const [stockSearch, setStockSearch] = useState("");
   const [stockAlmacenId, setStockAlmacenId] = useState("");
@@ -76,17 +82,13 @@ export default function StockPage() {
   const [traspasoSubmitting, setTraspasoSubmitting] = useState(false);
 
   function loadStock() {
-    // Sin categoría elegida no cargamos existencias — hay que filtrar primero.
-    if (!stockCategoryId) {
-      setStockPage(null);
-      return;
-    }
     setStockLoading(true);
-    getStock({
+    getStockResumen({
       almacenId: stockAlmacenId || undefined,
       search: stockSearch || undefined,
-      categoryId: stockCategoryId,
+      categoryId: stockCategoryId || undefined,
       brandId: stockMarcaId || undefined,
+      estado: stockEstado || undefined,
       page: stockPageNum,
       pageSize: PAGE_SIZE,
     })
@@ -123,7 +125,7 @@ export default function StockPage() {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadStock, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockPageNum]);
+  useEffect(loadStock, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockEstado, stockPageNum]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadLotes, [lotesCargados, lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
@@ -159,7 +161,22 @@ export default function StockPage() {
     }
   }
 
-  function handleVerLotes(row: StockRow) {
+  function cargarDetalle(varianteId: string) {
+    setDetalleCargando(true);
+    getStockDetalle(varianteId)
+      .then(setDetalle)
+      .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
+      .finally(() => setDetalleCargando(false));
+  }
+
+  function abrirPanel(row: StockResumenRow) {
+    setAbierto(row);
+    setDetalle(null);
+    cargarDetalle(row.varianteId);
+  }
+
+  function handleVerLotes(row: { varianteId: string; variante: StockRow["variante"] }) {
+    setAbierto(null);
     setLotesVarianteId(row.varianteId);
     setLotesVarianteLabel(`${row.variante.product.name} — ${row.variante.variantCode}`);
     setLotesPageNum(1);
@@ -237,6 +254,7 @@ export default function StockPage() {
       setTraspasoRow(null);
       loadStock();
       loadLotes();
+      if (abierto) cargarDetalle(abierto.varianteId);
     } catch (e) {
       setTraspasoError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
@@ -282,6 +300,31 @@ export default function StockPage() {
           </div>
         </div>
 
+        {stockPage && (
+          <div className="reg-kpis" style={{ marginBottom: 16 }}>
+            <div className="dash-kpi">
+              <span className="dash-kpi-label">Valor del inventario</span>
+              <span className="dash-kpi-value">Bs {stockPage.indicadores.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="dash-kpi-note">{stockPage.indicadores.productos} productos</span>
+            </div>
+            <div className="dash-kpi">
+              <span className="dash-kpi-label">Unidades físicas</span>
+              <span className="dash-kpi-value">{stockPage.indicadores.unidadesFisicas}</span>
+              <span className="dash-kpi-note">{stockPage.indicadores.reservadas} reservadas</span>
+            </div>
+            <div className="dash-kpi">
+              <span className="dash-kpi-label">En tránsito</span>
+              <span className="dash-kpi-value">{stockPage.indicadores.enTransito}</span>
+              <span className="dash-kpi-note">recogidas o enviadas, sin llegar</span>
+            </div>
+            <div className="dash-kpi">
+              <span className="dash-kpi-label">Sin disponible</span>
+              <span className="dash-kpi-value">{stockPage.indicadores.sinDisponible}</span>
+              <span className="dash-kpi-note">todo reservado o agotado</span>
+            </div>
+          </div>
+        )}
+
         <div className="filters-bar" style={{ marginBottom: 16 }}>
           <div className="filter-field">
             <label className="filter-label">Almacén</label>
@@ -302,6 +345,30 @@ export default function StockPage() {
             </select>
           </div>
           <div className="filter-field">
+            <label className="filter-label">Disponibilidad</label>
+            <div className="seg" role="group" aria-label="Disponibilidad">
+              {(
+                [
+                  ["", "Todos"],
+                  ["CON_DISPONIBLE", "Con disponible"],
+                  ["SIN_DISPONIBLE", "Sin disponible"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={stockEstado === valor ? "on" : undefined}
+                  onClick={() => {
+                    setStockEstado(valor);
+                    setStockPageNum(1);
+                  }}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-field">
             <label className="filter-label">Categoría</label>
             <select
               className="field"
@@ -312,7 +379,7 @@ export default function StockPage() {
                 setStockPageNum(1);
               }}
             >
-              <option value="">Elegí una categoría…</option>
+              <option value="">Todas</option>
               {parentCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -340,109 +407,72 @@ export default function StockPage() {
               </select>
             </div>
           )}
-          <div className="filter-field">
-            <label className="filter-label">Buscar producto</label>
-            <input
-              className="field"
-              placeholder="Nombre o código"
-              value={stockSearchInput}
-              onChange={(e) => setStockSearchInput(e.target.value)}
-              style={{ maxWidth: 240 }}
-            />
+          <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
+            <label className="filter-label">Buscar producto o marca</label>
+            <input className="field" placeholder="Nombre, código o marca" value={stockSearchInput} onChange={(e) => setStockSearchInput(e.target.value)} />
           </div>
         </div>
 
-        {!stockCategoryId ? (
-          <p className="cell-muted">Elegí una categoría arriba para ver las existencias.</p>
-        ) : stockLoading ? (
+        {stockLoading && !stockPage ? (
           <p className="cell-muted">Cargando...</p>
         ) : !stockPage || stockPage.items.length === 0 ? (
-          <p>No hay existencias registradas.</p>
+          <p>No hay existencias para estos filtros.</p>
         ) : (
           <>
-            <table className="table table-minimal table-compact">
-              <thead>
-                <tr>
-                  <th>Almacén</th>
-                  <th>Marca</th>
-                  <th>Producto</th>
-                  <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Física</th>
-                  <th className="num">Reservada</th>
-                  <th className="num">En tránsito</th>
-                  <th className="num" style={{ background: "#000000", color: "#ffffff" }}>Disponible</th>
-                  <th>Actualizado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockPage.items.map((row) => {
-                  const etiqueta = atributosLabel(row);
-                  return (
-                  <tr key={`${row.varianteId}-${row.almacenId}`}>
-                    <td>{row.almacen.nombre}</td>
-                    <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
-                    <td className="cell-primary">
-                      {row.variante.product.name}
-                      {row.variante.isDefault && (
-                        <span className="badge badge-muted" style={{ marginLeft: 6 }}>
-                          Default
-                        </span>
-                      )}
-                      {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
-                    </td>
-                    <td className="num" style={{ background: "#000000", color: "#ffffff" }}>
-                      {row.cantidadFisica}
-                      {row.variante.unidad === "ML" ? " ml" : ""}
-                    </td>
-                    <td className="num">{row.cantidadReservada}{row.variante.unidad === "ML" ? " ml" : ""}</td>
-                    <td className="num">
-                      {row.cantidadEnTransito}
-                      {row.cantidadReservadaTransito > 0 && (
-                        <div className="cell-muted" style={{ fontSize: 12 }}>{row.cantidadReservadaTransito} reservadas</div>
-                      )}
-                    </td>
-                    <td className="num" style={{ background: "#000000", color: "#ffffff" }}>
-                      {row.cantidadFisica - row.cantidadReservada}
-                      {row.variante.unidad === "ML" ? " ml" : ""}
-                    </td>
-                    <td className="cell-muted">{formatDateTime(row.updatedAt)}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button type="button" className="action-btn" onClick={() => handleVerLotes(row)}>
-                          Ver lotes
-                        </button>
-                        <button type="button" className="action-btn" onClick={() => openTraspasoModal(row)}>
-                          Trasladar
-                        </button>
-                        <button type="button" className="action-btn" onClick={() => openSolicitarModal(row)}>
-                          Solicitar
-                        </button>
-                      </div>
-                    </td>
+            <div className="table-scroll">
+              <table className="table table-minimal table-compact">
+                <thead>
+                  <tr>
+                    <th>Marca</th>
+                    <th style={{ minWidth: 220 }}>Producto</th>
+                    <th className="num">Disponible</th>
+                    <th className="num">Física</th>
+                    <th className="num">Reservada</th>
+                    <th className="num">En tránsito</th>
+                    <th className="num">Valor Bs</th>
+                    <th className="num">Almacenes</th>
                   </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {stockPage.items.map((row) => {
+                    const etiqueta = atributosLabel(row);
+                    const ml = row.variante.unidad === "ML" ? " ml" : "";
+                    const total = Math.max(1, row.cantidadFisica + row.cantidadEnTransito);
+                    return (
+                      <tr key={row.varianteId} className="stock-row" onClick={() => abrirPanel(row)}>
+                        <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
+                        <td className="cell-primary">
+                          {row.variante.product.name}
+                          {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
+                          <div className="stock-bar" aria-hidden="true">
+                            <i style={{ width: `${(Math.max(0, row.disponible) / total) * 100}%` }} />
+                            <i style={{ width: `${(row.cantidadReservada / total) * 100}%` }} />
+                            <i style={{ width: `${(row.cantidadEnTransito / total) * 100}%` }} />
+                          </div>
+                        </td>
+                        <td className="num">
+                          {row.disponible > 0 ? <strong>{row.disponible}{ml}</strong> : <span className="badge badge-warn">0{ml}</span>}
+                        </td>
+                        <td className="num">{row.cantidadFisica}{ml}</td>
+                        <td className="num">{row.cantidadReservada}{ml}</td>
+                        <td className="num">{row.cantidadEnTransito > 0 ? row.cantidadEnTransito : <span className="cell-muted">—</span>}</td>
+                        <td className="num cell-muted">{row.valorBs > 0 ? row.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
+                        <td className="num cell-muted">{row.almacenes}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             {stockTotalPages > 1 && (
               <div className="pagination">
-                <button
-                  type="button"
-                  className={`pagination-btn${stockPageNum <= 1 ? " disabled" : ""}`}
-                  disabled={stockPageNum <= 1}
-                  onClick={() => setStockPageNum((p) => p - 1)}
-                >
+                <button type="button" className={`pagination-btn${stockPageNum <= 1 ? " disabled" : ""}`} disabled={stockPageNum <= 1} onClick={() => setStockPageNum((p) => p - 1)}>
                   ← Anterior
                 </button>
                 <span className="pagination-info">
                   Página {stockPageNum} de {stockTotalPages}
                 </span>
-                <button
-                  type="button"
-                  className={`pagination-btn${stockPageNum >= stockTotalPages ? " disabled" : ""}`}
-                  disabled={stockPageNum >= stockTotalPages}
-                  onClick={() => setStockPageNum((p) => p + 1)}
-                >
+                <button type="button" className={`pagination-btn${stockPageNum >= stockTotalPages ? " disabled" : ""}`} disabled={stockPageNum >= stockTotalPages} onClick={() => setStockPageNum((p) => p + 1)}>
                   Siguiente →
                 </button>
               </div>
@@ -451,7 +481,7 @@ export default function StockPage() {
         )}
 
         <p className="cell-muted" style={{ marginTop: 16 }}>
-          Solo aparecen acá variantes con existencia física mayor a 0 en algún almacén.
+          Haz clic en un producto para ver sus lotes y costos, para qué ventas está reservado y qué viene en camino. La barra muestra disponible (verde), reservado (dorado) y en tránsito (azul).
         </p>
       </div>
 
@@ -581,6 +611,19 @@ export default function StockPage() {
           </>
         )}
       </div>
+
+      {abierto && (
+        <ExistenciaPanel
+          titulo={abierto.variante.product.name}
+          subtitulo={[abierto.variante.product.brand?.name, atributosLabel(abierto)].filter(Boolean).join(" · ") || null}
+          detalle={detalle}
+          cargando={detalleCargando}
+          onClose={() => setAbierto(null)}
+          onTrasladar={(row) => openTraspasoModal(row)}
+          onSolicitar={() => detalle?.almacenes[0] && openSolicitarModal(detalle.almacenes[0])}
+          onVerLotes={() => handleVerLotes(abierto)}
+        />
+      )}
 
       {solicitarRow && (
         <Modal title={`Solicitar ${solicitarRow.variante.product.name}`} onClose={() => setSolicitarRow(null)} maxWidth={440}>
