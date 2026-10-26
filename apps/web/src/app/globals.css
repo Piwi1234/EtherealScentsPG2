@@ -10168,3 +10168,40 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   border-color: #3dd6c6;
   color: #3dd6c6;
 }
+
+/* Selector de cantidad "− n +" (agregar productos a una proforma) */
+.qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.qty-stepper button {
+  width: 30px;
+  height: 32px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+.qty-stepper button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.qty-stepper input {
+  width: 44px;
+  height: 32px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

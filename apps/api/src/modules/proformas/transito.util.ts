@@ -132,61 +132,77 @@ export async function liquidarTransito(
 }
 
 /**
- * Reparte lo que cada ítem de envío (de la más antigua a la más nueva) aporta al stock en tránsito: las unidades
- * de la línea ligadas a notas de venta ya tienen dueño y absorben primero lo que viaja; lo demás es stock libre.
+ * Lo que una línea de compra aporta al stock en tránsito: lo recogido que todavía no llegó y que NO está ligado a
+ * una venta ni a una solicitud (esas unidades ya tienen dueño y absorben primero lo que viaja).
  */
-export function aportesPorItem(pendientes: number[], ligadas: number): number[] {
-  let absorbe = ligadas;
-  return pendientes.map((pend) => {
-    const libre = Math.max(0, pend - absorbe);
-    absorbe = Math.max(0, absorbe - pend);
-    return libre;
-  });
+export function aporteEnTransito(params: { recogido: number; recibido: number; ligadas: number }): number {
+  return Math.max(0, params.recogido - params.recibido - params.ligadas);
 }
 
 /**
- * Recalcula cuánto aporta al stock en tránsito cada ítem de envío ya despachado (EN_TRANSITO) de una línea de
- * compra, y ajusta por la diferencia contra lo que ya había aportado. Se llama cuando cambia lo que viaja
- * (se despacha un envío) o lo que la línea tiene ligado a notas de venta. Ligar más resta del tránsito
- * disponible (si ya había ventas reservadas encima y no alcanza, vuelven a Procura); soltar lo suma y lo
- * ofrece a las ventas con faltante.
+ * Recalcula cuánto aporta al stock en tránsito una línea de compra y ajusta por la diferencia contra lo que ya
+ * había aportado (ProformaDetalle.enTransitoContado), en el almacén destino de la compra. Se llama cuando cambia
+ * lo recogido, lo recibido o lo ligado a ventas/solicitudes. Con `convertirAFisico` (recepción de un envío) las
+ * ventas con reserva en tránsito pasan a reservar el stock físico que acaba de llegar; si no, lo que ya no tiene
+ * de dónde salir vuelve a Procura.
  */
-export async function recalcularTransitoLinea(tx: Prisma.TransactionClient, compraDetalleId: string): Promise<void> {
+export async function recalcularTransitoLinea(
+  tx: Prisma.TransactionClient,
+  compraDetalleId: string,
+  opciones: { convertirAFisico?: boolean } = {},
+): Promise<void> {
   const linea = await tx.proformaDetalle.findUnique({
     where: { id: compraDetalleId },
     select: {
       varianteId: true,
+      enTransitoContado: true,
+      enTransitoAlmacenId: true,
+      proforma: { select: { estado: true, almacenId: true } },
+      recojoLineas: { select: { cantidad: true } },
+      envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } },
       asignacionesCubiertas: { select: { cantidad: true } },
-      envioItems: {
-        where: { envio: { estado: EstadoEnvio.EN_TRANSITO } },
-        orderBy: { createdAt: "asc" },
-        select: { id: true, cantidad: true, cantidadRecibida: true, enTransitoContado: true, envio: { select: { almacenDestinoId: true } } },
-      },
+      solicitudesCubiertas: { select: { cantidad: true, cantidadRecibida: true } },
     },
   });
-  if (!linea || linea.envioItems.length === 0) return;
+  if (!linea) return;
 
-  const ligadas = linea.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0);
-  const deseados = aportesPorItem(
-    linea.envioItems.map((it) => it.cantidad - it.cantidadRecibida),
-    ligadas,
-  );
-  await lockStockRows(
-    tx,
-    Array.from(new Set(linea.envioItems.map((it) => it.envio.almacenDestinoId))).map((almacenId) => ({ varianteId: linea.varianteId, almacenId })),
-  );
-  for (const [i, it] of linea.envioItems.entries()) {
-    const delta = deseados[i] - it.enTransitoContado;
-    if (delta === 0) continue;
-    const almacenId = it.envio.almacenDestinoId;
-    if (delta > 0) {
-      await tx.stock.update({
-        where: { varianteId_almacenId: { varianteId: linea.varianteId, almacenId } },
-        data: { cantidadEnTransito: { increment: delta } },
-      });
-    } else {
-      await liquidarTransito(tx, { varianteId: linea.varianteId, almacenId, quitar: -delta, convertirAFisico: false });
-    }
-    await tx.envioItem.update({ where: { id: it.id }, data: { enTransitoContado: deseados[i] } });
+  const almacenId = linea.proforma.almacenId;
+  const activa = linea.proforma.estado === EstadoProforma.APROBADA && Boolean(almacenId);
+  const recogido = linea.recojoLineas.reduce((n, r) => n + r.cantidad, 0);
+  const recibido = linea.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0);
+  const ligadas =
+    linea.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) +
+    linea.solicitudesCubiertas.reduce((n, s) => n + Math.max(0, s.cantidad - s.cantidadRecibida), 0);
+  const deseado = activa ? aporteEnTransito({ recogido, recibido, ligadas }) : 0;
+
+  const pares = new Map<string, { varianteId: string; almacenId: string }>();
+  if (linea.enTransitoAlmacenId) pares.set(linea.enTransitoAlmacenId, { varianteId: linea.varianteId, almacenId: linea.enTransitoAlmacenId });
+  if (almacenId) pares.set(almacenId, { varianteId: linea.varianteId, almacenId });
+  if (linea.enTransitoContado === 0 && deseado === 0) return;
+  await lockStockRows(tx, Array.from(pares.values()));
+
+  let contado = linea.enTransitoContado;
+  // Cambió el almacén destino: lo contado en el anterior se retira y se vuelve a contar en el nuevo.
+  if (contado > 0 && linea.enTransitoAlmacenId && linea.enTransitoAlmacenId !== almacenId) {
+    await liquidarTransito(tx, { varianteId: linea.varianteId, almacenId: linea.enTransitoAlmacenId, quitar: contado, convertirAFisico: false });
+    contado = 0;
   }
+  const delta = deseado - contado;
+  if (delta > 0 && almacenId) {
+    await tx.stock.update({
+      where: { varianteId_almacenId: { varianteId: linea.varianteId, almacenId } },
+      data: { cantidadEnTransito: { increment: delta } },
+    });
+  } else if (delta < 0 && linea.enTransitoAlmacenId) {
+    await liquidarTransito(tx, {
+      varianteId: linea.varianteId,
+      almacenId: linea.enTransitoAlmacenId,
+      quitar: -delta,
+      convertirAFisico: opciones.convertirAFisico ?? false,
+    });
+  }
+  await tx.proformaDetalle.update({
+    where: { id: compraDetalleId },
+    data: { enTransitoContado: deseado, enTransitoAlmacenId: deseado > 0 ? almacenId : null },
+  });
 }

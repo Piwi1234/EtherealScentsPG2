@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, updateProforma } from "../../lib/api";
-import type { Ciudad, Cliente, Empresa, Proforma, Proveedor } from "../../lib/types";
+import { ApiError, cambiarAlmacenCompra, updateProforma } from "../../lib/api";
+import type { Almacen, Ciudad, Cliente, Empresa, Proforma, Proveedor } from "../../lib/types";
 import { ClienteBuscador } from "./ClienteBuscador";
-import { CiudadSelector, EmpresaSelector, ProveedorSelector } from "./selectors";
+import { AlmacenSelector, CiudadSelector, EmpresaSelector, ProveedorSelector } from "./selectors";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -32,12 +32,14 @@ export function ProformaHeaderEditor({
   empresas,
   ciudades,
   proveedores = [],
+  almacenes = [],
 }: {
   proforma: Proforma;
   editable: boolean;
   empresas: Empresa[];
   ciudades: Ciudad[];
   proveedores?: Proveedor[];
+  almacenes?: Almacen[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(proforma.empresaId);
@@ -45,8 +47,24 @@ export function ProformaHeaderEditor({
   const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
   const [proveedorId, setProveedorId] = useState(proforma.proveedorId ?? "");
   const [tipoCambioProf, setTipoCambioProf] = useState(proforma.tipoCambioProf ?? "");
+  const [almacenId, setAlmacenId] = useState(proforma.almacenId ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  /** El almacén destino de una compra se guarda solo al elegirlo; aprobada, se cambia con su propio endpoint. */
+  async function handleAlmacenChange(id: string) {
+    setAlmacenId(id);
+    if (!id) return;
+    setError("");
+    try {
+      if (proforma.estado === "APROBADA") await cambiarAlmacenCompra(proforma.id, id);
+      else await updateProforma(proforma.id, { almacenId: id });
+      router.refresh();
+    } catch (e) {
+      setAlmacenId(proforma.almacenId ?? "");
+      setError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
 
   /** Al elegir cliente se guarda solo (junto con la ciudad de entrega del cliente, si tiene una
    * definida en su catálogo — sigue editable después vía el selector de abajo). */
@@ -104,7 +122,15 @@ export function ProformaHeaderEditor({
         ) : (
           <Field label="Proveedor" value={proforma.proveedor?.nombre ?? "Varios"} />
         )}
-        {proforma.tipo === "COMPRA" && <Field label="Almacén" value={proforma.almacen?.nombre ?? "— (se elige al completar) —"} />}
+        {proforma.tipo === "COMPRA" && proforma.estado === "APROBADA" && almacenes.length > 0 ? (
+          <div>
+            <span className="filter-label">Almacén destino</span>
+            <AlmacenSelector options={almacenes} value={almacenId} onChange={handleAlmacenChange} />
+            {error && <p className="error-text" style={{ marginTop: 6 }}>{error}</p>}
+          </div>
+        ) : (
+          proforma.tipo === "COMPRA" && <Field label="Almacén destino" value={proforma.almacen?.nombre ?? "—"} />
+        )}
         {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
         {proforma.tipo === "VENTA" && <Field label="Vendedor" value={proforma.creadoPor.nombre} />}
         {proforma.tipo === "COMPRA" && (
@@ -143,6 +169,12 @@ export function ProformaHeaderEditor({
           <div className="filter-field" style={{ minWidth: 220 }}>
             <label className="filter-label">Proveedor</label>
             <ProveedorSelector options={proveedores} value={proveedorId} onChange={handleProveedorChange} />
+          </div>
+        )}
+        {proforma.tipo === "COMPRA" && (
+          <div className="filter-field" style={{ minWidth: 200 }}>
+            <label className="filter-label">Almacén destino</label>
+            <AlmacenSelector options={almacenes} value={almacenId} onChange={handleAlmacenChange} />
           </div>
         )}
         {proforma.tipo === "COMPRA" && (

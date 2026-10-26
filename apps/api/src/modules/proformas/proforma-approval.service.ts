@@ -6,7 +6,7 @@ import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
-import { reservarTransitoParaProcuras } from "./transito.util";
+import { recalcularTransitoLinea, reservarTransitoParaProcuras } from "./transito.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
 
@@ -29,6 +29,39 @@ export class ProformaApprovalService {
     private readonly historial: ProformaHistorialService,
     private readonly proformas: ProformasService,
   ) {}
+
+  /**
+   * Cambia el almacén destino de una compra aprobada (donde cuenta su stock en tránsito). No se puede si alguno
+   * de sus productos ya está en un envío vigente: el envío define a dónde llega.
+   */
+  async cambiarAlmacenCompra(id: string, almacenId: string) {
+    const compra = await this.prisma.proforma.findUnique({ where: { id }, select: { tipo: true, estado: true } });
+    if (!compra) throw new NotFoundException("Proforma no encontrada.");
+    if (compra.tipo !== TipoProforma.COMPRA || compra.estado !== EstadoProforma.APROBADA) {
+      throw new ConflictException("Solo se cambia el almacén destino de una compra aprobada.");
+    }
+    if (!(await this.prisma.almacen.findFirst({ where: { id: almacenId, activo: true }, select: { id: true } }))) {
+      throw new BadRequestException("almacenId inválido o inactivo.");
+    }
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          await tx.$queryRaw`SELECT "id" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE`;
+          if ((await tx.envioItem.count({ where: { compraDetalle: { proformaId: id }, envio: { estado: { not: EstadoEnvio.ANULADO } } } })) > 0) {
+            throw new ConflictException("Hay productos de esta compra en un envío: el envío define el almacén. Sacalos del envío primero.");
+          }
+          await tx.proforma.update({ where: { id }, data: { almacenId } });
+          const lineas = await tx.proformaDetalle.findMany({ where: { proformaId: id }, select: { id: true } });
+          for (const l of lineas) await recalcularTransitoLinea(tx, l.id);
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Proforma");
+    }
+    return this.proformas.findOne(id);
+  }
 
   /**
    * Reserva a mano el stock libre (físico y en tránsito) para el faltante de ventas aprobadas, la más antigua

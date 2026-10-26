@@ -742,13 +742,14 @@ model Almacen {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  stock            Stock[]
-  lotesCompra      LoteCompra[]
-  proformas        Proforma[]                  @relation("ProformaAlmacen")
-  asignaciones     ProformaDetalleAsignacion[]
-  traspasosOrigen  TraspasoAlmacen[]           @relation("TraspasoAlmacenOrigen")
-  traspasosDestino TraspasoAlmacen[]           @relation("TraspasoAlmacenDestino")
-  enviosDestino    Envio[]
+  stock              Stock[]
+  lotesCompra        LoteCompra[]
+  proformas          Proforma[]                  @relation("ProformaAlmacen")
+  asignaciones       ProformaDetalleAsignacion[]
+  traspasosOrigen    TraspasoAlmacen[]           @relation("TraspasoAlmacenOrigen")
+  traspasosDestino   TraspasoAlmacen[]           @relation("TraspasoAlmacenDestino")
+  enviosDestino      Envio[]
+  detallesEnTransito ProformaDetalle[]           @relation("DetalleTransitoAlmacen")
 
   @@map("almacenes")
 }
@@ -991,11 +992,16 @@ model ProformaDetalle {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  asignaciones ProformaDetalleAsignacion[]
+  asignaciones        ProformaDetalleAsignacion[]
   // 1+ (no 0-o-1): al completar una compra nace 1, pero una corrección manual de catálogo puede
   // partir ese lote en más de un registro (ver comentario en LoteCompra.proformaDetalleId).
-  loteCompras  LoteCompra[]
-  envioItems   EnvioItem[]
+  loteCompras         LoteCompra[]
+  envioItems          EnvioItem[]
+  // Stock en tránsito que esta línea aporta (lo recogido sin ligar a ventas ni solicitudes) y en qué almacén se contó
+  // (ver transito.util.ts): se ajusta solo al recoger, recibir o ligar/soltar.
+  enTransitoContado   Int                         @default(0) @map("en_transito_contado")
+  enTransitoAlmacenId String?                     @map("en_transito_almacen_id") @db.Uuid
+  enTransitoAlmacen   Almacen?                    @relation("DetalleTransitoAlmacen", fields: [enTransitoAlmacenId], references: [id], onDelete: SetNull)
 
   // COMPRA: para qué se compra esta línea (ver DestinoCompra). Las líneas de VENTA lo ignoran.
   destino               DestinoCompra               @default(STOCK)
@@ -1088,17 +1094,14 @@ model Envio {
 
 /// Cuánto de una línea de compra (ya recogida) viaja en este envío.
 model EnvioItem {
-  id                String          @id @default(uuid()) @db.Uuid
-  envioId           String          @map("envio_id") @db.Uuid
-  envio             Envio           @relation(fields: [envioId], references: [id], onDelete: Cascade)
-  compraDetalleId   String          @map("compra_detalle_id") @db.Uuid
-  compraDetalle     ProformaDetalle @relation(fields: [compraDetalleId], references: [id], onDelete: Restrict)
-  cantidad          Int
-  cantidadRecibida  Int             @default(0) @map("cantidad_recibida")
-  // Stock "en tránsito" que este ítem aportó al despachar su envío (ver transito.util.ts): se resta tal cual
-  // al anular o recibir.
-  enTransitoContado Int             @default(0) @map("en_transito_contado")
-  createdAt         DateTime        @default(now()) @map("created_at")
+  id               String          @id @default(uuid()) @db.Uuid
+  envioId          String          @map("envio_id") @db.Uuid
+  envio            Envio           @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  compraDetalleId  String          @map("compra_detalle_id") @db.Uuid
+  compraDetalle    ProformaDetalle @relation(fields: [compraDetalleId], references: [id], onDelete: Restrict)
+  cantidad         Int
+  cantidadRecibida Int             @default(0) @map("cantidad_recibida")
+  createdAt        DateTime        @default(now()) @map("created_at")
 
   recibos EnvioRecepcionItem[]
 

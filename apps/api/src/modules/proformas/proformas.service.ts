@@ -224,10 +224,27 @@ export class ProformasService {
       dto.tipo === TipoProforma.COMPRA ? dto.tipoCambioProf ?? (await this.settings.getExchangeRate()) : undefined;
     const codigo = await this.generateCodigo();
 
+    // COMPRA: almacén destino de la mercadería (el predeterminado si no se elige).
+    let almacenCompraId: string | undefined;
+    if (dto.tipo === TipoProforma.COMPRA) {
+      if (dto.almacenId) {
+        if (!(await this.prisma.almacen.findUnique({ where: { id: dto.almacenId }, select: { id: true } }))) throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
+        almacenCompraId = dto.almacenId;
+      } else {
+        almacenCompraId = (
+          (await this.prisma.almacen.findFirst({ where: { activo: true, predeterminado: true }, select: { id: true } })) ??
+          (await this.prisma.almacen.findFirst({ where: { activo: true }, orderBy: { createdAt: "asc" }, select: { id: true } }))
+        )?.id;
+      }
+    } else if (dto.almacenId) {
+      throw new BadRequestException("almacenId no aplica a una proforma de venta al crearla (se elige al aprobar).");
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         const proforma = await tx.proforma.create({
           data: {
+            almacenId: almacenCompraId,
             tipo: dto.tipo,
             codigo,
             empresaId: dto.empresaId,
@@ -259,7 +276,11 @@ export class ProformasService {
         throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
       }
       if (dto.proveedorId !== undefined) throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
+      if (dto.almacenId !== undefined) throw new BadRequestException("almacenId no aplica a una proforma de venta.");
     } else {
+      if (dto.almacenId && !(await this.prisma.almacen.findUnique({ where: { id: dto.almacenId }, select: { id: true } }))) {
+        throw new BadRequestException(`almacenId inválido: ${dto.almacenId}`);
+      }
       if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
       if (dto.clienteId !== undefined) {
         throw new BadRequestException("clienteId no aplica a una proforma de compra.");

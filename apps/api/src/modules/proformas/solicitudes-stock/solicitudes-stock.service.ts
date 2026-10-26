@@ -3,6 +3,7 @@ import { EstadoProforma, EstadoSolicitudStock, Prisma, TipoProforma } from "@app
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
+import { recalcularTransitoLinea } from "../transito.util";
 import { compraConEnlacesSelect, enviadasDeEnlace, recogidasDeEnlace, type CompraConEnlaces } from "../recojo.util";
 import {
   CreateSolicitudDto,
@@ -206,8 +207,10 @@ export class SolicitudesStockService {
   async cancelar(id: string) {
     await this.assertAbierta(id);
     await this.prisma.$transaction(async (tx) => {
+      const ligadas = await tx.solicitudStockLinea.findMany({ where: { solicitudId: id, compraDetalleId: { not: null } }, select: { compraDetalleId: true } });
       await tx.solicitudStockLinea.updateMany({ where: { solicitudId: id }, data: { compraDetalleId: null } });
       await tx.solicitudStock.update({ where: { id }, data: { estado: EstadoSolicitudStock.CANCELADA } });
+      for (const compraDetalleId of new Set(ligadas.map((l) => l.compraDetalleId as string))) await recalcularTransitoLinea(tx, compraDetalleId);
     });
     return this.findOne(id);
   }
@@ -254,6 +257,7 @@ export class SolicitudesStockService {
     if (aLigar > libre) throw new ConflictException(`La línea de compra solo tiene ${libre} unidad(es) sin cubrir y quisiste ligar ${aLigar}.`);
 
     return this.prisma.$transaction(async (tx) => {
+      const resultado = await (async () => {
       const existente = await tx.solicitudStockLinea.findFirst({
         where: { solicitudId: linea.solicitudId, varianteId: linea.varianteId, compraDetalleId, id: { not: lineaId } },
       });
@@ -272,6 +276,10 @@ export class SolicitudesStockService {
         data: { solicitudId: linea.solicitudId, varianteId: linea.varianteId, cantidad: aLigar, nota: linea.nota, compraDetalleId },
         include: lineaInclude,
       });
+      })();
+      // Lo ligado a una solicitud deja de contar como stock en tránsito libre.
+      await recalcularTransitoLinea(tx, compraDetalleId);
+      return resultado;
     });
   }
 
@@ -281,7 +289,9 @@ export class SolicitudesStockService {
     if (!linea) throw new NotFoundException("Línea de solicitud no encontrada.");
     if (!linea.compraDetalleId) return this.prisma.solicitudStockLinea.findUniqueOrThrow({ where: { id: lineaId }, include: lineaInclude });
 
+    const compraDetalleId = linea.compraDetalleId;
     return this.prisma.$transaction(async (tx) => {
+      const resultado = await (async () => {
       const libre = await tx.solicitudStockLinea.findFirst({
         where: { solicitudId: linea.solicitudId, varianteId: linea.varianteId, compraDetalleId: null, id: { not: lineaId } },
       });
@@ -290,6 +300,9 @@ export class SolicitudesStockService {
         return tx.solicitudStockLinea.update({ where: { id: libre.id }, data: { cantidad: { increment: linea.cantidad } }, include: lineaInclude });
       }
       return tx.solicitudStockLinea.update({ where: { id: lineaId }, data: { compraDetalleId: null }, include: lineaInclude });
+      })();
+      await recalcularTransitoLinea(tx, compraDetalleId);
+      return resultado;
     });
   }
 }

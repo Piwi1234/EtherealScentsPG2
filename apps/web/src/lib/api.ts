@@ -915,6 +915,10 @@ export function updateProforma(id: string, data: Partial<ProformaInput>) {
   return apiPatch<Proforma>(`/proformas/${id}`, data);
 }
 
+export function cambiarAlmacenCompra(id: string, almacenId: string) {
+  return apiPost<Proforma>(`/proformas/${id}/almacen-destino`, { almacenId });
+}
+
 export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
   return apiPost<Proforma>(`/proformas/${proformaId}/detalles/venta`, data);
 }

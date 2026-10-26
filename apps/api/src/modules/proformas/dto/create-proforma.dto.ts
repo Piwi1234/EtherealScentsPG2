@@ -21,6 +21,11 @@ export class CreateProformaDto {
   @IsUUID()
   proveedorId?: string;
 
+  @ApiPropertyOptional({ description: "Solo COMPRA: almacén al que llega la mercadería. Lo recogido sin ligar cuenta como stock en tránsito en ese almacén. Si se omite, el predeterminado." })
+  @IsOptional()
+  @IsUUID()
+  almacenId?: string;
+
   @ApiPropertyOptional({ description: "Solo aplica a VENTA: dato informativo, sin efecto en la lógica de negocio." })
   @IsOptional()
   @IsUUID()

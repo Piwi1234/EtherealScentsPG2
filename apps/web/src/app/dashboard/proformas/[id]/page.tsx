@@ -73,6 +73,7 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
         empresas={empresasPage.items.filter((e) => e.activo)}
         ciudades={ciudadesPage.items}
         proveedores={proveedoresPage.items}
+        almacenes={almacenesPage.items.filter((a) => a.activo)}
       />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 12px" }}>

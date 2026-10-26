@@ -791,6 +791,8 @@ export type ProformaInput = {
   tipo: TipoProforma;
   empresaId: string;
   proveedorId?: string;
+  /** Solo compras: almacén destino de la mercadería (donde cuenta su stock en tránsito). */
+  almacenId?: string;
   clienteId?: string;
   ciudadEntregaId?: string;
   tipoCambioProf?: number;
@@ -1201,7 +1203,7 @@ export type EnvioDisponible = {
   recogido: number;
   disponible: number;
   proveedor: { id: string; nombre: string } | null;
-  proforma: { id: string; codigo: string; fecha: string; proveedor: { id: string; nombre: string } | null };
+  proforma: { id: string; codigo: string; fecha: string; almacenId: string | null; proveedor: { id: string; nombre: string } | null };
   variante: EnvioVariante;
 };
 

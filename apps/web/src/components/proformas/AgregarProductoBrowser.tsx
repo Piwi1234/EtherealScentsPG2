@@ -92,6 +92,8 @@ export function AgregarProductoBrowser({
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
   const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
+  // Productos cuya cantidad se está eligiendo: el botón "Agregar" pasa a - n + y aparece "Confirmar".
+  const [editando, setEditando] = useState<Record<string, boolean>>({});
   // Venta de variantes unidad=ML: se elige una presentación (subvariante) en vez de cantidad+precio
   // libres — ver AgregarProductoBrowser.tsx en el plan de "Variantes fraccionadas por ml".
   const [presentacionesByVariant, setPresentacionesByVariant] = useState<Record<string, PresentacionVenta[]>>({});
@@ -342,6 +344,7 @@ export function AgregarProductoBrowser({
       setAddedFlash((prev) => ({ ...prev, [product.id]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [product.id]: false })), FLASH_MS);
       setCantidadByProduct((prev) => ({ ...prev, [product.id]: 1 }));
+      setEditando((prev) => ({ ...prev, [product.id]: false }));
       setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: 1 }));
     } catch (e) {
       setRowError((prev) => ({ ...prev, [product.id]: e instanceof ApiError ? e.message : String(e) }));
@@ -538,21 +541,49 @@ export function AgregarProductoBrowser({
                         )}
                       </td>
                       <td className="num">
-                        <input
-                          className="field"
-                          type="number"
-                          min={1}
-                          value={(esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1}
-                          onChange={(e) => {
-                            const parsed = parseInt(e.target.value, 10) || 1;
-                            if (esVentaMl) {
-                              setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: parsed }));
-                            } else {
-                              setCantidadByProduct((prev) => ({ ...prev, [product.id]: parsed }));
-                            }
-                          }}
-                          style={{ width: 70, textAlign: "center" }}
-                        />
+                        {(() => {
+                          const cantidadActual = (esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1;
+                          const fijar = (n: number) => {
+                            if (esVentaMl) setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: n }));
+                            else setCantidadByProduct((prev) => ({ ...prev, [product.id]: n }));
+                          };
+                          if (!editando[product.id]) {
+                            return (
+                              <button
+                                type="button"
+                                className="action-btn"
+                                onClick={() => {
+                                  fijar(1);
+                                  setRowError((prev) => ({ ...prev, [product.id]: "" }));
+                                  setEditando((prev) => ({ ...prev, [product.id]: true }));
+                                }}
+                              >
+                                {addedFlash[product.id] ? "Agregada ✓" : "Agregar"}
+                              </button>
+                            );
+                          }
+                          return (
+                            <span className="qty-stepper">
+                              <button
+                                type="button"
+                                aria-label="Menos"
+                                onClick={() => (cantidadActual <= 1 ? setEditando((prev) => ({ ...prev, [product.id]: false })) : fijar(cantidadActual - 1))}
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                value={cantidadActual}
+                                aria-label={`Cantidad de ${product.name}`}
+                                onChange={(e) => fijar(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              />
+                              <button type="button" aria-label="Más" onClick={() => fijar(cantidadActual + 1)}>
+                                +
+                              </button>
+                            </span>
+                          );
+                        })()}
                         {esCompraMl && (
                           <span className="cell-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>ml</span>
                         )}
@@ -563,14 +594,11 @@ export function AgregarProductoBrowser({
                         )}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="action-btn"
-                          onClick={() => handleAgregar(product)}
-                          disabled={submittingId === product.id}
-                        >
-                          {addedFlash[product.id] ? "Agregada ✓" : submittingId === product.id ? "Agregando..." : "Agregar"}
-                        </button>
+                        {editando[product.id] && (
+                          <button type="button" className="button" onClick={() => handleAgregar(product)} disabled={submittingId === product.id}>
+                            {submittingId === product.id ? "Agregando..." : "Confirmar"}
+                          </button>
+                        )}
                         {rowError[product.id] && (
                           <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[product.id]}</p>
                         )}

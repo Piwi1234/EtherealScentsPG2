@@ -234,7 +234,12 @@ function EnviosContenido() {
                               max={l.disponible}
                               value={cantidades[l.id] ?? 0}
                               aria-label={`Unidades de ${l.variante.product.name} a enviar`}
-                              onChange={(e) => setCantidades((prev) => ({ ...prev, [l.id]: Math.max(0, Math.min(l.disponible, parseInt(e.target.value, 10) || 0)) }))}
+                              onChange={(e) => {
+                                const n = Math.max(0, Math.min(l.disponible, parseInt(e.target.value, 10) || 0));
+                                setCantidades((prev) => ({ ...prev, [l.id]: n }));
+                                // El envío va al almacén destino de las compras que lleva.
+                                if (n > 0 && l.proforma.almacenId) setAlmacenId(l.proforma.almacenId);
+                              }}
                               style={{ width: 80, textAlign: "center" }}
                             />
                           </td>

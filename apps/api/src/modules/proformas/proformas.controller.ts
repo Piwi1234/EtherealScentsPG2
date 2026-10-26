@@ -125,6 +125,13 @@ export class ProformasController {
     return this.approval.reservarFaltantes(user.id);
   }
 
+  @Post(":id/almacen-destino")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Cambia el almacén destino de una compra aprobada (mueve su stock en tránsito)." })
+  cambiarAlmacen(@Param("id", ParseUUIDPipe) id: string, @Body() dto: { almacenId: string }) {
+    return this.approval.cambiarAlmacenCompra(id, dto.almacenId);
+  }
+
   @Post(":id/reservar")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reserva el stock libre disponible para el faltante de esta venta aprobada." })

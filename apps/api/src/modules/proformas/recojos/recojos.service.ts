@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { EstadoEnvio, EstadoProforma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../../common/prisma.service";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
+import { recalcularTransitoLinea } from "../transito.util";
 import { CreateRecojoDto } from "./dto/recojo.dto";
 
 const recojoInclude = {
@@ -89,6 +90,8 @@ export class RecojosService {
               lineas: { create: Array.from(pedidoPorLinea.entries()).map(([compraDetalleId, cantidad]) => ({ compraDetalleId, cantidad })) },
             },
           });
+          // Lo recogido que no está ligado a una venta ni a una solicitud ya cuenta como stock en tránsito.
+          for (const compraDetalleId of pedidoPorLinea.keys()) await recalcularTransitoLinea(tx, compraDetalleId);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -129,7 +132,10 @@ export class RecojosService {
         throw new ConflictException("Parte de lo recogido ya está en un envío: sacalo del envío antes de deshacer el recojo.");
       }
     }
-    await this.prisma.recojo.delete({ where: { id: recojoId } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.recojo.delete({ where: { id: recojoId } });
+      for (const l of recojo.lineas) await recalcularTransitoLinea(tx, l.compraDetalleId);
+    });
     return this.listar(recojo.compraId);
   }
 }
