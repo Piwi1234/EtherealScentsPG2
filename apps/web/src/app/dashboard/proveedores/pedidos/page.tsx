@@ -263,7 +263,7 @@ export default function PedidosProveedoresPage() {
 
       {proveedorId && !loading && vista === "proformas" && proformas && proformas.items.length > 0 && (
         <div className="table-scroll">
-          <ProformasTable proformas={proformas.items} mostrarVendedor={false} />
+          <ProformasTable proformas={proformas.items} mostrarVendedor={false} desplegable />
         </div>
       )}
 

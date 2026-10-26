@@ -1,25 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const LISTA_BASE = "/dashboard/registros";
-
-/** Vuelve a Registros, en la pestaña (Ventas / Compras / Sin concretar) que se estaba mirando. */
+/** Vuelve a Registros: la pestaña, los filtros y la página que había antes de abrir la proforma se restauran solos. */
 export function VolverALista() {
-  const [href, setHref] = useState(LISTA_BASE);
-
-  useEffect(() => {
-    try {
-      const tab = sessionStorage.getItem("registros:tab");
-      if (tab) setHref(`${LISTA_BASE}?tab=${tab}`);
-    } catch {
-      // se queda en Registros sin pestaña
-    }
-  }, []);
-
   return (
-    <Link href={href} className="link-button">
+    <Link href="/dashboard/registros" className="link-button">
       Volver
     </Link>
   );
