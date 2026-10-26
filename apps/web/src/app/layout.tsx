@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, Manrope, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { CartRoot } from "../components/landing/CartRoot";
-import { API_ORIGIN, getCasaMatrizLogo } from "../lib/api";
 
 // Inter: tipografía del Dashboard interno (.nocturne-theme) — declarada por nombre en globals.css
 // pero nunca cargada de verdad hasta ahora (sin esto, el navegador caía al fallback system-ui).
@@ -32,29 +31,15 @@ const SITE_DESCRIPTION = "Catálogo online";
 export const SITE_ORIGIN = "https://www.etherealscents-bo.com";
 
 export async function generateMetadata(): Promise<Metadata> {
-  // Logo de la casa matriz (Gestión → Empresas) — se usa como ícono de pestaña nomás. El logo real es
-  // texto blanco pensado para ir sobre el navy del navbar; como og:image quedaba invisible (WhatsApp
-  // compone los PNG transparentes sobre blanco) y además con una proporción (1000x280) bien distinta
-  // a la que recortan los lectores de Open Graph (~1.91:1) — ver og-default.png, generado aparte con
-  // fondo navy sólido en 1200x630 para esto.
-  let logoUrl: string | null = null;
-  try {
-    const empresa = await getCasaMatrizLogo();
-    logoUrl = empresa.logoUrl;
-  } catch {
-    logoUrl = null;
-  }
-
-  // Logos subidos antes de la migración a R2 tienen logoUrl relativo ("/uploads/..."); los nuevos
-  // ya vienen con la URL pública completa.
-  const absoluteLogoUrl = logoUrl ? (logoUrl.startsWith("http") ? logoUrl : `${API_ORIGIN}${logoUrl}`) : null;
+  // Ícono de pestaña y vista previa al compartir el enlace (WhatsApp, redes): el logo "E" sobre el navy del sitio. Los
+  // íconos salen de los archivos app/icon.png, app/apple-icon.png y app/favicon.ico; la imagen de vista previa es
+  // og-default.png (1200x630, fondo navy sólido: los PNG transparentes se componen sobre blanco y el logo se perdería).
   const ogImageUrl = `${SITE_ORIGIN}/og-default.png`;
 
   return {
     metadataBase: new URL(SITE_ORIGIN),
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    icons: absoluteLogoUrl ? { icon: absoluteLogoUrl } : undefined,
     openGraph: {
       title: SITE_TITLE,
       description: SITE_DESCRIPTION,
