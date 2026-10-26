@@ -3,27 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const LISTA_KEY = "proformas:ultima-lista";
-const LISTA_BASE = "/dashboard/proformas";
+const LISTA_BASE = "/dashboard/registros";
 
-/** Recuerda la URL de la lista de proformas con sus filtros/página, para poder volver exactamente ahí. */
-export function guardarUltimaLista(href: string) {
-  try {
-    sessionStorage.setItem(LISTA_KEY, href);
-  } catch {
-    // sin sessionStorage (modo privado, etc.): el botón vuelve a la lista sin filtros
-  }
-}
-
+/** Vuelve a Registros, en la pestaña (Ventas / Compras / Sin concretar) que se estaba mirando. */
 export function VolverALista() {
   const [href, setHref] = useState(LISTA_BASE);
 
   useEffect(() => {
     try {
-      const guardada = sessionStorage.getItem(LISTA_KEY);
-      if (guardada?.startsWith(LISTA_BASE)) setHref(guardada);
+      const tab = sessionStorage.getItem("registros:tab");
+      if (tab) setHref(`${LISTA_BASE}?tab=${tab}`);
     } catch {
-      // se queda con la lista sin filtros
+      // se queda en Registros sin pestaña
     }
   }, []);
 

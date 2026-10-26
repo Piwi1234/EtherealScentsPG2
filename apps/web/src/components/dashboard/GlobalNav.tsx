@@ -25,7 +25,6 @@ const GROUPS: NavGroup[] = [
     sections: [
       {
         items: [
-          { href: "/dashboard/proformas?tipo=VENTA", tipo: "VENTA", label: "Proformas de venta", desc: "Crea, aprueba y completa notas de venta" },
           { href: "/dashboard/seguimiento", label: "Seguimiento", desc: "Qué falta comprar para los pedidos de clientes" },
           { href: "/dashboard/clientes/pedidos", label: "Pedidos de clientes", desc: "Pedidos que llegan desde el catálogo" },
         ],
@@ -38,7 +37,6 @@ const GROUPS: NavGroup[] = [
     sections: [
       {
         items: [
-          { href: "/dashboard/proformas?tipo=COMPRA", tipo: "COMPRA", label: "Proformas de compra", desc: "Crea y aprueba pedidos a proveedores" },
           { href: "/dashboard/stock/solicitudes", label: "Solicitudes de stock", desc: "Pide mercadería para inventario, sin venta de por medio" },
           { href: "/dashboard/stock/envios", label: "Envíos", desc: "Agrupa compras y recibe la mercadería" },
           { href: "/dashboard/proveedores/pedidos", label: "Pedidos a proveedores", desc: "Seguimiento de lo pedido a cada proveedor" },

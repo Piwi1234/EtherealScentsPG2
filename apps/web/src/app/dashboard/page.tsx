@@ -196,7 +196,7 @@ export default function DashboardPage() {
           tono: "ok",
           titulo: `${plural(pendientes.ventasListas, "venta lista", "ventas listas")} para completar`,
           detalle: "Todo reservado en stock: falta entregar y cobrar",
-          href: "/dashboard/proformas?tipo=VENTA&entrega=LISTA",
+          href: "/dashboard/registros?tab=VENTA&entrega=LISTA",
           accion: "Completar",
         },
         {
@@ -212,7 +212,7 @@ export default function DashboardPage() {
           tono: "warn",
           titulo: `${plural(pendientes.ventasEsperando, "venta", "ventas")} esperando mercadería`,
           detalle: "Con faltante o reservada en tránsito",
-          href: "/dashboard/proformas?tipo=VENTA&entrega=ESPERANDO",
+          href: "/dashboard/registros?tab=VENTA&entrega=ESPERANDO",
           accion: "Ver ventas",
         },
         {
@@ -236,7 +236,7 @@ export default function DashboardPage() {
           tono: "ok",
           titulo: `${plural(pendientes.borradoresVenta, "borrador", "borradores")} de venta sin aprobar`,
           detalle: `El más antiguo tiene ${plural(pendientes.diasBorradorMasViejo, "día", "días")}`,
-          href: "/dashboard/proformas?tipo=VENTA&estado=BORRADOR",
+          href: "/dashboard/registros?tab=SIN_CONCRETAR&estado=BORRADOR",
           accion: "Abrir",
         },
         {
@@ -244,7 +244,7 @@ export default function DashboardPage() {
           tono: "ok",
           titulo: `${plural(pendientes.borradoresCompra, "borrador", "borradores")} de compra sin aprobar`,
           detalle: "Pedidos a proveedores sin confirmar",
-          href: "/dashboard/proformas?tipo=COMPRA&estado=BORRADOR",
+          href: "/dashboard/registros?tab=SIN_CONCRETAR&estado=BORRADOR",
           accion: "Abrir",
         },
       ].filter((r) => r.n > 0)

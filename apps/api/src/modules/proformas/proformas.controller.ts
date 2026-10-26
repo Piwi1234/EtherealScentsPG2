@@ -121,15 +121,15 @@ export class ProformasController {
   @Post("reservar-todo")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reserva todo el stock libre posible para los faltantes de ventas aprobadas (la más antigua primero)." })
-  reservarTodo() {
-    return this.approval.reservarFaltantes();
+  reservarTodo(@CurrentUser() user: AuthenticatedUser) {
+    return this.approval.reservarFaltantes(user.id);
   }
 
   @Post(":id/reservar")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reserva el stock libre disponible para el faltante de esta venta aprobada." })
-  reservar(@Param("id", ParseUUIDPipe) id: string) {
-    return this.approval.reservarFaltantes(id);
+  reservar(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.approval.reservarFaltantes(user.id, id);
   }
 
   @Post(":id/aprobar")

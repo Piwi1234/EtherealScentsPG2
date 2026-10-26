@@ -1,9 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, getBrands, getCategories, getProducts, getProveedores, getRegistros } from "../../../lib/api";
-import type { Brand, Category, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
+import { useSearchParams } from "next/navigation";
+import { ApiError, getBrands, getCategories, getEmpresas, getProducts, getProveedores, getRegistros } from "../../../lib/api";
+import type { Brand, Category, Empresa, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
+import { NuevaProformaBoton } from "../../../components/proformas/NuevaProformaBoton";
 import { EstadoBadge } from "../../../components/proformas/EstadoBadge";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
@@ -64,6 +66,25 @@ function sumaBs(valores: (number | null)[]): number | null {
   return valores.some((v) => v === null) ? null : valores.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
+type EntregaFiltro = "" | "LISTA" | "ESPERANDO";
+
+/** Entrega de una venta aprobada: con faltante, reservada en tránsito o lista para completar. */
+function EntregaResumen({ entrega }: { entrega: NonNullable<RegistroLinea["proforma"]["entrega"]> }) {
+  if (entrega.faltante > 0) return <span className="badge badge-warn entrega-badge" title="Hay productos sin stock: falta comprarlos o esperar que lleguen.">Con faltante · {entrega.faltante}</span>;
+  if (entrega.transito > 0) return <span className="badge badge-info entrega-badge" title="Reservada contra mercadería que viaja en un envío.">Enviado · {entrega.transito}</span>;
+  return <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">Lista para completar</span>;
+}
+
+/** Avance de una compra aprobada: Comprado, Recogido, Enviado o Recibido, con cuántas unidades van. */
+function AvanceCompra({ avance }: { avance: NonNullable<RegistroLinea["proforma"]["avance"]> }) {
+  const { cantidad, recogido, enviado, recibido } = avance;
+  if (recibido >= cantidad) return <span className="badge badge-success">Recibido</span>;
+  if (recibido > 0) return <span className="badge badge-info">Recibido · {recibido} de {cantidad}</span>;
+  if (enviado > 0) return <span className="badge badge-accent">Enviado · {enviado} de {cantidad}</span>;
+  if (recogido > 0) return <span className="badge badge-info">Recogido · {recogido} de {cantidad}</span>;
+  return <span className="badge badge-accent">Comprado</span>;
+}
+
 function atributosLabel(variante: RegistroLinea["variante"]): string | null {
   const opciones = variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
   const heredados = formatAtributosVisibles(variante.product.attributeValues, variante.product.variantOptionValues);
@@ -87,8 +108,31 @@ function atributosCompactos(label: string | null): string {
 }
 
 export default function RegistrosPage() {
-  const [tab, setTab] = useState<TabRegistros>("VENTA");
-  const [visitadas, setVisitadas] = useState<TabRegistros[]>(["VENTA"]);
+  return (
+    <Suspense fallback={<div className="card"><p className="cell-muted">Cargando...</p></div>}>
+      <RegistrosContenido />
+    </Suspense>
+  );
+}
+
+const TABS_VALIDAS: TabRegistros[] = ["VENTA", "COMPRA", "SIN_CONCRETAR"];
+
+function RegistrosContenido() {
+  const params = useSearchParams();
+  const tabInicial = TABS_VALIDAS.find((t) => t === params.get("tab")) ?? "VENTA";
+  const estadoInicial = (["BORRADOR", "APROBADA", "COMPLETADA", "ANULADA"] as const).find((e) => e === params.get("estado")) ?? "";
+  const entregaInicial: EntregaFiltro = params.get("entrega") === "LISTA" ? "LISTA" : params.get("entrega") === "ESPERANDO" ? "ESPERANDO" : "";
+  const [tab, setTab] = useState<TabRegistros>(tabInicial);
+  const [visitadas, setVisitadas] = useState<TabRegistros[]>([tabInicial]);
+  const [empresaId, setEmpresaId] = useState("");
+  useEffect(() => {
+    getEmpresas({ pageSize: 100 })
+      .then((page) => {
+        const activas = page.items.filter((e: Empresa) => e.activo);
+        setEmpresaId((activas.find((e: Empresa) => e.tipo === "CASA_MATRIZ") ?? activas[0])?.id ?? "");
+      })
+      .catch(() => {});
+  }, []);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState("");
@@ -99,6 +143,11 @@ export default function RegistrosPage() {
   }, []);
 
   function elegirTab(t: TabRegistros) {
+    try {
+      sessionStorage.setItem("registros:tab", t);
+    } catch {
+      // sin sessionStorage: "Volver" desde una proforma cae en Ventas
+    }
     setTab(t);
     setVisitadas((v) => (v.includes(t) ? v : [...v, t]));
   }
@@ -129,11 +178,15 @@ export default function RegistrosPage() {
           ))}
         </div>
         <h1 style={{ margin: 0, fontSize: 20 }}>Registros</h1>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <NuevaProformaBoton tipo="VENTA" empresaId={empresaId} />
+          <NuevaProformaBoton tipo="COMPRA" empresaId={empresaId} />
+        </div>
       </div>
 
       {visitadas.map((t) => (
         <div key={t} hidden={tab !== t}>
-          <RegistrosPanel tab={t} activo={tab === t} categories={categories} brands={brands} />
+          <RegistrosPanel tab={t} activo={tab === t} categories={categories} brands={brands} estadoInicial={t === tabInicial ? estadoInicial : ""} entregaInicial={t === tabInicial ? entregaInicial : ""} />
         </div>
       ))}
     </div>
@@ -145,11 +198,15 @@ function RegistrosPanel({
   activo,
   categories,
   brands,
+  estadoInicial,
+  entregaInicial,
 }: {
   tab: TabRegistros;
   activo: boolean;
   categories: Category[];
   brands: Brand[];
+  estadoInicial: "" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
+  entregaInicial: EntregaFiltro;
 }) {
   // "Sin concretar" lista borradores y anuladas (lo que no pasó a ser real); ahí el tipo se elige adentro.
   const sinConcretar = tab === "SIN_CONCRETAR";
@@ -168,7 +225,8 @@ function RegistrosPanel({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pageNum, setPageNum] = useState(1);
-  const [estado, setEstado] = useState<"" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA">("");
+  const [estado, setEstado] = useState<"" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA">(estadoInicial);
+  const [entrega, setEntrega] = useState<EntregaFiltro>(entregaInicial);
   // Nombres para los chips de filtros activos, y claves para reiniciar los controles que guardan su propio estado.
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteKey, setClienteKey] = useState(0);
@@ -225,6 +283,7 @@ function RegistrosPanel({
       tipo,
       estado: estado || undefined,
       sinConcretar: sinConcretar || undefined,
+      entrega: tipo === "VENTA" && !sinConcretar ? entrega || undefined : undefined,
       codigo: codigo || undefined,
       search: search || undefined,
       fechaDesde: dateSelection.fechaDesde,
@@ -240,7 +299,7 @@ function RegistrosPanel({
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [activo, tipo, sinConcretar, estado, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
+  }, [activo, tipo, sinConcretar, estado, entrega, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
 
   function handleCategoryChange(value: string) {
     setCategoryId(value);
@@ -299,6 +358,7 @@ function RegistrosPanel({
     setSearchInput("");
     setCodigoInput("");
     setEstado("");
+    setEntrega("");
     setDateSelection(TODO_EL_TIEMPO);
     setDateKey((k) => k + 1);
     setCategoryId("");
@@ -315,6 +375,7 @@ function RegistrosPanel({
   const chips: { key: string; label: string; quitar: () => void }[] = [];
   if (search) chips.push({ key: "search", label: `Búsqueda: ${search}`, quitar: () => setSearchInput("") });
   if (estado) chips.push({ key: "estado", label: ETIQUETA_ESTADO[estado], quitar: () => elegirEstado("") });
+  if (entrega) chips.push({ key: "entrega", label: entrega === "LISTA" ? "Lista para completar" : "Esperando mercadería", quitar: () => { setEntrega(""); setPageNum(1); } });
   if (codigo) chips.push({ key: "codigo", label: `Código: ${codigo}`, quitar: () => setCodigoInput("") });
   if (dateSelection.fechaDesde || dateSelection.fechaHasta) {
     chips.push({
@@ -411,6 +472,33 @@ function RegistrosPanel({
             ))}
           </div>
         </div>
+
+        {tipo === "VENTA" && !sinConcretar && (
+          <div className="filter-field">
+            <label className="filter-label">Entrega</label>
+            <div className="seg" role="group" aria-label="Entrega de la venta">
+              {(
+                [
+                  ["", "Todas"],
+                  ["LISTA", "Lista para completar"],
+                  ["ESPERANDO", "Esperando mercadería"],
+                ] as [EntregaFiltro, string][]
+              ).map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={entrega === valor ? "on" : undefined}
+                  onClick={() => {
+                    setEntrega(valor);
+                    setPageNum(1);
+                  }}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
           <label className="filter-label">Producto o marca</label>
@@ -587,6 +675,8 @@ function RegistrosPanel({
                   <th className="num">Subtotal Bs</th>
                   {tipo === "COMPRA" && <th>Proveedor</th>}
                   {tipo === "COMPRA" && <th>País de origen</th>}
+                  {tipo === "VENTA" && <th className="num">Pagado Bs</th>}
+                  {tipo === "VENTA" && <th className="num">Saldo Bs</th>}
                 </tr>
               </thead>
               <tbody>
@@ -612,15 +702,36 @@ function RegistrosPanel({
                         <td className="cell-muted" style={{ fontWeight: 400 }}>
                           {formatDate(g.proforma.fecha)}
                           {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
+                          {g.proforma.almacen && ` · ${g.proforma.almacen.nombre}`}
                           {sinConcretar && ` · ${detalleSinConcretar(g.proforma)}`}
                           {!abiertas.has(g.proforma.id) && ` · ${g.lineas.length} producto${g.lineas.length === 1 ? "" : "s"}`}
                         </td>
                         <td>
                           <EstadoBadge estado={g.proforma.estado} />
+                          {g.proforma.entrega && (
+                            <div style={{ marginTop: 2 }}>
+                              <EntregaResumen entrega={g.proforma.entrega} />
+                            </div>
+                          )}
+                          {g.proforma.estado === "APROBADA" && g.proforma.avance && (
+                            <div style={{ marginTop: 2 }}>
+                              <AvanceCompra avance={g.proforma.avance} />
+                            </div>
+                          )}
                         </td>
                         <td colSpan={2} />
                         <td className="num">{money(subtotalGrupo)}</td>
                         {tipo === "COMPRA" && <td colSpan={2} />}
+                        {tipo === "VENTA" && (
+                          <>
+                            <td className="num">{g.proforma.pagado !== undefined && g.proforma.estado !== "BORRADOR" ? money(g.proforma.pagado) : "—"}</td>
+                            <td className="num">
+                              {g.proforma.total !== undefined && g.proforma.pagado !== undefined && g.proforma.estado !== "BORRADOR"
+                                ? money(Math.max(0, Math.round((g.proforma.total - g.proforma.pagado) * 100) / 100))
+                                : "—"}
+                            </td>
+                          </>
+                        )}
                       </tr>
                       {abiertas.has(g.proforma.id) && g.lineas.map((linea) => {
                         const etiqueta = atributosLabel(linea.variante);
@@ -636,6 +747,7 @@ function RegistrosPanel({
                             <td className="num">{money(subtotalBs(linea, tipo))}</td>
                             {tipo === "COMPRA" && <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>}
                             {tipo === "COMPRA" && <td>{linea.proveedor?.paisProcedencia?.nombre ?? "—"}</td>}
+                            {tipo === "VENTA" && <td colSpan={2} />}
                           </tr>
                         );
                       })}
@@ -648,6 +760,7 @@ function RegistrosPanel({
                   <td />
                   <td className="num">{money(sumaBs(data.items.map((l) => subtotalBs(l, tipo))))}</td>
                   {tipo === "COMPRA" && <td colSpan={2} />}
+                  {tipo === "VENTA" && <td colSpan={2} />}
                 </tr>
               </tbody>
             </table>

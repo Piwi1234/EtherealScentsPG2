@@ -205,7 +205,7 @@ function EnviosContenido() {
                 <p className="cell-muted" style={{ fontSize: 13 }}>Cargando...</p>
               ) : disponibles.length === 0 ? (
                 <p className="cell-muted" style={{ fontSize: 13 }}>
-                  No hay productos recogidos sin enviar. Registrá un recojo en la compra (<Link href="/dashboard/proformas?tipo=COMPRA">Proformas</Link>).
+                  No hay productos recogidos sin enviar. Registrá un recojo en la compra (<Link href="/dashboard/registros?tab=COMPRA">Registros</Link>).
                 </p>
               ) : (
                 <div className="table-scroll" style={{ maxHeight: 300, overflowY: "auto" }}>

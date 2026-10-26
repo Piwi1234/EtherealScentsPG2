@@ -24,6 +24,11 @@ export class QueryRegistrosDto {
   @IsBoolean()
   sinConcretar?: boolean;
 
+  @ApiPropertyOptional({ enum: ["LISTA", "ESPERANDO"], description: "Solo ventas aprobadas: listas para completar o esperando mercadería (faltante o tránsito)." })
+  @IsOptional()
+  @IsIn(["LISTA", "ESPERANDO"])
+  entrega?: "LISTA" | "ESPERANDO";
+
   @ApiPropertyOptional({ description: "Código corto de la proforma (Proforma.codigo), búsqueda exacta sin importar mayúsculas." })
   @IsOptional()
   @IsString()

@@ -134,7 +134,7 @@ export function ProformaAcciones({
     setError("");
     try {
       await deleteProforma(proformaId);
-      router.push("/dashboard/proformas");
+      router.push("/dashboard/registros");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setSubmitting(null);

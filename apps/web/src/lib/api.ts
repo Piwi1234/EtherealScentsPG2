@@ -1103,6 +1103,7 @@ export function getRegistros(
     tipo: string;
     estado?: "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
     sinConcretar?: boolean;
+    entrega?: "LISTA" | "ESPERANDO";
     codigo?: string;
     fechaDesde?: string;
     fechaHasta?: string;
@@ -1120,6 +1121,7 @@ export function getRegistros(
   params.set("tipo", query.tipo);
   if (query.estado) params.set("estado", query.estado);
   if (query.sinConcretar) params.set("sinConcretar", "true");
+  if (query.entrega) params.set("entrega", query.entrega);
   if (query.search) params.set("search", query.search);
   if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);

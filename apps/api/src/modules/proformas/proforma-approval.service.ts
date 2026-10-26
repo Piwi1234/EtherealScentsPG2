@@ -35,7 +35,7 @@ export class ProformaApprovalService {
    * primero. Con `proformaId` solo para esa nota; sin él, "reservar todo lo posible". Solo toca faltantes que
    * no están ligados a una compra (los ligados se cubren al recibirla).
    */
-  async reservarFaltantes(proformaId?: string) {
+  async reservarFaltantes(usuarioId: string, proformaId?: string) {
     const where: Prisma.ProformaDetalleAsignacionWhereInput = {
       origen: OrigenAsignacion.PROCURA,
       cantidad: { gt: 0 },
@@ -58,6 +58,10 @@ export class ProformaApprovalService {
       if (almacenId) pares.set(stockKey(a.proformaDetalle.varianteId, almacenId), { varianteId: a.proformaDetalle.varianteId, almacenId });
     }
     const totalAntes = antes.reduce((n, a) => n + a.cantidad, 0);
+    const detalleAntes = await this.prisma.proformaDetalleAsignacion.findMany({
+      where,
+      select: { id: true, cantidad: true, proformaDetalle: { select: { proformaId: true, variante: { select: { product: { select: { name: true } } } } } } },
+    });
 
     try {
       await this.prisma.$transaction(
@@ -81,6 +85,20 @@ export class ProformaApprovalService {
       rethrowPrismaError(error, "Proforma");
     }
     const despues = await this.prisma.proformaDetalleAsignacion.aggregate({ where, _sum: { cantidad: true } });
+
+    // Rastro en el historial de cada venta que recibió stock.
+    const quedan = new Map((await this.prisma.proformaDetalleAsignacion.findMany({ where, select: { id: true, cantidad: true } })).map((a) => [a.id, a.cantidad]));
+    const porVenta = new Map<string, string[]>();
+    for (const a of detalleAntes) {
+      const reservadas = a.cantidad - (quedan.get(a.id) ?? 0);
+      if (reservadas <= 0) continue;
+      const lista = porVenta.get(a.proformaDetalle.proformaId) ?? [];
+      lista.push(`${reservadas} unidad(es) de ${a.proformaDetalle.variante.product.name}`);
+      porVenta.set(a.proformaDetalle.proformaId, lista);
+    }
+    for (const [id, lista] of porVenta) {
+      await this.prisma.$transaction((tx) => this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId, `Stock reservado: ${lista.join(", ")}.`));
+    }
     return { unidadesReservadas: totalAntes - (despues._sum.cantidad ?? 0) };
   }
 
@@ -137,7 +155,7 @@ export class ProformaApprovalService {
    * proforma-completion.service.ts).
    */
   private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
-    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: true, cliente: true } });
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: { include: { variante: { include: { product: { select: { name: true } } } } } }, cliente: true } });
 
     if (!proforma.clienteId) throw new BadRequestException("Elegí un cliente antes de aprobar la proforma de venta.");
 
@@ -212,7 +230,7 @@ export class ProformaApprovalService {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId, cantidad: tomarTransito, origen: OrigenAsignacion.EN_TRANSITO },
         });
-        enTransito.push(`${tomarTransito} unidad(es) de la variante ${detalle.varianteId}`);
+        enTransito.push(`${tomarTransito} unidad(es) de ${detalle.variante.product.name}`);
       }
 
       const restante = detalle.cantidad - tomar - tomarTransito;
@@ -220,7 +238,7 @@ export class ProformaApprovalService {
         await tx.proformaDetalleAsignacion.create({
           data: { proformaDetalleId: detalle.id, almacenId: null, cantidad: restante, origen: OrigenAsignacion.PROCURA },
         });
-        faltantes.push(`${restante} unidad(es) de la variante ${detalle.varianteId}`);
+        faltantes.push(`${restante} unidad(es) de ${detalle.variante.product.name}`);
       }
     }
 

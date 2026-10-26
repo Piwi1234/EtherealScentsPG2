@@ -1022,6 +1022,14 @@ export type RegistroLinea = {
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
     tipoCambioProf: string | null;
+    almacen?: { id: string; nombre: string } | null;
+    /** VENTA aprobada: unidades con faltante y reservadas en tránsito (null en otros estados). */
+    entrega?: { faltante: number; transito: number } | null;
+    /** VENTA: total con descuento y lo cobrado hasta ahora, en Bs. */
+    total?: number;
+    pagado?: number;
+    /** COMPRA: cuánto de lo comprado se recogió, salió en un envío y ya llegó. */
+    avance?: { cantidad: number; recogido: number; enviado: number; recibido: number };
   };
   variante: ProformaDetalleVariante;
 };
