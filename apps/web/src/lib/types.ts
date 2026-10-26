@@ -723,6 +723,9 @@ export type EstadoCuentaPorCobrar = "PENDIENTE" | "COMPLETADO";
 
 export type CuentaPorCobrar = {
   id: string;
+  /** Total de la venta, fijo desde que se aprueba. */
+  montoTotal: string;
+  /** Lo que falta cobrar. */
   montoAdeudado: string;
   estado: EstadoCuentaPorCobrar;
   createdAt: string;
@@ -733,7 +736,27 @@ export type CuentaPorCobrar = {
  * de Cuentas por Cobrar (GET/POST /contabilidad/cuentas-por-cobrar). La que cuelga embebida de
  * Proforma.cuentaPorCobrar es la versión sin este campo (evita el ciclo proforma → cuenta → proforma). */
 export type CuentaPorCobrarConProforma = CuentaPorCobrar & {
-  proforma: { id: string; codigo: string; fecha: string; cliente: { id: string; nombre: string } | null };
+  proforma: { id: string; codigo: string; estado: EstadoProforma; fecha: string; cliente: { id: string; nombre: string } | null };
+};
+
+/** GET /proformas/:id/pagos: lo cobrado de una venta y los movimientos de cartera ligados. */
+export type PagoMovimiento = {
+  id: string;
+  fecha: string;
+  detalle: string;
+  naturaleza: "INGRESO" | "GASTO";
+  monto: string;
+  cartera: { id: string; nombre: string; moneda: string };
+  creadoPor: { id: string; nombre: string };
+};
+
+export type PagosVenta = {
+  total: number;
+  montoAdelanto: number;
+  adelantoPendiente: number;
+  pagado: number;
+  saldo: number;
+  movimientos: PagoMovimiento[];
 };
 
 /** GET /dashboard/pendientes: lo que está esperando una acción. */

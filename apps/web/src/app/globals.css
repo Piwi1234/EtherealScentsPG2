@@ -9662,3 +9662,25 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   margin-right: 4px;
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
+
+/* Pagos de una venta aprobada: resumen en tarjetas pequeñas sobre la tabla de movimientos. */
+.pagos-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pagos-resumen > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+}
+
+.pagos-resumen strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}

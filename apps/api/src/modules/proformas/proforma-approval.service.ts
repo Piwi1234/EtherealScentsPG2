@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -82,9 +82,11 @@ export class ProformaApprovalService {
 
     if (!proforma.clienteId) throw new BadRequestException("Elegí un cliente antes de aprobar la proforma de venta.");
 
-    const { montoAdelanto } = calcularTotalesVenta(proforma);
-    if (montoAdelanto > 0) {
-      if (!carteraId) throw new BadRequestException("carteraId es obligatorio: la proforma tiene un adelanto a registrar en una cartera en Bs.");
+    // El adelanto se puede cobrar ya al aprobar (si llega carteraId) o después, desde los pagos de la
+    // proforma — mientras esté APROBADA el cliente puede ir pagando (ver proforma-pagos.service.ts).
+    const { total, montoAdelanto } = calcularTotalesVenta(proforma);
+    let adelantoCobrado = 0;
+    if (montoAdelanto > 0 && carteraId) {
       const cartera = await tx.cartera.findUnique({ where: { id: carteraId } });
       if (!cartera || !cartera.activo) throw new BadRequestException(`carteraId inválido o inactivo: ${carteraId}`);
       if (cartera.moneda !== MonedaCartera.BS) throw new BadRequestException("La cartera del adelanto debe ser en Bs.");
@@ -103,7 +105,20 @@ export class ProformaApprovalService {
         },
       });
       await tx.cartera.update({ where: { id: carteraId }, data: { saldoActual: { increment: montoAdelanto } } });
+      adelantoCobrado = montoAdelanto;
     }
+
+    // La cuenta por cobrar nace con la venta aprobada (no al completarla): así se le da seguimiento
+    // mientras está aprobada y también después de completada.
+    const adeudado = Math.round((total - adelantoCobrado) * 100) / 100;
+    await tx.cuentaPorCobrar.create({
+      data: {
+        proformaId: id,
+        montoTotal: total,
+        montoAdeudado: Math.max(0, adeudado),
+        estado: adeudado <= 0 ? EstadoCuentaPorCobrar.COMPLETADO : EstadoCuentaPorCobrar.PENDIENTE,
+      },
+    });
 
     const pares = proforma.detalles.map((d) => ({ varianteId: d.varianteId, almacenId }));
     const stockPorPar = await lockStockRows(tx, pares);
@@ -205,29 +220,33 @@ export class ProformaApprovalService {
     });
   }
 
-  /** Si esta venta tuvo un adelanto registrado al aprobarla (ver aprobarVenta), revertirlo con un
-   * gasto por el mismo monto en la misma cartera — mismo formato de detalle que el ingreso original,
-   * agregando al final la marca ANULADA y el motivo escrito al anular (si lo hay). */
-  private async revertirAdelanto(tx: Prisma.TransactionClient, proformaId: string, usuarioId: string, nota?: string) {
-    const ingreso = await tx.movimientoCartera.findFirst({
+  /** Revierte TODO lo cobrado de esta venta (adelanto y pagos hechos mientras estaba aprobada): un
+   * gasto por el mismo monto en la misma cartera por cada ingreso — mismo formato de detalle que el
+   * ingreso original, agregando al final la marca ANULADA y el motivo escrito al anular (si lo hay).
+   * Solo se llama al anular desde APROBADA, y una venta anulada no admite más pagos, así que cada
+   * ingreso se revierte una sola vez. */
+  private async revertirPagos(tx: Prisma.TransactionClient, proformaId: string, usuarioId: string, nota?: string) {
+    const ingresos = await tx.movimientoCartera.findMany({
       where: { proformaId, naturaleza: NaturalezaMovimiento.INGRESO },
       orderBy: { createdAt: "asc" },
     });
-    if (!ingreso) return;
+    if (ingresos.length === 0) return;
 
-    await lockCarteras(tx, [ingreso.carteraId]);
-    await tx.movimientoCartera.create({
-      data: {
-        carteraId: ingreso.carteraId,
-        fecha: new Date(),
-        detalle: `${ingreso.detalle} - ANULADA${nota ? ` - MOTIVO: ${nota}` : ""}`,
-        naturaleza: NaturalezaMovimiento.GASTO,
-        monto: ingreso.monto,
-        proformaId,
-        creadoPorId: usuarioId,
-      },
-    });
-    await tx.cartera.update({ where: { id: ingreso.carteraId }, data: { saldoActual: { decrement: ingreso.monto } } });
+    await lockCarteras(tx, Array.from(new Set(ingresos.map((i) => i.carteraId))));
+    for (const ingreso of ingresos) {
+      await tx.movimientoCartera.create({
+        data: {
+          carteraId: ingreso.carteraId,
+          fecha: new Date(),
+          detalle: `${ingreso.detalle} - ANULADA${nota ? ` - MOTIVO: ${nota}` : ""}`,
+          naturaleza: NaturalezaMovimiento.GASTO,
+          monto: ingreso.monto,
+          proformaId,
+          creadoPorId: usuarioId,
+        },
+      });
+      await tx.cartera.update({ where: { id: ingreso.carteraId }, data: { saldoActual: { decrement: ingreso.monto } } });
+    }
   }
 
   /** APROBADA → ANULADA únicamente (BORRADOR se elimina en vez de anularse; COMPLETADA es terminal). */
@@ -251,7 +270,8 @@ export class ProformaApprovalService {
 
           if (lock.tipo === TipoProforma.VENTA) {
             await this.liberarReservas(tx, id);
-            await this.revertirAdelanto(tx, id, usuarioId, nota);
+            await this.revertirPagos(tx, id, usuarioId, nota);
+            await tx.cuentaPorCobrar.deleteMany({ where: { proformaId: id } });
           }
 
           await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.ANULADA } });

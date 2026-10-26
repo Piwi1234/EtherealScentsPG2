@@ -144,9 +144,12 @@ export function ProformaTotales({ proforma, editable }: { proforma: Proforma; ed
           <Row label="Monto de adelanto">
             <span>{money(montoAdelanto, prefix)}</span>
           </Row>
-          <Row label="Saldo" strong border>
-            <span>{money(saldo, prefix)}</span>
-          </Row>
+          {/* Fuera de BORRADOR el saldo real (con lo ya pagado) está en la sección Pagos. */}
+          {editable && (
+            <Row label="Saldo" strong border>
+              <span>{money(saldo, prefix)}</span>
+            </Row>
+          )}
         </>
       )}
 

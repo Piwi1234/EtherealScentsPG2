@@ -12,6 +12,7 @@ const include = {
     select: {
       id: true,
       codigo: true,
+      estado: true,
       fecha: true,
       cliente: { select: { id: true, nombre: true } },
     },

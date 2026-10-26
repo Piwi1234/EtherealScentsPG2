@@ -8,6 +8,8 @@ import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { ProformasService } from "./proformas.service";
 import { ProformaApprovalService } from "./proforma-approval.service";
 import { ProformaCompletionService } from "./proforma-completion.service";
+import { ProformaPagosService } from "./proforma-pagos.service";
+import { RegistrarPagoDto } from "./dto/registrar-pago.dto";
 import { ProformaPdfService } from "./proforma-pdf.service";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
@@ -32,6 +34,7 @@ export class ProformasController {
     private readonly proformas: ProformasService,
     private readonly approval: ProformaApprovalService,
     private readonly completion: ProformaCompletionService,
+    private readonly pagos: ProformaPagosService,
     private readonly pdf: ProformaPdfService,
   ) {}
 
@@ -123,6 +126,22 @@ export class ProformasController {
   @ApiResponse({ status: 409, description: "Ya no está en BORRADOR (aprobación concurrente u otro estado)." })
   aprobar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AprobarProformaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.approval.aprobar(id, user.id, dto.almacenId, dto.carteraId);
+  }
+
+  @Get(":id/pagos")
+  @ApiOperation({ summary: "Pagos de una venta: total, pagado, saldo y los movimientos de cartera ligados." })
+  pagosDe(@Param("id", ParseUUIDPipe) id: string) {
+    return this.pagos.resumen(id);
+  }
+
+  @Post(":id/pagos")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Registra un pago (adelanto o abono) de una venta APROBADA: entra a la cartera elegida y descuenta del saldo.",
+  })
+  @ApiResponse({ status: 409, description: "La venta no está APROBADA." })
+  registrarPago(@Param("id", ParseUUIDPipe) id: string, @Body() dto: RegistrarPagoDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.pagos.registrar(id, dto, user.id);
   }
 
   @Post(":id/anular")

@@ -1246,6 +1246,9 @@ model CuentaPorCobrar {
   id            String                @id @default(uuid()) @db.Uuid
   proformaId    String                @unique @map("proforma_id") @db.Uuid
   proforma      Proforma              @relation(fields: [proformaId], references: [id], onDelete: Restrict)
+  /// Total de la venta (líneas menos descuento general), fijo desde que se aprueba.
+  montoTotal    Decimal               @map("monto_total") @db.Decimal(14, 2)
+  /// Lo que falta cobrar: montoTotal menos lo cobrado. Nace al aprobar y baja con cada pago/cobro.
   montoAdeudado Decimal               @map("monto_adeudado") @db.Decimal(14, 2)
   estado        EstadoCuentaPorCobrar @default(PENDIENTE)
   createdAt     DateTime              @default(now()) @map("created_at")

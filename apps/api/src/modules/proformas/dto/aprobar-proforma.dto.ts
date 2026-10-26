@@ -9,7 +9,7 @@ export class AprobarProformaDto {
 
   @ApiPropertyOptional({
     description:
-      "Obligatorio si la proforma de VENTA tiene adelanto (adelantoPorcentaje > 0): cartera en Bs donde se registra el ingreso del adelanto.",
+      "Opcional. Si la VENTA tiene adelanto (adelantoPorcentaje > 0) y se manda, el adelanto se cobra en esa cartera (Bs) al aprobar; si no, queda pendiente y se cobra después desde los pagos de la proforma.",
   })
   @IsOptional()
   @IsUUID()

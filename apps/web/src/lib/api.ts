@@ -47,6 +47,7 @@ import type {
   ProformaInput,
   Proveedor,
   ProveedorInput,
+  PagosVenta,
   RegistroLinea,
   RegistroResumen,
   SeguimientoLinea,
@@ -888,6 +889,14 @@ export function getProforma(id: string) {
 
 export function getVendedores() {
   return apiGet<{ id: string; nombre: string }[]>("/proformas/vendedores");
+}
+
+export function getPagosProforma(id: string) {
+  return apiGet<PagosVenta>(`/proformas/${id}/pagos`);
+}
+
+export function registrarPagoProforma(id: string, data: { carteraId: string; monto: number; nota?: string }) {
+  return apiPost<PagosVenta>(`/proformas/${id}/pagos`, data);
 }
 
 export function createProforma(data: ProformaInput) {

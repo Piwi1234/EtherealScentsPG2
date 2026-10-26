@@ -93,14 +93,10 @@ export function ProformaAcciones({
       setError("Elegí el almacén contra el que se reserva stock.");
       return;
     }
-    if (requiereCartera && !carteraId) {
-      setError("Elegí la cartera en Bs donde se registra el adelanto.");
-      return;
-    }
     setSubmitting("aprobar");
     setError("");
     try {
-      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera ? { carteraId } : {}) } : {});
+      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera && carteraId ? { carteraId } : {}) } : {});
       setModal(null);
       router.refresh();
     } catch (e) {
@@ -224,8 +220,11 @@ export function ProformaAcciones({
           </div>
           {requiereCartera && (
             <div className="filter-field" style={{ marginBottom: 12 }}>
-              <label className="filter-label">Cartera del adelanto (Bs)</label>
-              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} />
+              <label className="filter-label">Cobrar el adelanto ahora en (opcional)</label>
+              <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} placeholder="— Cobrar después —" />
+              <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                Si no eliges cartera, el adelanto queda pendiente y se cobra desde la sección Pagos de la proforma.
+              </p>
             </div>
           )}
           {error && <p className="error-text">{error}</p>}

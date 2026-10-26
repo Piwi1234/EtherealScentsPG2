@@ -6,6 +6,7 @@ import { ProformasService } from "./proformas.service";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformaApprovalService } from "./proforma-approval.service";
 import { ProformaCompletionService } from "./proforma-completion.service";
+import { ProformaPagosService } from "./proforma-pagos.service";
 import { ProformaPdfService } from "./proforma-pdf.service";
 import { SeguimientoResumenController } from "./seguimiento/seguimiento-resumen.controller";
 import { SeguimientoService } from "./seguimiento/seguimiento.service";
@@ -25,6 +26,7 @@ import { EnviosService } from "./envios/envios.service";
     ProformaHistorialService,
     ProformaApprovalService,
     ProformaCompletionService,
+    ProformaPagosService,
     ProformaPdfService,
     SeguimientoService,
     RegistrosService,

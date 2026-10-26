@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -7,6 +7,7 @@ import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
+import { totalPagado } from "./proforma-pagos.service";
 import { AsignacionLoteDto, CompletarProformaDto } from "./dto/completar-proforma.dto";
 
 /**
@@ -158,11 +159,21 @@ export class ProformaCompletionService {
    * saldo (sin adelanto pero total=0, o adelanto al 100%) no se crea nada — no hay nada que cobrar.
    */
   private async crearCuentaPorCobrarSiCorresponde(tx: Prisma.TransactionClient, proformaId: string): Promise<void> {
-    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id: proformaId }, include: { detalles: true } });
-    const { saldo } = calcularTotalesVenta(proforma);
-    if (saldo <= 0) return;
+    // La cuenta por cobrar nace al aprobar la venta (ver proforma-approval.service.ts): acá solo se
+    // asegura que exista, por si la venta se aprobó antes de ese cambio.
+    if (await tx.cuentaPorCobrar.findUnique({ where: { proformaId } })) return;
 
-    await tx.cuentaPorCobrar.create({ data: { proformaId, montoAdeudado: saldo } });
+    const proforma = await tx.proforma.findUniqueOrThrow({ where: { id: proformaId }, include: { detalles: true } });
+    const { total } = calcularTotalesVenta(proforma);
+    const saldo = Math.round((total - (await totalPagado(tx, proformaId))) * 100) / 100;
+    await tx.cuentaPorCobrar.create({
+      data: {
+        proformaId,
+        montoTotal: total,
+        montoAdeudado: Math.max(0, saldo),
+        estado: saldo <= 0 ? EstadoCuentaPorCobrar.COMPLETADO : EstadoCuentaPorCobrar.PENDIENTE,
+      },
+    });
     this.logger.debug(`Cuenta por cobrar creada para proforma ${proformaId}: Bs ${saldo}.`);
   }
 }
