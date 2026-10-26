@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiError, desvincularPedido, getComprasCandidatas, vincularPedido } from "../../lib/api";
+import { ApiError, desvincularPedido, getComprasCandidatas, reservarTodoElStockLibre, vincularPedido } from "../../lib/api";
 import { EnviosDeLinea } from "./EnviosDeLinea";
 import { CrearComprasModal } from "./CrearComprasModal";
 import type { CompraCandidata, SeguimientoLinea } from "../../lib/types";
@@ -111,6 +111,8 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
   // Faltantes elegidos para "Crear compras" (solo los que todavía no tienen compra).
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [creando, setCreando] = useState(false);
+  const [reservando, setReservando] = useState(false);
+  const [aviso, setAviso] = useState("");
 
   const sinCompra = lineas.filter((l) => !l.compraDetalle);
   const todosElegidos = sinCompra.length > 0 && sinCompra.every((l) => seleccion.has(l.id));
@@ -141,9 +143,30 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
     return <p className="cell-muted">No hay pedidos de clientes pendientes con estos filtros.</p>;
   }
 
+  async function handleReservarTodo() {
+    setReservando(true);
+    setError("");
+    setAviso("");
+    try {
+      const r = await reservarTodoElStockLibre();
+      setAviso(r.unidadesReservadas > 0 ? `Se reservaron ${r.unidadesReservadas} unidad(es) para ventas con faltante.` : "No había stock libre para reservar.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setReservando(false);
+    }
+  }
+
   return (
     <>
       {error && <p className="error-text">{error}</p>}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        {aviso && <span className="cell-muted" style={{ fontSize: 12.5 }}>{aviso}</span>}
+        <button type="button" className="action-btn" disabled={reservando} onClick={handleReservarTodo}>
+          {reservando ? "Reservando..." : "Reservar todo lo posible"}
+        </button>
+      </div>
       {sinCompra.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <span className="cell-muted" style={{ fontSize: 12.5 }}>

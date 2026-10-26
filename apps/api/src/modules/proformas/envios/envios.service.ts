@@ -425,12 +425,20 @@ export class EnviosService {
           }
 
           const lineasRecibidas = Array.from(new Set(dto.items.map((l) => porId.get(l.envioItemId)!.compraDetalleId)));
+          // Solo se cubre lo que está ligado a las compras recibidas, y hasta lo que llegó: el resto del stock
+          // libre se reserva a mano (ver ProformaApprovalService.reservarFaltantes).
+          const llegoPorVariante = new Map<string, number>();
+          for (const [compraDetalleId, llego] of llegoEsperado) {
+            const varianteId = envio.items.find((i) => i.compraDetalleId === compraDetalleId)!.compraDetalle.varianteId;
+            llegoPorVariante.set(varianteId, (llegoPorVariante.get(varianteId) ?? 0) + llego);
+          }
           for (const par of pares) {
             const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });
             await resolverProcuraPendiente(tx, {
               ...par,
-              disponible: stock.cantidadFisica - stock.cantidadReservada,
+              disponible: Math.min(stock.cantidadFisica - stock.cantidadReservada, llegoPorVariante.get(par.varianteId) ?? 0),
               preferirCompraDetalleIds: lineasRecibidas,
+              soloPreferidas: true,
             });
           }
 

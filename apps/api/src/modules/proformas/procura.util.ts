@@ -20,6 +20,12 @@ export async function resolverProcuraPendiente(
     /** Líneas de compra recién recibidas: las Procura ligadas a ellas (ver compraDetalleId) se cubren
      * primero, antes del criterio "más antigua primero". */
     preferirCompraDetalleIds?: string[];
+    /** Solo repartir entre las Procura ligadas a esas líneas de compra (recepción de un envío). */
+    soloPreferidas?: boolean;
+    /** Solo las Procura que no están ligadas a ninguna compra (reserva manual de stock libre). */
+    soloLibres?: boolean;
+    /** Solo la Procura de esta venta (reserva manual de una nota puntual). */
+    soloProformaId?: string;
   },
 ): Promise<void> {
   let disponible = params.disponible;
@@ -29,12 +35,15 @@ export async function resolverProcuraPendiente(
     where: {
       origen: OrigenAsignacion.PROCURA,
       cantidad: { gt: 0 },
+      ...(params.soloLibres ? { compraDetalleId: null } : {}),
+      ...(params.soloPreferidas ? { compraDetalleId: { in: params.preferirCompraDetalleIds ?? [] } } : {}),
       proformaDetalle: {
         varianteId: params.varianteId,
         proforma: {
           almacenId: params.almacenId,
           estado: EstadoProforma.APROBADA,
           ...(params.excluirProformaId ? { id: { not: params.excluirProformaId } } : {}),
+          ...(params.soloProformaId ? { id: params.soloProformaId } : {}),
         },
       },
     },

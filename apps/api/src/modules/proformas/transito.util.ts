@@ -35,7 +35,7 @@ export async function sumarAsignacion(
  */
 export async function reservarTransitoParaProcuras(
   tx: Prisma.TransactionClient,
-  params: { varianteId: string; almacenId: string; excluirProformaId?: string },
+  params: { varianteId: string; almacenId: string; excluirProformaId?: string; soloProformaId?: string },
 ): Promise<void> {
   const { varianteId, almacenId } = params;
   const where = { varianteId_almacenId: { varianteId, almacenId } };
@@ -54,6 +54,7 @@ export async function reservarTransitoParaProcuras(
           almacenId,
           estado: EstadoProforma.APROBADA,
           ...(params.excluirProformaId ? { id: { not: params.excluirProformaId } } : {}),
+          ...(params.soloProformaId ? { id: params.soloProformaId } : {}),
         },
       },
     },
@@ -183,7 +184,6 @@ export async function recalcularTransitoLinea(tx: Prisma.TransactionClient, comp
         where: { varianteId_almacenId: { varianteId: linea.varianteId, almacenId } },
         data: { cantidadEnTransito: { increment: delta } },
       });
-      await reservarTransitoParaProcuras(tx, { varianteId: linea.varianteId, almacenId });
     } else {
       await liquidarTransito(tx, { varianteId: linea.varianteId, almacenId, quitar: -delta, convertirAFisico: false });
     }

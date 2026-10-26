@@ -9,6 +9,7 @@ import {
   aprobarProforma,
   deleteProforma,
   downloadProformaPdf,
+  reservarVenta,
 } from "../../lib/api";
 import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
@@ -64,6 +65,24 @@ export function ProformaAcciones({
       setErrorPdf(e instanceof ApiError ? e.message : String(e));
     } finally {
       setDescargando(false);
+    }
+  }
+
+  const [reservando, setReservando] = useState(false);
+  const [avisoReserva, setAvisoReserva] = useState("");
+
+  async function handleReservar() {
+    setReservando(true);
+    setError("");
+    setAvisoReserva("");
+    try {
+      const r = await reservarVenta(proformaId);
+      setAvisoReserva(r.unidadesReservadas > 0 ? `Se reservaron ${r.unidadesReservadas} unidad(es).` : "No hay stock libre para reservar.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setReservando(false);
     }
   }
 
@@ -136,6 +155,11 @@ export function ProformaAcciones({
           </button>
         )}
         {estado === "APROBADA" && tipo === "VENTA" && (
+          <button type="button" className="action-btn" onClick={handleReservar} disabled={submitting !== null || reservando}>
+            {reservando ? "Reservando..." : "Reservar stock"}
+          </button>
+        )}
+        {estado === "APROBADA" && tipo === "VENTA" && (
           <button type="button" className="action-btn" onClick={() => router.push(`/dashboard/proformas/${proformaId}/completar`)} disabled={submitting !== null}>
             Completar
           </button>
@@ -160,6 +184,7 @@ export function ProformaAcciones({
         </button>
       </div>
 
+      {avisoReserva && <p className="cell-muted" style={{ marginTop: 8, fontSize: 13 }}>{avisoReserva}</p>}
       {errorPdf && <p className="error-text" style={{ marginTop: 8 }}>{errorPdf}</p>}
       {error && !modal && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
 

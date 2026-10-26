@@ -30,6 +30,60 @@ export class ProformaApprovalService {
     private readonly proformas: ProformasService,
   ) {}
 
+  /**
+   * Reserva a mano el stock libre (físico y en tránsito) para el faltante de ventas aprobadas, la más antigua
+   * primero. Con `proformaId` solo para esa nota; sin él, "reservar todo lo posible". Solo toca faltantes que
+   * no están ligados a una compra (los ligados se cubren al recibirla).
+   */
+  async reservarFaltantes(proformaId?: string) {
+    const where: Prisma.ProformaDetalleAsignacionWhereInput = {
+      origen: OrigenAsignacion.PROCURA,
+      cantidad: { gt: 0 },
+      compraDetalleId: null,
+      proformaDetalle: { proforma: { tipo: TipoProforma.VENTA, estado: EstadoProforma.APROBADA, ...(proformaId ? { id: proformaId } : {}) } },
+    };
+    const antes = await this.prisma.proformaDetalleAsignacion.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      select: { cantidad: true, proformaDetalle: { select: { varianteId: true, proforma: { select: { almacenId: true } } } } },
+    });
+    if (proformaId && antes.length === 0) {
+      const p = await this.prisma.proforma.findUnique({ where: { id: proformaId }, select: { tipo: true, estado: true } });
+      if (!p) throw new NotFoundException("Proforma no encontrada.");
+      if (p.tipo !== TipoProforma.VENTA || p.estado !== EstadoProforma.APROBADA) throw new ConflictException("Solo se reserva stock para ventas aprobadas.");
+    }
+    const pares = new Map<string, { varianteId: string; almacenId: string }>();
+    for (const a of antes) {
+      const almacenId = a.proformaDetalle.proforma.almacenId;
+      if (almacenId) pares.set(stockKey(a.proformaDetalle.varianteId, almacenId), { varianteId: a.proformaDetalle.varianteId, almacenId });
+    }
+    const totalAntes = antes.reduce((n, a) => n + a.cantidad, 0);
+
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCK_TIMEOUT = '5s'`;
+          await lockStockRows(tx, Array.from(pares.values()));
+          for (const par of pares.values()) {
+            const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });
+            await resolverProcuraPendiente(tx, {
+              ...par,
+              disponible: stock.cantidadFisica - stock.cantidadReservada,
+              soloLibres: true,
+              soloProformaId: proformaId,
+            });
+            await reservarTransitoParaProcuras(tx, { ...par, soloProformaId: proformaId });
+          }
+        },
+        { timeout: 20000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Proforma");
+    }
+    const despues = await this.prisma.proformaDetalleAsignacion.aggregate({ where, _sum: { cantidad: true } });
+    return { unidadesReservadas: totalAntes - (despues._sum.cantidad ?? 0) };
+  }
+
   async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string) {
     try {
       await this.prisma.$transaction(
@@ -211,10 +265,8 @@ export class ProformaApprovalService {
 
         if (asignacion.origen === OrigenAsignacion.EN_TRANSITO) {
           await tx.stock.update({ where, data: { cantidadReservadaTransito: { decrement: asignacion.cantidad } } });
-          await reservarTransitoParaProcuras(tx, { varianteId, almacenId, excluirProformaId: proformaId });
         } else {
           await tx.stock.update({ where, data: { cantidadReservada: { decrement: asignacion.cantidad } } });
-          await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: asignacion.cantidad, excluirProformaId: proformaId });
         }
       }
     }

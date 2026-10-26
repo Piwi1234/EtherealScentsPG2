@@ -200,6 +200,14 @@ export default function DashboardPage() {
           accion: "Completar",
         },
         {
+          n: pendientes.ventasConStockLibre,
+          tono: "warn",
+          titulo: `${plural(pendientes.ventasConStockLibre, "venta con faltante", "ventas con faltante")} y hay stock libre`,
+          detalle: "El stock no se reserva solo: reservalo desde la venta o en Seguimiento",
+          href: "/dashboard/seguimiento",
+          accion: "Reservar",
+        },
+        {
           n: pendientes.ventasEsperando,
           tono: "warn",
           titulo: `${plural(pendientes.ventasEsperando, "venta", "ventas")} esperando mercadería`,

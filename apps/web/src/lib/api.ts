@@ -1001,6 +1001,16 @@ export function vincularPedido(asignacionId: string, compraDetalleId: string, ca
   return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
 }
 
+// --- Reserva manual de stock libre ---
+
+export function reservarVenta(id: string) {
+  return apiPost<{ unidadesReservadas: number }>(`/proformas/${id}/reservar`, {});
+}
+
+export function reservarTodoElStockLibre() {
+  return apiPost<{ unidadesReservadas: number }>("/proformas/reservar-todo", {});
+}
+
 // --- Recojos ---
 
 export function getRecojos(compraId: string) {

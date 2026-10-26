@@ -310,7 +310,7 @@ export class DashboardService {
 
   /** Lo que está esperando una acción: faltantes sin compra, envíos, borradores, compras sin envío y ventas (listas o esperando mercadería). */
   async pendientes() {
-    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio, solicitudesSinComprar] = await Promise.all([
+    const [pedidosSinCompra, enviosEnTransito, piezasEnTransito, enviosArmando, borradoresVenta, borradoresCompra, borradorMasViejo, ventasListas, ventasEsperando, comprasSinEnvio, solicitudesSinComprar, ventasConStockLibre] = await Promise.all([
       this.prisma.proformaDetalleAsignacion.count({
         where: {
           origen: OrigenAsignacion.PROCURA,
@@ -360,6 +360,17 @@ export class DashboardService {
       `,
       // Líneas de solicitudes de stock abiertas que todavía no tienen compra.
       this.prisma.solicitudStockLinea.count({ where: { compraDetalleId: null, solicitud: { estado: "ABIERTA" } } }),
+      // Ventas con faltante sin compra ligada para las que ya hay stock libre (físico o en tránsito) sin reservar.
+      this.prisma.$queryRaw<{ ventas: bigint }[]>`
+        SELECT COUNT(DISTINCT p."id") AS "ventas"
+        FROM "proforma_detalle_asignaciones" a
+        JOIN "proforma_detalles" d ON d."id" = a."proforma_detalle_id"
+        JOIN "proformas" p ON p."id" = d."proforma_id"
+        JOIN "stock" s ON s."variante_id" = d."variante_id" AND s."almacen_id" = p."almacen_id"
+        WHERE a."origen" = 'PROCURA' AND a."cantidad" > 0 AND a."compra_detalle_id" IS NULL
+          AND p."estado" = 'APROBADA' AND p."tipo" = 'VENTA'
+          AND ((s."cantidad_fisica" - s."cantidad_reservada") > 0 OR (s."cantidad_en_transito" - s."cantidad_reservada_transito") > 0)
+      `,
     ]);
     const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;
     return {
@@ -372,6 +383,7 @@ export class DashboardService {
       diasBorradorMasViejo,
       ventasListas,
       ventasEsperando,
+      ventasConStockLibre: Number(ventasConStockLibre[0]?.ventas ?? 0),
       comprasSinEnvio: Number(comprasSinEnvio[0]?.compras ?? 0),
       solicitudesSinComprar,
     };
