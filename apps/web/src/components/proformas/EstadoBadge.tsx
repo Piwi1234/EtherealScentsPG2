@@ -10,7 +10,7 @@ const LABELS: Record<EstadoProforma, string> = {
 const CLASSES: Record<EstadoProforma, string> = {
   BORRADOR: "badge badge-muted",
   APROBADA: "badge badge-accent",
-  COMPLETADA: "badge badge-accent",
+  COMPLETADA: "badge badge-success",
   ANULADA: "badge badge-danger",
 };
 

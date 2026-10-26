@@ -9547,3 +9547,98 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   color: var(--color-accent);
   white-space: nowrap;
 }
+
+/* Registros: chips de filtros activos, resumen del filtro y proformas agrupadas. */
+.reg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.reg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 5px 3px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.reg-chip button {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reg-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.reg-kpis .dash-kpi {
+  padding: 10px 14px;
+}
+
+.reg-kpis .dash-kpi-value {
+  font-size: 20px;
+}
+
+.table-compact tr.reg-group td {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  font-weight: 600;
+  border-top: 1px solid var(--color-divider);
+}
+
+.table-compact tbody tr:nth-child(even).reg-group {
+  background: none;
+}
+
+.table-compact td.reg-indent {
+  padding-left: 26px;
+}
+
+.table-compact tr.reg-total td {
+  font-weight: 700;
+  border-top: 1px solid var(--color-divider);
+}
+
+/* Registros: la fila de producto es de una sola línea y deja respirar las columnas. */
+.table-compact td.reg-indent {
+  padding-left: 22px;
+  white-space: nowrap;
+}
+
+.table-compact td[title] {
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Estado "Completada": verde (el violeta queda para Aprobada). */
+.badge-success {
+  background: rgba(34, 139, 96, 0.12);
+  border-color: #1f8a5b;
+  color: #1f8a5b;
+  font-weight: 600;
+}
+
+.nocturne-theme .badge-success {
+  background: color-mix(in srgb, #2cc58a 16%, transparent);
+  border-color: #2cc58a;
+  color: #2cc58a;
+}

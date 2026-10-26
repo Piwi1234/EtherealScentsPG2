@@ -879,6 +879,7 @@ export type RegistroLinea = {
   proforma: {
     id: string;
     codigo: string;
+    estado: EstadoProforma;
     fecha: string;
     empresa: { id: string; nombre: string };
     cliente: { id: string; nombre: string } | null;
@@ -886,6 +887,9 @@ export type RegistroLinea = {
   };
   variante: ProformaDetalleVariante;
 };
+
+/** Totales de TODO el filtro de Registros (no solo de la página visible). */
+export type RegistroResumen = { totalBs: number; piezas: number; proformas: number };
 
 // --- Financiero (Contabilidad) ---
 

@@ -14,6 +14,7 @@ const registroInclude = {
     select: {
       id: true,
       codigo: true,
+      estado: true,
       fecha: true,
       empresa: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
@@ -97,17 +98,47 @@ export class RegistrosService {
       },
     };
 
-    const [items, total] = await Promise.all([
+    const [items, total, todas] = await Promise.all([
       this.prisma.proformaDetalle.findMany({
         where,
         skip,
         take,
-        orderBy: { proforma: { fecha: "desc" } },
+        // Las líneas de una misma proforma quedan contiguas (la pantalla las agrupa bajo su encabezado).
+        orderBy: [{ proforma: { fecha: "desc" } }, { proformaId: "asc" }, { createdAt: "asc" }],
         include: registroInclude,
       }),
       this.prisma.proformaDetalle.count({ where }),
+      // Resumen de TODO el filtro (no solo de la página): total en Bs, piezas y proformas distintas.
+      this.prisma.proformaDetalle.findMany({
+        where,
+        select: {
+          cantidad: true,
+          subtotal: true,
+          proformaId: true,
+          presentacionVenta: { select: { cantidadMl: true } },
+          variante: { select: { unidad: true } },
+          proforma: { select: { tipoCambioProf: true } },
+        },
+      }),
     ]);
 
-    return { items, total, page, pageSize };
+    // VENTA: el subtotal ya está en Bs. COMPRA: está en la moneda de la compra y se pasa a Bs con el
+    // tipo de cambio propio de cada proforma (sin tipo de cambio no se puede convertir y no suma).
+    let totalBs = 0;
+    let piezas = 0;
+    const proformas = new Set<string>();
+    for (const l of todas) {
+      proformas.add(l.proformaId);
+      const subtotal = Number(l.subtotal);
+      if (query.tipo === "VENTA") totalBs += subtotal;
+      else if (l.proforma.tipoCambioProf) totalBs += subtotal * Number(l.proforma.tipoCambioProf);
+      // Una venta en ml cuenta frascos (presentaciones); una compra en ml, una unidad por línea.
+      if (l.presentacionVenta?.cantidadMl) piezas += Math.round(l.cantidad / l.presentacionVenta.cantidadMl);
+      else if (l.variante.unidad === "ML") piezas += 1;
+      else piezas += l.cantidad;
+    }
+    const resumen = { totalBs: Math.round(totalBs * 100) / 100, piezas, proformas: proformas.size };
+
+    return { items, total, page, pageSize, resumen };
   }
 }

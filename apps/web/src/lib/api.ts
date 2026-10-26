@@ -48,6 +48,7 @@ import type {
   Proveedor,
   ProveedorInput,
   RegistroLinea,
+  RegistroResumen,
   SeguimientoLinea,
   SeguimientoStockLinea,
   CompraCandidata,
@@ -1018,7 +1019,7 @@ export function getRegistros(
   if (query.proveedorId) params.set("proveedorId", query.proveedorId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
-  return apiGet<Page<RegistroLinea>>(`/proformas/registros?${params.toString()}`);
+  return apiGet<Page<RegistroLinea> & { resumen: RegistroResumen }>(`/proformas/registros?${params.toString()}`);
 }
 
 // --- Financiero (Contabilidad) ---

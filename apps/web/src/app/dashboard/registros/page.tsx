@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { ApiError, getBrands, getCategories, getProducts, getProveedores, getRegistros } from "../../../lib/api";
-import type { Brand, Category, Page, Product, Proveedor, RegistroLinea, TipoProforma } from "../../../lib/types";
+import type { Brand, Category, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
+import { EstadoBadge } from "../../../components/proformas/EstadoBadge";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
 import { ProductoSearchSelect } from "../../../components/proformas/ProductoSearchSelect";
@@ -21,6 +22,28 @@ function money(value: number | null, prefix = "Bs"): string {
   return value === null ? "—" : `${prefix} ${value.toFixed(2)}`;
 }
 
+type RegistrosData = { items: RegistroLinea[]; total: number; page: number; pageSize: number; resumen: RegistroResumen };
+
+/** Precio/costo unitario en Bs de una línea. En compras se convierte con el tipo de cambio de su proforma (null si no tiene). */
+function unitarioBs(linea: RegistroLinea, tipo: TipoProforma): number | null {
+  if (tipo === "VENTA") return Number(linea.precioUnitario ?? 0);
+  const tc = linea.proforma.tipoCambioProf ? Number(linea.proforma.tipoCambioProf) : null;
+  if (!tc) return null;
+  const usd = Number(linea.precioCompra ?? 0) + Number(linea.costoEnvio ?? 0) + Number(linea.costoSeguridad ?? 0) + Number(linea.costoLogistica ?? 0);
+  return usd * tc;
+}
+
+function subtotalBs(linea: RegistroLinea, tipo: TipoProforma): number | null {
+  if (tipo === "VENTA") return Number(linea.subtotal);
+  const tc = linea.proforma.tipoCambioProf ? Number(linea.proforma.tipoCambioProf) : null;
+  return tc ? Number(linea.subtotal) * tc : null;
+}
+
+/** Suma de subtotales en Bs; null si alguno no se pudo convertir. */
+function sumaBs(valores: (number | null)[]): number | null {
+  return valores.some((v) => v === null) ? null : valores.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+}
+
 function atributosLabel(variante: RegistroLinea["variante"]): string | null {
   const opciones = variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
   const heredados = formatAtributosVisibles(variante.product.attributeValues, variante.product.variantOptionValues);
@@ -34,6 +57,15 @@ function atributosLabel(variante: RegistroLinea["variante"]): string | null {
  * de pestaña no se pierde lo que se había filtrado en la otra. Un panel recién carga datos la
  * primera vez que se abre.
  */
+/** "Tamaño: 100 ML, Concentracion: Eau de Parfum" → "100 ML · Eau de Parfum" (el nombre del atributo queda en el tooltip). */
+function atributosCompactos(label: string | null): string {
+  if (!label) return "—";
+  return label
+    .split(", ")
+    .map((parte) => (parte.includes(": ") ? parte.split(": ").slice(1).join(": ") : parte))
+    .join(" · ");
+}
+
 export default function RegistrosPage() {
   const [tab, setTab] = useState<TipoProforma>("VENTA");
   const [visitadas, setVisitadas] = useState<TipoProforma[]>(["VENTA"]);
@@ -114,8 +146,12 @@ function RegistrosPanel({
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [pageNum, setPageNum] = useState(1);
+  // Nombres para los chips de filtros activos, y claves para reiniciar los controles que guardan su propio estado.
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [clienteKey, setClienteKey] = useState(0);
+  const [dateKey, setDateKey] = useState(0);
 
-  const [data, setData] = useState<Page<RegistroLinea> | null>(null);
+  const [data, setData] = useState<RegistrosData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -204,6 +240,79 @@ function RegistrosPanel({
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
+  // Líneas de la página agrupadas por proforma (el backend las entrega contiguas).
+  const grupos: { proforma: RegistroLinea["proforma"]; lineas: RegistroLinea[] }[] = [];
+  for (const linea of data?.items ?? []) {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.proforma.id === linea.proforma.id) ultimo.lineas.push(linea);
+    else grupos.push({ proforma: linea.proforma, lineas: [linea] });
+  }
+
+  function quitarCategoria() {
+    handleCategoryChange("");
+  }
+
+  function limpiarTodo() {
+    setSearchInput("");
+    setCodigoInput("");
+    setDateSelection(TODO_EL_TIEMPO);
+    setDateKey((k) => k + 1);
+    setCategoryId("");
+    setBrandId("");
+    setProductId("");
+    setClienteId("");
+    setClienteNombre("");
+    setClienteKey((k) => k + 1);
+    setProveedorId("");
+    setPageNum(1);
+  }
+
+  // Un chip por cada filtro activo, con su botón para quitarlo.
+  const chips: { key: string; label: string; quitar: () => void }[] = [];
+  if (search) chips.push({ key: "search", label: `Búsqueda: ${search}`, quitar: () => setSearchInput("") });
+  if (codigo) chips.push({ key: "codigo", label: `Código: ${codigo}`, quitar: () => setCodigoInput("") });
+  if (dateSelection.fechaDesde || dateSelection.fechaHasta) {
+    chips.push({
+      key: "fecha",
+      label: dateSelection.label,
+      quitar: () => {
+        handleDateApply(TODO_EL_TIEMPO);
+        setDateKey((k) => k + 1);
+      },
+    });
+  }
+  if (clienteId) {
+    chips.push({
+      key: "cliente",
+      label: `Cliente: ${clienteNombre || "…"}`,
+      quitar: () => {
+        setClienteId("");
+        setClienteNombre("");
+        setClienteKey((k) => k + 1);
+        setPageNum(1);
+      },
+    });
+  }
+  if (proveedorId) {
+    chips.push({
+      key: "proveedor",
+      label: `Proveedor: ${proveedores.find((p) => p.id === proveedorId)?.nombre ?? "…"}`,
+      quitar: () => {
+        setProveedorId("");
+        setPageNum(1);
+      },
+    });
+  }
+  if (categoryId) {
+    chips.push({ key: "categoria", label: `Categoría: ${categories.find((c) => c.id === categoryId)?.name ?? "…"}`, quitar: quitarCategoria });
+  }
+  if (brandId) {
+    chips.push({ key: "marca", label: `Marca: ${brands.find((b) => b.id === brandId)?.name ?? "…"}`, quitar: () => handleBrandChange("") });
+  }
+  if (productId) {
+    chips.push({ key: "producto", label: `Producto: ${products.find((p) => p.id === productId)?.name ?? "…"}`, quitar: () => handleProductChange("") });
+  }
+
   if (error) return <p className="error-text">{error}</p>;
 
   return (
@@ -235,9 +344,11 @@ function RegistrosPanel({
           <div className="filter-field" style={{ minWidth: 200 }}>
             <label className="filter-label">Cliente</label>
             <ClienteBuscador
+              key={clienteKey}
               value={clienteId}
               onChange={(cliente) => {
                 setClienteId(cliente?.id ?? "");
+                setClienteNombre(cliente?.nombre ?? "");
                 setPageNum(1);
               }}
             />
@@ -257,7 +368,7 @@ function RegistrosPanel({
           </div>
         )}
 
-        <DateRangeDropdown onApply={handleDateApply} />
+        <DateRangeDropdown key={dateKey} onApply={handleDateApply} />
 
         <div className="filter-field">
           <label className="filter-label">Categoría</label>
@@ -293,6 +404,45 @@ function RegistrosPanel({
         )}
       </div>
 
+      {chips.length > 0 && (
+        <div className="reg-chips">
+          {chips.map((c) => (
+            <span key={c.key} className="reg-chip">
+              {c.label}
+              <button type="button" aria-label={`Quitar ${c.label}`} onClick={c.quitar}>
+                ×
+              </button>
+            </span>
+          ))}
+          <button type="button" className="link-button" onClick={limpiarTodo}>
+            Limpiar todo
+          </button>
+        </div>
+      )}
+
+      {data && (
+        <div className="reg-kpis">
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">{tipo === "VENTA" ? "Total vendido" : "Total comprado"}</span>
+            <span className="dash-kpi-value">{money(data.resumen.totalBs)}</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">Piezas</span>
+            <span className="dash-kpi-value">{data.resumen.piezas}</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">Proformas</span>
+            <span className="dash-kpi-value">{data.resumen.proformas}</span>
+          </div>
+          <div className="dash-kpi">
+            <span className="dash-kpi-label">{tipo === "VENTA" ? "Ticket promedio" : "Compra promedio"}</span>
+            <span className="dash-kpi-value">
+              {data.resumen.proformas > 0 ? money(data.resumen.totalBs / data.resumen.proformas) : "—"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {loading && <p className="cell-muted">Cargando...</p>}
 
       {!loading && data && data.items.length === 0 && <p>No hay registros para estos filtros.</p>}
@@ -303,64 +453,65 @@ function RegistrosPanel({
             <table className="table table-minimal table-compact">
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>Código proforma</th>
-                  <th>Código</th>
-                  <th>Marca</th>
-                  <th style={{ minWidth: 220 }}>Producto</th>
+                  <th style={{ minWidth: 150 }}>Proforma / marca</th>
+                  <th style={{ minWidth: 200 }}>Producto</th>
+                  <th>Atributos</th>
                   <th className="num">Cant.</th>
                   <th className="num">{tipo === "COMPRA" ? "Costo unitario Bs" : "Precio unitario Bs"}</th>
                   <th className="num">Subtotal Bs</th>
-                  {tipo === "VENTA" && <th>Cliente</th>}
                   {tipo === "COMPRA" && <th>Proveedor</th>}
                   {tipo === "COMPRA" && <th>País de origen</th>}
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((linea) => {
-                  const tipoCambioProf = linea.proforma.tipoCambioProf ? Number(linea.proforma.tipoCambioProf) : null;
-                  const costoUnitarioUsd =
-                    Number(linea.precioCompra ?? 0) +
-                    Number(linea.costoEnvio ?? 0) +
-                    Number(linea.costoSeguridad ?? 0) +
-                    Number(linea.costoLogistica ?? 0);
-                  const unitarioBs =
-                    tipo === "COMPRA"
-                      ? tipoCambioProf
-                        ? costoUnitarioUsd * tipoCambioProf
-                        : null
-                      : Number(linea.precioUnitario ?? 0);
-                  const subtotalBs =
-                    tipo === "COMPRA"
-                      ? tipoCambioProf
-                        ? Number(linea.subtotal) * tipoCambioProf
-                        : null
-                      : Number(linea.subtotal);
-                  const etiqueta = atributosLabel(linea.variante);
-
+                {grupos.map((g) => {
+                  const subtotalGrupo = sumaBs(g.lineas.map((l) => subtotalBs(l, tipo)));
                   return (
-                    <tr key={linea.id}>
-                      <td className="cell-muted">{formatDate(linea.proforma.fecha)}</td>
-                      <td>
-                        <Link href={`/dashboard/proformas/${linea.proforma.id}`} className="link-button">
-                          {linea.proforma.codigo}
-                        </Link>
-                      </td>
-                      <td className="cell-code">{linea.variante.product.productCode}</td>
-                      <td className="cell-muted">{linea.variante.product.brand?.name ?? "—"}</td>
-                      <td className="cell-primary">
-                        {linea.variante.product.name}
-                        {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
-                      </td>
-                      <td className="num">{linea.cantidad}</td>
-                      <td className="num">{money(unitarioBs)}</td>
-                      <td className="num cell-primary">{money(subtotalBs)}</td>
-                      {tipo === "VENTA" && <td className="cell-muted">{linea.proforma.cliente?.nombre ?? "—"}</td>}
-                      {tipo === "COMPRA" && <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>}
-                      {tipo === "COMPRA" && <td>{linea.proveedor?.paisProcedencia?.nombre ?? "—"}</td>}
-                    </tr>
+                    <Fragment key={g.proforma.id}>
+                      <tr className="reg-group">
+                        <td colSpan={3}>
+                          <Link href={`/dashboard/proformas/${g.proforma.id}`} className="link-button">
+                            {g.proforma.codigo}
+                          </Link>
+                          <span className="cell-muted" style={{ fontWeight: 400, marginLeft: 8 }}>
+                            {formatDate(g.proforma.fecha)}
+                            {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
+                          </span>
+                          <span style={{ marginLeft: 10 }}>
+                            <EstadoBadge estado={g.proforma.estado} />
+                          </span>
+                        </td>
+                        <td colSpan={2} />
+                        <td className="num">{money(subtotalGrupo)}</td>
+                        {tipo === "COMPRA" && <td colSpan={2} />}
+                      </tr>
+                      {g.lineas.map((linea) => {
+                        const etiqueta = atributosLabel(linea.variante);
+                        return (
+                          <tr key={linea.id}>
+                            <td className="reg-indent cell-muted">{linea.variante.product.brand?.name ?? "—"}</td>
+                            <td className="cell-primary">{linea.variante.product.name}</td>
+                            <td className="cell-muted" title={etiqueta ?? undefined}>
+                              {atributosCompactos(etiqueta)}
+                            </td>
+                            <td className="num">{linea.cantidad}</td>
+                            <td className="num cell-muted">{money(unitarioBs(linea, tipo))}</td>
+                            <td className="num">{money(subtotalBs(linea, tipo))}</td>
+                            {tipo === "COMPRA" && <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>}
+                            {tipo === "COMPRA" && <td>{linea.proveedor?.paisProcedencia?.nombre ?? "—"}</td>}
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
                   );
                 })}
+                <tr className="reg-total">
+                  <td colSpan={3}>Total de esta página</td>
+                  <td className="num">{data.items.reduce((n, l) => n + l.cantidad, 0)}</td>
+                  <td />
+                  <td className="num">{money(sumaBs(data.items.map((l) => subtotalBs(l, tipo))))}</td>
+                  {tipo === "COMPRA" && <td colSpan={2} />}
+                </tr>
               </tbody>
             </table>
           </div>
