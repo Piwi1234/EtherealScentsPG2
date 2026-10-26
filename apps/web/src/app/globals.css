@@ -9905,3 +9905,58 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   color: #fff;
   font-weight: 600;
 }
+
+/* Botones "Nueva venta" / "Nueva compra" del dashboard: uno relleno de acento y otro oscuro con borde. */
+.dash-acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: filter 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-new:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.btn-new-icon {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.btn-new--primary,
+.btn-new--primario {
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-new--primario:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-new--secundario {
+  border: 1px solid var(--color-divider);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: color-mix(in srgb, var(--color-text) 82%, transparent);
+  font-weight: 500;
+}
+
+.btn-new--secundario:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}

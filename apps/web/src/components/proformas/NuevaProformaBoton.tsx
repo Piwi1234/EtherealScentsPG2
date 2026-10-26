@@ -10,7 +10,16 @@ import type { TipoProforma } from "../../lib/types";
  * cabecera) y sin cliente en las ventas: el cliente se elige directo en el buscador de la cabecera y
  * es obligatorio recién al aprobar. Va directo al constructor, sin pantalla intermedia.
  */
-export function NuevaProformaBoton({ tipo, empresaId }: { tipo: TipoProforma; empresaId: string }) {
+export function NuevaProformaBoton({
+  tipo,
+  empresaId,
+  variante,
+}: {
+  tipo: TipoProforma;
+  empresaId: string;
+  /** "primario" / "secundario": el par de botones del dashboard (ver .btn-new en globals.css). Sin valor, el botón clásico del listado. */
+  variante?: "primario" | "secundario";
+}) {
   const router = useRouter();
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState("");
@@ -33,8 +42,14 @@ export function NuevaProformaBoton({ tipo, empresaId }: { tipo: TipoProforma; em
 
   return (
     <>
-      <button type="button" className="btn-cta" onClick={handleClick} disabled={creando}>
-        <span className="btn-cta-icon">+</span> {creando ? "Creando..." : tipo === "VENTA" ? "Nueva venta" : "Nueva compra"}
+      <button
+        type="button"
+        className={variante ? `btn-new btn-new--${variante}` : "btn-cta"}
+        onClick={handleClick}
+        disabled={creando}
+      >
+        <span className={variante ? "btn-new-icon" : "btn-cta-icon"}>+</span>{" "}
+        {creando ? "Creando..." : tipo === "VENTA" ? "Nueva venta" : "Nueva compra"}
       </button>
       {error && <span className="error-text">{error}</span>}
     </>

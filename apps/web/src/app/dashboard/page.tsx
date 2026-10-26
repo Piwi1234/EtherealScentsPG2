@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { NuevaProformaBoton } from "../../components/proformas/NuevaProformaBoton";
 import { apiGet } from "../../lib/api";
 import type {
   DashCategoriaTotal,
@@ -149,6 +150,10 @@ export default function DashboardPage() {
     }));
   }, [ingresosEgresos]);
 
+  // Las proformas nuevas arrancan con la casa matriz (se puede cambiar después en la cabecera).
+  const empresasActivas = empresas.filter((e) => e.activo);
+  const empresaPorDefectoId = (empresasActivas.find((e) => e.tipo === "CASA_MATRIZ") ?? empresasActivas[0])?.id ?? "";
+
   // Indicadores del mes en curso (último mes del rango) contra el anterior.
   const ventasMes = ventasMensuales?.[ventasMensuales.length - 1]?.total ?? null;
   const ventasMesAnterior = ventasMensuales && ventasMensuales.length > 1 ? ventasMensuales[ventasMensuales.length - 2].total : null;
@@ -216,6 +221,10 @@ export default function DashboardPage() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Dashboard</h1>
+        <div className="dash-acciones">
+          <NuevaProformaBoton tipo="VENTA" empresaId={empresaPorDefectoId} variante="primario" />
+          <NuevaProformaBoton tipo="COMPRA" empresaId={empresaPorDefectoId} variante="secundario" />
+        </div>
       </div>
 
       {error && <p className="error-text">{error}</p>}
