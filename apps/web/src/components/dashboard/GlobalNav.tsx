@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { AuthUser } from "../../lib/auth";
+import { getCasaMatrizLogo } from "../../lib/api";
+import { productImageSrc } from "../../lib/catalog-display";
 import { ChevronDownIcon, DashboardIcon, LogoutIcon } from "../nocturne-icons";
 
 type NavItem = {
@@ -26,7 +28,6 @@ const GROUPS: NavGroup[] = [
           { href: "/dashboard/proformas?tipo=VENTA", tipo: "VENTA", label: "Proformas de venta", desc: "Crea, aprueba y completa notas de venta" },
           { href: "/dashboard/seguimiento", label: "Seguimiento", desc: "Qué falta comprar para los pedidos de clientes" },
           { href: "/dashboard/clientes/pedidos", label: "Pedidos de clientes", desc: "Pedidos que llegan desde el catálogo" },
-          { href: "/dashboard/registros", label: "Registros", desc: "Qué se vendió y compró, producto por producto" },
         ],
       },
     ],
@@ -123,20 +124,26 @@ function pathOf(href: string): string {
 }
 
 /**
- * Barra de navegación superior del panel: Inicio + menús desplegables por área de trabajo, buscador
- * de proformas por código (Ctrl+K), acceso al catálogo y sesión. En pantallas angostas se pliega
- * detrás de un botón y los desplegables se muestran abiertos dentro del panel.
+ * Barra de navegación superior del panel: Inicio + menús desplegables por área de trabajo, acceso al
+ * catálogo y sesión. En pantallas angostas el menú pasa a un drawer lateral (mismo patrón que el
+ * menú móvil del sitio público: fondo que se oscurece y panel que entra desde la izquierda) con un
+ * acordeón por área de trabajo.
  */
 export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [codigo, setCodigo] = useState("");
+  const [openMobileGroups, setOpenMobileGroups] = useState<Set<string>>(new Set());
   const [tipoGuardado, setTipoGuardado] = useState<string | null>(null);
+  const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const navRef = useRef<HTMLElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Logo (y nombre) de la casa matriz, el mismo que usa el sitio público.
+  useEffect(() => {
+    getCasaMatrizLogo().then(setEmpresa).catch(() => {});
+  }, []);
+  const logoSrc = productImageSrc(empresa?.logoUrl ?? null);
 
   const groups = useMemo(
     () =>
@@ -184,6 +191,36 @@ export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout:
     setMobileOpen(false);
   }, [pathname, searchParams]);
 
+  // Al abrir el drawer móvil se despliega el área donde estás y se bloquea el scroll de la página.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    setOpenMobileGroups(new Set(activo ? [activo.groupId] : []));
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileOpen]);
+
+  function toggleMobileGroup(id: string) {
+    setOpenMobileGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const marca = logoSrc ? (
+    <img className="gnav-brand-logo" src={logoSrc} alt={empresa?.nombre ?? "Panel"} />
+  ) : (
+    <>
+      <span className="gnav-logo">{(empresa?.nombre ?? "P").slice(0, 1).toUpperCase()}</span>
+      <span>{empresa?.nombre ?? "Panel"}</span>
+    </>
+  );
+
   useEffect(() => {
     function onPointerDown(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenGroup(null);
@@ -192,10 +229,6 @@ export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout:
       if (e.key === "Escape") {
         setOpenGroup(null);
         setMobileOpen(false);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
       }
     }
     document.addEventListener("mousedown", onPointerDown);
@@ -206,38 +239,36 @@ export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout:
     };
   }, []);
 
-  function buscar(e: React.FormEvent) {
-    e.preventDefault();
-    const q = codigo.trim();
-    if (!q) return;
-    router.push(`/dashboard/proformas?codigo=${encodeURIComponent(q)}`);
-    setCodigo("");
-    searchRef.current?.blur();
-  }
-
   return (
+    <>
     <header className="gnav nocturne-theme" ref={navRef}>
       <Link href="/dashboard" className="gnav-brand">
-        <span className="gnav-logo">P</span>
-        <span>Panel</span>
+        {marca}
       </Link>
 
       <button
         type="button"
         className="gnav-burger"
         aria-expanded={mobileOpen}
-        aria-label="Menú"
-        onClick={() => setMobileOpen((v) => !v)}
+        aria-label="Abrir menú"
+        onClick={() => setMobileOpen(true)}
       >
         <span />
         <span />
         <span />
       </button>
 
-      <nav className={`gnav-menu${mobileOpen ? " open" : ""}`}>
+      <nav className="gnav-menu">
         <Link href="/dashboard" className={`gnav-link${pathname === "/dashboard" ? " active" : ""}`}>
           <DashboardIcon className="gnav-icon" />
           <span>Inicio</span>
+        </Link>
+
+        <Link
+          href="/dashboard/registros"
+          className={`gnav-link${pathname === "/dashboard/registros" || pathname.startsWith("/dashboard/registros/") ? " active" : ""}`}
+        >
+          <span>Registros</span>
         </Link>
 
         {groups.map((g) => {
@@ -277,16 +308,6 @@ export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout:
       </nav>
 
       <div className="gnav-right">
-        <form className="gnav-search" onSubmit={buscar} role="search">
-          <input
-            ref={searchRef}
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
-            placeholder="Código de proforma…"
-            aria-label="Buscar proforma por código"
-          />
-          <kbd>Ctrl K</kbd>
-        </form>
         <Link href="/home" className="gnav-catalogo">
           Catálogo
         </Link>
@@ -299,5 +320,90 @@ export function GlobalNav({ user, onLogout }: { user: AuthUser | null; onLogout:
         </button>
       </div>
     </header>
+
+    {mobileOpen && (
+      <div className="nocturne-theme gnav-drawer-root">
+        <div className="gnav-m-overlay" onClick={() => setMobileOpen(false)} />
+        <nav className="gnav-m" aria-label="Menú del panel">
+          <div className="gnav-m-header">
+            <Link href="/dashboard" className="gnav-brand">
+              {marca}
+            </Link>
+            <button type="button" className="gnav-m-close" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="gnav-m-body">
+            <Link href="/dashboard" className={`gnav-m-link${pathname === "/dashboard" ? " active" : ""}`}>
+              Inicio
+            </Link>
+            <Link
+              href="/dashboard/registros"
+              className={`gnav-m-link${pathname === "/dashboard/registros" || pathname.startsWith("/dashboard/registros/") ? " active" : ""}`}
+            >
+              Registros
+            </Link>
+
+            {groups.map((g) => {
+              const expandido = openMobileGroups.has(g.id);
+              const grupoActivo = activo?.groupId === g.id;
+              return (
+                <div key={g.id} className="gnav-m-group">
+                  <button
+                    type="button"
+                    className={`gnav-m-link gnav-m-toggle${grupoActivo ? " active" : ""}`}
+                    aria-expanded={expandido}
+                    onClick={() => toggleMobileGroup(g.id)}
+                  >
+                    <span>{g.label}</span>
+                    <ChevronDownIcon className={`gnav-m-chevron${expandido ? " open" : ""}`} />
+                  </button>
+                  {expandido && (
+                    <div className="gnav-m-sub">
+                      {g.sections.map((s, i) => (
+                        <div key={s.title ?? i}>
+                          {s.title && <p className="gnav-m-sub-title">{s.title}</p>}
+                          {s.items.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={`gnav-m-sublink${activo?.href === item.href ? " active" : ""}`}
+                            >
+                              {item.label}
+                            </Link>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="gnav-m-divider" />
+
+            <Link href="/home" className="gnav-m-secondary">
+              Ir al catálogo
+            </Link>
+            <div className="gnav-m-user">
+              <span className="gnav-avatar">{user ? user.nombre.slice(0, 2).toUpperCase() : "…"}</span>
+              <span className="gnav-m-user-text">
+                <b>{user ? user.nombre : "Cargando..."}</b>
+                {user && <small>{user.rol}</small>}
+              </span>
+            </div>
+            <button type="button" className="gnav-m-logout" onClick={onLogout}>
+              <LogoutIcon className="gnav-icon" />
+              Cerrar sesión
+            </button>
+          </div>
+        </nav>
+      </div>
+    )}
+    </>
   );
 }
