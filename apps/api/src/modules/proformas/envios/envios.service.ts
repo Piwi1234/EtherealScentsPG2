@@ -23,6 +23,11 @@ const itemInclude = {
       proveedor: { select: { id: true, nombre: true } },
       proforma: { select: { id: true, codigo: true, estado: true } },
       variante: { include: varianteInclude },
+      // Costos estimados de la compra: se corrigen con los reales al recibir (el precio de compra no se edita).
+      precioCompra: true,
+      costoEnvio: true,
+      costoSeguridad: true,
+      costoLogistica: true,
     },
   },
 } satisfies Prisma.EnvioItemInclude;
@@ -365,9 +370,23 @@ export class EnviosService {
             const item = porId.get(l.envioItemId)!;
             const d = item.compraDetalle;
             const varianteRecibidaId = varianteRecibidaDe(l);
-            const costoUnitario = Number(d.precioCompra) + Number(d.costoEnvio) + Number(d.costoSeguridad) + Number(d.costoLogistica);
+            // El precio de compra no se edita; los costos de envío, seguridad y logística son los reales de esta recepción
+            // (por defecto, los estimados de la compra).
+            const costoEnvio = l.costoEnvio ?? Number(d.costoEnvio ?? 0);
+            const costoSeguridad = l.costoSeguridad ?? Number(d.costoSeguridad ?? 0);
+            const costoLogistica = l.costoLogistica ?? Number(d.costoLogistica ?? 0);
+            const costoUnitario = Number(d.precioCompra ?? 0) + costoEnvio + costoSeguridad + costoLogistica;
             await tx.envioRecepcionItem.create({
-              data: { recepcionId: recepcion.id, envioItemId: item.id, cantidad: l.cantidad, varianteRecibidaId, nota: l.nota?.trim() || undefined },
+              data: {
+                recepcionId: recepcion.id,
+                envioItemId: item.id,
+                cantidad: l.cantidad,
+                varianteRecibidaId,
+                nota: l.nota?.trim() || undefined,
+                costoEnvio,
+                costoSeguridad,
+                costoLogistica,
+              },
             });
             await tx.loteCompra.create({
               data: { varianteId: varianteRecibidaId, almacenId, proformaDetalleId: d.id, costoUnitario, cantidadInicial: l.cantidad, cantidadDisponible: l.cantidad },

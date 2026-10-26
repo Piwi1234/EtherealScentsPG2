@@ -1219,6 +1219,11 @@ export type EnvioItem = {
     proveedor: { id: string; nombre: string } | null;
     proforma: { id: string; codigo: string; estado: EstadoProforma };
     variante: EnvioVariante;
+    /** Estimados de la compra (USD por unidad): el precio de compra no se edita, los costos se corrigen al recibir. */
+    precioCompra: string | null;
+    costoEnvio: string | null;
+    costoSeguridad: string | null;
+    costoLogistica: string | null;
   };
 };
 
@@ -1228,7 +1233,7 @@ export type EnvioRecepcion = {
   fecha: string;
   nota: string | null;
   creadoPor: { id: string; nombre: string };
-  items: { id: string; cantidad: number; nota: string | null; varianteRecibidaId: string; varianteRecibida: EnvioVariante; envioItem: { id: string; compraDetalleId: string } }[];
+  items: { id: string; cantidad: number; nota: string | null; costoEnvio: string | null; costoSeguridad: string | null; costoLogistica: string | null; varianteRecibidaId: string; varianteRecibida: EnvioVariante; envioItem: { id: string; compraDetalleId: string } }[];
 };
 
 export type Envio = {
@@ -1265,5 +1270,5 @@ export type EnvioDisponible = {
 export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?: { compraDetalleId: string; cantidad: number }[] };
 export type CreateRecepcionInput = {
   nota?: string;
-  items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string }[];
+  items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
 };

@@ -1139,6 +1139,10 @@ model EnvioRecepcionItem {
   varianteRecibidaId String         @map("variante_recibida_id") @db.Uuid
   varianteRecibida   ProductVariant @relation(fields: [varianteRecibidaId], references: [id], onDelete: Restrict)
   nota               String?
+  // Costos reales por unidad con los que se recibió (reemplazan a los estimados de la compra al fijar el costo del lote).
+  costoEnvio         Decimal?       @map("costo_envio") @db.Decimal(12, 2)
+  costoSeguridad     Decimal?       @map("costo_seguridad") @db.Decimal(12, 2)
+  costoLogistica     Decimal?       @map("costo_logistica") @db.Decimal(12, 2)
 
   @@index([recepcionId])
   @@index([envioItemId])

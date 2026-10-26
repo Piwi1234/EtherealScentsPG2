@@ -1,6 +1,6 @@
 import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from "class-validator";
 import { EstadoEnvio } from "@app/database";
 
 export class EnvioItemDto {
@@ -94,6 +94,27 @@ export class RecepcionItemDto {
   @IsOptional()
   @IsString()
   nota?: string;
+
+  @ApiPropertyOptional({ description: "Costo real de envío por unidad. Si se omite, el estimado de la compra." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  costoEnvio?: number;
+
+  @ApiPropertyOptional({ description: "Costo real de seguridad por unidad. Si se omite, el estimado de la compra." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  costoSeguridad?: number;
+
+  @ApiPropertyOptional({ description: "Costo real de logística por unidad. Si se omite, el estimado de la compra." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  costoLogistica?: number;
 }
 
 export class CreateRecepcionDto {

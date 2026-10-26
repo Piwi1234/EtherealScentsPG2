@@ -96,7 +96,26 @@ function CantidadEditable({ item, disabled, onCommit }: { item: EnvioItem; disab
   );
 }
 
-type LineaRecepcion = { cantidad: number; variante?: { id: string; label: string }; buscando?: boolean };
+type LineaRecepcion = {
+  cantidad: number;
+  variante?: { id: string; label: string };
+  buscando?: boolean;
+  /** Costos reales por unidad (texto del input); sin valor, el estimado de la compra. */
+  envio?: string;
+  seguridad?: string;
+  logistica?: string;
+};
+
+function num(valor: string | null | undefined): number {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Costo real por unidad: el precio de compra (fijo) más los costos que se corrigen al recibir. */
+function costoUnitario(item: EnvioItem, l: LineaRecepcion): number {
+  const d = item.compraDetalle;
+  return num(d.precioCompra) + (l.envio !== undefined ? num(l.envio) : num(d.costoEnvio)) + (l.seguridad !== undefined ? num(l.seguridad) : num(d.costoSeguridad)) + (l.logistica !== undefined ? num(l.logistica) : num(d.costoLogistica));
+}
 
 export default function EnvioDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -161,7 +180,14 @@ export default function EnvioDetallePage() {
     e.preventDefault();
     const items = Object.entries(lineas)
       .filter(([, l]) => l.cantidad > 0)
-      .map(([envioItemId, l]) => ({ envioItemId, cantidad: l.cantidad, varianteRecibidaId: l.variante?.id }));
+      .map(([envioItemId, l]) => ({
+        envioItemId,
+        cantidad: l.cantidad,
+        varianteRecibidaId: l.variante?.id,
+        costoEnvio: l.envio !== undefined && l.envio !== "" ? num(l.envio) : undefined,
+        costoSeguridad: l.seguridad !== undefined && l.seguridad !== "" ? num(l.seguridad) : undefined,
+        costoLogistica: l.logistica !== undefined && l.logistica !== "" ? num(l.logistica) : undefined,
+      }));
     if (items.length === 0) {
       setRecError("Ingresá cuántas unidades llegaron de al menos un producto.");
       return;
@@ -337,7 +363,8 @@ export default function EnvioDetallePage() {
                     .map((it) => {
                       const esperado = envio.items.find((x) => x.id === it.envioItem.id)?.compraDetalle.variante;
                       const otro = esperado && esperado.id !== it.varianteRecibidaId;
-                      return `${varianteLabel(it.varianteRecibida)} × ${it.cantidad}${otro ? ` (esperado: ${esperado.product.name})` : ""}`;
+                      const costos = it.costoEnvio !== null ? ` · costos $ ${(num(it.costoEnvio) + num(it.costoSeguridad) + num(it.costoLogistica)).toFixed(2)}/u` : "";
+                      return `${varianteLabel(it.varianteRecibida)} × ${it.cantidad}${otro ? ` (esperado: ${esperado.product.name})` : ""}${costos}`;
                     })
                     .join(" · ")}
                 </div>
@@ -383,7 +410,7 @@ export default function EnvioDetallePage() {
       </div>
 
       {recibiendo && (
-        <Modal title="Registrar recepción" onClose={() => setRecibiendo(false)} maxWidth={760}>
+        <Modal title="Registrar recepción" onClose={() => setRecibiendo(false)} maxWidth={1080}>
           <form className="form-grid" onSubmit={handleRecibir}>
             <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
               Indicá cuántas unidades llegaron de cada producto. Lo que no llegue sigue en camino. Si llegó un producto distinto al esperado, usá
@@ -397,6 +424,10 @@ export default function EnvioDetallePage() {
                     <th className="num">Faltan</th>
                     <th className="num">Llegaron</th>
                     <th>Llegó</th>
+                    <th className="num">Envío $</th>
+                    <th className="num">Seguridad $</th>
+                    <th className="num">Logística $</th>
+                    <th className="num">Costo real $</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -442,12 +473,36 @@ export default function EnvioDetallePage() {
                             </div>
                           )}
                         </td>
+                        {(["envio", "seguridad", "logistica"] as const).map((campo) => {
+                          const estimado = campo === "envio" ? i.compraDetalle.costoEnvio : campo === "seguridad" ? i.compraDetalle.costoSeguridad : i.compraDetalle.costoLogistica;
+                          return (
+                            <td className="num" key={campo}>
+                              <input
+                                className="field"
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={l[campo] ?? String(num(estimado))}
+                                aria-label={`Costo de ${campo} por unidad de ${i.compraDetalle.variante.product.name}`}
+                                onChange={(e) => setLineas((prev) => ({ ...prev, [i.id]: { ...l, [campo]: e.target.value } }))}
+                                style={{ width: 76, textAlign: "center" }}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="num cell-primary">
+                          {costoUnitario(i, l).toFixed(2)}
+                          <div className="cell-muted" style={{ fontSize: 11, fontWeight: 400 }}>compra {num(i.compraDetalle.precioCompra).toFixed(2)}</div>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+            <p className="cell-muted" style={{ margin: 0, fontSize: 12.5 }}>
+              Los costos de envío, seguridad y logística vienen con lo estimado en la compra: corrígelos con lo que realmente costó, por unidad. El precio de compra no se modifica. El costo real queda en el lote y es el que usa el margen de las ventas.
+            </p>
             <div>
               <button
                 type="button"
