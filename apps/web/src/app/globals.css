@@ -9642,3 +9642,23 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   border-color: #2cc58a;
   color: #2cc58a;
 }
+
+/* Registros: encabezado de proforma plegable. */
+.table-compact tr.reg-group {
+  cursor: pointer;
+}
+
+.table-compact tr.reg-group:hover td {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.table-compact tr.reg-group td {
+  white-space: nowrap;
+}
+
+.reg-chevron {
+  display: inline-block;
+  width: 14px;
+  margin-right: 4px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}

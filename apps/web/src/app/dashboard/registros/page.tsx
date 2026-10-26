@@ -150,6 +150,8 @@ function RegistrosPanel({
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteKey, setClienteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
+  // Proformas abiertas (por id): por defecto todas plegadas, se abren con un clic en su encabezado.
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
   const [data, setData] = useState<RegistrosData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -247,6 +249,17 @@ function RegistrosPanel({
     if (ultimo && ultimo.proforma.id === linea.proforma.id) ultimo.lineas.push(linea);
     else grupos.push({ proforma: linea.proforma, lineas: [linea] });
   }
+
+  function alternarGrupo(id: string) {
+    setAbiertas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const todasAbiertas = grupos.length > 0 && grupos.every((g) => abiertas.has(g.proforma.id));
 
   function quitarCategoria() {
     handleCategoryChange("");
@@ -449,6 +462,15 @@ function RegistrosPanel({
 
       {!loading && data && data.items.length > 0 && (
         <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setAbiertas(todasAbiertas ? new Set() : new Set(grupos.map((g) => g.proforma.id)))}
+            >
+              {todasAbiertas ? "Contraer todo" : "Expandir todo"}
+            </button>
+          </div>
           <div className="table-scroll">
             <table className="table table-minimal table-compact">
               <thead>
@@ -468,24 +490,34 @@ function RegistrosPanel({
                   const subtotalGrupo = sumaBs(g.lineas.map((l) => subtotalBs(l, tipo)));
                   return (
                     <Fragment key={g.proforma.id}>
-                      <tr className="reg-group">
-                        <td colSpan={3}>
-                          <Link href={`/dashboard/proformas/${g.proforma.id}`} className="link-button">
+                      <tr
+                        className="reg-group"
+                        onClick={() => alternarGrupo(g.proforma.id)}
+                        aria-expanded={abiertas.has(g.proforma.id)}
+                      >
+                        <td className="reg-group-code">
+                          <span className="reg-chevron">{abiertas.has(g.proforma.id) ? "▾" : "▸"}</span>
+                          <Link
+                            href={`/dashboard/proformas/${g.proforma.id}`}
+                            className="link-button"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {g.proforma.codigo}
                           </Link>
-                          <span className="cell-muted" style={{ fontWeight: 400, marginLeft: 8 }}>
-                            {formatDate(g.proforma.fecha)}
-                            {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
-                          </span>
-                          <span style={{ marginLeft: 10 }}>
-                            <EstadoBadge estado={g.proforma.estado} />
-                          </span>
+                        </td>
+                        <td className="cell-muted" style={{ fontWeight: 400 }}>
+                          {formatDate(g.proforma.fecha)}
+                          {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
+                          {!abiertas.has(g.proforma.id) && ` · ${g.lineas.length} producto${g.lineas.length === 1 ? "" : "s"}`}
+                        </td>
+                        <td>
+                          <EstadoBadge estado={g.proforma.estado} />
                         </td>
                         <td colSpan={2} />
                         <td className="num">{money(subtotalGrupo)}</td>
                         {tipo === "COMPRA" && <td colSpan={2} />}
                       </tr>
-                      {g.lineas.map((linea) => {
+                      {abiertas.has(g.proforma.id) && g.lineas.map((linea) => {
                         const etiqueta = atributosLabel(linea.variante);
                         return (
                           <tr key={linea.id}>
