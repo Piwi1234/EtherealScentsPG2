@@ -118,7 +118,6 @@ export class ProformasService {
       where.estado = EstadoProforma.APROBADA;
       extra.push(query.entrega === "LISTA" ? { NOT: conPendiente } : conPendiente);
     }
-    if (query.sinEnvio) extra.push({ tipo: TipoProforma.COMPRA, envioId: null });
     if (extra.length > 0) where.AND = extra;
 
     const [items, total] = await Promise.all([

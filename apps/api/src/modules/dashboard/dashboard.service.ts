@@ -320,10 +320,12 @@ export class DashboardService {
         },
       }),
       this.prisma.envio.count({ where: { estado: EstadoEnvio.EN_TRANSITO } }),
-      this.prisma.proformaDetalle.aggregate({
-        where: { proforma: { envio: { estado: EstadoEnvio.EN_TRANSITO } } },
-        _sum: { cantidad: true },
-      }),
+      // Piezas que viajan: lo despachado y todavía no recibido.
+      this.prisma.$queryRaw<{ piezas: bigint | null }[]>`
+        SELECT SUM(i."cantidad" - i."cantidad_recibida") AS "piezas"
+        FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id"
+        WHERE e."estado" = 'EN_TRANSITO'
+      `,
       this.prisma.envio.count({ where: { estado: EstadoEnvio.ARMANDO } }),
       this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.VENTA } }),
       this.prisma.proforma.count({ where: { estado: EstadoProforma.BORRADOR, tipo: TipoProforma.COMPRA } }),
@@ -344,7 +346,18 @@ export class DashboardService {
           detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
         },
       }),
-      this.prisma.proforma.count({ where: { estado: EstadoProforma.APROBADA, tipo: TipoProforma.COMPRA, envioId: null } }),
+      // Compras con productos ya recogidos que todavía no entraron a ningún envío.
+      this.prisma.$queryRaw<{ compras: bigint }[]>`
+        SELECT COUNT(*) AS "compras" FROM (
+          SELECT p."id"
+          FROM "proformas" p
+          JOIN "proforma_detalles" d ON d."proforma_id" = p."id"
+          WHERE p."estado" = 'APROBADA' AND p."tipo" = 'COMPRA'
+          GROUP BY p."id"
+          HAVING SUM(COALESCE((SELECT SUM(rl."cantidad") FROM "recojo_lineas" rl WHERE rl."compra_detalle_id" = d."id"), 0))
+               > SUM(COALESCE((SELECT SUM(i."cantidad") FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id" WHERE i."compra_detalle_id" = d."id" AND e."estado" <> 'ANULADO'), 0))
+        ) t
+      `,
       // Líneas de solicitudes de stock abiertas que todavía no tienen compra.
       this.prisma.solicitudStockLinea.count({ where: { compraDetalleId: null, solicitud: { estado: "ABIERTA" } } }),
     ]);
@@ -352,14 +365,14 @@ export class DashboardService {
     return {
       pedidosSinCompra,
       enviosEnTransito,
-      piezasEnTransito: piezasEnTransito._sum.cantidad ?? 0,
+      piezasEnTransito: Number(piezasEnTransito[0]?.piezas ?? 0),
       enviosArmando,
       borradoresVenta,
       borradoresCompra,
       diasBorradorMasViejo,
       ventasListas,
       ventasEsperando,
-      comprasSinEnvio,
+      comprasSinEnvio: Number(comprasSinEnvio[0]?.compras ?? 0),
       solicitudesSinComprar,
     };
   }

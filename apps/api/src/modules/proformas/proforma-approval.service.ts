@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoCuentaPorCobrar, EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, MonedaCartera, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -261,19 +261,19 @@ export class ProformaApprovalService {
         async (tx) => {
           await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
 
-          const rows = await tx.$queryRaw<{ estado: EstadoProforma; tipo: TipoProforma; envioId: string | null }[]>`
-            SELECT "estado", "tipo", "envio_id" AS "envioId" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE
+          const rows = await tx.$queryRaw<{ estado: EstadoProforma; tipo: TipoProforma }[]>`
+            SELECT "estado", "tipo" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE
           `;
           const lock = rows[0];
           if (!lock) throw new NotFoundException("Proforma no encontrada.");
           if (lock.estado !== EstadoProforma.APROBADA) {
             throw new ConflictException(`No se puede anular: la proforma está en estado ${lock.estado} (solo se puede anular desde APROBADA).`);
           }
-          if (lock.envioId) {
-            throw new ConflictException("No se puede anular: la compra está en un envío. Quitala del envío primero.");
-          }
 
           if (lock.tipo === TipoProforma.COMPRA) {
+            if ((await tx.envioItem.count({ where: { compraDetalle: { proformaId: id }, envio: { estado: { not: EstadoEnvio.ANULADO } } } })) > 0) {
+              throw new ConflictException("No se puede anular: la compra tiene productos en un envío. Sacalos del envío primero.");
+            }
             if ((await tx.recojo.count({ where: { compraId: id } })) > 0) {
               throw new ConflictException("No se puede anular: la compra tiene recojos registrados. Deshacelos primero.");
             }

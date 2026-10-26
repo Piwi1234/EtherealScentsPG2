@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ApiError, cancelarSolicitud, getSolicitud, removeLineaSolicitud, updateLineaSolicitud, updateSolicitud } from "../../../../../lib/api";
 import type { SolicitudLinea, SolicitudStock } from "../../../../../lib/types";
 import { Modal } from "../../../../../components/Modal";
+import { EnviosDeLinea } from "../../../../../components/proformas/EnviosDeLinea";
 import { formatAtributosVisibles } from "../../../../../components/proformas/AtributosVisibles";
 import {
   CLASES_LINEA_SOLICITUD,
@@ -189,14 +190,7 @@ export default function SolicitudDetallePage() {
                             {compra.codigo}
                           </Link>
                           {l.compraDetalle?.proveedor ? ` · ${l.compraDetalle.proveedor.nombre}` : ""}
-                          {compra.envio && (
-                            <div style={{ fontSize: 12 }}>
-                              Envío{" "}
-                              <Link href={`/dashboard/stock/envios/${compra.envio.id}`} className="link-button">
-                                {compra.envio.codigo}
-                              </Link>
-                            </div>
-                          )}
+                          <EnviosDeLinea envioItems={l.compraDetalle?.envioItems} />
                         </>
                       ) : (
                         "—"

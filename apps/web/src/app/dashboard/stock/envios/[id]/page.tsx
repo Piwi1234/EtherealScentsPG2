@@ -1,24 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ApiError,
-  agregarCompraAEnvio,
+  agregarItemEnvio,
   anularEnvio,
-  confirmarRecepcionEnvio,
-  getComprasDisponiblesParaEnvio,
+  cerrarEnvio,
   getEnvio,
+  getEnviosDisponibles,
   getProducts,
-  iniciarRecepcionEnvio,
   marcarEnvioEnTransito,
-  quitarCompraDeEnvio,
-  updateRecepcionLinea,
+  quitarItemEnvio,
+  recibirEnvio,
+  updateItemEnvio,
 } from "../../../../../lib/api";
-import type { Envio, EnvioRecepcionLinea, EnvioVariante, Product, Proforma } from "../../../../../lib/types";
+import type { Envio, EnvioDisponible, EnvioItem, EnvioVariante, Product } from "../../../../../lib/types";
 import { ESTADO_ENVIO_CLASE, ESTADO_ENVIO_LABEL } from "../../../../../lib/envio-estados";
-import { EstadoBadge } from "../../../../../components/proformas/EstadoBadge";
+import { Modal } from "../../../../../components/Modal";
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString("es-VE", { dateStyle: "medium", timeStyle: "short" }) : "—";
@@ -28,15 +28,6 @@ function varianteLabel(v: EnvioVariante): string {
   const opciones = v.options.map((o) => o.optionValue.value).join(", ");
   const marca = v.product.brand?.name ? `${v.product.brand.name} · ` : "";
   return `${marca}${v.product.name}${opciones ? ` — ${opciones}` : ""}`;
-}
-
-function proveedoresDe(compra: Proforma): string {
-  const nombres = Array.from(new Set(compra.detalles.map((d) => d.proveedor?.nombre).filter((n): n is string => Boolean(n))));
-  return nombres.length > 0 ? nombres.join(", ") : "Sin proveedor";
-}
-
-function totalCompra(compra: Proforma): number {
-  return compra.detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
 }
 
 /** Buscador mínimo de variantes para el caso "llegó otro producto distinto al esperado". */
@@ -84,125 +75,55 @@ function VarianteBuscador({ onPick, onCancel }: { onPick: (variante: { id: strin
   );
 }
 
-function RecepcionFila({
-  envioId,
-  linea,
-  readOnly,
-  onChanged,
-  onError,
-}: {
-  envioId: string;
-  linea: EnvioRecepcionLinea;
-  readOnly: boolean;
-  onChanged: (e: Envio) => void;
-  onError: (m: string) => void;
-}) {
-  const [cambiando, setCambiando] = useState(false);
-  const distintaVariante = linea.varianteRecibidaId !== linea.varianteEsperadaId;
-  const distintaCantidad = linea.cantidadRecibida !== linea.cantidadEsperada;
-
-  async function patch(data: { cantidadRecibida?: number; varianteRecibidaId?: string; nota?: string }) {
-    try {
-      onChanged(await updateRecepcionLinea(envioId, linea.id, data));
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : String(e));
-    }
-  }
-
-  if (readOnly) {
-    return (
-      <tr style={distintaVariante || distintaCantidad ? { background: "rgba(201, 169, 110, 0.08)" } : undefined}>
-        <td className="cell-muted">{linea.compraDetalle.proveedor?.nombre ?? "—"}</td>
-        <td>{varianteLabel(linea.varianteEsperada)}</td>
-        <td className="num">{linea.cantidadEsperada}</td>
-        <td>{distintaVariante ? varianteLabel(linea.varianteRecibida) : "Lo esperado"}</td>
-        <td className="num cell-primary">{linea.cantidadRecibida}</td>
-        <td className="cell-muted">{linea.nota ?? "—"}</td>
-      </tr>
-    );
-  }
-
+function CantidadEditable({ item, disabled, onCommit }: { item: EnvioItem; disabled: boolean; onCommit: (cantidad: number) => void }) {
+  const [valor, setValor] = useState(String(item.cantidad));
   return (
-    <tr style={distintaVariante || distintaCantidad ? { background: "rgba(201, 169, 110, 0.08)" } : undefined}>
-      <td className="cell-muted">{linea.compraDetalle.proveedor?.nombre ?? "—"}</td>
-      <td>{varianteLabel(linea.varianteEsperada)}</td>
-      <td className="num">{linea.cantidadEsperada}</td>
-      <td style={{ minWidth: 220 }}>
-        {cambiando ? (
-          <VarianteBuscador
-            onCancel={() => setCambiando(false)}
-            onPick={(v) => {
-              setCambiando(false);
-              patch({ varianteRecibidaId: v.id });
-            }}
-          />
-        ) : (
-          <div>
-            <span>{distintaVariante ? varianteLabel(linea.varianteRecibida) : "Lo esperado"}</span>
-            <button type="button" className="link-button" style={{ marginLeft: 8, fontSize: 12 }} onClick={() => setCambiando(true)}>
-              Llegó otro
-            </button>
-            {distintaVariante && (
-              <button type="button" className="link-button" style={{ marginLeft: 8, fontSize: 12 }} onClick={() => patch({ varianteRecibidaId: linea.varianteEsperadaId })}>
-                Restaurar
-              </button>
-            )}
-          </div>
-        )}
-      </td>
-      <td className="num">
-        <input
-          key={`${linea.id}-${linea.cantidadRecibida}`}
-          className="field"
-          type="number"
-          min={0}
-          step={1}
-          defaultValue={linea.cantidadRecibida}
-          style={{ width: 80, textAlign: "center" }}
-          onBlur={(e) => {
-            const n = Math.floor(Number(e.target.value));
-            if (Number.isFinite(n) && n >= 0 && n !== linea.cantidadRecibida) patch({ cantidadRecibida: n });
-          }}
-        />
-      </td>
-      <td>
-        <input
-          key={`n-${linea.id}-${linea.nota ?? ""}`}
-          className="field"
-          placeholder="Nota (opcional)"
-          defaultValue={linea.nota ?? ""}
-          onBlur={(e) => {
-            if (e.target.value !== (linea.nota ?? "")) patch({ nota: e.target.value });
-          }}
-        />
-      </td>
-    </tr>
+    <input
+      className="field"
+      type="number"
+      min={1}
+      value={valor}
+      disabled={disabled}
+      aria-label={`Cantidad de ${item.compraDetalle.variante.product.name}`}
+      onChange={(e) => setValor(e.target.value)}
+      onBlur={() => {
+        const n = parseInt(valor, 10);
+        if (!n || n < 1) setValor(String(item.cantidad));
+        else if (n !== item.cantidad) onCommit(n);
+      }}
+      style={{ width: 80, textAlign: "center" }}
+    />
   );
 }
+
+type LineaRecepcion = { cantidad: number; variante?: { id: string; label: string }; buscando?: boolean };
 
 export default function EnvioDetallePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [envio, setEnvio] = useState<Envio | null>(null);
-  const [disponibles, setDisponibles] = useState<Proforma[]>([]);
+  const [disponibles, setDisponibles] = useState<EnvioDisponible[]>([]);
+  const [aSumar, setASumar] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const cargado = useRef(false);
+
+  const [recibiendo, setRecibiendo] = useState(false);
+  const [lineas, setLineas] = useState<Record<string, LineaRecepcion>>({});
+  const [notaRecepcion, setNotaRecepcion] = useState("");
+  const [recError, setRecError] = useState("");
 
   const load = useCallback(() => {
     getEnvio(id)
-      .then((e) => {
-        setEnvio(e);
-        cargado.current = true;
-      })
+      .then(setEnvio)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [id]);
 
   useEffect(load, [load]);
 
+  const armando = envio?.estado === "ARMANDO";
   useEffect(() => {
-    if (envio?.estado === "ARMANDO") getComprasDisponiblesParaEnvio().then(setDisponibles).catch(() => {});
-  }, [envio?.estado, envio?.compras.length]);
+    if (armando) getEnviosDisponibles().then(setDisponibles).catch(() => {});
+  }, [armando, envio?.items.length]);
 
   async function run(action: () => Promise<Envio>, confirmMsg?: string) {
     if (confirmMsg && !confirm(confirmMsg)) return;
@@ -210,6 +131,7 @@ export default function EnvioDetallePage() {
     setError("");
     try {
       setEnvio(await action());
+      router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
@@ -221,10 +143,41 @@ export default function EnvioDetallePage() {
     return <div className="card">{error ? <p className="error-text">{error}</p> : <p>Cargando...</p>}</div>;
   }
 
-  const abierto = envio.estado === "ARMANDO" || envio.estado === "EN_TRANSITO";
-  const recepcionAbierta = envio.recepcion.length > 0;
-  const totalEsperado = envio.recepcion.reduce((s, l) => s + l.cantidadEsperada, 0);
-  const totalRecibido = envio.recepcion.reduce((s, l) => s + l.cantidadRecibida, 0);
+  const enCamino = envio.estado === "EN_TRANSITO";
+  const total = envio.items.reduce((n, i) => n + i.cantidad, 0);
+  const recibidas = envio.items.reduce((n, i) => n + i.cantidadRecibida, 0);
+  const faltan = total - recibidas;
+  const pendientes = envio.items.filter((i) => i.cantidad > i.cantidadRecibida);
+  const hayRecepciones = envio.recepciones.length > 0;
+
+  function abrirRecepcion() {
+    setLineas({});
+    setNotaRecepcion("");
+    setRecError("");
+    setRecibiendo(true);
+  }
+
+  async function handleRecibir(e: React.FormEvent) {
+    e.preventDefault();
+    const items = Object.entries(lineas)
+      .filter(([, l]) => l.cantidad > 0)
+      .map(([envioItemId, l]) => ({ envioItemId, cantidad: l.cantidad, varianteRecibidaId: l.variante?.id }));
+    if (items.length === 0) {
+      setRecError("Ingresá cuántas unidades llegaron de al menos un producto.");
+      return;
+    }
+    setBusy(true);
+    setRecError("");
+    try {
+      setEnvio(await recibirEnvio(id, { nota: notaRecepcion.trim() || undefined, items }));
+      setRecibiendo(false);
+      router.refresh();
+    } catch (err) {
+      setRecError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="card">
@@ -252,8 +205,10 @@ export default function EnvioDetallePage() {
           <p style={{ margin: "4px 0 0" }}>{formatDate(envio.fechaEnvio)}</p>
         </div>
         <div>
-          <span className="filter-label">Recibido</span>
-          <p style={{ margin: "4px 0 0" }}>{formatDate(envio.fechaRecepcion)}</p>
+          <span className="filter-label">{envio.estado === "RECIBIDO" ? "Recibido" : "Avance"}</span>
+          <p style={{ margin: "4px 0 0" }}>
+            {envio.estado === "RECIBIDO" ? formatDate(envio.fechaRecepcion) : `${recibidas} de ${total} unidades llegaron`}
+          </p>
         </div>
         {envio.nota && (
           <div style={{ gridColumn: "1 / -1" }}>
@@ -265,39 +220,47 @@ export default function EnvioDetallePage() {
 
       {error && <p className="error-text">{error}</p>}
 
-      <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>Compras del envío</h2>
-      {envio.compras.length === 0 ? (
-        <p className="cell-muted">Todavía no hay compras en este envío.</p>
+      <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>Productos del envío</h2>
+      {envio.items.length === 0 ? (
+        <p className="cell-muted">Todavía no hay productos en este envío.</p>
       ) : (
         <div className="table-scroll">
           <table className="table table-minimal table-compact">
             <thead>
               <tr>
                 <th>Compra</th>
-                <th>Estado</th>
-                <th>Proveedores</th>
-                <th className="num">Líneas</th>
-                <th className="num">Total $</th>
-                {envio.estado === "ARMANDO" && <th></th>}
+                <th>Proveedor</th>
+                <th style={{ minWidth: 220 }}>Producto</th>
+                <th className="num">Cant.</th>
+                {!armando && <th className="num">Llegaron</th>}
+                {!armando && <th className="num">Faltan</th>}
+                {armando && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {envio.compras.map((c) => (
-                <tr key={c.id}>
+              {envio.items.map((i) => (
+                <tr key={i.id}>
                   <td>
-                    <Link href={`/dashboard/proformas/${c.id}`} className="link-button">
-                      {c.codigo}
+                    <Link href={`/dashboard/proformas/${i.compraDetalle.proforma.id}`} className="link-button">
+                      {i.compraDetalle.proforma.codigo}
                     </Link>
                   </td>
-                  <td>
-                    <EstadoBadge estado={c.estado} />
+                  <td className="cell-muted">{i.compraDetalle.proveedor?.nombre ?? "—"}</td>
+                  <td className="cell-primary">{varianteLabel(i.compraDetalle.variante)}</td>
+                  <td className="num">
+                    {armando ? (
+                      <CantidadEditable key={`${i.id}-${i.cantidad}`} item={i} disabled={busy} onCommit={(c) => run(() => updateItemEnvio(id, i.id, { cantidad: c }))} />
+                    ) : (
+                      i.cantidad
+                    )}
                   </td>
-                  <td className="cell-muted">{proveedoresDe(c)}</td>
-                  <td className="num">{c.detalles.length}</td>
-                  <td className="num">$ {totalCompra(c).toFixed(2)}</td>
-                  {envio.estado === "ARMANDO" && (
+                  {!armando && <td className="num">{i.cantidadRecibida}</td>}
+                  {!armando && (
+                    <td className="num">{i.cantidad - i.cantidadRecibida > 0 ? <span className="badge badge-warn">{i.cantidad - i.cantidadRecibida}</span> : <span className="cell-muted">—</span>}</td>
+                  )}
+                  {armando && (
                     <td className="num">
-                      <button type="button" className="action-btn danger" disabled={busy} onClick={() => run(() => quitarCompraDeEnvio(id, c.id))}>
+                      <button type="button" className="action-btn danger" disabled={busy} onClick={() => run(() => quitarItemEnvio(id, i.id))}>
                         Quitar
                       </button>
                     </td>
@@ -309,103 +272,207 @@ export default function EnvioDetallePage() {
         </div>
       )}
 
-      {envio.estado === "ARMANDO" && disponibles.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <span className="filter-label">Sumar una compra aprobada</span>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-            {disponibles.map((c) => (
-              <button key={c.id} type="button" className="action-btn" disabled={busy} onClick={() => run(() => agregarCompraAEnvio(id, c.id))}>
-                + {c.codigo} · {proveedoresDe(c)}
-              </button>
-            ))}
+      {armando && disponibles.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <span className="filter-label">Sumar productos recogidos</span>
+          <div className="table-scroll" style={{ marginTop: 6 }}>
+            <table className="table table-minimal table-compact">
+              <thead>
+                <tr>
+                  <th>Compra</th>
+                  <th style={{ minWidth: 220 }}>Producto</th>
+                  <th className="num">Recogidas sin enviar</th>
+                  <th className="num">Sumar</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {disponibles.map((l) => {
+                  const c = aSumar[l.id] ?? l.disponible;
+                  return (
+                    <tr key={l.id}>
+                      <td>{l.proforma.codigo}</td>
+                      <td className="cell-primary">{varianteLabel(l.variante)}</td>
+                      <td className="num">{l.disponible}</td>
+                      <td className="num">
+                        <input
+                          className="field"
+                          type="number"
+                          min={1}
+                          max={l.disponible}
+                          value={c}
+                          aria-label={`Unidades de ${l.variante.product.name} a sumar`}
+                          onChange={(e) => setASumar((prev) => ({ ...prev, [l.id]: Math.max(1, Math.min(l.disponible, parseInt(e.target.value, 10) || 1)) }))}
+                          style={{ width: 80, textAlign: "center" }}
+                        />
+                      </td>
+                      <td className="num">
+                        <button type="button" className="action-btn" disabled={busy} onClick={() => run(() => agregarItemEnvio(id, { compraDetalleId: l.id, cantidad: c }))}>
+                          + Sumar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {recepcionAbierta && (
+      {hayRecepciones && (
         <>
-          <h2 style={{ fontSize: 16, margin: "28px 0 4px" }}>Recepción</h2>
-          <p className="cell-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>
-            {abierto
-              ? "Corregí lo que realmente llegó: la cantidad (0 si no llegó) o el producto, si llegó otro distinto. Al confirmar se crean los lotes y el stock con estas cantidades y las compras del envío quedan completadas."
-              : "Lo que se recibió en este envío. Las filas resaltadas tuvieron diferencias respecto de lo esperado."}
-          </p>
-          <div className="table-scroll">
-            <table className="table table-minimal table-compact">
-              <thead>
-                <tr>
-                  <th>Proveedor</th>
-                  <th style={{ minWidth: 220 }}>Esperado</th>
-                  <th className="num">Cant.</th>
-                  <th>Llegó</th>
-                  <th className="num">Cant. recibida</th>
-                  <th>Nota</th>
-                </tr>
-              </thead>
-              <tbody>
-                {envio.recepcion.map((l) => (
-                  <RecepcionFila key={l.id} envioId={id} linea={l} readOnly={!abierto} onChanged={setEnvio} onError={setError} />
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={2} className="cell-muted" style={{ textAlign: "right", fontWeight: 600 }}>
-                    Total unidades
-                  </td>
-                  <td className="num cell-primary">{totalEsperado}</td>
-                  <td></td>
-                  <td className="num cell-primary">{totalRecibido}</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
+          <h2 style={{ fontSize: 16, margin: "28px 0 10px" }}>Recepciones</h2>
+          <div style={{ display: "grid", gap: 8 }}>
+            {envio.recepciones.map((r) => (
+              <div key={r.id} style={{ padding: "8px 14px", border: "1px solid var(--color-divider)", borderRadius: 10 }}>
+                <strong style={{ fontSize: 13 }}>{formatDate(r.fecha)}</strong>
+                <span className="cell-muted" style={{ fontSize: 12.5 }}>
+                  {" "}
+                  · {r.creadoPor.nombre}
+                  {r.nota ? ` · ${r.nota}` : ""}
+                </span>
+                <div className="cell-muted" style={{ fontSize: 12.5 }}>
+                  {r.items
+                    .map((it) => {
+                      const esperado = envio.items.find((x) => x.id === it.envioItem.id)?.compraDetalle.variante;
+                      const otro = esperado && esperado.id !== it.varianteRecibidaId;
+                      return `${varianteLabel(it.varianteRecibida)} × ${it.cantidad}${otro ? ` (esperado: ${esperado.product.name})` : ""}`;
+                    })
+                    .join(" · ")}
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
 
       <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)", display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {envio.estado === "ARMANDO" && (
-          <button type="button" className="action-btn" disabled={busy || envio.compras.length === 0} onClick={() => run(() => marcarEnvioEnTransito(id))}>
-            Marcar en tránsito
+        {armando && (
+          <button type="button" className="button" disabled={busy || envio.items.length === 0} onClick={() => run(() => marcarEnvioEnTransito(id))}>
+            Marcar como enviado
           </button>
         )}
-        {abierto && !recepcionAbierta && (
-          <button type="button" className="action-btn" disabled={busy || envio.compras.length === 0} onClick={() => run(() => iniciarRecepcionEnvio(id))}>
-            Recibir envío
+        {enCamino && faltan > 0 && (
+          <button type="button" className="button" disabled={busy} onClick={abrirRecepcion}>
+            Registrar recepción
           </button>
         )}
-        {abierto && recepcionAbierta && (
+        {enCamino && hayRecepciones && faltan > 0 && (
           <button
             type="button"
-            className="button"
+            className="action-btn"
             disabled={busy}
             onClick={() =>
-              run(
-                () => confirmarRecepcionEnvio(id),
-                `¿Confirmar la recepción? Se van a cargar ${totalRecibido} unidades al stock de ${envio.almacenDestino.nombre} y las compras quedarán completadas.`,
-              )
+              run(() => cerrarEnvio(id), `¿Cerrar el envío dando por no llegadas ${faltan} unidades? Vuelven a quedar recogidas sin enviar, para armar otro envío.`)
             }
           >
-            {busy ? "Confirmando..." : "Confirmar recepción"}
+            Cerrar con lo recibido
           </button>
         )}
-        {abierto && (
+        {(armando || (enCamino && !hayRecepciones)) && (
           <button
             type="button"
             className="action-btn danger"
             disabled={busy}
-            onClick={() =>
-              run(async () => {
-                const e = await anularEnvio(id);
-                router.refresh();
-                return e;
-              }, "¿Anular el envío? Las compras vuelven a quedar libres para otro envío.")
-            }
+            onClick={() => run(() => anularEnvio(id), "¿Anular el envío? Sus productos vuelven a quedar recogidos sin enviar.")}
           >
             Anular envío
           </button>
         )}
       </div>
+
+      {recibiendo && (
+        <Modal title="Registrar recepción" onClose={() => setRecibiendo(false)} maxWidth={760}>
+          <form className="form-grid" onSubmit={handleRecibir}>
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Indicá cuántas unidades llegaron de cada producto. Lo que no llegue sigue en camino. Si llegó un producto distinto al esperado, usá
+              «Llegó otro».
+            </p>
+            <div className="table-scroll">
+              <table className="table table-minimal table-compact">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 200 }}>Esperado</th>
+                    <th className="num">Faltan</th>
+                    <th className="num">Llegaron</th>
+                    <th>Llegó</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendientes.map((i) => {
+                    const falta = i.cantidad - i.cantidadRecibida;
+                    const l = lineas[i.id] ?? { cantidad: 0 };
+                    return (
+                      <tr key={i.id}>
+                        <td className="cell-primary">
+                          {varianteLabel(i.compraDetalle.variante)}
+                          <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{i.compraDetalle.proforma.codigo}</div>
+                        </td>
+                        <td className="num">{falta}</td>
+                        <td className="num">
+                          <input
+                            className="field"
+                            type="number"
+                            min={0}
+                            max={falta}
+                            value={l.cantidad}
+                            aria-label={`Unidades que llegaron de ${i.compraDetalle.variante.product.name}`}
+                            onChange={(e) => setLineas((prev) => ({ ...prev, [i.id]: { ...l, cantidad: Math.max(0, Math.min(falta, parseInt(e.target.value, 10) || 0)) } }))}
+                            style={{ width: 80, textAlign: "center" }}
+                          />
+                        </td>
+                        <td style={{ minWidth: 220 }}>
+                          {l.buscando ? (
+                            <VarianteBuscador
+                              onCancel={() => setLineas((prev) => ({ ...prev, [i.id]: { ...l, buscando: false } }))}
+                              onPick={(v) => setLineas((prev) => ({ ...prev, [i.id]: { ...l, variante: v, buscando: false } }))}
+                            />
+                          ) : (
+                            <div>
+                              <span>{l.variante ? l.variante.label : "Lo esperado"}</span>
+                              <button type="button" className="link-button" style={{ marginLeft: 8, fontSize: 12 }} onClick={() => setLineas((prev) => ({ ...prev, [i.id]: { ...l, buscando: true } }))}>
+                                Llegó otro
+                              </button>
+                              {l.variante && (
+                                <button type="button" className="link-button" style={{ marginLeft: 8, fontSize: 12 }} onClick={() => setLineas((prev) => ({ ...prev, [i.id]: { ...l, variante: undefined } }))}>
+                                  Restaurar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setLineas(Object.fromEntries(pendientes.map((i) => [i.id, { ...(lineas[i.id] ?? {}), cantidad: i.cantidad - i.cantidadRecibida }])))}
+              >
+                Llegó todo lo que falta
+              </button>
+            </div>
+            <div>
+              <label>Nota (opcional)</label>
+              <input className="field" value={notaRecepcion} maxLength={300} onChange={(e) => setNotaRecepcion(e.target.value)} placeholder="Ej. llegó la primera caja" />
+            </div>
+            {recError && <p className="error-text">{recError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setRecibiendo(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="button" disabled={busy}>
+                {busy ? "Guardando..." : "Registrar recepción"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

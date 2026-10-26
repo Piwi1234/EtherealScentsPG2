@@ -102,12 +102,32 @@ export class RecojosService {
   async anular(recojoId: string) {
     const recojo = await this.prisma.recojo.findUnique({
       where: { id: recojoId },
-      select: { compraId: true, compra: { select: { estado: true, envio: { select: { estado: true } } } } },
+      select: {
+        compraId: true,
+        compra: { select: { estado: true } },
+        lineas: { select: { compraDetalleId: true, cantidad: true } },
+      },
     });
     if (!recojo) throw new NotFoundException("Recojo no encontrado.");
     if (recojo.compra.estado !== EstadoProforma.APROBADA) throw new ConflictException(`La compra ya está ${recojo.compra.estado}.`);
-    if (recojo.compra.envio && recojo.compra.envio.estado !== EstadoEnvio.ARMANDO) {
-      throw new ConflictException("La compra ya está en un envío despachado: no se puede deshacer el recojo.");
+
+    // Lo recogido que quede tras deshacer este recojo tiene que seguir cubriendo lo que ya está en envíos.
+    const detalles = await this.prisma.proformaDetalle.findMany({
+      where: { id: { in: recojo.lineas.map((l) => l.compraDetalleId) } },
+      select: {
+        id: true,
+        recojoLineas: { select: { cantidad: true } },
+        envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidad: true } },
+      },
+    });
+    for (const l of recojo.lineas) {
+      const d = detalles.find((x) => x.id === l.compraDetalleId);
+      if (!d) continue;
+      const recogidoTras = d.recojoLineas.reduce((n, r) => n + r.cantidad, 0) - l.cantidad;
+      const enEnvios = d.envioItems.reduce((n, r) => n + r.cantidad, 0);
+      if (recogidoTras < enEnvios) {
+        throw new ConflictException("Parte de lo recogido ya está en un envío: sacalo del envío antes de deshacer el recojo.");
+      }
     }
     await this.prisma.recojo.delete({ where: { id: recojoId } });
     return this.listar(recojo.compraId);

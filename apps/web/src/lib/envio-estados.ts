@@ -2,7 +2,7 @@ import type { EstadoEnvio } from "./types";
 
 export const ESTADO_ENVIO_LABEL: Record<EstadoEnvio, string> = {
   ARMANDO: "Armando",
-  EN_TRANSITO: "En tránsito",
+  EN_TRANSITO: "Enviado",
   RECIBIDO: "Recibido",
   ANULADO: "Anulado",
 };

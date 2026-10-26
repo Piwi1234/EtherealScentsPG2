@@ -691,8 +691,6 @@ export type Proforma = {
   /** Solo compras: proveedor de la nota (null en compras viejas que mezclaban proveedores línea por línea). */
   proveedorId?: string | null;
   proveedor?: { id: string; nombre: string } | null;
-  /** Solo compras: envío al que pertenece (null si todavía no está en uno). */
-  envioId?: string | null;
   /** Código corto para mostrar/buscar en vez del id UUID — no secuencial (ver schema.prisma). */
   codigo: string;
   tipo: TipoProforma;
@@ -844,6 +842,8 @@ export type SeguimientoLinea = {
   estadoPedido: EstadoPedido;
   /** Unidades de este faltante que ya se recogieron del proveedor. */
   recogidas?: number;
+  /** Unidades de este faltante que ya salieron en un envío. */
+  enviadas?: number;
   proformaDetalle: {
     proforma: {
       id: string;
@@ -859,7 +859,8 @@ export type SeguimientoLinea = {
     id: string;
     cantidad: number;
     proveedor: { id: string; nombre: string } | null;
-    proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    envioItems?: { cantidad: number; envio: { id: string; codigo: string; estado: EstadoEnvio } }[];
   } | null;
 };
 
@@ -894,12 +895,17 @@ export type SolicitudLinea = {
   estadoLinea: EstadoLineaSolicitud;
   /** Unidades de esta línea que ya se recogieron del proveedor. */
   recogidas?: number;
+  /** Unidades de esta línea que ya salieron en un envío. */
+  enviadas?: number;
+  /** Unidades de esta línea que ya llegaron al almacén. */
+  cantidadRecibida: number;
   variante: ProformaDetalleVariante;
   compraDetalle: {
     id: string;
     cantidad: number;
     proveedor: { id: string; nombre: string } | null;
-    proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    envioItems?: { cantidad: number; envio: { id: string; codigo: string; estado: EstadoEnvio } }[];
   } | null;
 };
 
@@ -955,15 +961,18 @@ export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "RECOG
 export type SeguimientoStockLinea = {
   id: string;
   cantidad: number;
-  estadoStock: "COMPRADO" | "EN_TRANSITO";
+  estadoStock: "COMPRADO" | "RECOGIDO" | "EN_TRANSITO";
+  /** Unidades libres (para stock) de esta línea que ya se recogieron. */
+  recogidas?: number;
   proveedor: { id: string; nombre: string } | null;
   proforma: {
     id: string;
     codigo: string;
     fecha: string;
     empresa: { id: string; nombre: string };
-    envio: { id: string; codigo: string; estado: EstadoEnvio; almacenDestino: { id: string; nombre: string } } | null;
   };
+  /** Envíos despachados en los que viaja esta línea. */
+  envios: { id: string; codigo: string; estado: EstadoEnvio }[];
   variante: ProformaDetalleVariante;
 };
 
@@ -973,7 +982,7 @@ export type CompraCandidata = {
   cantidad: number;
   restante: number;
   proveedor: { id: string; nombre: string } | null;
-  proforma: { id: string; codigo: string; estado: EstadoProforma; envio: { id: string; codigo: string; estado: EstadoEnvio } | null };
+  proforma: { id: string; codigo: string; estado: EstadoProforma };
 };
 
 /** Faltante de una nota de venta aprobada que una línea de compra puede cubrir. */
@@ -1118,7 +1127,7 @@ export type TraspasoInput = {
   nota?: string;
 };
 
-// --- Envíos (agrupan compras que viajan juntas; una compra solo se completa al recibir su envío) ---
+// --- Envíos (agrupan productos ya recogidos; la recepción puede ser parcial) ---
 
 export type EstadoEnvio = "ARMANDO" | "EN_TRANSITO" | "RECIBIDO" | "ANULADO";
 
@@ -1130,19 +1139,29 @@ export type EnvioVariante = {
   options: { optionValue: { value: string; attribute: { name: string } } }[];
 };
 
-/** Foto editable de lo esperado/recibido por cada línea de compra del envío. */
-export type EnvioRecepcionLinea = {
+/** Un producto recogido (parte de una línea de compra) que viaja en el envío. */
+export type EnvioItem = {
   id: string;
   envioId: string;
   compraDetalleId: string;
-  compraDetalle: { id: string; proformaId: string; proveedor: { id: string; nombre: string } | null };
-  varianteEsperadaId: string;
-  varianteEsperada: EnvioVariante;
-  varianteRecibidaId: string;
-  varianteRecibida: EnvioVariante;
-  cantidadEsperada: number;
+  cantidad: number;
   cantidadRecibida: number;
+  compraDetalle: {
+    id: string;
+    cantidad: number;
+    proveedor: { id: string; nombre: string } | null;
+    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    variante: EnvioVariante;
+  };
+};
+
+/** Un evento de recepción: lo que llegó en esa fecha (puede ser parte del envío). */
+export type EnvioRecepcion = {
+  id: string;
+  fecha: string;
   nota: string | null;
+  creadoPor: { id: string; nombre: string };
+  items: { id: string; cantidad: number; nota: string | null; varianteRecibidaId: string; varianteRecibida: EnvioVariante; envioItem: { id: string; compraDetalleId: string } }[];
 };
 
 export type Envio = {
@@ -1156,12 +1175,28 @@ export type Envio = {
   fechaRecepcion: string | null;
   creadoPor: { id: string; nombre: string };
   createdAt: string;
-  compras: Proforma[];
-  recepcion: EnvioRecepcionLinea[];
+  items: EnvioItem[];
+  recepciones: EnvioRecepcion[];
 };
 
-/** Fila del listado: sin el detalle de líneas ni recepción. */
-export type EnvioResumen = Omit<Envio, "compras" | "recepcion"> & { compras: { id: string; codigo: string }[] };
+/** Fila del listado: solo cantidades y códigos de las compras que viajan. */
+export type EnvioResumen = Omit<Envio, "items" | "recepciones"> & {
+  items: { cantidad: number; cantidadRecibida: number; compraDetalle: { proforma: { id: string; codigo: string } } }[];
+};
 
-export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; compraIds?: string[] };
-export type UpdateRecepcionLineaInput = { cantidadRecibida?: number; varianteRecibidaId?: string; nota?: string };
+/** Línea de compra con unidades ya recogidas que todavía se pueden sumar a un envío. */
+export type EnvioDisponible = {
+  id: string;
+  cantidad: number;
+  recogido: number;
+  disponible: number;
+  proveedor: { id: string; nombre: string } | null;
+  proforma: { id: string; codigo: string; fecha: string; proveedor: { id: string; nombre: string } | null };
+  variante: EnvioVariante;
+};
+
+export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?: { compraDetalleId: string; cantidad: number }[] };
+export type CreateRecepcionInput = {
+  nota?: string;
+  items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string }[];
+};

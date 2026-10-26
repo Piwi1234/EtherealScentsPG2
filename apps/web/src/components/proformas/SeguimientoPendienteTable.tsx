@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularPedido, getComprasCandidatas, vincularPedido } from "../../lib/api";
+import { EnviosDeLinea } from "./EnviosDeLinea";
 import { CrearComprasModal } from "./CrearComprasModal";
 import type { CompraCandidata, SeguimientoLinea } from "../../lib/types";
 import { Modal } from "../Modal";
@@ -69,7 +70,6 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
               <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span>
                   {c.proforma.codigo} · {c.proveedor?.nombre ?? "Sin proveedor"} · {c.restante} sin cubrir de {c.cantidad}
-                  {c.proforma.envio ? ` · envío ${c.proforma.envio.codigo}` : ""}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {maximo > 0 && (
@@ -224,14 +224,7 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
                           {compra.codigo}
                         </Link>
                         {linea.compraDetalle?.proveedor ? ` · ${linea.compraDetalle.proveedor.nombre}` : ""}
-                        {compra.envio && (
-                          <div style={{ fontSize: 12 }}>
-                            Envío{" "}
-                            <Link href={`/dashboard/stock/envios/${compra.envio.id}`} className="link-button">
-                              {compra.envio.codigo}
-                            </Link>
-                          </div>
-                        )}
+                        <EnviosDeLinea envioItems={linea.compraDetalle?.envioItems} />
                       </>
                     ) : (
                       "—"

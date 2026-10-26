@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, Prisma, TipoProforma } from "@app/database";
+import { EstadoProforma, EstadoSolicitudStock, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
-import { compraConEnlacesSelect, recogidasDeEnlace, type CompraConEnlaces } from "../recojo.util";
+import { compraConEnlacesSelect, enviadasDeEnlace, recogidasDeEnlace, type CompraConEnlaces } from "../recojo.util";
 import {
   CreateSolicitudDto,
   LineaSolicitudDto,
@@ -32,9 +32,7 @@ const lineaInclude = {
       id: true,
       cantidad: true,
       proveedor: { select: { id: true, nombre: true } },
-      proforma: {
-        select: { id: true, codigo: true, estado: true, envio: { select: { id: true, codigo: true, estado: true } } },
-      },
+      proforma: { select: { id: true, codigo: true, estado: true } },
       ...compraConEnlacesSelect,
     },
   },
@@ -45,16 +43,17 @@ const solicitudInclude = {
   lineas: { include: lineaInclude, orderBy: { createdAt: "asc" as const } },
 } satisfies Prisma.SolicitudStockInclude;
 
-type LineaConCompra = { compraDetalle: { proforma: { estado: EstadoProforma; envio: { estado: EstadoEnvio } | null } } | null };
+type LineaConCompra = { cantidad?: number; cantidadRecibida?: number; compraDetalle: { proforma: { estado: EstadoProforma } } | null };
 
-/** Estado DERIVADO de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: la compra ya se completó). */
-export function estadoLineaSolicitud(linea: LineaConCompra & { cantidad?: number }, recogidas = 0): EstadoLineaSolicitud {
+/** Estado DERIVADO de una línea de solicitud según la compra/envío que la cubre (RECIBIDA: ya llegó todo lo pedido). */
+export function estadoLineaSolicitud(linea: LineaConCompra, recogidas = 0, enviadas = 0): EstadoLineaSolicitud {
   const compra = linea.compraDetalle?.proforma;
   if (!compra) return "SIN_COMPRA";
-  if (compra.estado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
   if (compra.estado === EstadoProforma.COMPLETADA) return "RECIBIDA";
+  if (linea.cantidad !== undefined && linea.cantidadRecibida !== undefined && linea.cantidadRecibida >= linea.cantidad) return "RECIBIDA";
+  if (compra.estado === EstadoProforma.BORRADOR) return "EN_PREPARACION";
   if (compra.estado !== EstadoProforma.APROBADA) return "SIN_COMPRA";
-  if (compra.envio?.estado === EstadoEnvio.EN_TRANSITO) return "EN_TRANSITO";
+  if (linea.cantidad !== undefined && enviadas >= linea.cantidad) return "EN_TRANSITO";
   return linea.cantidad !== undefined && recogidas >= linea.cantidad ? "RECOGIDO" : "COMPRADO";
 }
 
@@ -64,10 +63,6 @@ export function estadoSolicitud(s: { estado: EstadoSolicitudStock; lineas: Linea
   if (s.lineas.length > 0 && s.lineas.every((l) => estadoLineaSolicitud(l) === "RECIBIDA")) return "CERRADA";
   return "ABIERTA";
 }
-
-const todoRecibido: Prisma.SolicitudStockWhereInput = {
-  AND: [{ lineas: { some: {} } }, { lineas: { every: { compraDetalle: { proforma: { estado: EstadoProforma.COMPLETADA } } } } }],
-};
 
 /**
  * Solicitudes de stock: un pedido interno de mercadería para inventario (no es una venta ni una compra).
@@ -81,7 +76,7 @@ export class SolicitudesStockService {
   private conEstado<
     T extends {
       estado: EstadoSolicitudStock;
-      lineas: (LineaConCompra & { id: string; cantidad: number; compraDetalle: (LineaConCompra["compraDetalle"] & CompraConEnlaces) | null })[];
+      lineas: (LineaConCompra & { id: string; cantidad: number; cantidadRecibida: number; compraDetalle: (LineaConCompra["compraDetalle"] & CompraConEnlaces) | null })[];
     },
   >(s: T) {
     return {
@@ -89,7 +84,8 @@ export class SolicitudesStockService {
       estadoDerivado: estadoSolicitud(s),
       lineas: s.lineas.map((l) => {
         const recogidas = l.compraDetalle ? recogidasDeEnlace(l.compraDetalle, l.id) : 0;
-        return { ...l, recogidas, estadoLinea: estadoLineaSolicitud(l, recogidas) };
+        const enviadas = l.compraDetalle ? enviadasDeEnlace(l.compraDetalle, l.id) : 0;
+        return { ...l, recogidas, enviadas, estadoLinea: estadoLineaSolicitud(l, recogidas, enviadas) };
       }),
     };
   }
@@ -100,11 +96,9 @@ export class SolicitudesStockService {
     const where: Prisma.SolicitudStockWhereInput = {
       ...(query.estado === "CANCELADA"
         ? { estado: EstadoSolicitudStock.CANCELADA }
-        : query.estado === "CERRADA"
-          ? { estado: EstadoSolicitudStock.ABIERTA, ...todoRecibido }
-          : query.estado === "ABIERTA"
-            ? { estado: EstadoSolicitudStock.ABIERTA, NOT: todoRecibido }
-            : {}),
+        : query.estado === "CERRADA" || query.estado === "ABIERTA"
+          ? { estado: EstadoSolicitudStock.ABIERTA }
+          : {}),
       ...(query.search?.trim()
         ? {
             OR: [
@@ -114,6 +108,13 @@ export class SolicitudesStockService {
           }
         : {}),
     };
+
+    // "Abierta" vs "cerrada" depende de cuánto llegó de cada línea (no se puede comparar columnas en SQL): se resuelve en memoria.
+    if (query.estado === "CERRADA" || query.estado === "ABIERTA") {
+      const todas = await this.prisma.solicitudStock.findMany({ where, orderBy: { createdAt: "desc" }, include: solicitudInclude });
+      const filtradas = todas.map((s) => this.conEstado(s)).filter((s) => s.estadoDerivado === query.estado);
+      return { items: filtradas.slice(skip, skip + take), total: filtradas.length, page, pageSize };
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.solicitudStock.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include: solicitudInclude }),

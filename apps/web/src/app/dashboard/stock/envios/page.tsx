@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ApiError, createEnvio, getAlmacenes, getComprasDisponiblesParaEnvio, getEnvios } from "../../../../lib/api";
-import type { Almacen, EnvioResumen, EstadoEnvio, Page, Proforma } from "../../../../lib/types";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ApiError, createEnvio, getAlmacenes, getEnvios, getEnviosDisponibles } from "../../../../lib/api";
+import type { Almacen, EnvioDisponible, EnvioResumen, EstadoEnvio, Page } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 import { AlmacenSelector } from "../../../../components/proformas/selectors";
 import { ESTADO_ENVIO_CLASE, ESTADO_ENVIO_LABEL } from "../../../../lib/envio-estados";
@@ -15,13 +15,14 @@ function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" }) : "—";
 }
 
-function proveedoresDe(compra: Proforma): string {
-  const nombres = Array.from(new Set(compra.detalles.map((d) => d.proveedor?.nombre).filter((n): n is string => Boolean(n))));
-  return nombres.length > 0 ? nombres.join(", ") : "Sin proveedor";
+function nombreVariante(v: EnvioDisponible["variante"]): string {
+  const opciones = v.options.map((o) => o.optionValue.value).join(", ");
+  return `${v.product.brand?.name ? `${v.product.brand.name} · ` : ""}${v.product.name}${opciones ? ` — ${opciones}` : ""}`;
 }
 
-export default function EnviosPage() {
+function EnviosContenido() {
   const router = useRouter();
+  const params = useSearchParams();
   const [estado, setEstado] = useState<"" | EstadoEnvio>("");
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<Page<EnvioResumen> | null>(null);
@@ -29,10 +30,10 @@ export default function EnviosPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
-  const [disponibles, setDisponibles] = useState<Proforma[]>([]);
+  const [disponibles, setDisponibles] = useState<EnvioDisponible[] | null>(null);
   const [almacenId, setAlmacenId] = useState("");
   const [nota, setNota] = useState("");
-  const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set());
+  const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,7 +46,8 @@ export default function EnviosPage() {
   function openModal() {
     setFormError("");
     setNota("");
-    setSeleccionadas(new Set());
+    setCantidades({});
+    setDisponibles(null);
     setModalOpen(true);
     getAlmacenes({ pageSize: 200 })
       .then((page) => {
@@ -54,19 +56,19 @@ export default function EnviosPage() {
         setAlmacenId((prev) => prev || activos[0]?.id || "");
       })
       .catch(() => {});
-    getComprasDisponiblesParaEnvio()
+    getEnviosDisponibles()
       .then(setDisponibles)
       .catch((e) => setFormError(e instanceof Error ? e.message : String(e)));
   }
 
-  function toggleCompra(id: string) {
-    setSeleccionadas((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  // Llegar con ?nuevo=1 (desde una compra o el panel) abre directo el armado de envío.
+  useEffect(() => {
+    if (params.get("nuevo") === "1") {
+      openModal();
+      router.replace("/dashboard/stock/envios");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -75,9 +77,12 @@ export default function EnviosPage() {
       setFormError("Elegí el almacén al que llega el envío.");
       return;
     }
+    const items = Object.entries(cantidades)
+      .filter(([, c]) => c > 0)
+      .map(([compraDetalleId, cantidad]) => ({ compraDetalleId, cantidad }));
     setSubmitting(true);
     try {
-      const envio = await createEnvio({ almacenDestinoId: almacenId, nota: nota.trim() || undefined, compraIds: Array.from(seleccionadas) });
+      const envio = await createEnvio({ almacenDestinoId: almacenId, nota: nota.trim() || undefined, items });
       router.push(`/dashboard/stock/envios/${envio.id}`);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : String(err));
@@ -86,6 +91,7 @@ export default function EnviosPage() {
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const elegidas = Object.values(cantidades).reduce((n, c) => n + c, 0);
 
   return (
     <div className="card">
@@ -96,8 +102,8 @@ export default function EnviosPage() {
         </button>
       </div>
       <p className="cell-muted" style={{ marginTop: -8, marginBottom: 16, fontSize: 13 }}>
-        Un envío agrupa las compras (de uno o varios proveedores) que viajan juntas. Las compras se completan al confirmar la
-        recepción del envío, corrigiendo lo que realmente llegó.
+        Un envío agrupa los productos ya recogidos (de una o varias compras y proveedores) que viajan juntos. Puede llegar por partes: lo que
+        no llegó sigue en camino y las compras se completan cuando llegó todo.
       </p>
 
       <div className="filters-bar">
@@ -132,26 +138,35 @@ export default function EnviosPage() {
                 <th>Código</th>
                 <th>Estado</th>
                 <th>Almacén destino</th>
-                <th className="num">Compras</th>
+                <th>Compras</th>
+                <th className="num">Llegaron</th>
                 <th>Salió</th>
                 <th>Recibido</th>
                 <th>Nota</th>
               </tr>
             </thead>
             <tbody>
-              {data.items.map((envio) => (
-                <tr key={envio.id} onClick={() => router.push(`/dashboard/stock/envios/${envio.id}`)} style={{ cursor: "pointer" }}>
-                  <td className="cell-primary">{envio.codigo}</td>
-                  <td>
-                    <span className={`badge ${ESTADO_ENVIO_CLASE[envio.estado]}`}>{ESTADO_ENVIO_LABEL[envio.estado]}</span>
-                  </td>
-                  <td className="cell-muted">{envio.almacenDestino.nombre}</td>
-                  <td className="num">{envio.compras.length}</td>
-                  <td className="cell-muted">{formatDate(envio.fechaEnvio)}</td>
-                  <td className="cell-muted">{formatDate(envio.fechaRecepcion)}</td>
-                  <td className="cell-muted">{envio.nota ?? "—"}</td>
-                </tr>
-              ))}
+              {data.items.map((envio) => {
+                const total = envio.items.reduce((n, i) => n + i.cantidad, 0);
+                const recibidas = envio.items.reduce((n, i) => n + i.cantidadRecibida, 0);
+                const compras = Array.from(new Set(envio.items.map((i) => i.compraDetalle.proforma.codigo)));
+                return (
+                  <tr key={envio.id} onClick={() => router.push(`/dashboard/stock/envios/${envio.id}`)} style={{ cursor: "pointer" }}>
+                    <td className="cell-primary">{envio.codigo}</td>
+                    <td>
+                      <span className={`badge ${ESTADO_ENVIO_CLASE[envio.estado]}`}>{ESTADO_ENVIO_LABEL[envio.estado]}</span>
+                    </td>
+                    <td className="cell-muted">{envio.almacenDestino.nombre}</td>
+                    <td className="cell-muted">{compras.length > 0 ? compras.join(", ") : "—"}</td>
+                    <td className="num">
+                      {recibidas} de {total}
+                    </td>
+                    <td className="cell-muted">{formatDate(envio.fechaEnvio)}</td>
+                    <td className="cell-muted">{formatDate(envio.fechaRecepcion)}</td>
+                    <td className="cell-muted">{envio.nota ?? "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -172,30 +187,69 @@ export default function EnviosPage() {
       )}
 
       {modalOpen && (
-        <Modal title="Nuevo envío" onClose={() => setModalOpen(false)}>
+        <Modal title="Nuevo envío" onClose={() => setModalOpen(false)} maxWidth={720}>
           <form className="form-grid" onSubmit={handleCreate}>
-            <div>
-              <label>Almacén destino</label>
-              <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 220 }}>
+                <label>Almacén destino</label>
+                <AlmacenSelector options={almacenes} value={almacenId} onChange={setAlmacenId} />
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <label>Nota (opcional)</label>
+                <input className="field" value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. carga de octubre" />
+              </div>
             </div>
             <div>
-              <label>Nota (opcional)</label>
-              <input className="field" value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. carga de octubre" />
-            </div>
-            <div>
-              <label>Compras aprobadas para incluir (podés sumar más después)</label>
-              {disponibles.length === 0 ? (
+              <label>Productos recogidos para enviar (podés sumar más después)</label>
+              {disponibles === null ? (
+                <p className="cell-muted" style={{ fontSize: 13 }}>Cargando...</p>
+              ) : disponibles.length === 0 ? (
                 <p className="cell-muted" style={{ fontSize: 13 }}>
-                  No hay compras aprobadas sin envío. Aprobá una compra en <Link href="/dashboard/proformas?tipo=COMPRA">Proformas</Link>.
+                  No hay productos recogidos sin enviar. Registrá un recojo en la compra (<Link href="/dashboard/proformas?tipo=COMPRA">Proformas</Link>).
                 </p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflowY: "auto" }}>
-                  {disponibles.map((c) => (
-                    <label key={c.id} className="checkbox-row" style={{ cursor: "pointer" }}>
-                      <input type="checkbox" checked={seleccionadas.has(c.id)} onChange={() => toggleCompra(c.id)} />
-                      {c.codigo} · {proveedoresDe(c)} · {c.detalles.length} línea{c.detalles.length === 1 ? "" : "s"}
-                    </label>
-                  ))}
+                <div className="table-scroll" style={{ maxHeight: 300, overflowY: "auto" }}>
+                  <table className="table table-minimal table-compact">
+                    <thead>
+                      <tr>
+                        <th>Compra</th>
+                        <th>Proveedor</th>
+                        <th style={{ minWidth: 200 }}>Producto</th>
+                        <th className="num">Recogidas sin enviar</th>
+                        <th className="num">Enviar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {disponibles.map((l) => (
+                        <tr key={l.id}>
+                          <td>{l.proforma.codigo}</td>
+                          <td className="cell-muted">{l.proveedor?.nombre ?? l.proforma.proveedor?.nombre ?? "—"}</td>
+                          <td className="cell-primary">{nombreVariante(l.variante)}</td>
+                          <td className="num">{l.disponible}</td>
+                          <td className="num">
+                            <input
+                              className="field"
+                              type="number"
+                              min={0}
+                              max={l.disponible}
+                              value={cantidades[l.id] ?? 0}
+                              aria-label={`Unidades de ${l.variante.product.name} a enviar`}
+                              onChange={(e) => setCantidades((prev) => ({ ...prev, [l.id]: Math.max(0, Math.min(l.disponible, parseInt(e.target.value, 10) || 0)) }))}
+                              style={{ width: 80, textAlign: "center" }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {disponibles && disponibles.length > 0 && (
+                <div style={{ marginTop: 8, display: "flex", gap: 14, alignItems: "center" }}>
+                  <button type="button" className="link-button" onClick={() => setCantidades(Object.fromEntries(disponibles.map((l) => [l.id, l.disponible])))}>
+                    Enviar todo lo recogido
+                  </button>
+                  <span className="cell-muted" style={{ fontSize: 12.5 }}>{elegidas} unidades elegidas</span>
                 </div>
               )}
             </div>
@@ -212,5 +266,13 @@ export default function EnviosPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+export default function EnviosPage() {
+  return (
+    <Suspense fallback={<div className="card"><p>Cargando...</p></div>}>
+      <EnviosContenido />
+    </Suspense>
   );
 }

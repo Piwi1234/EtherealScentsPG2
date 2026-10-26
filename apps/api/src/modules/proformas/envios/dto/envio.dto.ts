@@ -1,7 +1,19 @@
 import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { ArrayMinSize, IsArray, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min, ValidateNested } from "class-validator";
 import { EstadoEnvio } from "@app/database";
+
+export class EnvioItemDto {
+  @ApiProperty({ description: "Línea de compra (ya recogida) que viaja en el envío." })
+  @IsUUID()
+  compraDetalleId!: string;
+
+  @ApiProperty({ description: "Unidades de esa línea que viajan en este envío." })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cantidad!: number;
+}
 
 export class CreateEnvioDto {
   @ApiProperty({ description: "Almacén al que llega la mercadería de este envío." })
@@ -13,11 +25,12 @@ export class CreateEnvioDto {
   @IsString()
   nota?: string;
 
-  @ApiPropertyOptional({ type: [String], description: "Compras APROBADAS (sin envío) que arrancan dentro del envío." })
+  @ApiPropertyOptional({ type: [EnvioItemDto], description: "Productos recogidos que arrancan dentro del envío." })
   @IsOptional()
   @IsArray()
-  @IsUUID(undefined, { each: true })
-  compraIds?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => EnvioItemDto)
+  items?: EnvioItemDto[];
 }
 
 export class UpdateEnvioDto {
@@ -30,6 +43,14 @@ export class UpdateEnvioDto {
   @IsOptional()
   @IsString()
   nota?: string;
+}
+
+export class UpdateEnvioItemDto {
+  @ApiProperty({ description: "Nueva cantidad que viaja en el envío." })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cantidad!: number;
 }
 
 export class QueryEnvioDto {
@@ -53,13 +74,16 @@ export class QueryEnvioDto {
   limit?: number;
 }
 
-export class UpdateRecepcionLineaDto {
-  @ApiPropertyOptional({ description: "Cantidad que realmente llegó (0 = no llegó)." })
-  @IsOptional()
+export class RecepcionItemDto {
+  @ApiProperty()
+  @IsUUID()
+  envioItemId!: string;
+
+  @ApiProperty({ description: "Unidades que llegaron en esta recepción." })
   @Type(() => Number)
   @IsInt()
-  @Min(0)
-  cantidadRecibida?: number;
+  @Min(1)
+  cantidad!: number;
 
   @ApiPropertyOptional({ description: "Variante que realmente llegó, si fue otra distinta de la esperada." })
   @IsOptional()
@@ -70,4 +94,18 @@ export class UpdateRecepcionLineaDto {
   @IsOptional()
   @IsString()
   nota?: string;
+}
+
+export class CreateRecepcionDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nota?: string;
+
+  @ApiProperty({ type: [RecepcionItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RecepcionItemDto)
+  items!: RecepcionItemDto[];
 }

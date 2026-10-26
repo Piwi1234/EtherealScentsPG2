@@ -7,7 +7,7 @@ export const LABELS_PEDIDO: Record<EstadoPedido, string> = {
   EN_PREPARACION: "Compra en preparación",
   COMPRADO: "Comprado",
   RECOGIDO: "Recogido",
-  EN_TRANSITO: "En tránsito",
+  EN_TRANSITO: "Enviado",
 };
 
 export const CLASES_PEDIDO: Record<EstadoPedido, string> = {
@@ -18,9 +18,10 @@ export const CLASES_PEDIDO: Record<EstadoPedido, string> = {
   EN_TRANSITO: "badge badge-accent",
 };
 
-export const LABELS_STOCK: Record<"COMPRADO" | "EN_TRANSITO", string> = {
+export const LABELS_STOCK: Record<"COMPRADO" | "RECOGIDO" | "EN_TRANSITO", string> = {
   COMPRADO: "Comprado",
-  EN_TRANSITO: "En tránsito",
+  RECOGIDO: "Recogido",
+  EN_TRANSITO: "Enviado",
 };
 
 /** Estado derivado de una línea de solicitud de stock (igual que un pedido, más "Recibida" cuando ya llegó). */

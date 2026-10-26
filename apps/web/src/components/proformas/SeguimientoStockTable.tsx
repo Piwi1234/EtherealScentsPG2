@@ -38,7 +38,6 @@ export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLine
         <tbody>
           {lineas.map((linea) => {
             const etiqueta = atributosLabel(linea.variante);
-            const envio = linea.proforma.envio;
             return (
               <tr key={linea.id}>
                 <td className="cell-muted">{formatFecha(linea.proforma.fecha)}</td>
@@ -55,18 +54,25 @@ export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLine
                 </td>
                 <td className="num">{linea.cantidad}</td>
                 <td>
-                  <span className={`badge ${linea.estadoStock === "EN_TRANSITO" ? "badge-accent" : "badge-muted"}`}>
+                  <span className={`badge ${linea.estadoStock === "EN_TRANSITO" ? "badge-accent" : linea.estadoStock === "RECOGIDO" ? "badge-info" : "badge-muted"}`}>
                     {LABELS_STOCK[linea.estadoStock]}
                   </span>
+                  {linea.estadoStock !== "EN_TRANSITO" && (
+                    <div className="cell-muted" style={{ fontSize: 12 }}>
+                      {linea.recogidas ?? 0} de {linea.cantidad} recogidas
+                    </div>
+                  )}
                 </td>
                 <td className="cell-muted">
-                  {envio ? (
-                    <>
-                      <Link href={`/dashboard/stock/envios/${envio.id}`} className="link-button">
-                        {envio.codigo}
-                      </Link>
-                      <div style={{ fontSize: 12 }}>→ {envio.almacenDestino.nombre}</div>
-                    </>
+                  {linea.envios.length > 0 ? (
+                    linea.envios.map((e, i) => (
+                      <span key={e.id}>
+                        {i > 0 && ", "}
+                        <Link href={`/dashboard/stock/envios/${e.id}`} className="link-button">
+                          {e.codigo}
+                        </Link>
+                      </span>
+                    ))
                   ) : (
                     "Sin envío"
                   )}

@@ -37,6 +37,7 @@ model Usuario {
   traspasosCreados        Traspaso[]
   traspasosAlmacenCreados TraspasoAlmacen[]
   enviosCreados           Envio[]
+  recepcionesEnvio        EnvioRecepcion[]    @relation("EnvioRecepcionCreador")
 
   @@map("usuarios")
 }
@@ -542,12 +543,11 @@ model ProductVariant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  stock                Stock[]
-  lotesCompra          LoteCompra[]
-  proformaDetalles     ProformaDetalle[]
-  traspasosAlmacen     TraspasoAlmacen[]
-  recepcionesEsperadas EnvioRecepcionLinea[] @relation("RecepcionVarianteEsperada")
-  recepcionesRecibidas EnvioRecepcionLinea[] @relation("RecepcionVarianteRecibida")
+  stock            Stock[]
+  lotesCompra      LoteCompra[]
+  proformaDetalles ProformaDetalle[]
+  traspasosAlmacen TraspasoAlmacen[]
+  recepcionItems   EnvioRecepcionItem[]
 
   solicitudStockLineas SolicitudStockLinea[]
 
@@ -914,12 +914,6 @@ model Proforma {
   // Solo COMPRA: los retiros de mercadería del proveedor (parciales o completos).
   recojos     Recojo[]
 
-  // Solo COMPRA: en qué envío viaja esta compra (un envío agrupa varias compras de varios
-  // proveedores). Null mientras no se agregó a ninguno. Una compra solo se completa al recibir su
-  // envío (ver EnviosService.confirmarRecepcion).
-  envioId String? @map("envio_id") @db.Uuid
-  envio   Envio?  @relation(fields: [envioId], references: [id], onDelete: Restrict)
-
   // Solo COMPRA: el tipo de cambio propio de ESTA compra puntual — permite valorar en Bs sin
   // depender del tipo de cambio del sistema, que puede cambiar después de hecha la compra. Es único
   // para todo el documento (no por línea): una misma compra puede traer productos de varios
@@ -951,7 +945,6 @@ model Proforma {
   cuentaPorCobrar    CuentaPorCobrar?
 
   @@index([tipo, estado])
-  @@index([envioId])
   @@index([proveedorId])
   @@index([estadoActualizadoAt])
   @@map("proformas")
@@ -1002,13 +995,10 @@ model ProformaDetalle {
   // 1+ (no 0-o-1): al completar una compra nace 1, pero una corrección manual de catálogo puede
   // partir ese lote en más de un registro (ver comentario en LoteCompra.proformaDetalleId).
   loteCompras  LoteCompra[]
-  recepciones  EnvioRecepcionLinea[]
+  envioItems   EnvioItem[]
 
   // COMPRA: para qué se compra esta línea (ver DestinoCompra). Las líneas de VENTA lo ignoran.
   destino               DestinoCompra               @default(STOCK)
-  // Stock en tránsito que esta línea aportó al despachar su envío (ver transito.util.ts): se resta tal cual
-  // al anular o recibir el envío. Una línea PEDIDO aporta solo la parte no ligada a notas de venta.
-  enTransitoContado     Int                         @default(0) @map("en_transito_contado")
   // COMPRA con destino PEDIDO: las asignaciones PROCURA de notas de venta que esta línea cubre.
   asignacionesCubiertas ProformaDetalleAsignacion[] @relation("AsignacionCubiertaPor")
   // COMPRA: las líneas de solicitudes de stock que esta línea cubre (ver SolicitudStockLinea).
@@ -1071,9 +1061,9 @@ enum EstadoEnvio {
   @@map("estado_envio")
 }
 
-/// Agrupa varias proformas de COMPRA que viajan juntas hacia un almacén. Una compra solo se
-/// completa al confirmarse la recepción de su envío (ver EnviosService.confirmarRecepcion) — antes
-/// "completar" mezclaba "llegó" con "cerrar la compra" y no dejaba corregir lo recibido.
+/// Un envío agrupa PRODUCTOS ya recogidos (con su cantidad), de una o varias compras y proveedores, que viajan
+/// juntos hacia un almacén. Una línea de compra puede repartirse en varios envíos y la recepción puede ser
+/// parcial: lo que no llegó sigue "en camino" en el envío.
 model Envio {
   id               String      @id @default(uuid()) @db.Uuid
   // Código corto para mostrar/buscar (mismo mecanismo que Proforma.codigo).
@@ -1089,32 +1079,67 @@ model Envio {
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
 
-  compras   Proforma[]
-  recepcion EnvioRecepcionLinea[]
+  items       EnvioItem[]
+  recepciones EnvioRecepcion[]
 
   @@index([estado])
   @@map("envios")
 }
 
-/// Foto editable de lo que se esperaba recibir por cada línea de compra del envío, generada al abrir
-/// la recepción. El usuario corrige lo que realmente llegó (cantidad, o un producto distinto) antes
-/// de confirmar; queda como registro de auditoría de las diferencias.
-model EnvioRecepcionLinea {
-  id                 String          @id @default(uuid()) @db.Uuid
-  envioId            String          @map("envio_id") @db.Uuid
-  envio              Envio           @relation(fields: [envioId], references: [id], onDelete: Cascade)
-  compraDetalleId    String          @map("compra_detalle_id") @db.Uuid
-  compraDetalle      ProformaDetalle @relation(fields: [compraDetalleId], references: [id], onDelete: Restrict)
-  varianteEsperadaId String          @map("variante_esperada_id") @db.Uuid
-  varianteEsperada   ProductVariant  @relation("RecepcionVarianteEsperada", fields: [varianteEsperadaId], references: [id], onDelete: Restrict)
-  varianteRecibidaId String          @map("variante_recibida_id") @db.Uuid
-  varianteRecibida   ProductVariant  @relation("RecepcionVarianteRecibida", fields: [varianteRecibidaId], references: [id], onDelete: Restrict)
-  cantidadEsperada   Int             @map("cantidad_esperada")
-  cantidadRecibida   Int             @map("cantidad_recibida")
-  nota               String?
+/// Cuánto de una línea de compra (ya recogida) viaja en este envío.
+model EnvioItem {
+  id                String          @id @default(uuid()) @db.Uuid
+  envioId           String          @map("envio_id") @db.Uuid
+  envio             Envio           @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  compraDetalleId   String          @map("compra_detalle_id") @db.Uuid
+  compraDetalle     ProformaDetalle @relation(fields: [compraDetalleId], references: [id], onDelete: Restrict)
+  cantidad          Int
+  cantidadRecibida  Int             @default(0) @map("cantidad_recibida")
+  // Stock "en tránsito" que este ítem aportó al despachar su envío (ver transito.util.ts): se resta tal cual
+  // al anular o recibir.
+  enTransitoContado Int             @default(0) @map("en_transito_contado")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  recibos EnvioRecepcionItem[]
 
   @@unique([envioId, compraDetalleId])
-  @@map("envio_recepcion_lineas")
+  @@index([compraDetalleId])
+  @@map("envio_items")
+}
+
+/// Un evento de recepción: el envío puede llegar por partes y cada parte queda registrada con lo que llegó.
+model EnvioRecepcion {
+  id          String   @id @default(uuid()) @db.Uuid
+  envioId     String   @map("envio_id") @db.Uuid
+  envio       Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  fecha       DateTime @default(now())
+  nota        String?
+  creadoPorId String   @map("creado_por_id") @db.Uuid
+  creadoPor   Usuario  @relation("EnvioRecepcionCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  items EnvioRecepcionItem[]
+
+  @@index([envioId])
+  @@map("envio_recepciones")
+}
+
+/// Lo recibido de un ítem en un evento de recepción. La variante recibida puede ser distinta de la esperada
+/// ("llegó otro producto").
+model EnvioRecepcionItem {
+  id                 String         @id @default(uuid()) @db.Uuid
+  recepcionId        String         @map("recepcion_id") @db.Uuid
+  recepcion          EnvioRecepcion @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
+  envioItemId        String         @map("envio_item_id") @db.Uuid
+  envioItem          EnvioItem      @relation(fields: [envioItemId], references: [id], onDelete: Cascade)
+  cantidad           Int
+  varianteRecibidaId String         @map("variante_recibida_id") @db.Uuid
+  varianteRecibida   ProductVariant @relation(fields: [varianteRecibidaId], references: [id], onDelete: Restrict)
+  nota               String?
+
+  @@index([recepcionId])
+  @@index([envioItemId])
+  @@map("envio_recepcion_items")
 }
 
 /// Log de solo-inserción de cada cambio de estado de una proforma.
@@ -1447,16 +1472,17 @@ model SolicitudStock {
 /// Una línea de solicitud. Igual que los faltantes de ventas, una línea ligada a una compra puede cubrir solo
 /// parte de lo pedido: la fila se parte en una ligada (compraDetalleId) y otra libre con el resto.
 model SolicitudStockLinea {
-  id              String           @id @default(uuid()) @db.Uuid
-  solicitudId     String           @map("solicitud_id") @db.Uuid
-  solicitud       SolicitudStock   @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
-  varianteId      String           @map("variante_id") @db.Uuid
-  variante        ProductVariant   @relation(fields: [varianteId], references: [id], onDelete: Restrict)
-  cantidad        Int
-  nota            String?
-  compraDetalleId String?          @map("compra_detalle_id") @db.Uuid
-  compraDetalle   ProformaDetalle? @relation("SolicitudCubiertaPor", fields: [compraDetalleId], references: [id], onDelete: SetNull)
-  createdAt       DateTime         @default(now()) @map("created_at")
+  id               String           @id @default(uuid()) @db.Uuid
+  solicitudId      String           @map("solicitud_id") @db.Uuid
+  solicitud        SolicitudStock   @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  varianteId       String           @map("variante_id") @db.Uuid
+  variante         ProductVariant   @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  cantidad         Int
+  nota             String?
+  cantidadRecibida Int              @default(0) @map("cantidad_recibida")
+  compraDetalleId  String?          @map("compra_detalle_id") @db.Uuid
+  compraDetalle    ProformaDetalle? @relation("SolicitudCubiertaPor", fields: [compraDetalleId], references: [id], onDelete: SetNull)
+  createdAt        DateTime         @default(now()) @map("created_at")
 
   @@index([solicitudId])
   @@index([varianteId])

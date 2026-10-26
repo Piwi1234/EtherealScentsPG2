@@ -17,6 +17,8 @@ import type {
   CuentaPorCobrarConProforma,
   DetalleCompraInput,
   CreateEnvioInput,
+  CreateRecepcionInput,
+  EnvioDisponible,
   DetalleVentaInput,
   Empresa,
   EmpresaInput,
@@ -70,7 +72,6 @@ import type {
   TraspasoAlmacenInput,
   TraspasoInput,
   UpdateDetalleInput,
-  UpdateRecepcionLineaInput,
 } from "./types";
 
 const DEFAULT_API_HOST = "http://localhost:4100";
@@ -1237,8 +1238,8 @@ export function getEnvio(id: string) {
   return apiGet<Envio>(`/envios/${id}`);
 }
 
-export function getComprasDisponiblesParaEnvio() {
-  return apiGet<Proforma[]>("/envios/compras-disponibles");
+export function getEnviosDisponibles() {
+  return apiGet<EnvioDisponible[]>("/envios/disponibles");
 }
 
 export function createEnvio(data: CreateEnvioInput) {
@@ -1249,12 +1250,16 @@ export function updateEnvio(id: string, data: { almacenDestinoId?: string; nota?
   return apiPatch<Envio>(`/envios/${id}`, data);
 }
 
-export function agregarCompraAEnvio(id: string, proformaId: string) {
-  return apiPost<Envio>(`/envios/${id}/compras/${proformaId}`, {});
+export function agregarItemEnvio(id: string, data: { compraDetalleId: string; cantidad: number }) {
+  return apiPost<Envio>(`/envios/${id}/items`, data);
 }
 
-export function quitarCompraDeEnvio(id: string, proformaId: string) {
-  return apiDelete<Envio>(`/envios/${id}/compras/${proformaId}`);
+export function updateItemEnvio(id: string, itemId: string, data: { cantidad: number }) {
+  return apiPatch<Envio>(`/envios/${id}/items/${itemId}`, data);
+}
+
+export function quitarItemEnvio(id: string, itemId: string) {
+  return apiDelete<Envio>(`/envios/${id}/items/${itemId}`);
 }
 
 export function marcarEnvioEnTransito(id: string) {
@@ -1265,14 +1270,10 @@ export function anularEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/anular`, {});
 }
 
-export function iniciarRecepcionEnvio(id: string) {
-  return apiPost<Envio>(`/envios/${id}/recepcion`, {});
+export function recibirEnvio(id: string, data: CreateRecepcionInput) {
+  return apiPost<Envio>(`/envios/${id}/recepciones`, data);
 }
 
-export function updateRecepcionLinea(envioId: string, lineaId: string, data: UpdateRecepcionLineaInput) {
-  return apiPatch<Envio>(`/envios/${envioId}/recepcion/${lineaId}`, data);
-}
-
-export function confirmarRecepcionEnvio(id: string) {
-  return apiPost<Envio>(`/envios/${id}/recepcion/confirmar`, {});
+export function cerrarEnvio(id: string) {
+  return apiPost<Envio>(`/envios/${id}/cerrar`, {});
 }

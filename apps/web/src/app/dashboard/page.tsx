@@ -218,9 +218,9 @@ export default function DashboardPage() {
         {
           n: pendientes.comprasSinEnvio,
           tono: "info",
-          titulo: `${plural(pendientes.comprasSinEnvio, "compra aprobada", "compras aprobadas")} sin envío`,
-          detalle: "No se pueden recibir hasta entrar a un envío",
-          href: "/dashboard/proformas?tipo=COMPRA&estado=APROBADA&sinEnvio=true",
+          titulo: `${plural(pendientes.comprasSinEnvio, "compra", "compras")} con productos recogidos sin enviar`,
+          detalle: "Todavía no salieron: armá un envío con ellos",
+          href: "/dashboard/stock/envios?nuevo=1",
           accion: "Armar envío",
         },
         {

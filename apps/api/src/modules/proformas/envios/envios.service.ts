@@ -5,35 +5,46 @@ import { PrismaService } from "../../../common/prisma.service";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
 import { ProformaHistorialService } from "../proforma-historial.service";
-import { includeDetails } from "../proformas.service";
 import { lockStockRows, stockKey } from "../stock-lock.util";
 import { resolverProcuraPendiente } from "../procura.util";
-import { aporteEnTransito, liquidarTransito, reservarTransitoParaProcuras } from "../transito.util";
-import { CreateEnvioDto, QueryEnvioDto, UpdateEnvioDto, UpdateRecepcionLineaDto } from "./dto/envio.dto";
+import { liquidarTransito, recalcularTransitoLinea } from "../transito.util";
+import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto } from "./dto/envio.dto";
 
 const varianteInclude = {
   product: { include: { brand: true } },
   options: { include: { optionValue: { include: { attribute: true } } } },
 } satisfies Prisma.ProductVariantInclude;
 
-const recepcionInclude = {
-  compraDetalle: { select: { id: true, proformaId: true, proveedor: { select: { id: true, nombre: true } } } },
-  varianteEsperada: { include: varianteInclude },
-  varianteRecibida: { include: varianteInclude },
-} satisfies Prisma.EnvioRecepcionLineaInclude;
+const itemInclude = {
+  compraDetalle: {
+    select: {
+      id: true,
+      cantidad: true,
+      proveedor: { select: { id: true, nombre: true } },
+      proforma: { select: { id: true, codigo: true, estado: true } },
+      variante: { include: varianteInclude },
+    },
+  },
+} satisfies Prisma.EnvioItemInclude;
 
 const envioInclude = {
   almacenDestino: true,
   creadoPor: { select: { id: true, nombre: true } },
-  compras: { include: includeDetails, orderBy: { createdAt: "asc" as const } },
-  recepcion: { include: recepcionInclude, orderBy: { id: "asc" as const } },
+  items: { include: itemInclude, orderBy: { createdAt: "asc" as const } },
+  recepciones: {
+    orderBy: { fecha: "desc" as const },
+    include: {
+      creadoPor: { select: { id: true, nombre: true } },
+      items: { include: { varianteRecibida: { include: varianteInclude }, envioItem: { select: { id: true, compraDetalleId: true } } } },
+    },
+  },
 } satisfies Prisma.EnvioInclude;
 
 /**
- * Un envío agrupa varias compras (de varios proveedores) que viajan juntas hacia un almacén. Es el
- * ÚNICO camino para completar una compra: al confirmar la recepción se crean los lotes y el stock
- * con lo que realmente llegó (pudiendo corregir cantidades o el producto recibido antes de
- * confirmar) y recién ahí las compras pasan a COMPLETADA.
+ * Un envío agrupa PRODUCTOS ya recogidos (con su cantidad) de una o varias compras y proveedores que viajan
+ * juntos a un almacén. Una línea de compra puede repartirse en varios envíos y la recepción puede ser parcial:
+ * lo que no llegó sigue "en camino" en el envío. Es el ÚNICO camino para recibir mercadería: cada recepción crea
+ * los lotes y el stock con lo que realmente llegó, y una compra se completa cuando todas sus líneas llegaron.
  */
 @Injectable()
 export class EnviosService {
@@ -57,7 +68,7 @@ export class EnviosService {
         include: {
           almacenDestino: true,
           creadoPor: { select: { id: true, nombre: true } },
-          compras: { select: { id: true, codigo: true } },
+          items: { select: { cantidad: true, cantidadRecibida: true, compraDetalle: { select: { proforma: { select: { id: true, codigo: true } } } } } },
         },
       }),
       this.prisma.envio.count({ where }),
@@ -71,13 +82,28 @@ export class EnviosService {
     return envio;
   }
 
-  /** Compras APROBADAS que todavía no están en ningún envío — lo que se puede sumar a uno. */
-  findComprasDisponibles() {
-    return this.prisma.proforma.findMany({
-      where: { tipo: TipoProforma.COMPRA, estado: EstadoProforma.APROBADA, envioId: null },
-      orderBy: { createdAt: "asc" },
-      include: includeDetails,
+  /** Productos recogidos que todavía no están (del todo) en un envío: lo que se puede sumar a uno. */
+  async findDisponibles() {
+    const lineas = await this.prisma.proformaDetalle.findMany({
+      where: { proforma: { tipo: TipoProforma.COMPRA, estado: EstadoProforma.APROBADA }, recojoLineas: { some: {} } },
+      orderBy: [{ proforma: { createdAt: "asc" } }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        cantidad: true,
+        proveedor: { select: { id: true, nombre: true } },
+        proforma: { select: { id: true, codigo: true, fecha: true, proveedor: { select: { id: true, nombre: true } } } },
+        variante: { include: varianteInclude },
+        recojoLineas: { select: { cantidad: true } },
+        envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidad: true } },
+      },
     });
+    return lineas
+      .map(({ recojoLineas, envioItems, ...l }) => {
+        const recogido = recojoLineas.reduce((n, r) => n + r.cantidad, 0);
+        const enEnvios = envioItems.reduce((n, r) => n + r.cantidad, 0);
+        return { ...l, recogido, disponible: recogido - enEnvios };
+      })
+      .filter((l) => l.disponible > 0);
   }
 
   private async assertAlmacenExists(id: string) {
@@ -91,17 +117,38 @@ export class EnviosService {
     }
   }
 
-  private async assertCompraDisponible(tx: Prisma.TransactionClient, proformaId: string) {
-    const compra = await tx.proforma.findUnique({
-      where: { id: proformaId },
-      select: { tipo: true, estado: true, envioId: true, codigo: true },
+  private async lockEnvio(tx: Prisma.TransactionClient, id: string) {
+    await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+    const rows = await tx.$queryRaw<{ estado: EstadoEnvio; almacenDestinoId: string }[]>`
+      SELECT "estado", "almacen_destino_id" AS "almacenDestinoId" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE
+    `;
+    if (!rows[0]) throw new NotFoundException("Envío no encontrado.");
+    return rows[0];
+  }
+
+  /**
+   * Unidades de una línea de compra que se pueden sumar a un envío: lo recogido menos lo que ya está en envíos
+   * vigentes. Bloquea la compra para que dos envíos no tomen las mismas unidades a la vez.
+   */
+  private async disponibleDeLinea(tx: Prisma.TransactionClient, compraDetalleId: string, ignorarItemId?: string) {
+    const linea = await tx.proformaDetalle.findUnique({
+      where: { id: compraDetalleId },
+      select: {
+        proformaId: true,
+        proforma: { select: { tipo: true, estado: true, codigo: true } },
+        recojoLineas: { select: { cantidad: true } },
+        envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { id: true, cantidad: true } },
+      },
     });
-    if (!compra) throw new BadRequestException(`Compra inválida: ${proformaId}`);
-    if (compra.tipo !== TipoProforma.COMPRA) throw new BadRequestException(`${compra.codigo} no es una proforma de compra.`);
-    if (compra.estado !== EstadoProforma.APROBADA) {
-      throw new ConflictException(`${compra.codigo} tiene que estar APROBADA para entrar a un envío (está ${compra.estado}).`);
+    if (!linea) throw new BadRequestException(`Línea de compra inválida: ${compraDetalleId}`);
+    if (linea.proforma.tipo !== TipoProforma.COMPRA) throw new BadRequestException(`${linea.proforma.codigo} no es una proforma de compra.`);
+    if (linea.proforma.estado !== EstadoProforma.APROBADA) {
+      throw new ConflictException(`${linea.proforma.codigo} tiene que estar APROBADA para enviar sus productos (está ${linea.proforma.estado}).`);
     }
-    if (compra.envioId) throw new ConflictException(`${compra.codigo} ya está en otro envío.`);
+    await tx.$queryRaw`SELECT "id" FROM "proformas" WHERE "id" = ${linea.proformaId}::uuid FOR UPDATE`;
+    const recogido = linea.recojoLineas.reduce((n, r) => n + r.cantidad, 0);
+    const enEnvios = linea.envioItems.filter((i) => i.id !== ignorarItemId).reduce((n, i) => n + i.cantidad, 0);
+    return { disponible: recogido - enEnvios, codigo: linea.proforma.codigo };
   }
 
   private generateCodigo() {
@@ -111,20 +158,33 @@ export class EnviosService {
     });
   }
 
+  private async sumarItem(tx: Prisma.TransactionClient, envioId: string, item: EnvioItemDto) {
+    const { disponible, codigo } = await this.disponibleDeLinea(tx, item.compraDetalleId);
+    if (item.cantidad > disponible) {
+      throw new ConflictException(`De ${codigo} solo hay ${Math.max(0, disponible)} unidad(es) recogida(s) sin enviar y quisiste enviar ${item.cantidad}.`);
+    }
+    const existente = await tx.envioItem.findUnique({ where: { envioId_compraDetalleId: { envioId, compraDetalleId: item.compraDetalleId } } });
+    if (existente) {
+      await tx.envioItem.update({ where: { id: existente.id }, data: { cantidad: { increment: item.cantidad } } });
+    } else {
+      await tx.envioItem.create({ data: { envioId, compraDetalleId: item.compraDetalleId, cantidad: item.cantidad } });
+    }
+  }
+
   async create(dto: CreateEnvioDto, usuarioId: string) {
     await this.assertAlmacenExists(dto.almacenDestinoId);
     const codigo = await this.generateCodigo();
     try {
-      const envio = await this.prisma.$transaction(async (tx) => {
-        for (const compraId of dto.compraIds ?? []) await this.assertCompraDisponible(tx, compraId);
-        const creado = await tx.envio.create({
-          data: { codigo, almacenDestinoId: dto.almacenDestinoId, nota: dto.nota, creadoPorId: usuarioId },
-        });
-        if (dto.compraIds?.length) {
-          await tx.proforma.updateMany({ where: { id: { in: dto.compraIds } }, data: { envioId: creado.id } });
-        }
-        return creado;
-      });
+      const envio = await this.prisma.$transaction(
+        async (tx) => {
+          const creado = await tx.envio.create({
+            data: { codigo, almacenDestinoId: dto.almacenDestinoId, nota: dto.nota, creadoPorId: usuarioId },
+          });
+          for (const item of dto.items ?? []) await this.sumarItem(tx, creado.id, item);
+          return creado;
+        },
+        { timeout: 15000, maxWait: 5000 },
+      );
       return this.findOne(envio.id);
     } catch (error) {
       rethrowPrismaError(error, "Envío");
@@ -139,86 +199,77 @@ export class EnviosService {
     return this.findOne(id);
   }
 
-  async agregarCompra(id: string, proformaId: string) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO], "agregar compras");
+  async agregarItem(id: string, dto: EnvioItemDto) {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await this.assertCompraDisponible(tx, proformaId);
-        await tx.proforma.update({ where: { id: proformaId }, data: { envioId: id } });
-        // La foto de recepción (si ya se abrió) quedaría desactualizada: se regenera al reabrirla.
-        await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
-      });
+      await this.prisma.$transaction(
+        async (tx) => {
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.ARMANDO], "agregar productos");
+          await this.sumarItem(tx, id, dto);
+        },
+        { timeout: 15000, maxWait: 5000 },
+      );
     } catch (error) {
       rethrowPrismaError(error, "Envío");
     }
     return this.findOne(id);
   }
 
-  async quitarCompra(id: string, proformaId: string) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO], "quitar compras");
-    if (!envio.compras.some((c) => c.id === proformaId)) throw new NotFoundException("Esa compra no está en este envío.");
-    await this.prisma.$transaction(async (tx) => {
-      await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
-      await tx.proforma.update({ where: { id: proformaId }, data: { envioId: null } });
-    });
-    return this.findOne(id);
-  }
-
-  /** Lo que cada línea del envío aporta HOY al stock en tránsito (ver aporteEnTransito): las líneas
-   * "para stock" todo, las "pedido de cliente" solo la parte que no está ligada a notas de venta. */
-  private async aportesDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
-    const lineas = await tx.proformaDetalle.findMany({
-      where: { proforma: { envioId } },
-      select: { id: true, varianteId: true, cantidad: true, asignacionesCubiertas: { select: { cantidad: true } } },
-    });
-    return lineas.map((l) => ({
-      id: l.id,
-      varianteId: l.varianteId,
-      aporte: aporteEnTransito({ cantidad: l.cantidad, ligadas: l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) }),
-    }));
-  }
-
-  /** Lo que el envío tiene contado en tránsito por variante, según lo que cada línea aportó al despachar. */
-  private async contadoDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
-    const lineas = await tx.proformaDetalle.findMany({
-      where: { proforma: { envioId }, enTransitoContado: { gt: 0 } },
-      select: { varianteId: true, enTransitoContado: true },
-    });
-    const porVariante = new Map<string, number>();
-    for (const l of lineas) porVariante.set(l.varianteId, (porVariante.get(l.varianteId) ?? 0) + l.enTransitoContado);
-    return porVariante;
-  }
-
-  async marcarEnTransito(id: string) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO], "marcar en tránsito");
-    if (envio.compras.length === 0) throw new ConflictException("El envío no tiene compras.");
+  async updateItem(id: string, itemId: string, dto: UpdateEnvioItemDto) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
-          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
-          const rows = await tx.$queryRaw<{ estado: EstadoEnvio }[]>`SELECT "estado" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE`;
-          this.assertEstado(rows[0], [EstadoEnvio.ARMANDO], "marcar en tránsito");
-
-          const almacenId = envio.almacenDestinoId;
-          const aportes = await this.aportesDelEnvio(tx, id);
-          const porVariante = new Map<string, number>();
-          for (const a of aportes) porVariante.set(a.varianteId, (porVariante.get(a.varianteId) ?? 0) + a.aporte);
-          await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
-          // Se guarda lo que aportó cada línea para restar exactamente lo mismo al anular o recibir.
-          for (const a of aportes) await tx.proformaDetalle.update({ where: { id: a.id }, data: { enTransitoContado: a.aporte } });
-          for (const [varianteId, cantidad] of porVariante) {
-            if (cantidad <= 0) continue;
-            await tx.stock.update({
-              where: { varianteId_almacenId: { varianteId, almacenId } },
-              data: { cantidadEnTransito: { increment: cantidad } },
-            });
-            // Las ventas con faltante pendiente reservan por adelantado lo que viaja en este envío.
-            await reservarTransitoParaProcuras(tx, { varianteId, almacenId });
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.ARMANDO], "editar productos");
+          const item = await tx.envioItem.findFirst({ where: { id: itemId, envioId: id } });
+          if (!item) throw new NotFoundException("Ese producto no está en este envío.");
+          const { disponible, codigo } = await this.disponibleDeLinea(tx, item.compraDetalleId, itemId);
+          if (dto.cantidad > disponible) {
+            throw new ConflictException(`De ${codigo} solo hay ${Math.max(0, disponible)} unidad(es) recogida(s) para este envío y quisiste ${dto.cantidad}.`);
           }
+          await tx.envioItem.update({ where: { id: itemId }, data: { cantidad: dto.cantidad } });
+        },
+        { timeout: 15000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Envío");
+    }
+    return this.findOne(id);
+  }
+
+  async quitarItem(id: string, itemId: string) {
+    const envio = await this.findOne(id);
+    this.assertEstado(envio, [EstadoEnvio.ARMANDO], "quitar productos");
+    if (!envio.items.some((i) => i.id === itemId)) throw new NotFoundException("Ese producto no está en este envío.");
+    await this.prisma.envioItem.delete({ where: { id: itemId } });
+    return this.findOne(id);
+  }
+
+  async marcarEnTransito(id: string) {
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.ARMANDO], "marcar en tránsito");
+          const items = await tx.envioItem.findMany({
+            where: { envioId: id },
+            select: { compraDetalleId: true, compraDetalle: { select: { varianteId: true, proforma: { select: { codigo: true, estado: true } } } } },
+          });
+          if (items.length === 0) throw new ConflictException("El envío no tiene productos.");
+          for (const i of items) {
+            if (i.compraDetalle.proforma.estado !== EstadoProforma.APROBADA) {
+              throw new ConflictException(`${i.compraDetalle.proforma.codigo} ya no está aprobada: sacá sus productos del envío.`);
+            }
+          }
+
+          await lockStockRows(
+            tx,
+            Array.from(new Set(items.map((i) => i.compraDetalle.varianteId))).map((varianteId) => ({ varianteId, almacenId: lock.almacenDestinoId })),
+          );
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.EN_TRANSITO, fechaEnvio: new Date() } });
+          // Lo que viaja y no está ligado a notas de venta cuenta como stock en tránsito; las ventas con
+          // faltante pendiente lo reservan por adelantado.
+          for (const compraDetalleId of new Set(items.map((i) => i.compraDetalleId))) await recalcularTransitoLinea(tx, compraDetalleId);
         },
         { timeout: 20000, maxWait: 5000 },
       );
@@ -228,28 +279,38 @@ export class EnviosService {
     return this.findOne(id);
   }
 
+  /** Lo que el envío tiene contado en tránsito por variante esperada (lo que aportó cada ítem al despachar). */
+  private contadoPorVariante(items: { enTransitoContado: number; compraDetalle: { varianteId: string } }[]) {
+    const porVariante = new Map<string, number>();
+    for (const i of items) {
+      if (i.enTransitoContado > 0) porVariante.set(i.compraDetalle.varianteId, (porVariante.get(i.compraDetalle.varianteId) ?? 0) + i.enTransitoContado);
+    }
+    return porVariante;
+  }
+
   async anular(id: string) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "anular");
     try {
       await this.prisma.$transaction(
         async (tx) => {
-          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
-          const rows = await tx.$queryRaw<{ estado: EstadoEnvio }[]>`SELECT "estado" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE`;
-          this.assertEstado(rows[0], [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "anular");
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "anular");
+          if ((await tx.envioRecepcion.count({ where: { envioId: id } })) > 0) {
+            throw new ConflictException("El envío ya recibió mercadería: no se puede anular. Cerralo para dar por no llegado lo que falta.");
+          }
 
-          if (rows[0].estado === EstadoEnvio.EN_TRANSITO) {
-            const almacenId = envio.almacenDestinoId;
-            const porVariante = await this.contadoDelEnvio(tx, id);
-            await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId })));
+          if (lock.estado === EstadoEnvio.EN_TRANSITO) {
+            const items = await tx.envioItem.findMany({
+              where: { envioId: id },
+              select: { id: true, enTransitoContado: true, compraDetalle: { select: { varianteId: true } } },
+            });
+            const porVariante = this.contadoPorVariante(items);
+            await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId: lock.almacenDestinoId })));
             // Lo reservado en tránsito que ya no tiene de dónde salir vuelve a Procura.
             for (const [varianteId, quitar] of porVariante) {
-              await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: false });
+              await liquidarTransito(tx, { varianteId, almacenId: lock.almacenDestinoId, quitar, convertirAFisico: false });
             }
-            await tx.proformaDetalle.updateMany({ where: { proforma: { envioId: id } }, data: { enTransitoContado: 0 } });
+            await tx.envioItem.updateMany({ where: { envioId: id }, data: { enTransitoContado: 0 } });
           }
-          await tx.envioRecepcionLinea.deleteMany({ where: { envioId: id } });
-          await tx.proforma.updateMany({ where: { envioId: id }, data: { envioId: null } });
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.ANULADO } });
         },
         { timeout: 20000, maxWait: 5000 },
@@ -260,137 +321,189 @@ export class EnviosService {
     return this.findOne(id);
   }
 
-  /** Genera la foto de lo esperado (una fila por línea de compra) para que el usuario la corrija con
-   * lo que realmente llegó. Idempotente: si ya existe, la devuelve sin pisar correcciones. */
-  async iniciarRecepcion(id: string) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "abrir la recepción");
-    if (envio.compras.length === 0) throw new ConflictException("El envío no tiene compras.");
-    if (envio.recepcion.length === 0) {
-      const lineas = envio.compras.flatMap((c) =>
-        c.detalles.map((d) => ({
-          envioId: id,
-          compraDetalleId: d.id,
-          varianteEsperadaId: d.varianteId,
-          varianteRecibidaId: d.varianteId,
-          cantidadEsperada: d.cantidad,
-          cantidadRecibida: d.cantidad,
-        })),
-      );
-      await this.prisma.envioRecepcionLinea.createMany({ data: lineas });
-    }
-    return this.findOne(id);
-  }
-
-  async updateRecepcionLinea(id: string, lineaId: string, dto: UpdateRecepcionLineaDto) {
-    const envio = await this.findOne(id);
-    this.assertEstado(envio, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "corregir la recepción");
-    const linea = envio.recepcion.find((l) => l.id === lineaId);
-    if (!linea) throw new NotFoundException("Línea de recepción no encontrada.");
-    if (dto.varianteRecibidaId) {
-      const variante = await this.prisma.productVariant.findUnique({ where: { id: dto.varianteRecibidaId }, select: { id: true } });
-      if (!variante) throw new BadRequestException(`varianteRecibidaId inválida: ${dto.varianteRecibidaId}`);
-    }
-    await this.prisma.envioRecepcionLinea.update({
-      where: { id: lineaId },
-      data: { cantidadRecibida: dto.cantidadRecibida, varianteRecibidaId: dto.varianteRecibidaId, nota: dto.nota },
-    });
-    return this.findOne(id);
-  }
-
   /**
-   * Confirma lo recibido: por cada línea con unidades llegadas crea el LoteCompra (a nombre de la
-   * variante que REALMENTE llegó, con el costo de la línea de compra) y suma stock físico en el
-   * almacén destino; después resuelve la Procura pendiente de ventas aprobadas y completa las compras.
-   * Todo en una sola transacción, con las filas de stock bloqueadas antes de tocar lotes.
+   * Registra lo que llegó (parcial o total): por cada ítem crea el LoteCompra (a nombre de la variante que
+   * REALMENTE llegó, con el costo de la línea de compra) y suma stock físico en el almacén destino; después
+   * reparte el faltante de ventas ligadas a esa compra, completa las compras cuyas líneas ya llegaron todas y
+   * deja el envío RECIBIDO cuando no queda nada en camino. Una sola transacción, con las filas de stock
+   * bloqueadas antes de tocar lotes.
    */
-  async confirmarRecepcion(id: string, usuarioId: string) {
+  async recibir(id: string, dto: CreateRecepcionDto, usuarioId: string) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
-          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
-          const rows = await tx.$queryRaw<{ estado: EstadoEnvio; almacenDestinoId: string }[]>`
-            SELECT "estado", "almacen_destino_id" AS "almacenDestinoId" FROM "envios" WHERE "id" = ${id}::uuid FOR UPDATE
-          `;
-          const lock = rows[0];
-          if (!lock) throw new NotFoundException("Envío no encontrado.");
-          this.assertEstado(lock, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "confirmar la recepción");
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.ARMANDO, EstadoEnvio.EN_TRANSITO], "registrar la recepción");
+          const almacenId = lock.almacenDestinoId;
 
           const envio = await tx.envio.findUniqueOrThrow({
             where: { id },
             include: {
-              compras: true,
-              recepcion: {
+              items: {
                 include: {
-                  compraDetalle: true,
-                  varianteEsperada: { include: { product: true } },
-                  varianteRecibida: { include: { product: true } },
+                  compraDetalle: { include: { variante: { include: { product: true } }, asignacionesCubiertas: { select: { cantidad: true } } } },
                 },
               },
             },
           });
-          if (envio.compras.length === 0) throw new ConflictException("El envío no tiene compras.");
-          if (envio.recepcion.length === 0) throw new ConflictException("Abrí la recepción y revisá lo recibido antes de confirmar.");
+          const porId = new Map(envio.items.map((i) => [i.id, i]));
 
-          const almacenId = lock.almacenDestinoId;
-          const recibidas = envio.recepcion.filter((l) => l.cantidadRecibida > 0);
-          // Lo que este envío tenía contado como "en tránsito" (lo que aportó cada línea al despachar).
-          const enTransito = lock.estado === EstadoEnvio.EN_TRANSITO ? await this.contadoDelEnvio(tx, id) : new Map<string, number>();
-          const variantesPares = new Set([...recibidas.map((l) => l.varianteRecibidaId), ...enTransito.keys()]);
-          const pares = Array.from(variantesPares).map((varianteId) => ({ varianteId, almacenId }));
+          // Un mismo ítem puede venir repetido (p. ej. parte llegó correcta y parte "otro producto"): se valida el total.
+          const totalPorItem = new Map<string, number>();
+          for (const l of dto.items) {
+            if (!porId.has(l.envioItemId)) throw new BadRequestException("Uno de los productos no pertenece a este envío.");
+            totalPorItem.set(l.envioItemId, (totalPorItem.get(l.envioItemId) ?? 0) + l.cantidad);
+          }
+          for (const [itemId, total] of totalPorItem) {
+            const item = porId.get(itemId)!;
+            const falta = item.cantidad - item.cantidadRecibida;
+            if (total > falta) {
+              throw new ConflictException(`De ${item.compraDetalle.variante.product.name} solo faltan ${falta} unidad(es) por llegar y registraste ${total}.`);
+            }
+          }
+          const otrasVariantes = Array.from(new Set(dto.items.map((l) => l.varianteRecibidaId).filter((v): v is string => Boolean(v))));
+          if (otrasVariantes.length > 0) {
+            const encontradas = await tx.productVariant.count({ where: { id: { in: otrasVariantes } } });
+            if (encontradas !== otrasVariantes.length) throw new BadRequestException("Alguna de las variantes recibidas no existe.");
+          }
+
+          const varianteRecibidaDe = (l: { envioItemId: string; varianteRecibidaId?: string }) =>
+            l.varianteRecibidaId ?? porId.get(l.envioItemId)!.compraDetalle.varianteId;
+          const variantes = new Set<string>([
+            ...dto.items.map(varianteRecibidaDe),
+            ...envio.items.map((i) => i.compraDetalle.varianteId),
+          ]);
+          const pares = Array.from(variantes).map((varianteId) => ({ varianteId, almacenId }));
           const stockPorPar = await lockStockRows(tx, pares);
 
-          for (const linea of recibidas) {
-            const d = linea.compraDetalle;
+          // Faltantes de ventas ligados a cada línea ANTES de resolver: la diferencia es lo que consumieron.
+          const ligadasAntes = new Map<string, number>();
+          for (const i of envio.items) {
+            ligadasAntes.set(i.compraDetalleId, i.compraDetalle.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0));
+          }
+
+          const recepcion = await tx.envioRecepcion.create({ data: { envioId: id, nota: dto.nota?.trim() || undefined, creadoPorId: usuarioId } });
+          const llegoEsperado = new Map<string, number>(); // compraDetalleId → unidades de la variante esperada
+          const diferencias: string[] = [];
+          for (const l of dto.items) {
+            const item = porId.get(l.envioItemId)!;
+            const d = item.compraDetalle;
+            const varianteRecibidaId = varianteRecibidaDe(l);
             const costoUnitario = Number(d.precioCompra) + Number(d.costoEnvio) + Number(d.costoSeguridad) + Number(d.costoLogistica);
+            await tx.envioRecepcionItem.create({
+              data: { recepcionId: recepcion.id, envioItemId: item.id, cantidad: l.cantidad, varianteRecibidaId, nota: l.nota?.trim() || undefined },
+            });
             await tx.loteCompra.create({
-              data: {
-                varianteId: linea.varianteRecibidaId,
-                almacenId,
-                proformaDetalleId: d.id,
-                costoUnitario,
-                cantidadInicial: linea.cantidadRecibida,
-                cantidadDisponible: linea.cantidadRecibida,
-              },
+              data: { varianteId: varianteRecibidaId, almacenId, proformaDetalleId: d.id, costoUnitario, cantidadInicial: l.cantidad, cantidadDisponible: l.cantidad },
             });
             await tx.stock.update({
-              where: { varianteId_almacenId: { varianteId: linea.varianteRecibidaId, almacenId } },
-              data: { cantidadFisica: { increment: linea.cantidadRecibida } },
+              where: { varianteId_almacenId: { varianteId: varianteRecibidaId, almacenId } },
+              data: { cantidadFisica: { increment: l.cantidad } },
             });
-            stockPorPar.get(stockKey(linea.varianteRecibidaId, almacenId))!.cantidadFisica += linea.cantidadRecibida;
+            stockPorPar.get(stockKey(varianteRecibidaId, almacenId))!.cantidadFisica += l.cantidad;
+            item.cantidadRecibida += l.cantidad;
+            await tx.envioItem.update({ where: { id: item.id }, data: { cantidadRecibida: item.cantidadRecibida } });
+            if (varianteRecibidaId === d.varianteId) llegoEsperado.set(d.id, (llegoEsperado.get(d.id) ?? 0) + l.cantidad);
+            else diferencias.push(`${d.variante.product.name} x${l.cantidad} → otra variante`);
           }
 
-          // Las reservas en tránsito de este envío pasan a stock físico reservado hasta lo que llegó; el
-          // resto vuelve a Procura.
-          for (const [varianteId, quitar] of enTransito) {
-            await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: true });
+          // El tránsito de cada ítem baja a lo que todavía falta por llegar; esas unidades pasan a stock físico
+          // reservado para las ventas que las tenían reservadas en tránsito (el resto vuelve a Procura).
+          if (lock.estado === EstadoEnvio.EN_TRANSITO) {
+            const quitarPorVariante = new Map<string, number>();
+            for (const item of envio.items) {
+              const nuevoContado = Math.min(item.enTransitoContado, item.cantidad - item.cantidadRecibida);
+              const quitar = item.enTransitoContado - nuevoContado;
+              if (quitar <= 0) continue;
+              quitarPorVariante.set(item.compraDetalle.varianteId, (quitarPorVariante.get(item.compraDetalle.varianteId) ?? 0) + quitar);
+              await tx.envioItem.update({ where: { id: item.id }, data: { enTransitoContado: nuevoContado } });
+              item.enTransitoContado = nuevoContado;
+            }
+            for (const [varianteId, quitar] of quitarPorVariante) {
+              await liquidarTransito(tx, { varianteId, almacenId, quitar, convertirAFisico: true });
+            }
           }
-          await tx.proformaDetalle.updateMany({ where: { proforma: { envioId: id } }, data: { enTransitoContado: 0 } });
 
+          const lineasRecibidas = Array.from(new Set(dto.items.map((l) => porId.get(l.envioItemId)!.compraDetalleId)));
           for (const par of pares) {
             const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: par } });
             await resolverProcuraPendiente(tx, {
               ...par,
               disponible: stock.cantidadFisica - stock.cantidadReservada,
-              preferirCompraDetalleIds: envio.recepcion.map((l) => l.compraDetalleId),
+              preferirCompraDetalleIds: lineasRecibidas,
             });
           }
 
-          const diferencias = envio.recepcion
-            .filter((l) => l.cantidadRecibida !== l.cantidadEsperada || l.varianteRecibidaId !== l.varianteEsperadaId)
-            .map((l) => {
-              const esperado = `${l.varianteEsperada.product.name} x${l.cantidadEsperada}`;
-              const recibido =
-                l.varianteRecibidaId === l.varianteEsperadaId
-                  ? `x${l.cantidadRecibida}`
-                  : `${l.varianteRecibida.product.name} x${l.cantidadRecibida}`;
-              return `${esperado} → ${recibido}`;
-            });
-          const nota = `Recibida en el envío ${envio.codigo}.${diferencias.length ? ` Diferencias: ${diferencias.join("; ")}.` : ""}`;
+          // Lo recibido que no consumieron las ventas ligadas es para las solicitudes de stock de esa línea.
+          for (const compraDetalleId of lineasRecibidas) {
+            const llego = llegoEsperado.get(compraDetalleId) ?? 0;
+            if (llego <= 0) continue;
+            const despues = await tx.proformaDetalleAsignacion.aggregate({ where: { compraDetalleId }, _sum: { cantidad: true } });
+            const consumido = Math.max(0, (ligadasAntes.get(compraDetalleId) ?? 0) - (despues._sum.cantidad ?? 0));
+            let sobrante = Math.max(0, llego - consumido);
+            if (sobrante <= 0) continue;
+            const solicitudes = await tx.solicitudStockLinea.findMany({ where: { compraDetalleId }, orderBy: { createdAt: "asc" } });
+            for (const s of solicitudes) {
+              if (sobrante <= 0) break;
+              const toca = Math.min(sobrante, s.cantidad - s.cantidadRecibida);
+              if (toca <= 0) continue;
+              await tx.solicitudStockLinea.update({ where: { id: s.id }, data: { cantidadRecibida: { increment: toca } } });
+              sobrante -= toca;
+            }
+          }
 
-          for (const compra of envio.compras) {
-            await tx.proforma.update({ where: { id: compra.id }, data: { estado: EstadoProforma.COMPLETADA, almacenId } });
-            await this.historial.registrar(tx, compra.id, EstadoProforma.COMPLETADA, usuarioId, nota);
+          if (lock.estado === EstadoEnvio.EN_TRANSITO) {
+            for (const compraDetalleId of lineasRecibidas) await recalcularTransitoLinea(tx, compraDetalleId);
+          }
+
+          // Una compra se completa cuando todas sus líneas llegaron por completo.
+          const compraIds = Array.from(new Set(envio.items.filter((i) => lineasRecibidas.includes(i.compraDetalleId)).map((i) => i.compraDetalle.proformaId)));
+          for (const compraId of compraIds) {
+            const detalles = await tx.proformaDetalle.findMany({
+              where: { proformaId: compraId },
+              select: { cantidad: true, envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } } },
+            });
+            const completa = detalles.every((d) => d.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0) >= d.cantidad);
+            if (!completa) continue;
+            await tx.proforma.update({ where: { id: compraId }, data: { estado: EstadoProforma.COMPLETADA, almacenId } });
+            const nota = `Recibida en el envío ${envio.codigo}.${diferencias.length ? ` Diferencias: ${diferencias.join("; ")}.` : ""}`;
+            await this.historial.registrar(tx, compraId, EstadoProforma.COMPLETADA, usuarioId, nota);
+          }
+
+          if (envio.items.every((i) => i.cantidadRecibida >= i.cantidad)) {
+            await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.RECIBIDO, fechaRecepcion: new Date() } });
+          }
+        },
+        { timeout: 30000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Envío");
+    }
+    return this.findOne(id);
+  }
+
+  /** Cierra un envío en camino dando por no llegado lo que falta: esas unidades vuelven a estar por enviar. */
+  async cerrar(id: string) {
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          const lock = await this.lockEnvio(tx, id);
+          this.assertEstado(lock, [EstadoEnvio.EN_TRANSITO], "cerrar");
+          if ((await tx.envioRecepcion.count({ where: { envioId: id } })) === 0) {
+            throw new ConflictException("El envío no recibió nada todavía: anulalo si no va a llegar.");
+          }
+          const items = await tx.envioItem.findMany({
+            where: { envioId: id },
+            select: { id: true, cantidad: true, cantidadRecibida: true, enTransitoContado: true, compraDetalleId: true, compraDetalle: { select: { varianteId: true } } },
+          });
+          const porVariante = this.contadoPorVariante(items);
+          await lockStockRows(tx, Array.from(porVariante.keys()).map((varianteId) => ({ varianteId, almacenId: lock.almacenDestinoId })));
+          for (const [varianteId, quitar] of porVariante) {
+            await liquidarTransito(tx, { varianteId, almacenId: lock.almacenDestinoId, quitar, convertirAFisico: false });
+          }
+          for (const item of items) {
+            if (item.cantidadRecibida === 0) await tx.envioItem.delete({ where: { id: item.id } });
+            else await tx.envioItem.update({ where: { id: item.id }, data: { cantidad: item.cantidadRecibida, enTransitoContado: 0 } });
           }
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.RECIBIDO, fechaRecepcion: new Date() } });
         },

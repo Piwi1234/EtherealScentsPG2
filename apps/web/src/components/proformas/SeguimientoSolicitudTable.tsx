@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularLineaSolicitud } from "../../lib/api";
 import type { SolicitudLineaSeguimiento } from "../../lib/types";
+import { EnviosDeLinea } from "./EnviosDeLinea";
 import { CrearComprasModal } from "./CrearComprasModal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { CLASES_LINEA_SOLICITUD, LABELS_LINEA_SOLICITUD } from "./seguimiento-estados";
@@ -142,14 +143,7 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
                           {compra.codigo}
                         </Link>
                         {l.compraDetalle?.proveedor ? ` · ${l.compraDetalle.proveedor.nombre}` : ""}
-                        {compra.envio && (
-                          <div style={{ fontSize: 12 }}>
-                            Envío{" "}
-                            <Link href={`/dashboard/stock/envios/${compra.envio.id}`} className="link-button">
-                              {compra.envio.codigo}
-                            </Link>
-                          </div>
-                        )}
+                        <EnviosDeLinea envioItems={l.compraDetalle?.envioItems} />
                       </>
                     ) : (
                       "—"
