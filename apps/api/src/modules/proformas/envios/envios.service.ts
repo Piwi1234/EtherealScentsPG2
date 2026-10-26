@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { DestinoCompra, EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database";
+import { EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
@@ -171,12 +171,12 @@ export class EnviosService {
   private async aportesDelEnvio(tx: Prisma.TransactionClient, envioId: string) {
     const lineas = await tx.proformaDetalle.findMany({
       where: { proforma: { envioId } },
-      select: { id: true, varianteId: true, cantidad: true, destino: true, asignacionesCubiertas: { select: { cantidad: true } } },
+      select: { id: true, varianteId: true, cantidad: true, asignacionesCubiertas: { select: { cantidad: true } } },
     });
     return lineas.map((l) => ({
       id: l.id,
       varianteId: l.varianteId,
-      aporte: aporteEnTransito({ destino: l.destino, cantidad: l.cantidad, ligadas: l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) }),
+      aporte: aporteEnTransito({ cantidad: l.cantidad, ligadas: l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) }),
     }));
   }
 

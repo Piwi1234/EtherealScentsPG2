@@ -3,7 +3,7 @@ import { Type } from "class-transformer";
 import { IsInt, IsOptional, IsUUID, Min } from "class-validator";
 
 export class VincularCompraDto {
-  @ApiProperty({ description: "Línea de COMPRA (destino PEDIDO) que viene a cubrir este faltante." })
+  @ApiProperty({ description: "Línea de COMPRA que viene a cubrir este faltante." })
   @IsUUID()
   compraDetalleId!: string;
 

@@ -671,8 +671,10 @@ export type ProformaDetalle = {
    * varios proveedores distintos, cada línea el suyo. Null en líneas de venta. */
   proveedorId: string | null;
   proveedor: Proveedor | null;
-  /** COMPRA: para stock o para cubrir pedidos de clientes (ver DestinoCompra). */
-  destino: DestinoCompra;
+  /** COMPRA (en desuso): antes distinguía stock de pedido; hoy lo no ligado a ventas es stock. */
+  destino?: DestinoCompra;
+  /** COMPRA: unidades de la línea ligadas a faltantes de notas de venta. */
+  asignacionesCubiertas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
   loteCompras: LoteCompra[];
@@ -682,6 +684,9 @@ export type ProformaDetalle = {
 
 export type Proforma = {
   id: string;
+  /** Solo compras: proveedor de la nota (null en compras viejas que mezclaban proveedores línea por línea). */
+  proveedorId?: string | null;
+  proveedor?: { id: string; nombre: string } | null;
   /** Solo compras: envío al que pertenece (null si todavía no está en uno). */
   envioId?: string | null;
   /** Código corto para mostrar/buscar en vez del id UUID — no secuencial (ver schema.prisma). */
@@ -779,6 +784,7 @@ export type DashPendientes = {
 export type ProformaInput = {
   tipo: TipoProforma;
   empresaId: string;
+  proveedorId?: string;
   clienteId?: string;
   ciudadEntregaId?: string;
   tipoCambioProf?: number;
@@ -804,7 +810,6 @@ export type DetalleCompraInput = {
   costoSeguridad: number;
   costoLogistica: number;
   proveedorId?: string;
-  destino?: DestinoCompra;
 };
 
 export type UpdateDetalleInput = {
@@ -815,7 +820,6 @@ export type UpdateDetalleInput = {
   costoSeguridad?: number;
   costoLogistica?: number;
   proveedorId?: string;
-  destino?: DestinoCompra;
 };
 
 export type AprobarProformaInput = { almacenId?: string; carteraId?: string };
@@ -842,7 +846,7 @@ export type SeguimientoLinea = {
     };
     variante: ProformaDetalleVariante;
   };
-  /** La línea de compra (destino PEDIDO) que viene a cubrir este faltante, si hay una ligada. */
+  /** La línea de compra que viene a cubrir este faltante, si hay una ligada. */
   compraDetalle: {
     id: string;
     cantidad: number;
@@ -852,6 +856,19 @@ export type SeguimientoLinea = {
 };
 
 export type DestinoCompra = "STOCK" | "PEDIDO";
+
+/** POST /proformas/seguimiento/crear-compras: un grupo por proveedor, con las líneas y los faltantes que cubre. */
+export type CrearComprasInput = {
+  grupos: { proveedorId: string; lineas: { varianteId: string; asignacionIds: string[]; cantidadExtra?: number }[] }[];
+};
+
+export type CompraCreada = {
+  id: string;
+  codigo: string;
+  proveedor: { id: string; nombre: string } | null;
+  lineas: number;
+  unidades: number;
+};
 
 /** SIN_COMPRA: nada ligado (o la compra ligada ya cerró sin cubrirlo). */
 export type EstadoPedido = "SIN_COMPRA" | "EN_PREPARACION" | "COMPRADO" | "EN_TRANSITO";

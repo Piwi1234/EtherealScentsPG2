@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularPedido, getProcurasParaCompra, removeDetalle, updateDetalle, vincularPedido } from "../../lib/api";
-import type { DestinoCompra, ProcuraCandidata, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
+import type { ProcuraCandidata, Proforma, ProformaDetalle, Proveedor, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { ProveedorSelector } from "./selectors";
@@ -56,7 +56,7 @@ function formatFechaNota(value: string): string {
 }
 
 /** Liga/suelta los faltantes (Procura) de notas de venta aprobadas que esta línea de compra viene a
- * cubrir. Solo aplica a líneas con destino "Pedido de cliente". */
+ * cubrir. Aplica a cualquier línea de compra: lo que no se liga queda como stock. */
 function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDetalle; onClose: () => void; onChanged: () => void }) {
   const [procuras, setProcuras] = useState<ProcuraCandidata[] | null>(null);
   const [error, setError] = useState("");
@@ -149,6 +149,8 @@ function DetalleRow({
   editable,
   tipoCambioProf,
   proveedores,
+  mostrarProveedor,
+  puedeLigar,
 }: {
   proformaId: string;
   detalle: ProformaDetalle;
@@ -156,12 +158,17 @@ function DetalleRow({
   editable: boolean;
   tipoCambioProf: string | null;
   proveedores: Proveedor[];
+  /** Solo compras viejas que mezclaban proveedores: el proveedor se elige por línea. */
+  mostrarProveedor: boolean;
+  /** La compra todavía admite cambios de vínculos con ventas (borrador o aprobada). */
+  puedeLigar: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
   const [ligando, setLigando] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : 13) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 6 : mostrarProveedor ? 13 : 12) + (editable ? 1 : 0);
+  const ligadas = (detalle.asignacionesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
 
   async function commit(patch: Partial<import("../../lib/types").UpdateDetalleInput>) {
     setError("");
@@ -197,7 +204,7 @@ function DetalleRow({
           {detalle.variante.product.name}
           {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
         </td>
-        {tipo === "COMPRA" && (
+        {tipo === "COMPRA" && mostrarProveedor && (
           <td style={{ minWidth: 160 }}>
             {editable ? (
               <ProveedorSelector
@@ -220,17 +227,10 @@ function DetalleRow({
         )}
         {tipo === "COMPRA" && (
           <td style={{ minWidth: 150 }}>
-            {editable ? (
-              <select className="field" value={detalle.destino} onChange={(e) => commit({ destino: e.target.value as DestinoCompra })}>
-                <option value="STOCK">Para stock</option>
-                <option value="PEDIDO">Pedido de cliente</option>
-              </select>
-            ) : detalle.destino === "PEDIDO" ? (
-              "Pedido de cliente"
-            ) : (
-              "Para stock"
-            )}
-            {detalle.destino === "PEDIDO" && (
+            <span className={ligadas > 0 ? undefined : "cell-muted"}>
+              {ligadas > 0 ? `${ligadas} de ${detalle.cantidad} ligadas` : "Sin ligar (stock)"}
+            </span>
+            {puedeLigar && (
               <button type="button" className="link-button" style={{ display: "block", fontSize: 12 }} onClick={() => setLigando(true)}>
                 Ligar a notas
               </button>
@@ -336,6 +336,8 @@ export function ProformaDetalleTable({
   proveedores?: Proveedor[];
 }) {
   const { tipo, detalles } = proforma;
+  // Una nota de compra es de un proveedor; solo las viejas (sin proveedor de cabecera) lo llevan por línea.
+  const mostrarProveedor = tipo === "COMPRA" && !proforma.proveedorId;
 
   if (detalles.length === 0) {
     return <p className="cell-muted">Todavía no hay líneas en esta proforma.</p>;
@@ -343,7 +345,8 @@ export function ProformaDetalleTable({
 
   // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
-  const totalCols = (tipo === "VENTA" ? 6 : 13) + (editable ? 1 : 0);
+  const colsEtiqueta = tipo === "COMPRA" ? 4 + (mostrarProveedor ? 1 : 0) : 3;
+  const totalCols = (tipo === "VENTA" ? 6 : mostrarProveedor ? 13 : 12) + (editable ? 1 : 0);
   const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
   return (
@@ -354,8 +357,8 @@ export function ProformaDetalleTable({
             <th>ID Producto</th>
             <th>Marca</th>
             <th style={{ minWidth: 240 }}>Producto</th>
-            {tipo === "COMPRA" && <th>Proveedor</th>}
-            {tipo === "COMPRA" && <th>Destino</th>}
+            {mostrarProveedor && <th>Proveedor</th>}
+            {tipo === "COMPRA" && <th>Ventas ligadas</th>}
             <th className="num">Cant.</th>
             {tipo === "VENTA" ? (
               <th className="num">Precio unitario</th>
@@ -383,13 +386,15 @@ export function ProformaDetalleTable({
               editable={editable}
               tipoCambioProf={proforma.tipoCambioProf}
               proveedores={proveedores}
+              mostrarProveedor={mostrarProveedor}
+              puedeLigar={proforma.estado === "BORRADOR" || proforma.estado === "APROBADA"}
             />
           ))}
         </tbody>
         <tfoot>
           <tr>
             <td
-              colSpan={tipo === "COMPRA" ? 5 : 3}
+              colSpan={colsEtiqueta}
               className="cell-muted"
               style={{ textAlign: "right", fontWeight: 600, borderTop: "2px solid var(--line)" }}
             >
@@ -398,8 +403,8 @@ export function ProformaDetalleTable({
             <td className="num cell-primary" style={{ borderTop: "2px solid var(--line)" }}>
               {totalCantidad}
             </td>
-            {totalCols > (tipo === "COMPRA" ? 6 : 4) && (
-              <td colSpan={totalCols - (tipo === "COMPRA" ? 6 : 4)} style={{ borderTop: "2px solid var(--line)" }}></td>
+            {totalCols > colsEtiqueta + 1 && (
+              <td colSpan={totalCols - colsEtiqueta - 1} style={{ borderTop: "2px solid var(--line)" }}></td>
             )}
           </tr>
         </tfoot>

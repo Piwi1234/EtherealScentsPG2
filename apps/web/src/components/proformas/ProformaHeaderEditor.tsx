@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, updateProforma } from "../../lib/api";
-import type { Ciudad, Cliente, Empresa, Proforma } from "../../lib/types";
+import type { Ciudad, Cliente, Empresa, Proforma, Proveedor } from "../../lib/types";
 import { ClienteBuscador } from "./ClienteBuscador";
-import { CiudadSelector, EmpresaSelector } from "./selectors";
+import { CiudadSelector, EmpresaSelector, ProveedorSelector } from "./selectors";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -31,16 +31,19 @@ export function ProformaHeaderEditor({
   editable,
   empresas,
   ciudades,
+  proveedores = [],
 }: {
   proforma: Proforma;
   editable: boolean;
   empresas: Empresa[];
   ciudades: Ciudad[];
+  proveedores?: Proveedor[];
 }) {
   const router = useRouter();
   const [empresaId, setEmpresaId] = useState(proforma.empresaId);
   const [clienteId, setClienteId] = useState(proforma.clienteId ?? "");
   const [ciudadEntregaId, setCiudadEntregaId] = useState(proforma.ciudadEntregaId ?? "");
+  const [proveedorId, setProveedorId] = useState(proforma.proveedorId ?? "");
   const [tipoCambioProf, setTipoCambioProf] = useState(proforma.tipoCambioProf ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +58,19 @@ export function ProformaHeaderEditor({
     setError("");
     try {
       await updateProforma(proforma.id, { clienteId: cliente.id, ciudadEntregaId: ciudad || undefined });
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
+  /** El proveedor de la nota se guarda solo al elegirlo y todas las líneas lo heredan. */
+  async function handleProveedorChange(id: string) {
+    setProveedorId(id);
+    if (!id) return;
+    setError("");
+    try {
+      await updateProforma(proforma.id, { proveedorId: id });
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -86,8 +102,9 @@ export function ProformaHeaderEditor({
         {proforma.tipo === "VENTA" ? (
           <Field label="Cliente" value={proforma.cliente?.nombre ?? "—"} />
         ) : (
-          <Field label="Almacén" value={proforma.almacen?.nombre ?? "— (se elige al completar) —"} />
+          <Field label="Proveedor" value={proforma.proveedor?.nombre ?? "Varios"} />
         )}
+        {proforma.tipo === "COMPRA" && <Field label="Almacén" value={proforma.almacen?.nombre ?? "— (se elige al completar) —"} />}
         {proforma.tipo === "VENTA" && <Field label="Ciudad de entrega" value={proforma.ciudadEntrega?.nombre ?? "—"} />}
         {proforma.tipo === "VENTA" && <Field label="Vendedor" value={proforma.creadoPor.nombre} />}
         {proforma.tipo === "COMPRA" && (
@@ -120,6 +137,12 @@ export function ProformaHeaderEditor({
           <div className="filter-field" style={{ minWidth: 160 }}>
             <label className="filter-label">Vendedor</label>
             <p style={{ margin: "9px 0 0" }}>{proforma.creadoPor.nombre}</p>
+          </div>
+        )}
+        {proforma.tipo === "COMPRA" && (
+          <div className="filter-field" style={{ minWidth: 220 }}>
+            <label className="filter-label">Proveedor</label>
+            <ProveedorSelector options={proveedores} value={proveedorId} onChange={handleProveedorChange} />
           </div>
         )}
         {proforma.tipo === "COMPRA" && (

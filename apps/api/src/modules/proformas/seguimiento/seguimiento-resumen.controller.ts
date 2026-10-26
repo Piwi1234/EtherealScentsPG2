@@ -6,6 +6,9 @@ import { SeguimientoService } from "./seguimiento.service";
 import { QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
 import { VincularCompraDto } from "./dto/vincular.dto";
+import { CrearComprasDto } from "./dto/crear-compras.dto";
+import { CurrentUser } from "../../auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../../auth/strategies/jwt.strategy";
 
 @ApiTags("proformas")
 @ApiBearerAuth()
@@ -25,6 +28,18 @@ export class SeguimientoResumenController {
   @ApiOperation({ summary: "Stock pedido: compras para stock ya aprobadas y todavía sin recibir (comprado / en tránsito)." })
   findStockPedido(@Query() query: QuerySeguimientoDto) {
     return this.seguimiento.findStockPedido(query);
+  }
+
+  @Get("sugerencias-compra")
+  @ApiOperation({ summary: "Último proveedor al que se le compró cada producto (varianteIds separados por coma)." })
+  sugerenciasCompra(@Query("varianteIds") varianteIds?: string) {
+    return this.seguimiento.sugerenciasCompra((varianteIds ?? "").split(",").map((v) => v.trim()).filter(Boolean));
+  }
+
+  @Post("crear-compras")
+  @ApiOperation({ summary: "Crea una nota de compra (borrador) por proveedor desde faltantes de ventas, ya ligadas." })
+  crearCompras(@Body() dto: CrearComprasDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.seguimiento.crearCompras(dto, user.id);
   }
 
   @Get("compra/:compraDetalleId/procuras")

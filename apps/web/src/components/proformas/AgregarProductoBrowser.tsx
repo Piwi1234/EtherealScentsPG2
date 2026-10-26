@@ -10,7 +10,6 @@ import type {
   Page,
   PresentacionVenta,
   Product,
-  DestinoCompra,
   TipoProforma,
 } from "../../lib/types";
 import { StockCell } from "../StockCell";
@@ -99,9 +98,6 @@ export function AgregarProductoBrowser({
   const [rowError, setRowError] = useState<Record<string, string>>({});
   // Solo aplica a VENTA: qué precio del catálogo se manda como precioUnitario de la línea.
   const [precioTipo, setPrecioTipo] = useState<"MAY" | "FINAL">("FINAL");
-  // Solo aplica a COMPRA: para qué se compra lo que se agrega (stock o pedido de cliente). Se puede
-  // cambiar después, línea por línea, desde la proforma (donde también se ligan las notas que cubre).
-  const [destino, setDestino] = useState<DestinoCompra>("STOCK");
 
   const rootCategoryOptions = categories.filter((c) => c.parentId === null);
   const subCategoryOptions = categories.filter((c) => c.parentId === rootCategoryId);
@@ -332,7 +328,6 @@ export function AgregarProductoBrowser({
           costoEnvio: Number(product.category.shippingCost ?? 0),
           costoSeguridad: Number(product.category.securityCost ?? 0),
           costoLogistica: Number(product.category.logisticsCost ?? 0),
-          destino,
         });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
@@ -410,21 +405,6 @@ export function AgregarProductoBrowser({
               <label className="checkbox-row" style={{ cursor: "pointer" }}>
                 <input type="radio" name="precioTipo" checked={precioTipo === "MAY"} onChange={() => setPrecioTipo("MAY")} />
                 May Bs
-              </label>
-            </div>
-          </div>
-        )}
-        {tipo === "COMPRA" && (
-          <div className="filter-field">
-            <label className="filter-label">Lo que agregás es</label>
-            <div className="pill-group">
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="destinoCompra" checked={destino === "STOCK"} onChange={() => setDestino("STOCK")} />
-                Para stock
-              </label>
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="destinoCompra" checked={destino === "PEDIDO"} onChange={() => setDestino("PEDIDO")} />
-                Pedido de cliente
               </label>
             </div>
           </div>

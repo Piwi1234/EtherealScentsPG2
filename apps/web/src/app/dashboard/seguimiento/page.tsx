@@ -80,7 +80,7 @@ export default async function SeguimientoPage({
           </span>
         </Link>
         <Link href={tabHref("stock")} className={vista === "stock" ? "action-btn" : "link-button"} style={vista === "stock" ? { fontWeight: 700 } : undefined}>
-          Stock pedido
+          Stock en compra
           <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
             {stockPedido.total} por llegar
           </span>

@@ -47,6 +47,8 @@ import type {
   ProformaInput,
   Proveedor,
   ProveedorInput,
+  CompraCreada,
+  CrearComprasInput,
   PagosVenta,
   RegistroLinea,
   RegistroResumen,
@@ -991,6 +993,15 @@ export function getProcurasParaCompra(compraDetalleId: string) {
 
 export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
   return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+}
+
+export function crearComprasDesdeFaltantes(data: CrearComprasInput) {
+  return apiPost<CompraCreada[]>("/proformas/seguimiento/crear-compras", data);
+}
+
+/** Último proveedor al que se le compró cada producto: { varianteId: proveedorId }. */
+export function getSugerenciasCompra(varianteIds: string[]) {
+  return apiGet<Record<string, string>>(`/proformas/seguimiento/sugerencias-compra?varianteIds=${varianteIds.join(",")}`);
 }
 
 export function desvincularPedido(asignacionId: string) {

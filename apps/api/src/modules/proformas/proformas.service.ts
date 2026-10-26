@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { DestinoCompra, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -52,6 +52,8 @@ export const includeDetails = {
       // COMPRA: a quién se le compra ESTA línea puntual (ver comentario en schema.prisma) — null
       // para líneas de VENTA.
       proveedor: true,
+      // COMPRA: cuánto de la línea está ligado a faltantes de notas de venta.
+      asignacionesCubiertas: { select: { cantidad: true } },
       asignaciones: { include: { almacen: true } },
       loteCompras: true,
     },
@@ -60,6 +62,8 @@ export const includeDetails = {
     orderBy: { fecha: "desc" as const },
     include: { usuario: { select: { id: true, nombre: true } } },
   },
+  // COMPRA: proveedor de la nota (null en compras viejas que mezclaban proveedores).
+  proveedor: { select: { id: true, nombre: true } },
   // Solo VENTA, y solo si quedó saldo pendiente al completar (ver proforma-completion.service.ts).
   cuentaPorCobrar: true,
 } satisfies Prisma.ProformaInclude;
@@ -206,6 +210,10 @@ export class ProformasService {
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+    }
+    if (dto.tipo === TipoProforma.VENTA && dto.proveedorId) {
+      throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
     }
 
     // Para COMPRA, si no se manda un tipo de cambio propio, arranca con el del sistema — queda
@@ -224,6 +232,7 @@ export class ProformasService {
             clienteId: dto.tipo === TipoProforma.VENTA ? dto.clienteId : undefined,
             ciudadEntregaId: dto.tipo === TipoProforma.VENTA ? dto.ciudadEntregaId : undefined,
             tipoCambioProf,
+            proveedorId: dto.tipo === TipoProforma.COMPRA ? dto.proveedorId : undefined,
             creadoPorId,
             descuentoGeneral: dto.descuentoGeneral ?? 0,
             adelantoPorcentaje: dto.adelantoPorcentaje,
@@ -247,7 +256,9 @@ export class ProformasService {
       if (dto.tipoCambioProf !== undefined) {
         throw new BadRequestException("tipoCambioProf no aplica a una proforma de venta.");
       }
+      if (dto.proveedorId !== undefined) throw new BadRequestException("proveedorId no aplica a una proforma de venta.");
     } else {
+      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
       if (dto.clienteId !== undefined) {
         throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       }
@@ -260,7 +271,13 @@ export class ProformasService {
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
 
     try {
-      await this.prisma.proforma.update({ where: { id }, data: dto });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proforma.update({ where: { id }, data: dto });
+        // Las líneas heredan el proveedor de la nota: al cambiarlo en la cabecera se actualizan todas.
+        if (existing.tipo === TipoProforma.COMPRA && dto.proveedorId) {
+          await tx.proformaDetalle.updateMany({ where: { proformaId: id }, data: { proveedorId: dto.proveedorId } });
+        }
+      });
       return this.findOne(id);
     } catch (error) {
       rethrowPrismaError(error, "Proforma");
@@ -336,15 +353,14 @@ export class ProformasService {
       throw new BadRequestException("Esta proforma no es de compra.");
     }
     await this.getVarianteParaPrecio(dto.varianteId);
-    if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+    // La línea hereda el proveedor de la nota; solo en compras viejas sin proveedor de cabecera se
+    // acepta el de la línea.
+    const proveedorId = proforma.proveedorId ?? dto.proveedorId;
+    if (proveedorId) await this.assertProveedorExists(proveedorId);
 
-    // Misma variante, mismo destino y mismo proveedor → se acumula en la línea existente. Una línea
-    // "Pedido de cliente" y otra "Para stock" del mismo producto sí quedan separadas (son cosas distintas).
+    // Misma variante (y mismo proveedor, en compras viejas mezcladas) → se acumula en la línea existente.
     const existente = proforma.detalles.find(
-      (d) =>
-        d.varianteId === dto.varianteId &&
-        d.destino === (dto.destino ?? DestinoCompra.STOCK) &&
-        (d.proveedorId ?? null) === (dto.proveedorId ?? null),
+      (d) => d.varianteId === dto.varianteId && (d.proveedorId ?? null) === (proveedorId ?? null),
     );
     if (existente) {
       const nuevaCantidad = existente.cantidad + dto.cantidad;
@@ -374,8 +390,7 @@ export class ProformasService {
           costoEnvio: dto.costoEnvio,
           costoSeguridad: dto.costoSeguridad,
           costoLogistica: dto.costoLogistica,
-          proveedorId: dto.proveedorId,
-          destino: dto.destino,
+          proveedorId,
           subtotal,
         },
       });
@@ -407,8 +422,9 @@ export class ProformasService {
       const costoSeguridad = dto.costoSeguridad ?? Number(detalle.costoSeguridad);
       const costoLogistica = dto.costoLogistica ?? Number(detalle.costoLogistica);
       const costoUnitario = precioCompra + costoEnvio + costoSeguridad + costoLogistica;
-      if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
-      const proveedorId = dto.proveedorId ?? detalle.proveedorId ?? undefined;
+      // Con proveedor de cabecera, la línea siempre usa ese; el de la línea solo se edita en compras viejas.
+      if (dto.proveedorId && !proforma.proveedorId) await this.assertProveedorExists(dto.proveedorId);
+      const proveedorId = proforma.proveedorId ?? dto.proveedorId ?? detalle.proveedorId ?? undefined;
       data = {
         cantidad,
         precioCompra,
@@ -416,7 +432,6 @@ export class ProformasService {
         costoSeguridad,
         costoLogistica,
         proveedorId,
-        destino: dto.destino,
         subtotal: cantidad * costoUnitario,
       };
     }
@@ -424,9 +439,34 @@ export class ProformasService {
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.proformaDetalle.update({ where: { id: detalleId }, data });
-        // Si la línea deja de ser un pedido, suelta las notas de venta que tenía ligadas.
-        if (dto.destino === DestinoCompra.STOCK) {
-          await tx.proformaDetalleAsignacion.updateMany({ where: { compraDetalleId: detalleId }, data: { compraDetalleId: null } });
+        // Si la cantidad baja por debajo de lo ligado a notas de venta, se sueltan los vínculos sobrantes.
+        if (proforma.tipo === TipoProforma.COMPRA && dto.cantidad !== undefined) {
+          const ligadas = await tx.proformaDetalleAsignacion.findMany({
+            where: { compraDetalleId: detalleId },
+            orderBy: { createdAt: "desc" },
+          });
+          let exceso = ligadas.reduce((n, a) => n + a.cantidad, 0) - cantidad;
+          for (const a of ligadas) {
+            if (exceso <= 0) break;
+            if (a.cantidad <= exceso) {
+              await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { compraDetalleId: null } });
+              exceso -= a.cantidad;
+            } else {
+              // Se suelta solo una parte: la fila se parte en una libre y otra que sigue ligada.
+              await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { cantidad: { decrement: exceso } } });
+              await tx.proformaDetalleAsignacion.create({
+                data: {
+                  proformaDetalleId: a.proformaDetalleId,
+                  almacenId: a.almacenId,
+                  cantidad: exceso,
+                  origen: a.origen,
+                  estadoSeguimiento: a.estadoSeguimiento,
+                  compraDetalleId: null,
+                },
+              });
+              exceso = 0;
+            }
+          }
         }
       });
       return this.findOne(id);

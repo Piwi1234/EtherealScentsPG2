@@ -52,6 +52,11 @@ export class ProformaApprovalService {
 
           if (lock.tipo === TipoProforma.COMPRA) {
             if (almacenId) throw new BadRequestException("almacenId no aplica a una proforma de compra.");
+            // Una nota de compra es de un proveedor (compras viejas: cada línea con el suyo).
+            const compra = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: { select: { proveedorId: true } } } });
+            if (!compra.proveedorId && compra.detalles.some((d) => !d.proveedorId)) {
+              throw new BadRequestException("Elegí el proveedor de la compra antes de aprobarla.");
+            }
             await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.APROBADA } });
             await this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId);
             return;

@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { DestinoCompra, EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
+import { ProformasService } from "../proformas.service";
 import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
+import { CrearComprasDto } from "./dto/crear-compras.dto";
 import { sincronizarEnTransitoLinea } from "../transito.util";
 
 // Mismo shape que ProformaDetalleTable/AgregarProductoBrowser necesitan para mostrar la variante
@@ -95,7 +97,10 @@ function whereEstadoPedido(estado: EstadoPedido): Prisma.ProformaDetalleAsignaci
  */
 @Injectable()
 export class SeguimientoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly proformas: ProformasService,
+  ) {}
 
   /** El filtro de categoría del frontend solo ofrece categorías padre — acá se expande a ese padre
    * más todas sus subcategorías (a cualquier profundidad), porque los productos se categorizan en la
@@ -148,15 +153,15 @@ export class SeguimientoService {
     return { items: items.map((item) => ({ ...item, estadoPedido: derivarEstadoPedido(item) })), total, page, pageSize };
   }
 
-  /** Líneas de compra "para stock" ya aprobadas y todavía sin recibir: lo que se pidió para reponer
-   * inventario (a diferencia de findPendientes, que son faltantes de notas de venta). */
+  /** Stock en compra: la parte de líneas de compra aprobadas, todavía sin recibir, que NO está ligada a
+   * ninguna venta (es lo que va a reponer inventario). A diferencia de findPendientes, que son faltantes
+   * de notas de venta. */
   async findStockPedido(query: QuerySeguimientoDto) {
     const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
     const enTransito = query.estado === "EN_TRANSITO";
     const comprado = query.estado === "COMPRADO";
 
     const where: Prisma.ProformaDetalleWhereInput = {
-      destino: DestinoCompra.STOCK,
       proforma: {
         tipo: TipoProforma.COMPRA,
         estado: EstadoProforma.APROBADA,
@@ -172,35 +177,38 @@ export class SeguimientoService {
       pageSize: String(query.limit ?? 20),
     });
 
-    const [rows, total] = await Promise.all([
-      this.prisma.proformaDetalle.findMany({
-        where,
-        orderBy: [{ variante: { product: { name: "asc" } } }, { proforma: { fecha: "asc" } }],
-        skip,
-        take,
-        select: {
-          id: true,
-          cantidad: true,
-          proveedor: { select: { id: true, nombre: true } },
-          proforma: {
-            select: {
-              id: true,
-              codigo: true,
-              fecha: true,
-              empresa: { select: { id: true, nombre: true } },
-              envio: { select: { id: true, codigo: true, estado: true, almacenDestino: { select: { id: true, nombre: true } } } },
-            },
+    // La parte libre (cantidad - ligado) no se puede filtrar en SQL: se calcula acá y se pagina después.
+    const rows = await this.prisma.proformaDetalle.findMany({
+      where,
+      orderBy: [{ variante: { product: { name: "asc" } } }, { proforma: { fecha: "asc" } }],
+      select: {
+        id: true,
+        cantidad: true,
+        asignacionesCubiertas: { select: { cantidad: true } },
+        proveedor: { select: { id: true, nombre: true } },
+        proforma: {
+          select: {
+            id: true,
+            codigo: true,
+            fecha: true,
+            empresa: { select: { id: true, nombre: true } },
+            envio: { select: { id: true, codigo: true, estado: true, almacenDestino: { select: { id: true, nombre: true } } } },
           },
-          variante: varianteInclude,
         },
-      }),
-      this.prisma.proformaDetalle.count({ where }),
-    ]);
+        variante: varianteInclude,
+      },
+    });
 
-    const items = rows.map((r) => ({
-      ...r,
-      estadoStock: r.proforma.envio?.estado === EstadoEnvio.EN_TRANSITO ? ("EN_TRANSITO" as const) : ("COMPRADO" as const),
-    }));
+    const conLibre = rows
+      .map(({ asignacionesCubiertas, ...r }) => ({
+        ...r,
+        cantidad: r.cantidad - asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0),
+        estadoStock: r.proforma.envio?.estado === EstadoEnvio.EN_TRANSITO ? ("EN_TRANSITO" as const) : ("COMPRADO" as const),
+      }))
+      .filter((r) => r.cantidad > 0);
+
+    const items = conLibre.slice(skip, skip + take);
+    const total = conLibre.length;
     return { items, total, page, pageSize };
   }
 
@@ -219,13 +227,12 @@ export class SeguimientoService {
     return asignacion;
   }
 
-  /** Líneas de compra (destino PEDIDO, de la misma variante) a las que se puede ligar este faltante,
+  /** Líneas de compra (de la misma variante) a las que se puede ligar este faltante,
    * con cuánto les queda por cubrir. */
   async comprasCandidatas(asignacionId: string) {
     const asignacion = await this.getProcura(asignacionId);
     const compras = await this.prisma.proformaDetalle.findMany({
       where: {
-        destino: DestinoCompra.PEDIDO,
         varianteId: asignacion.proformaDetalle.varianteId,
         proforma: { tipo: TipoProforma.COMPRA, estado: { in: [EstadoProforma.BORRADOR, EstadoProforma.APROBADA] } },
       },
@@ -285,16 +292,12 @@ export class SeguimientoService {
       where: { id: compraDetalleId },
       select: {
         varianteId: true,
-        destino: true,
         cantidad: true,
         proforma: { select: { tipo: true, estado: true, codigo: true } },
         asignacionesCubiertas: { select: { id: true, cantidad: true } },
       },
     });
     if (!compra || compra.proforma.tipo !== TipoProforma.COMPRA) throw new BadRequestException("Línea de compra inválida.");
-    if (compra.destino !== DestinoCompra.PEDIDO) {
-      throw new ConflictException(`Esa línea de ${compra.proforma.codigo} es para stock: marcala como "Pedido de cliente" primero.`);
-    }
     if (compra.proforma.estado !== EstadoProforma.BORRADOR && compra.proforma.estado !== EstadoProforma.APROBADA) {
       throw new ConflictException(`La compra ${compra.proforma.codigo} ya está ${compra.proforma.estado}.`);
     }
@@ -351,6 +354,83 @@ export class SeguimientoService {
       await sincronizarEnTransitoLinea(tx, compraDetalleId);
       return resultado;
     });
+  }
+
+  /** Último proveedor al que se le compró cada producto (para sugerirlo al crear compras desde los faltantes). */
+  async sugerenciasCompra(varianteIds: string[]) {
+    if (varianteIds.length === 0) return {};
+    const lineas = await this.prisma.proformaDetalle.findMany({
+      where: { varianteId: { in: varianteIds }, proveedorId: { not: null }, proforma: { tipo: TipoProforma.COMPRA } },
+      orderBy: { createdAt: "desc" },
+      select: { varianteId: true, proveedorId: true },
+    });
+    const resultado: Record<string, string> = {};
+    for (const l of lineas) if (!(l.varianteId in resultado) && l.proveedorId) resultado[l.varianteId] = l.proveedorId;
+    return resultado;
+  }
+
+  /**
+   * Crea una nota de compra (borrador) por proveedor a partir de los faltantes elegidos: cada línea lleva
+   * lo que falta en las notas de venta más las unidades extra para stock, con los costos del catálogo, y
+   * queda ya ligada a esos faltantes. Si algo falla se borran los borradores ya creados.
+   */
+  async crearCompras(dto: CrearComprasDto, usuarioId: string) {
+    const todas = dto.grupos.flatMap((g) => g.lineas.flatMap((l) => l.asignacionIds ?? []));
+    if (new Set(todas).size !== todas.length) throw new BadRequestException("Un mismo faltante no puede ir en dos compras.");
+
+    // Se validan todos los faltantes antes de crear nada.
+    const cantidadPorAsignacion = new Map<string, number>();
+    for (const grupo of dto.grupos) {
+      for (const linea of grupo.lineas) {
+        for (const asignacionId of linea.asignacionIds ?? []) {
+          const a = await this.getProcura(asignacionId);
+          if (a.compraDetalleId) throw new ConflictException("Uno de los faltantes ya está ligado a una compra: soltalo primero.");
+          if (a.proformaDetalle.varianteId !== linea.varianteId) throw new BadRequestException("Un faltante no corresponde al producto de su línea.");
+          cantidadPorAsignacion.set(asignacionId, a.cantidad);
+        }
+        const total = (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) + (linea.cantidadExtra ?? 0);
+        if (total <= 0) throw new BadRequestException("Cada línea de la compra necesita al menos una unidad.");
+      }
+    }
+
+    const empresa =
+      (await this.prisma.empresa.findFirst({ where: { activo: true, tipo: "CASA_MATRIZ" } })) ??
+      (await this.prisma.empresa.findFirst({ where: { activo: true } }));
+    if (!empresa) throw new BadRequestException("No hay una empresa activa para crear la compra.");
+
+    const creadas: { id: string; codigo: string; proveedor: { id: string; nombre: string } | null; lineas: number; unidades: number }[] = [];
+    try {
+      for (const grupo of dto.grupos) {
+        const compra = await this.proformas.create({ tipo: TipoProforma.COMPRA, empresaId: empresa.id, proveedorId: grupo.proveedorId }, usuarioId);
+        let unidades = 0;
+        for (const linea of grupo.lineas) {
+          const cantidad = (linea.asignacionIds ?? []).reduce((n, id) => n + (cantidadPorAsignacion.get(id) ?? 0), 0) + (linea.cantidadExtra ?? 0);
+          const variante = await this.prisma.productVariant.findUniqueOrThrow({
+            where: { id: linea.varianteId },
+            include: { product: { include: { category: true } } },
+          });
+          const cat = variante.product.category;
+          const conLinea = await this.proformas.addDetalleCompra(compra.id, {
+            varianteId: linea.varianteId,
+            cantidad,
+            precioCompra: Number(variante.purchasePrice),
+            costoEnvio: Number(cat.shippingCost ?? 0),
+            costoSeguridad: Number(cat.securityCost ?? 0),
+            costoLogistica: Number(cat.logisticsCost ?? 0),
+          });
+          const detalle = conLinea.detalles.find((d) => d.varianteId === linea.varianteId);
+          if (!detalle) throw new ConflictException("No se pudo crear la línea de compra.");
+          for (const asignacionId of linea.asignacionIds ?? []) await this.vincular(asignacionId, detalle.id);
+          unidades += cantidad;
+        }
+        const proveedor = await this.prisma.proveedor.findUnique({ where: { id: grupo.proveedorId }, select: { id: true, nombre: true } });
+        creadas.push({ id: compra.id, codigo: compra.codigo, proveedor, lineas: grupo.lineas.length, unidades });
+      }
+    } catch (error) {
+      for (const c of creadas) await this.proformas.remove(c.id).catch(() => undefined);
+      throw error;
+    }
+    return creadas;
   }
 
   /** Suelta un faltante de su compra. Si el mismo faltante ya tiene otra fila libre, se funden en una sola. */

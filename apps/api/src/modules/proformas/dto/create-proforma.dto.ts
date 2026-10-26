@@ -16,6 +16,11 @@ export class CreateProformaDto {
   @IsUUID()
   clienteId?: string;
 
+  @ApiPropertyOptional({ description: "Solo COMPRA: proveedor de la nota (una nota de compra por proveedor). Obligatorio para aprobarla." })
+  @IsOptional()
+  @IsUUID()
+  proveedorId?: string;
+
   @ApiPropertyOptional({ description: "Solo aplica a VENTA: dato informativo, sin efecto en la lógica de negocio." })
   @IsOptional()
   @IsUUID()

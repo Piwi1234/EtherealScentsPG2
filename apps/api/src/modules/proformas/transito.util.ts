@@ -1,4 +1,4 @@
-import { DestinoCompra, EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma } from "@app/database";
+import { EstadoEnvio, EstadoProforma, OrigenAsignacion, Prisma } from "@app/database";
 import { lockStockRows } from "./stock-lock.util";
 
 /**
@@ -130,10 +130,10 @@ export async function liquidarTransito(
   });
 }
 
-/** Lo que una línea de compra aporta al stock en tránsito: "para stock" todo; "pedido de cliente" solo la
- * parte que no está ligada a faltantes de notas de venta (esas unidades ya tienen dueño). */
-export function aporteEnTransito(linea: { destino: DestinoCompra; cantidad: number; ligadas: number }): number {
-  return linea.destino === DestinoCompra.STOCK ? linea.cantidad : Math.max(0, linea.cantidad - linea.ligadas);
+/** Lo que una línea de compra aporta al stock en tránsito: lo que no está ligado a faltantes de notas de
+ * venta (las unidades ligadas ya tienen dueño; el resto es stock). */
+export function aporteEnTransito(linea: { cantidad: number; ligadas: number }): number {
+  return Math.max(0, linea.cantidad - linea.ligadas);
 }
 
 /**
@@ -148,7 +148,6 @@ export async function sincronizarEnTransitoLinea(tx: Prisma.TransactionClient, c
     select: {
       varianteId: true,
       cantidad: true,
-      destino: true,
       enTransitoContado: true,
       asignacionesCubiertas: { select: { cantidad: true } },
       proforma: { select: { envio: { select: { estado: true, almacenDestinoId: true } } } },
@@ -158,7 +157,6 @@ export async function sincronizarEnTransitoLinea(tx: Prisma.TransactionClient, c
   if (!linea || !envio || envio.estado !== EstadoEnvio.EN_TRANSITO) return;
 
   const deseado = aporteEnTransito({
-    destino: linea.destino,
     cantidad: linea.cantidad,
     ligadas: linea.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0),
   });

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularPedido, getComprasCandidatas, vincularPedido } from "../../lib/api";
+import { CrearComprasModal } from "./CrearComprasModal";
 import type { CompraCandidata, SeguimientoLinea } from "../../lib/types";
 import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
@@ -56,8 +57,7 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
       {!candidatas && !error && <p>Cargando...</p>}
       {candidatas && candidatas.length === 0 && (
         <p className="cell-muted">
-          No hay compras con este producto marcadas como "Pedido de cliente". Agregalo en una compra, elegí el destino "Pedido de
-          cliente" y volvé acá.
+          No hay compras con este producto. Agregalo en una compra (o usá "Crear compras" desde los faltantes) y volvé acá.
         </p>
       )}
       {candidatas && candidatas.length > 0 && (
@@ -108,6 +108,21 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
   const [ligando, setLigando] = useState<SeguimientoLinea | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Faltantes elegidos para "Crear compras" (solo los que todavía no tienen compra).
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [creando, setCreando] = useState(false);
+
+  const sinCompra = lineas.filter((l) => !l.compraDetalle);
+  const todosElegidos = sinCompra.length > 0 && sinCompra.every((l) => seleccion.has(l.id));
+
+  function alternar(id: string) {
+    setSeleccion((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleSoltar(linea: SeguimientoLinea) {
     setBusyId(linea.id);
@@ -129,10 +144,30 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
   return (
     <>
       {error && <p className="error-text">{error}</p>}
+      {sinCompra.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <span className="cell-muted" style={{ fontSize: 12.5 }}>
+            {seleccion.size > 0 ? `${seleccion.size} faltante${seleccion.size === 1 ? "" : "s"} elegido${seleccion.size === 1 ? "" : "s"}` : `${sinCompra.length} sin compra`}
+          </span>
+          <button type="button" className="btn-cta" disabled={seleccion.size === 0} onClick={() => setCreando(true)}>
+            <span className="btn-cta-icon">+</span> Crear compras
+          </button>
+        </div>
+      )}
       <div className="table-scroll">
         <table className="table table-minimal table-compact">
           <thead>
             <tr>
+              <th style={{ width: 32 }}>
+                {sinCompra.length > 0 && (
+                  <input
+                    type="checkbox"
+                    aria-label="Elegir todos los faltantes sin compra"
+                    checked={todosElegidos}
+                    onChange={() => setSeleccion(todosElegidos ? new Set() : new Set(sinCompra.map((l) => l.id)))}
+                  />
+                )}
+              </th>
               <th>Fecha</th>
               <th>Nota</th>
               <th>Cliente</th>
@@ -151,6 +186,16 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
               const compra = linea.compraDetalle?.proforma;
               return (
                 <tr key={linea.id}>
+                  <td>
+                    {!linea.compraDetalle && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Elegir ${variante.product.name} de ${proforma.codigo}`}
+                        checked={seleccion.has(linea.id)}
+                        onChange={() => alternar(linea.id)}
+                      />
+                    )}
+                  </td>
                   <td className="cell-muted">{formatFecha(proforma.fecha)}</td>
                   <td>
                     <Link href={`/dashboard/proformas/${proforma.id}`} className="link-button">
@@ -206,6 +251,17 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
           </tbody>
         </table>
       </div>
+      {creando && (
+        <CrearComprasModal
+          lineas={lineas.filter((l) => seleccion.has(l.id))}
+          onClose={() => setCreando(false)}
+          onCreated={() => {
+            setCreando(false);
+            setSeleccion(new Set());
+            router.refresh();
+          }}
+        />
+      )}
       {ligando && (
         <LigarCompraModal
           linea={ligando}

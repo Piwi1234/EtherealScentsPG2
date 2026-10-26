@@ -705,8 +705,9 @@ model Proveedor {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  // Por línea, no por proforma entera — una misma compra (un mismo envío) puede traer productos de
-  // varios proveedores distintos, cada línea el suyo. Ver ProformaDetalle.proveedorId.
+  // Cada nota de compra es de un proveedor (Proforma.proveedorId); sus líneas lo heredan
+  // (ProformaDetalle.proveedorId). Las compras viejas podían mezclar proveedores línea por línea.
+  proformasCompra  Proforma[]        @relation("ProformaProveedor")
   proformaDetalles ProformaDetalle[]
 
   @@map("proveedores")
@@ -902,6 +903,11 @@ model Proforma {
   ciudadEntregaId String? @map("ciudad_entrega_id") @db.Uuid
   ciudadEntrega   Ciudad? @relation("ProformaCiudadEntrega", fields: [ciudadEntregaId], references: [id], onDelete: Restrict)
 
+  // Solo COMPRA: el proveedor de la nota (una nota de compra por proveedor). Las líneas lo heredan
+  // (ProformaDetalle.proveedorId se mantiene igual). Null en compras viejas que mezclaban proveedores.
+  proveedorId String?    @map("proveedor_id") @db.Uuid
+  proveedor   Proveedor? @relation("ProformaProveedor", fields: [proveedorId], references: [id], onDelete: Restrict)
+
   // Solo COMPRA: en qué envío viaja esta compra (un envío agrupa varias compras de varios
   // proveedores). Null mientras no se agregó a ninguno. Una compra solo se completa al recibir su
   // envío (ver EnviosService.confirmarRecepcion).
@@ -940,6 +946,7 @@ model Proforma {
 
   @@index([tipo, estado])
   @@index([envioId])
+  @@index([proveedorId])
   @@index([estadoActualizadoAt])
   @@map("proformas")
 }

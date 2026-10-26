@@ -14,10 +14,10 @@ function atributosLabel(variante: SeguimientoStockLinea["variante"]): string | n
   return partes.length > 0 ? partes.join(", ") : null;
 }
 
-/** Stock pedido: líneas de compra "para stock" ya aprobadas que todavía no llegaron. */
+/** Stock en compra: lo comprado en compras aprobadas que no está ligado a ninguna venta y todavía no llegó. */
 export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLinea[] }) {
   if (lineas.length === 0) {
-    return <p className="cell-muted">No hay compras para stock pendientes de recibir con estos filtros.</p>;
+    return <p className="cell-muted">No hay stock en compra pendiente de recibir con estos filtros.</p>;
   }
 
   return (
