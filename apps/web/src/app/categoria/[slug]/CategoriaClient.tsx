@@ -147,7 +147,7 @@ export function CategoriaClient({
     // el slider a mano.
     setPriceApplied(filters.priceApplied);
     setBrandFilters(filters.brandFilters);
-    setSortBy("relevancia");
+    setSortBy(filters.sortBy);
     setAttributeFilters(filters.attributeFilters);
     setPageNumber(filters.page);
     setFiltersDrawerOpen(false);
@@ -301,6 +301,7 @@ export function CategoriaClient({
     setOrDelete("flash", flashOnly ? "true" : null);
     setOrDelete("preventa", preventaOnly ? "true" : null);
     setOrDelete("stock", inStockOnly ? "true" : null);
+    setOrDelete("orden", sortBy === "recientes" ? "recientes" : null);
     setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
     setOrDelete("maxPriceBs", priceApplied ? String(priceApplied[1]) : null);
     // Página 1 no se escribe (es el default implícito) — así la URL queda limpia salvo que
@@ -327,6 +328,7 @@ export function CategoriaClient({
     inStockOnly,
     priceApplied,
     attributeFilters,
+    sortBy,
     pageNumber,
     router,
   ]);

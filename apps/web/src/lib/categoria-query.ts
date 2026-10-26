@@ -21,6 +21,8 @@ export type CategoriaFiltersFromUrl = {
   priceApplied: PriceRange | null;
   brandFilters: string[];
   attributeFilters: Record<string, string[]>;
+  /** "?orden=recientes" (Nuevos, del navbar): arranca ordenado por los más recientes. */
+  sortBy: SortBy;
   page: number;
 };
 
@@ -53,6 +55,7 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
         : null,
     brandFilters: marcaFromQuery ? marcaFromQuery.split(",").map((v) => v.trim()).filter(Boolean) : [],
     attributeFilters,
+    sortBy: searchParams.get("orden") === "recientes" ? "recientes" : "relevancia",
     page,
   };
 }

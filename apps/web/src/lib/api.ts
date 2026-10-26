@@ -443,6 +443,7 @@ export function getCategoryCarouselImages(categoryId: string) {
   return apiGet<CarouselImage[]>(`/categories/${categoryId}/carousel-images`);
 }
 
+/** Imagen de la tarjeta de la categoría en "Explora por categoría" del home: una sola por categoría (subir otra la reemplaza). */
 export function addCategoryCarouselImage(categoryId: string, file: File) {
   return apiUpload<CarouselImage>(`/categories/${categoryId}/carousel-images`, file);
 }
@@ -451,33 +452,7 @@ export function removeCategoryCarouselImage(categoryId: string, imageId: string)
   return apiDelete<void>(`/categories/${categoryId}/carousel-images/${imageId}`);
 }
 
-export function moveCategoryCarouselImage(categoryId: string, imageId: string, direction: "up" | "down") {
-  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/move`, { direction });
-}
-
-export function updateCategoryCarouselImageUrl(categoryId: string, imageId: string, url: string | null) {
-  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/url`, { url });
-}
-
-export function setCategoryCarouselImageMobile(categoryId: string, imageId: string, file: File) {
-  return apiUpload<CarouselImage>(`/categories/${categoryId}/carousel-images/${imageId}/mobile-image`, file);
-}
-
-export function removeCategoryCarouselImageMobile(categoryId: string, imageId: string) {
-  return apiDelete<void>(`/categories/${categoryId}/carousel-images/${imageId}/mobile-image`);
-}
-
-/** Texto superpuesto del bloque "Producto destacado" del home (solo aplica a este carrusel). */
-export function updateCategoryCarouselImageTitulos(
-  categoryId: string,
-  imageId: string,
-  titulo1: string | null,
-  titulo2: string | null,
-) {
-  return apiPatch<void>(`/categories/${categoryId}/carousel-images/${imageId}/titulos`, { titulo1, titulo2 });
-}
-
-// Carrusel del hero de /categoria/[id] — independiente del de "Producto destacado" de arriba.
+// Carrusel del hero de /categoria/[id] — independiente de la imagen de "Explora por categoría" de arriba.
 export function getCategoryHeroCarouselImages(categoryId: string) {
   return apiGet<CarouselImage[]>(`/categories/${categoryId}/hero-carousel-images`);
 }

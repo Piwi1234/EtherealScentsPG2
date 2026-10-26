@@ -52,7 +52,7 @@ export default async function CategoriaPage({
       inStockOnly: filters.inStockOnly,
       brandFilters: filters.brandFilters,
       priceApplied: filters.priceApplied,
-      sortBy: "relevancia",
+      sortBy: filters.sortBy,
     });
     initialProductsPage = await apiGet<Page<Product>>(`/catalog/products?${productsParams.toString()}`).catch(() => null);
   }

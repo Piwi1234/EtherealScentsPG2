@@ -260,12 +260,14 @@ export class CategoryService {
     return this.carouselImages.removeMobileImage(imageId);
   }
 
-  /** Texto superpuesto del bloque "Producto destacado" del home — solo tiene sentido en el carrusel
-   * FEATURE (categorías raíz), pero no hace falta validar el kind acá: quien llama (el controller)
-   * solo expone esta acción bajo la ruta de carousel-images (FEATURE), no la de hero-carousel-images. */
-  async setCarouselImageTitulos(id: string, imageId: string, titulo1: string | null, titulo2: string | null) {
+  /** Imagen de la tarjeta de la categoría en "Explora por categoría" (kind FEATURE): una sola por categoría raíz. Sube la
+   * nueva y retira las anteriores (y sus archivos). */
+  async replaceFeatureImage(id: string, file: Express.Multer.File) {
     await this.assertRootCategory(id);
-    return this.carouselImages.setTitulos(imageId, titulo1, titulo2);
+    const anteriores = await this.carouselImages.list(id, "FEATURE");
+    const nueva = await this.carouselImages.add(id, "FEATURE", file);
+    for (const img of anteriores) await this.carouselImages.remove(img.id);
+    return nueva;
   }
 
   async moveCarouselImage(id: string, imageId: string, direction: "up" | "down") {

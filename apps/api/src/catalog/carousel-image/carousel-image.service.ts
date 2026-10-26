@@ -7,7 +7,7 @@ import { deleteFromR2 } from "../../common/r2-storage";
  * CRUD genérico sobre CarouselImage, agnóstico de a qué carrusel pertenece: `categoryId: null` es
  * el carrusel del Hero (singleton, `kind` no importa); `categoryId: <id>` es el de una categoría
  * raíz puntual, y `kind` distingue cuál de sus dos carruseles independientes es (FEATURE: bloque
- * "Producto destacado" del home; CATEGORY_HERO: hero de /categoria/[id], compartido con sus
+ * "Explora por categoría" del home, una sola imagen; CATEGORY_HERO: hero de /categoria/[id], compartido con sus
  * subcategorías). Quien llama (CategoryService para categorías, SettingsController para el Hero) es
  * responsable de validar el permiso/contexto antes de llamar acá (ej. "solo categorías raíz").
  */
@@ -79,16 +79,6 @@ export class CarouselImageService {
       throw new NotFoundException("Imagen no encontrada.");
     }
     return this.prisma.carouselImage.update({ where: { id }, data: { url } });
-  }
-
-  /** Texto opcional superpuesto sobre la imagen — solo lo consume el bloque de categoría del home
-   * ("Producto destacado", kind FEATURE). `null`/vacío no muestra esa línea. */
-  async setTitulos(id: string, titulo1: string | null, titulo2: string | null) {
-    const existing = await this.prisma.carouselImage.findUnique({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException("Imagen no encontrada.");
-    }
-    return this.prisma.carouselImage.update({ where: { id }, data: { titulo1, titulo2 } });
   }
 
   /** Intercambia el `orden` con la imagen vecina en esa dirección — no-op si ya está en la punta. */

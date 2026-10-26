@@ -5,10 +5,21 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiGet, getCasaMatrizLogo } from "../../lib/api";
 import { cardImageUrl, displayPrice, productImageSrc } from "../../lib/catalog-display";
-import type { Category, Page, Product } from "../../lib/types";
+import type { Attribute, Category, Page, Product } from "../../lib/types";
 import { formatCartAtributos } from "../proformas/AtributosVisibles";
 import { getCustomerUser, type CustomerUser } from "../../lib/customer-auth";
 import { getAuthUser } from "../../lib/auth";
+
+/** Sin tildes y en minúsculas, para reconocer el atributo "Género" aunque se escriba distinto. */
+function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+/** Opciones del atributo Género, con el nombre que se muestra en el menú ("Para él", "Para ella", "Unisex"). */
+const GENERO_ORDEN = ["masculino", "femenino", "unisex"];
+const GENERO_ETIQUETA: Record<string, string> = { masculino: "Para él", femenino: "Para ella" };
+
+type GeneroCategoria = { attributeId: string; opciones: { valor: string; etiqueta: string }[] };
 
 const SEARCH_RESULTS_LIMIT = 7;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -38,6 +49,8 @@ export function LandingNavbar({
 }) {
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  // Por categoría raíz: su atributo "Género" (si tiene) para armar la columna POR PERFIL del menú.
+  const [generos, setGeneros] = useState<Record<string, GeneroCategoria>>({});
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,7 +61,8 @@ export function LandingNavbar({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerUser | null>(null);
   const [isStaff, setIsStaff] = useState(false);
-  const [openMobileGroups, setOpenMobileGroups] = useState<Set<string>>(new Set());
+  // Menú del celular: un solo grupo abierto a la vez (abrir uno cierra el que estaba abierto).
+  const [openMobileGroup, setOpenMobileGroup] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -64,6 +78,37 @@ export function LandingNavbar({
     setCustomer(getCustomerUser());
     setIsStaff(getAuthUser() !== null);
   }, []);
+
+  // Género de cada categoría raíz: el menú solo muestra POR PERFIL en las que tienen ese atributo filtrable.
+  useEffect(() => {
+    const raices = categories.filter((c) => c.parentId === null);
+    if (raices.length === 0) return;
+    let cancelado = false;
+    Promise.all(
+      raices.map((cat) =>
+        apiGet<Attribute[]>(`/catalog/categories/${cat.id}/filters`)
+          .then((attrs): [string, GeneroCategoria | null] => {
+            const genero = attrs.find((a) => normalizar(a.name) === "genero");
+            if (!genero || genero.options.length === 0) return [cat.id, null];
+            const opciones = [...genero.options]
+              .sort((a, b) => {
+                const ia = GENERO_ORDEN.indexOf(normalizar(a.value));
+                const ib = GENERO_ORDEN.indexOf(normalizar(b.value));
+                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+              })
+              .map((o) => ({ valor: o.value, etiqueta: GENERO_ETIQUETA[normalizar(o.value)] ?? o.value }));
+            return [cat.id, { attributeId: genero.id, opciones }];
+          })
+          .catch((): [string, GeneroCategoria | null] => [cat.id, null]),
+      ),
+    ).then((pares) => {
+      if (cancelado) return;
+      setGeneros(Object.fromEntries(pares.filter((p): p is [string, GeneroCategoria] => p[1] !== null)));
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [categories]);
 
   // Dispara el cambio de color a --dark al pasar ~80px de scroll (ver navbarClass) — solo aplica en
   // variant="default", la única con un estado inicial distinto del oscuro.
@@ -102,17 +147,12 @@ export function LandingNavbar({
   }, [mobileMenuOpen]);
 
   function toggleMobileGroup(id: string) {
-    setOpenMobileGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setOpenMobileGroup((actual) => (actual === id ? null : id));
   }
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
-    setOpenMobileGroups(new Set());
+    setOpenMobileGroup(null);
   }
 
   // Ya en /home: en vez de navegar (no hace nada, Next.js no re-renderiza la misma ruta), sube al
@@ -331,38 +371,76 @@ export function LandingNavbar({
       <div className="landing-navbar-categories">
         <div className="landing-container">
           <nav className="landing-navbar-links">
-            {categoryTree.map((cat) => (
-              <div className="landing-navbar-item" key={cat.id}>
-                <Link href={`/categoria/${cat.slug}`} onClick={() => setMobileMenuOpen(false)}>
-                  {cat.name}
-                </Link>
-                {cat.children.length > 0 && (
+            {categoryTree.map((cat) => {
+              const genero = generos[cat.id];
+              return (
+                <div className="landing-navbar-item" key={cat.id}>
+                  <Link href={`/categoria/${cat.slug}`} onClick={() => setMobileMenuOpen(false)}>
+                    {cat.name}
+                  </Link>
+                  {/* Menú completo: subcategorías, género (si la categoría lo tiene) y destacados, más el botón que
+                      lleva al catálogo de la categoría. */}
                   <div className="landing-navbar-dropdown">
-                    <div className="landing-navbar-dropdown-group">
-                      {cat.children.map((sub) => (
-                        <Link key={sub.id} href={`/categoria/${sub.slug}`} onClick={() => setMobileMenuOpen(false)}>
-                          {sub.name}
+                    <div className="landing-container landing-navbar-mega">
+                      <div className="landing-navbar-mega-cols">
+                        {cat.children.length > 0 && (
+                          <div className="landing-navbar-mega-col">
+                            <p className="landing-navbar-mega-title">Categorías</p>
+                            {cat.children.map((sub) => (
+                              <Link key={sub.id} href={`/categoria/${sub.slug}`} onClick={() => setMobileMenuOpen(false)}>
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                        {genero && (
+                          <div className="landing-navbar-mega-col">
+                            <p className="landing-navbar-mega-title">Por perfil</p>
+                            {genero.opciones.map((op) => (
+                              <Link
+                                key={op.valor}
+                                href={`/categoria/${cat.slug}?attr[${genero.attributeId}]=${encodeURIComponent(op.valor)}`}
+                                onClick={() => setMobileMenuOpen(false)}
+                              >
+                                {op.etiqueta}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                        <div className="landing-navbar-mega-col">
+                          <p className="landing-navbar-mega-title">Destacados</p>
+                          <Link href={`/categoria/${cat.slug}?orden=recientes`} onClick={() => setMobileMenuOpen(false)}>
+                            Nuevos
+                          </Link>
+                          <Link href={`/categoria/${cat.slug}?descuento=true`} onClick={() => setMobileMenuOpen(false)}>
+                            Ofertas
+                          </Link>
+                        </div>
+                      </div>
+                      <Link className="landing-navbar-mega-cta" href={`/categoria/${cat.slug}`} onClick={() => setMobileMenuOpen(false)}>
+                        Ver todos los {cat.name.toLowerCase()} →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="landing-navbar-item">
+              <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+              {/* Una columna con todas las categorías raíz: una categoría nueva aparece sola. */}
+              <div className="landing-navbar-dropdown">
+                <div className="landing-container landing-navbar-mega">
+                  <div className="landing-navbar-mega-cols">
+                    <div className="landing-navbar-mega-col">
+                      <p className="landing-navbar-mega-title">Categorías</p>
+                      {rootCategories.map((cat) => (
+                        <Link key={cat.id} href={`/categoria/${cat.slug}?descuento=true`} onClick={() => setMobileMenuOpen(false)}>
+                          {cat.name}
                         </Link>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-            <div className="landing-navbar-item">
-              <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
-              <div className="landing-navbar-dropdown">
-                {rootCategories.map((cat) => (
-                  <div className="landing-navbar-dropdown-group" key={cat.id}>
-                    <Link
-                      className="landing-navbar-dropdown-heading"
-                      href={`/categoria/${cat.slug}?descuento=true`}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {cat.name}
-                    </Link>
-                  </div>
-                ))}
+                </div>
               </div>
             </div>
             <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
@@ -397,50 +475,82 @@ export function LandingNavbar({
             </div>
 
             <div className="landing-navbar-mobile-body">
-              <p className="landing-navbar-mobile-section-title">Categorías</p>
               {categoryTree.map((cat) => {
-                const expanded = openMobileGroups.has(cat.id);
+                const expanded = openMobileGroup === cat.id;
+                const genero = generos[cat.id];
                 return (
                   <div className="landing-navbar-mobile-group" key={cat.id}>
                     <div className="landing-navbar-mobile-row">
-                      <Link className="landing-navbar-mobile-link" href={`/categoria/${cat.slug}`} onClick={closeMobileMenu}>
+                      <button type="button" className="landing-navbar-mobile-link landing-navbar-mobile-link--toggle" aria-expanded={expanded} onClick={() => toggleMobileGroup(cat.id)}>
                         {cat.name}
-                      </Link>
-                      {cat.children.length > 0 && (
-                        <button
-                          type="button"
-                          className={`landing-navbar-mobile-chevron${expanded ? " landing-navbar-mobile-chevron--open" : ""}`}
-                          aria-label={expanded ? `Ocultar subcategorías de ${cat.name}` : `Ver subcategorías de ${cat.name}`}
-                          aria-expanded={expanded}
-                          onClick={() => toggleMobileGroup(cat.id)}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        </button>
-                      )}
+                      </button>
+                      <button
+                        type="button"
+                        className={`landing-navbar-mobile-chevron${expanded ? " landing-navbar-mobile-chevron--open" : ""}`}
+                        aria-label={expanded ? `Ocultar el menú de ${cat.name}` : `Ver el menú de ${cat.name}`}
+                        aria-expanded={expanded}
+                        onClick={() => toggleMobileGroup(cat.id)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
                     </div>
-                    {expanded && cat.children.length > 0 && (
+                    <div className={`landing-navbar-mobile-collapse${expanded ? " landing-navbar-mobile-collapse--open" : ""}`} aria-hidden={!expanded}>
+                      <div className="landing-navbar-mobile-collapse-inner">
                       <div className="landing-navbar-mobile-subgroup">
-                        {cat.children.map((sub) => (
-                          <Link key={sub.id} className="landing-navbar-mobile-sublink" href={`/categoria/${sub.slug}`} onClick={closeMobileMenu}>
-                            {sub.name}
-                          </Link>
-                        ))}
+                        {cat.children.length > 0 && (
+                          <>
+                            <p className="landing-navbar-mobile-section-title">Categorías</p>
+                            {cat.children.map((sub) => (
+                              <Link key={sub.id} className="landing-navbar-mobile-sublink" href={`/categoria/${sub.slug}`} onClick={closeMobileMenu}>
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </>
+                        )}
+                        {genero && (
+                          <>
+                            <p className="landing-navbar-mobile-section-title">Por perfil</p>
+                            {genero.opciones.map((op) => (
+                              <Link
+                                key={op.valor}
+                                className="landing-navbar-mobile-sublink"
+                                href={`/categoria/${cat.slug}?attr[${genero.attributeId}]=${encodeURIComponent(op.valor)}`}
+                                onClick={closeMobileMenu}
+                              >
+                                {op.etiqueta}
+                              </Link>
+                            ))}
+                          </>
+                        )}
+                        <p className="landing-navbar-mobile-section-title">Destacados</p>
+                        <Link className="landing-navbar-mobile-sublink" href={`/categoria/${cat.slug}?orden=recientes`} onClick={closeMobileMenu}>
+                          Nuevos
+                        </Link>
+                        <Link className="landing-navbar-mobile-sublink" href={`/categoria/${cat.slug}?descuento=true`} onClick={closeMobileMenu}>
+                          Ofertas
+                        </Link>
+                        <Link className="landing-navbar-mobile-cta" href={`/categoria/${cat.slug}`} onClick={closeMobileMenu}>
+                          Ver todos los {cat.name.toLowerCase()} →
+                        </Link>
                       </div>
-                    )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
 
               <div className="landing-navbar-mobile-group">
                 <div className="landing-navbar-mobile-row">
-                  <span className="landing-navbar-mobile-link landing-navbar-mobile-link--ofertas">¡¡OFERTAS!!</span>
+                  <button type="button" className="landing-navbar-mobile-link landing-navbar-mobile-link--ofertas landing-navbar-mobile-link--toggle" aria-expanded={openMobileGroup === "ofertas"} onClick={() => toggleMobileGroup("ofertas")}>
+                    ¡¡OFERTAS!!
+                  </button>
                   <button
                     type="button"
-                    className={`landing-navbar-mobile-chevron${openMobileGroups.has("ofertas") ? " landing-navbar-mobile-chevron--open" : ""}`}
-                    aria-label={openMobileGroups.has("ofertas") ? "Ocultar categorías en oferta" : "Ver categorías en oferta"}
-                    aria-expanded={openMobileGroups.has("ofertas")}
+                    className={`landing-navbar-mobile-chevron${openMobileGroup === "ofertas" ? " landing-navbar-mobile-chevron--open" : ""}`}
+                    aria-label={openMobileGroup === "ofertas" ? "Ocultar categorías en oferta" : "Ver categorías en oferta"}
+                    aria-expanded={openMobileGroup === "ofertas"}
                     onClick={() => toggleMobileGroup("ofertas")}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -448,15 +558,18 @@ export function LandingNavbar({
                     </svg>
                   </button>
                 </div>
-                {openMobileGroups.has("ofertas") && (
+                <div className={`landing-navbar-mobile-collapse${openMobileGroup === "ofertas" ? " landing-navbar-mobile-collapse--open" : ""}`} aria-hidden={openMobileGroup !== "ofertas"}>
+                  <div className="landing-navbar-mobile-collapse-inner">
                   <div className="landing-navbar-mobile-subgroup">
+                    <p className="landing-navbar-mobile-section-title">Categorías</p>
                     {rootCategories.map((cat) => (
                       <Link key={`oferta-${cat.id}`} className="landing-navbar-mobile-sublink" href={`/categoria/${cat.slug}?descuento=true`} onClick={closeMobileMenu}>
                         {cat.name}
                       </Link>
                     ))}
                   </div>
-                )}
+                  </div>
+                </div>
               </div>
 
               <Link className="landing-navbar-mobile-link" href="/marcas" onClick={closeMobileMenu}>Marcas</Link>

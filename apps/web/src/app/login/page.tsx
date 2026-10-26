@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_ORIGIN, ApiError, apiGet, apiPost } from "../../lib/api";
+import { ApiError, apiPost } from "../../lib/api";
 import { saveSession, type AuthUser } from "../../lib/auth";
 
 function UserIcon() {
@@ -29,14 +29,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [logo, setLogo] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
-
-  useEffect(() => {
-    apiGet<{ nombre: string | null; logoUrl: string | null }>("/empresas/casa-matriz-logo")
-      .then(setLogo)
-      .catch(() => {});
-  }, []);
-
   async function submit() {
     setLoading(true);
     setError("");
@@ -59,13 +51,7 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-card">
-        {logo?.logoUrl && (
-          <img
-            className="login-logo"
-            src={logo.logoUrl.startsWith("http") ? logo.logoUrl : `${API_ORIGIN}${logo.logoUrl}`}
-            alt={logo.nombre ?? "Logo"}
-          />
-        )}
+        <img className="login-logo" src="/logo-e.png" alt="Ethereal Scents" />
         <div className="login-badge">Iniciar sesión</div>
 
         <div className="login-field">
