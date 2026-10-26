@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { TopClientes } from "../../components/dashboard/TopClientes";
 import { NuevaProformaBoton } from "../../components/proformas/NuevaProformaBoton";
 import { apiGet } from "../../lib/api";
 import type {
@@ -324,26 +325,7 @@ export default function DashboardPage() {
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ minWidth: 0 }}>
-              <p className="dash-widget-title">Top 10 clientes</p>
-              <p className="dash-widget-note">Total comprado en el mes elegido.</p>
-            </div>
-            <input
-              className="field"
-              type="month"
-              value={topClientesMonth}
-              onChange={(e) => setTopClientesMonth(e.target.value)}
-              style={{ width: 150 }}
-            />
-          </div>
-          {topClientes ? (
-            <RankedBarList items={topClientes.map((c) => ({ label: c.cliente, value: c.total }))} formatValue={bs} />
-          ) : (
-            <p className="dash-empty">Cargando...</p>
-          )}
-        </div>
+        <TopClientes items={topClientes} month={topClientesMonth} maxMonth={currentMonth()} onMonthChange={setTopClientesMonth} />
         <div className="card">
           <p className="dash-widget-title">Proformas aprobadas</p>
           <p className="dash-widget-note">En el período elegido.</p>
