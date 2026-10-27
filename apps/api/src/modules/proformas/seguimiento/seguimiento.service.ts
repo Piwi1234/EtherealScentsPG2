@@ -119,6 +119,28 @@ export class SeguimientoService {
     return ids;
   }
 
+  /** Filtro de producto: categoría (con subcategorías) y/o texto — cada palabra exige su match (nombre, código o marca). */
+  private varianteWhere(categoryIds: string[] | undefined, search: string | undefined): Prisma.ProductVariantWhereInput | undefined {
+    const palabras = search?.trim() ? search.trim().split(/\s+/).filter(Boolean) : [];
+    if (!categoryIds && palabras.length === 0) return undefined;
+    return {
+      product: {
+        categoryId: categoryIds ? { in: categoryIds } : undefined,
+        ...(palabras.length > 0
+          ? {
+              AND: palabras.map((word) => ({
+                OR: [
+                  { name: { contains: word, mode: "insensitive" as const } },
+                  { productCode: { contains: word, mode: "insensitive" as const } },
+                  { brand: { name: { contains: word, mode: "insensitive" as const } } },
+                ],
+              })),
+            }
+          : {}),
+      },
+    };
+  }
+
   async findPendientes(query: QuerySeguimientoDto) {
     const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
 
@@ -127,8 +149,8 @@ export class SeguimientoService {
       cantidad: { gt: 0 },
       ...(query.estado ? whereEstadoPedido(query.estado) : {}),
       proformaDetalle: {
-        proforma: query.empresaId ? { empresaId: query.empresaId } : undefined,
-        variante: categoryIds ? { product: { categoryId: { in: categoryIds } } } : undefined,
+        proforma: query.empresaId || query.clienteId ? { empresaId: query.empresaId, clienteId: query.clienteId } : undefined,
+        variante: this.varianteWhere(categoryIds, query.search),
       },
     };
 
@@ -171,7 +193,7 @@ export class SeguimientoService {
         estado: EstadoProforma.APROBADA,
         empresaId: query.empresaId,
       },
-      variante: categoryIds ? { product: { categoryId: { in: categoryIds } } } : undefined,
+      variante: this.varianteWhere(categoryIds, query.search),
     };
 
     const { page, pageSize, skip, take } = getPagination({
@@ -396,7 +418,7 @@ export class SeguimientoService {
 
     const where: Prisma.SolicitudStockLineaWhereInput = {
       solicitud: { estado: EstadoSolicitudStock.ABIERTA },
-      variante: categoryIds ? { product: { categoryId: { in: categoryIds } } } : undefined,
+      variante: this.varianteWhere(categoryIds, query.search),
       ...porEstado,
     };
     const { page, pageSize, skip, take } = getPagination({ page: String(query.page ?? 1), pageSize: String(query.limit ?? 20) });

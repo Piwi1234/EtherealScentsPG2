@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { apiGetServer } from "../../../lib/api-server";
-import type { Category, Empresa, Page, SeguimientoLinea, SeguimientoStockLinea, SolicitudLineaSeguimiento } from "../../../lib/types";
+import type { Category, Cliente, Empresa, Page, SeguimientoLinea, SeguimientoStockLinea, SolicitudLineaSeguimiento } from "../../../lib/types";
 import { SeguimientoFiltros } from "../../../components/proformas/SeguimientoFiltros";
 import { SeguimientoPendienteTable } from "../../../components/proformas/SeguimientoPendienteTable";
 import { SeguimientoStockTable } from "../../../components/proformas/SeguimientoStockTable";
@@ -12,7 +12,7 @@ const PAGE_SIZE = 20;
 export default async function SeguimientoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; estado?: string; empresaId?: string; categoryId?: string; page?: string }>;
+  searchParams: Promise<{ vista?: string; estado?: string; empresaId?: string; categoryId?: string; clienteId?: string; search?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const vista: "pedidos" | "stock" | "solicitudes" = params.vista === "stock" ? "stock" : params.vista === "solicitudes" ? "solicitudes" : "pedidos";
@@ -23,6 +23,8 @@ export default async function SeguimientoPage({
   if (params.estado) qs.set("estado", params.estado);
   if (params.empresaId) qs.set("empresaId", params.empresaId);
   if (params.categoryId) qs.set("categoryId", params.categoryId);
+  if (vista === "pedidos" && params.clienteId) qs.set("clienteId", params.clienteId);
+  if (params.search?.trim()) qs.set("search", params.search.trim());
   qs.set("page", String(currentPage));
 
   const apiQs = new URLSearchParams(qs);
@@ -34,14 +36,17 @@ export default async function SeguimientoPage({
   let solicitudes: Page<SolicitudLineaSeguimiento> | null = null;
   let error = "";
   try {
-    // Antes de elegir categoría no cargamos productos — solo los conteos generales de abajo.
-    if (params.categoryId) {
-      if (vista === "pedidos") pedidos = await apiGetServer<Page<SeguimientoLinea>>(`/proformas/seguimiento?${apiQs.toString()}`);
-      else if (vista === "solicitudes") solicitudes = await apiGetServer<Page<SolicitudLineaSeguimiento>>(`/proformas/seguimiento/stock-solicitado?${apiQs.toString()}`);
-      else stock = await apiGetServer<Page<SeguimientoStockLinea>>(`/proformas/seguimiento/stock?${apiQs.toString()}`);
-    }
+    if (vista === "pedidos") pedidos = await apiGetServer<Page<SeguimientoLinea>>(`/proformas/seguimiento?${apiQs.toString()}`);
+    else if (vista === "solicitudes") solicitudes = await apiGetServer<Page<SolicitudLineaSeguimiento>>(`/proformas/seguimiento/stock-solicitado?${apiQs.toString()}`);
+    else stock = await apiGetServer<Page<SeguimientoStockLinea>>(`/proformas/seguimiento/stock?${apiQs.toString()}`);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
+  }
+
+  // Nombre del cliente filtrado (para mostrarlo en el buscador al recargar la página).
+  let clienteNombre = "";
+  if (vista === "pedidos" && params.clienteId) {
+    clienteNombre = await apiGetServer<Cliente>(`/clientes/${params.clienteId}`).then((c) => c.nombre).catch(() => "");
   }
 
   const [empresasPage, categories, sinCompra, stockPedido, solicitudesSinCompra] = await Promise.all([
@@ -67,6 +72,7 @@ export default async function SeguimientoPage({
     next.set("vista", target);
     if (params.empresaId) next.set("empresaId", params.empresaId);
     if (params.categoryId) next.set("categoryId", params.categoryId);
+    if (params.search?.trim()) next.set("search", params.search.trim());
     return `/dashboard/seguimiento?${next.toString()}`;
   }
 
@@ -76,25 +82,27 @@ export default async function SeguimientoPage({
         <h1 style={{ margin: 0, fontSize: 20 }}>Seguimiento</h1>
       </div>
 
-      <div className="pill-group" style={{ marginBottom: 12 }}>
-        <Link href={tabHref("pedidos")} className={vista === "pedidos" ? "action-btn" : "link-button"} style={vista === "pedidos" ? { fontWeight: 700 } : undefined}>
-          Pedidos de clientes
-          <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
-            {sinCompra.total} sin compra
-          </span>
-        </Link>
-        <Link href={tabHref("solicitudes")} className={vista === "solicitudes" ? "action-btn" : "link-button"} style={vista === "solicitudes" ? { fontWeight: 700 } : undefined}>
-          Stock solicitado
-          <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
-            {solicitudesSinCompra.total} sin compra
-          </span>
-        </Link>
-        <Link href={tabHref("stock")} className={vista === "stock" ? "action-btn" : "link-button"} style={vista === "stock" ? { fontWeight: 700 } : undefined}>
-          Stock en compra
-          <span className="cell-muted" style={{ marginLeft: 6, fontSize: 12 }}>
-            {stockPedido.total} por llegar
-          </span>
-        </Link>
+      {/* Pestañas como tarjetas con el conteo grande: lo que se mira siempre es cuánto falta en cada una. */}
+      <div className="seg-cards" role="tablist" aria-label="Vista de seguimiento">
+        {(
+          [
+            ["pedidos", "Pedidos de clientes", sinCompra.total, "sin compra"],
+            ["solicitudes", "Stock solicitado", solicitudesSinCompra.total, "sin compra"],
+            ["stock", "Stock en compra", stockPedido.total, "por llegar"],
+          ] as const
+        ).map(([destino, titulo, cantidad, nota]) => (
+          <Link
+            key={destino}
+            href={tabHref(destino)}
+            role="tab"
+            aria-selected={vista === destino}
+            className={`seg-card${vista === destino ? " seg-card--on" : ""}${cantidad > 0 ? " seg-card--pending" : ""}`}
+          >
+            <span className="seg-card-title">{titulo}</span>
+            <span className="seg-card-count">{cantidad}</span>
+            <span className="seg-card-note">{nota}</span>
+          </Link>
+        ))}
       </div>
 
       <p className="cell-muted" style={{ marginTop: 0, marginBottom: 16 }}>
@@ -112,6 +120,9 @@ export default async function SeguimientoPage({
           initialCategoryId={params.categoryId ?? ""}
           initialEstado={params.estado ?? ""}
           initialEmpresaId={params.empresaId ?? ""}
+          initialClienteId={vista === "pedidos" ? params.clienteId ?? "" : ""}
+          initialClienteNombre={clienteNombre}
+          initialSearch={params.search ?? ""}
           categories={categories.filter((c) => c.parentId === null)}
           empresas={empresasPage.items.filter((e) => e.activo)}
         />
@@ -119,13 +130,11 @@ export default async function SeguimientoPage({
 
       {error && <p className="error-text">{error}</p>}
 
-      {!error && !params.categoryId && <p className="cell-muted">Elegí una categoría arriba para ver los productos pendientes.</p>}
+      {!error && vista === "pedidos" && pedidos && <SeguimientoPendienteTable lineas={pedidos.items} />}
+      {!error && vista === "solicitudes" && solicitudes && <SeguimientoSolicitudTable lineas={solicitudes.items} />}
+      {!error && vista === "stock" && stock && <SeguimientoStockTable lineas={stock.items} />}
 
-      {!error && params.categoryId && vista === "pedidos" && pedidos && <SeguimientoPendienteTable lineas={pedidos.items} />}
-      {!error && params.categoryId && vista === "solicitudes" && solicitudes && <SeguimientoSolicitudTable lineas={solicitudes.items} />}
-      {!error && params.categoryId && vista === "stock" && stock && <SeguimientoStockTable lineas={stock.items} />}
-
-      {!error && params.categoryId && data && totalPages > 1 && (
+      {!error && data && totalPages > 1 && (
         <div className="pagination">
           <Link href={pageHref(currentPage - 1)} className={`pagination-btn${currentPage <= 1 ? " disabled" : ""}`} aria-disabled={currentPage <= 1}>
             ← Anterior
