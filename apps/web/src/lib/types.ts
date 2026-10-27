@@ -1085,7 +1085,7 @@ export type RegistroLinea = {
     tipoCambioProf: string | null;
     almacen?: { id: string; nombre: string } | null;
     /** VENTA aprobada: unidades con faltante y reservadas en tránsito (null en otros estados). */
-    entrega?: { faltante: number; transito: number } | null;
+    entrega?: { faltante: number; transito: number; estado: EstadoPedido | null } | null;
     /** VENTA: total con descuento y lo cobrado hasta ahora, en Bs. */
     total?: number;
     pagado?: number;

@@ -321,7 +321,14 @@ export class RegistrosService {
           select: {
             cantidad: true,
             subtotal: true,
-            asignaciones: { select: { origen: true, cantidad: true } },
+            asignaciones: {
+              select: {
+                id: true,
+                origen: true,
+                cantidad: true,
+                compraDetalle: { select: { proforma: { select: { estado: true } }, ...compraConEnlacesSelect } },
+              },
+            },
             recojoLineas: { select: { cantidad: true } },
             envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidad: true, cantidadRecibida: true, envio: { select: { estado: true } } } },
           },
@@ -337,12 +344,23 @@ export class RegistrosService {
       if (tipo === TipoProforma.VENTA) {
         let faltante = 0;
         let transito = 0;
+        // Estado de lo que falta según su compra: se muestra el MÁS atrasado (el que falta), no solo "con faltante".
+        const estados: EstadoPedidoDerivado[] = [];
         for (const d of p.detalles) {
           for (const a of d.asignaciones) {
-            if (a.origen === OrigenAsignacion.PROCURA) faltante += a.cantidad;
-            else if (a.origen === OrigenAsignacion.EN_TRANSITO) transito += a.cantidad;
+            if (a.cantidad <= 0) continue;
+            if (a.origen === OrigenAsignacion.PROCURA) {
+              faltante += a.cantidad;
+              const recogidas = a.compraDetalle ? recogidasDeEnlace(a.compraDetalle, a.id) : 0;
+              const enviadas = a.compraDetalle ? enviadasDeEnlace(a.compraDetalle, a.id) : 0;
+              estados.push(estadoSegunCompra(a.compraDetalle?.proforma.estado, a.cantidad, recogidas, enviadas));
+            } else if (a.origen === OrigenAsignacion.EN_TRANSITO) {
+              transito += a.cantidad;
+              estados.push("EN_TRANSITO");
+            }
           }
         }
+        const estadoEntrega = estados.sort((x, y) => ORDEN_AVANCE.indexOf(x) - ORDEN_AVANCE.indexOf(y))[0] ?? null;
         const total = p.detalles.reduce((n, d) => n + Number(d.subtotal), 0) - Number(p.descuentoGeneral);
         let pagado = 0;
         for (const g of pagos) {
@@ -352,7 +370,7 @@ export class RegistrosService {
         }
         extra.set(p.id, {
           almacen: p.almacen,
-          entrega: p.estado === EstadoProforma.APROBADA ? { faltante, transito } : null,
+          entrega: p.estado === EstadoProforma.APROBADA ? { faltante, transito, estado: estadoEntrega } : null,
           total: Math.round(total * 100) / 100,
           pagado: Math.round(pagado * 100) / 100,
         });

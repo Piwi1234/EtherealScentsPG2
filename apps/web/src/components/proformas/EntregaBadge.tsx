@@ -1,39 +1,47 @@
-import type { Proforma } from "../../lib/types";
+import type { EstadoPedido, Proforma } from "../../lib/types";
+
+const ORDEN: EstadoPedido[] = ["SIN_COMPRA", "EN_PREPARACION", "COMPRADO", "RECOGIDO", "EN_TRANSITO"];
+
+const INFO: Record<EstadoPedido, { label: string; clase: string; ayuda: string }> = {
+  SIN_COMPRA: { label: "Falta comprar", clase: "badge badge-warn", ayuda: "Hay productos sin stock y todavía sin compra." },
+  EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted", ayuda: "La compra que los cubre todavía es un borrador." },
+  COMPRADO: { label: "Comprado", clase: "badge badge-accent", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
+  RECOGIDO: { label: "Recogido", clase: "badge badge-info", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
+  EN_TRANSITO: { label: "Enviado", clase: "badge badge-info", ayuda: "Lo que falta ya viaja en un envío." },
+};
 
 /**
- * Estado de entrega de una VENTA aprobada, derivado de lo que reservó al aprobar: "Con faltante" si algo
- * quedó en Procura, "En tránsito" si solo hay reservas de mercadería que viaja, y "Lista para completar"
- * si todo está reservado en stock físico. No existe en otros estados ni en compras.
+ * Estado de entrega de una VENTA aprobada: "Lista para completar" si todo está reservado en stock físico; si no, el estado
+ * de lo que falta según su compra (el más atrasado) con las unidades pendientes — así un faltante ya comprado o enviado no
+ * se lee como "sin comprar". No existe en otros estados ni en compras.
  */
 export function EntregaBadge({ proforma }: { proforma: Proforma }) {
   if (proforma.tipo !== "VENTA" || proforma.estado !== "APROBADA") return null;
 
-  let faltante = 0;
-  let transito = 0;
+  let pendientes = 0;
+  let peor: EstadoPedido | null = null;
   for (const d of proforma.detalles) {
     for (const a of d.asignaciones) {
-      if (a.origen === "PROCURA") faltante += a.cantidad;
-      else if (a.origen === "EN_TRANSITO") transito += a.cantidad;
+      if (a.cantidad <= 0) continue;
+      if (a.origen === "PROCURA" || a.origen === "EN_TRANSITO") {
+        pendientes += a.cantidad;
+        const estado: EstadoPedido = a.origen === "EN_TRANSITO" ? "EN_TRANSITO" : a.estadoPedido ?? "SIN_COMPRA";
+        if (peor === null || ORDEN.indexOf(estado) < ORDEN.indexOf(peor)) peor = estado;
+      }
     }
   }
 
-  if (faltante > 0) {
+  if (pendientes === 0 || !peor) {
     return (
-      <span className="badge badge-warn entrega-badge" title="Hay productos sin stock: falta comprarlos o esperar que lleguen.">
-        Con faltante · {faltante}
+      <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">
+        Lista para completar
       </span>
     );
   }
-  if (transito > 0) {
-    return (
-      <span className="badge badge-info entrega-badge" title="Reservada contra mercadería que viaja en un envío.">
-        En tránsito · {transito}
-      </span>
-    );
-  }
+  const info = INFO[peor];
   return (
-    <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">
-      Lista para completar
+    <span className={`${info.clase} entrega-badge`} title={info.ayuda}>
+      {info.label} · {pendientes}
     </span>
   );
 }

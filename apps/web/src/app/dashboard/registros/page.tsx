@@ -4,7 +4,7 @@ import { Fragment, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError, deleteProforma, getBrands, getCategories, getEmpresas, getProducts, getProveedores, getRegistros } from "../../../lib/api";
-import type { Brand, Category, Empresa, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
+import type { Brand, Category, Empresa, EstadoPedido, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
 import { NuevaProformaBoton } from "../../../components/proformas/NuevaProformaBoton";
 import { EstadoBadge } from "../../../components/proformas/EstadoBadge";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
@@ -137,11 +137,29 @@ function EstadoProducto({ linea, tipo }: { linea: RegistroLinea; tipo: TipoProfo
   );
 }
 
-/** Entrega de una venta aprobada: con faltante, reservada en tránsito o lista para completar. */
+/**
+ * Entrega de una venta aprobada: "Lista para completar" si todo está reservado en stock; si no, el estado de lo que falta
+ * según su compra (Falta comprar, En preparación, Comprado, Recogido o Enviado) con las unidades pendientes, para que un
+ * faltante ya comprado o en camino no parezca "sin comprar".
+ */
 function EntregaResumen({ entrega }: { entrega: NonNullable<RegistroLinea["proforma"]["entrega"]> }) {
-  if (entrega.faltante > 0) return <span className="badge badge-warn entrega-badge" title="Hay productos sin stock: falta comprarlos o esperar que lleguen.">Con faltante · {entrega.faltante}</span>;
-  if (entrega.transito > 0) return <span className="badge badge-info entrega-badge" title="Reservada contra mercadería que viaja en un envío.">Enviado · {entrega.transito}</span>;
-  return <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">Lista para completar</span>;
+  const pendientes = entrega.faltante + entrega.transito;
+  if (pendientes === 0 || !entrega.estado) {
+    return <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">Lista para completar</span>;
+  }
+  const info: Record<EstadoPedido, { label: string; clase: string; ayuda: string }> = {
+    SIN_COMPRA: { label: "Falta comprar", clase: "badge badge-warn", ayuda: "Hay productos sin stock y todavía sin compra." },
+    EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted", ayuda: "La compra que los cubre todavía es un borrador." },
+    COMPRADO: { label: "Comprado", clase: "badge badge-accent", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
+    RECOGIDO: { label: "Recogido", clase: "badge badge-info", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
+    EN_TRANSITO: { label: "Enviado", clase: "badge badge-info", ayuda: "Lo que falta ya viaja en un envío." },
+  };
+  const e = info[entrega.estado];
+  return (
+    <span className={`${e.clase} entrega-badge`} title={e.ayuda}>
+      {e.label} · {pendientes}
+    </span>
+  );
 }
 
 /** Avance de una compra aprobada: Comprado, Recogido, Enviado o Recibido, con cuántas unidades van. */
