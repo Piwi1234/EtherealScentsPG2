@@ -8,6 +8,7 @@ import { ProformaApprovalService } from "./proforma-approval.service";
 import { ProformaCompletionService } from "./proforma-completion.service";
 import { ProformaPagosService } from "./proforma-pagos.service";
 import { ProformaPdfService } from "./proforma-pdf.service";
+import { ProformaAjusteService } from "./proforma-ajuste.service";
 import { SeguimientoResumenController } from "./seguimiento/seguimiento-resumen.controller";
 import { SeguimientoService } from "./seguimiento/seguimiento.service";
 import { RegistrosController } from "./registros/registros.controller";
@@ -33,6 +34,7 @@ import { SolicitudesStockService } from "./solicitudes-stock/solicitudes-stock.s
     ProformaCompletionService,
     ProformaPagosService,
     ProformaPdfService,
+    ProformaAjusteService,
     SeguimientoService,
     RegistrosService,
     EnviosService,

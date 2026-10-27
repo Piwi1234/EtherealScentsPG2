@@ -11,6 +11,8 @@ import { ProformaCompletionService } from "./proforma-completion.service";
 import { ProformaPagosService } from "./proforma-pagos.service";
 import { RegistrarPagoDto } from "./dto/registrar-pago.dto";
 import { ProformaPdfService } from "./proforma-pdf.service";
+import { ProformaAjusteService } from "./proforma-ajuste.service";
+import { AjustarVentaDto } from "./dto/ajustar-venta.dto";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
@@ -36,6 +38,7 @@ export class ProformasController {
     private readonly completion: ProformaCompletionService,
     private readonly pagos: ProformaPagosService,
     private readonly pdf: ProformaPdfService,
+    private readonly ajuste: ProformaAjusteService,
   ) {}
 
   @Get()
@@ -123,6 +126,16 @@ export class ProformasController {
   @ApiOperation({ summary: "Reserva todo el stock libre posible para los faltantes de ventas aprobadas (la más antigua primero)." })
   reservarTodo(@CurrentUser() user: AuthenticatedUser) {
     return this.approval.reservarFaltantes(user.id);
+  }
+
+  @Post(":id/ajustar")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Ajusta una nota de venta APROBADA: quita productos o baja cantidades, libera lo reservado, recalcula el total y devuelve el exceso cobrado desde la cartera elegida.",
+  })
+  ajustar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AjustarVentaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.ajuste.ajustar(id, dto, user.id);
   }
 
   @Post(":id/almacen-destino")

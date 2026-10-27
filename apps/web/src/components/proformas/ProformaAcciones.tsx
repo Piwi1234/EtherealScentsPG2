@@ -11,9 +11,10 @@ import {
   downloadProformaPdf,
   reservarVenta,
 } from "../../lib/api";
-import type { Almacen, Cartera, EstadoProforma, TipoProforma } from "../../lib/types";
+import type { Almacen, Cartera, EstadoProforma, Proforma, TipoProforma } from "../../lib/types";
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
+import { AjustarVentaModal } from "./AjustarVentaModal";
 
 type Transicion = "aprobar" | "anular" | "eliminar";
 
@@ -37,6 +38,7 @@ export function ProformaAcciones({
   almacenes,
   montoAdelanto = 0,
   carterasBs = [],
+  proforma,
 }: {
   proformaId: string;
   codigo: string;
@@ -45,6 +47,8 @@ export function ProformaAcciones({
   almacenes: Almacen[];
   montoAdelanto?: number;
   carterasBs?: Cartera[];
+  /** Solo ventas: para el ajuste de la nota aprobada (productos y descuento). */
+  proforma?: Pick<Proforma, "id" | "codigo" | "detalles" | "descuentoGeneral">;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState<Transicion | null>(null);
@@ -55,6 +59,7 @@ export function ProformaAcciones({
   const [carteraId, setCarteraId] = useState("");
   const [descargando, setDescargando] = useState(false);
   const [errorPdf, setErrorPdf] = useState("");
+  const [ajustando, setAjustando] = useState(false);
 
   async function handleDescargarPdf() {
     setDescargando(true);
@@ -158,6 +163,11 @@ export function ProformaAcciones({
             {submitting === "aprobar" ? "Aprobando..." : "Aprobar"}
           </button>
         )}
+        {estado === "APROBADA" && tipo === "VENTA" && proforma && (
+          <button type="button" className="action-btn" onClick={() => setAjustando(true)} disabled={submitting !== null}>
+            Ajustar nota
+          </button>
+        )}
         {estado === "APROBADA" && tipo === "VENTA" && (
           <button type="button" className="action-btn" onClick={handleReservar} disabled={submitting !== null || reservando}>
             {reservando ? "Reservando..." : "Reservar stock"}
@@ -191,6 +201,8 @@ export function ProformaAcciones({
       {avisoReserva && <p className="cell-muted" style={{ marginTop: 8, fontSize: 13 }}>{avisoReserva}</p>}
       {errorPdf && <p className="error-text" style={{ marginTop: 8 }}>{errorPdf}</p>}
       {error && !modal && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
+
+      {ajustando && proforma && <AjustarVentaModal proforma={proforma} carterasBs={carterasBs} onClose={() => setAjustando(false)} />}
 
       {modal === "aprobar" && (
         <Modal title="Aprobar proforma" onClose={() => setModal(null)}>

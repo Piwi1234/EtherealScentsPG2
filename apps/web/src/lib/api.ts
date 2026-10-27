@@ -958,6 +958,10 @@ export function aprobarProforma(id: string, data: AprobarProformaInput = {}) {
   return apiPost<Proforma>(`/proformas/${id}/aprobar`, data);
 }
 
+export function ajustarVenta(id: string, data: { lineas: { detalleId: string; cantidad: number }[]; carteraId?: string; motivo?: string }) {
+  return apiPost<Proforma>(`/proformas/${id}/ajustar`, data);
+}
+
 export function anularProforma(id: string, nota?: string) {
   return apiPost<Proforma>(`/proformas/${id}/anular`, { nota });
 }
