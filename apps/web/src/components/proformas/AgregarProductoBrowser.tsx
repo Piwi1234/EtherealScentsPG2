@@ -479,7 +479,10 @@ export function AgregarProductoBrowser({
                   return (
                     <tr key={product.id}>
                       <td>
-                        <StockCell disponible={product.stockDisponible} reservado={product.stockReservado} />
+                        <StockCell
+                          disponible={selectedVariant?.stockDisponible ?? product.stockDisponible}
+                          reservado={selectedVariant?.stockReservado ?? product.stockReservado}
+                        />
                       </td>
                       <td>
                         {productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl) ? (
