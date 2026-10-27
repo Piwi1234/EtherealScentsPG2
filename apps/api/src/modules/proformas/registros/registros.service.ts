@@ -124,16 +124,42 @@ export class RegistrosService {
       },
     };
 
-    const [items, total, todas] = await Promise.all([
-      this.prisma.proformaDetalle.findMany({
-        where,
-        skip,
-        take,
-        // Las líneas de una misma proforma quedan contiguas (la pantalla las agrupa bajo su encabezado).
-        orderBy: [{ proforma: { fecha: "desc" } }, { proformaId: "asc" }, { createdAt: "asc" }],
+    // Por proforma: la página son N proformas (las que tienen alguna línea que cumple el filtro) y de cada una se traen
+    // TODAS sus líneas, para poder verla completa desplegada. Por línea: paginado clásico de líneas.
+    const paginaDeLineas = async () => {
+      if (!query.porProforma) {
+        return Promise.all([
+          this.prisma.proformaDetalle.findMany({
+            where,
+            skip,
+            take,
+            // Las líneas de una misma proforma quedan contiguas (la pantalla las agrupa bajo su encabezado).
+            orderBy: [{ proforma: { fecha: "desc" } }, { proformaId: "asc" }, { createdAt: "asc" }],
+            include: registroInclude,
+          }),
+          this.prisma.proformaDetalle.count({ where }),
+        ]);
+      }
+      const proformaWhere: Prisma.ProformaWhereInput = {
+        ...(where.proforma as Prisma.ProformaWhereInput),
+        detalles: { some: { proveedorId: where.proveedorId, variante: where.variante } },
+      };
+      const [pagina, totalProformas] = await Promise.all([
+        this.prisma.proforma.findMany({ where: proformaWhere, orderBy: [{ fecha: "desc" }, { createdAt: "desc" }, { id: "asc" }], skip, take, select: { id: true } }),
+        this.prisma.proforma.count({ where: proformaWhere }),
+      ]);
+      const orden = new Map(pagina.map((p, i) => [p.id, i]));
+      const lineas = await this.prisma.proformaDetalle.findMany({
+        where: { proformaId: { in: pagina.map((p) => p.id) } },
+        orderBy: { createdAt: "asc" },
         include: registroInclude,
-      }),
-      this.prisma.proformaDetalle.count({ where }),
+      });
+      lineas.sort((a, b) => (orden.get(a.proformaId) ?? 0) - (orden.get(b.proformaId) ?? 0));
+      return [lineas, totalProformas] as const;
+    };
+
+    const [[items, total], todas] = await Promise.all([
+      paginaDeLineas(),
       // Resumen de TODO el filtro (no solo de la página): total en Bs, piezas y proformas distintas.
       this.prisma.proformaDetalle.findMany({
         where,

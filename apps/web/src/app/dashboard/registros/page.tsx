@@ -33,7 +33,8 @@ function detalleSinConcretar(proforma: RegistroLinea["proforma"]): string {
   return `Creada por ${proforma.creadoPor.nombre} · hace ${dias} ${dias === 1 ? "día" : "días"}`;
 }
 
-const PAGE_SIZE = 20;
+// Proformas por página: cada una se puede desplegar y muestra todos sus productos.
+const PAGE_SIZE = 10;
 const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
 
 function formatDate(value: string): string {
@@ -373,6 +374,7 @@ function RegistrosPanel({
       tipo,
       estado: estado || undefined,
       sinConcretar: sinConcretar || undefined,
+      porProforma: true,
       entrega: tipo === "VENTA" && !sinConcretar ? entrega || undefined : undefined,
       codigo: codigo || undefined,
       search: search || undefined,

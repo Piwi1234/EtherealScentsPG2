@@ -1,15 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ApiError, createEnvio, getAlmacenes, getEnvios, getEnviosDisponibles } from "../../../../lib/api";
-import type { Almacen, EnvioDisponible, EnvioResumen, EstadoEnvio, Page } from "../../../../lib/types";
+import { ApiError, createEnvio, downloadEnvioPdf, getAlmacenes, getCategories, getEnvios, getEnviosDisponibles, getProveedores } from "../../../../lib/api";
+import type { Almacen, Category, EnvioDisponible, EnvioResumen, EstadoEnvio, Page, Proveedor } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
-import { AlmacenSelector } from "../../../../components/proformas/selectors";
+import { AlmacenSelector, ProveedorSelector } from "../../../../components/proformas/selectors";
 import { ESTADO_ENVIO_CLASE, ESTADO_ENVIO_LABEL } from "../../../../lib/envio-estados";
 
-const PAGE_SIZE = 20;
+// 10 envíos por página: cada uno se puede desplegar y muestra todo su contenido.
+const PAGE_SIZE = 10;
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" }) : "—";
@@ -24,6 +25,15 @@ function EnviosContenido() {
   const router = useRouter();
   const params = useSearchParams();
   const [estado, setEstado] = useState<"" | EstadoEnvio>("");
+  const [categoryId, setCategoryId] = useState("");
+  const [proveedorId, setProveedorId] = useState("");
+  const [almacenFiltroId, setAlmacenFiltroId] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [categorias, setCategorias] = useState<Category[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [descargandoId, setDescargandoId] = useState<string | null>(null);
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<Page<EnvioResumen> | null>(null);
   const [error, setError] = useState("");
@@ -38,10 +48,67 @@ function EnviosContenido() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    getEnvios({ estado: estado || undefined, page: pageNum, limit: PAGE_SIZE })
+    getEnvios({
+      estado: estado || undefined,
+      categoryId: categoryId || undefined,
+      proveedorId: proveedorId || undefined,
+      almacenId: almacenFiltroId || undefined,
+      search: search || undefined,
+      page: pageNum,
+      limit: PAGE_SIZE,
+    })
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [estado, pageNum]);
+  }, [estado, categoryId, proveedorId, almacenFiltroId, search, pageNum]);
+
+  useEffect(() => {
+    getCategories().then((c) => setCategorias(c.filter((x) => x.parentId === null))).catch(() => {});
+    getProveedores({ activo: "true", pageSize: 500 }).then((p) => setProveedores(p.items)).catch(() => {});
+    getAlmacenes({ pageSize: 200 }).then((p) => setAlmacenes(p.items.filter((a) => a.activo))).catch(() => {});
+  }, []);
+
+  // Búsqueda por producto o marca con debounce.
+  useEffect(() => {
+    if (searchInput.trim() === search) return;
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPageNum(1);
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  function alternar(id: string) {
+    setAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function descargar(envio: EnvioResumen) {
+    setDescargandoId(envio.id);
+    try {
+      await downloadEnvioPdf(envio.id, envio.codigo);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDescargandoId(null);
+    }
+  }
+
+  function limpiar() {
+    setEstado("");
+    setCategoryId("");
+    setProveedorId("");
+    setAlmacenFiltroId("");
+    setSearchInput("");
+    setSearch("");
+    setPageNum(1);
+  }
+
+  const hayFiltros = Boolean(estado || categoryId || proveedorId || almacenFiltroId || search);
 
   function openModal() {
     setFormError("");
@@ -108,68 +175,187 @@ function EnviosContenido() {
 
       <div className="filters-bar">
         <div className="filter-field">
-          <label className="filter-label">Estado</label>
-          <select
-            className="field"
-            value={estado}
-            onChange={(e) => {
-              setEstado(e.target.value as "" | EstadoEnvio);
-              setPageNum(1);
-            }}
-          >
-            <option value="">Todos</option>
-            {(Object.keys(ESTADO_ENVIO_LABEL) as EstadoEnvio[]).map((s) => (
-              <option key={s} value={s}>
-                {ESTADO_ENVIO_LABEL[s]}
+          <label className="filter-label">Categoría</label>
+          <select className="field" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPageNum(1); }}>
+            <option value="">Todas</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>
         </div>
+
+        <div className="filter-field">
+          <label className="filter-label">Estado</label>
+          <div className="seg" role="group" aria-label="Estado del envío">
+            {([["", "Todos"], ...(Object.keys(ESTADO_ENVIO_LABEL) as EstadoEnvio[]).map((k) => [k, ESTADO_ENVIO_LABEL[k]])] as [string, string][]).map(([valor, etiqueta]) => (
+              <button key={valor} type="button" className={estado === valor ? "on" : undefined} onClick={() => { setEstado(valor as "" | EstadoEnvio); setPageNum(1); }}>
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="filter-field" style={{ minWidth: 200 }}>
+          <label className="filter-label">Proveedor</label>
+          <ProveedorSelector options={proveedores} value={proveedorId} placeholder="Todos" onChange={(id) => { setProveedorId(id); setPageNum(1); }} />
+        </div>
+
+        <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
+          <label className="filter-label">Producto o marca</label>
+          <input className="field" type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Nombre, código o marca" />
+        </div>
+
+        <div className="filter-field">
+          <label className="filter-label">Almacén destino</label>
+          <select className="field" value={almacenFiltroId} onChange={(e) => { setAlmacenFiltroId(e.target.value); setPageNum(1); }}>
+            <option value="">Todos</option>
+            {almacenes.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {hayFiltros && (
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button type="button" className="link-button" onClick={limpiar}>
+              Limpiar filtros
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <p className="error-text">{error}</p>}
       {!data && !error && <p>Cargando...</p>}
-      {data && data.items.length === 0 && <p>No hay envíos todavía.</p>}
+      {data && data.items.length === 0 && <p>No hay envíos con estos filtros.</p>}
       {data && data.items.length > 0 && (
-        <div className="table-scroll">
-          <table className="table table-minimal table-compact">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Estado</th>
-                <th>Almacén destino</th>
-                <th>Compras</th>
-                <th className="num">Llegaron</th>
-                <th>Salió</th>
-                <th>Recibido</th>
-                <th>Nota</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((envio) => {
-                const total = envio.items.reduce((n, i) => n + i.cantidad, 0);
-                const recibidas = envio.items.reduce((n, i) => n + i.cantidadRecibida, 0);
-                const compras = Array.from(new Set(envio.items.map((i) => i.compraDetalle.proforma.codigo)));
-                return (
-                  <tr key={envio.id} onClick={() => router.push(`/dashboard/stock/envios/${envio.id}`)} style={{ cursor: "pointer" }}>
-                    <td className="cell-primary">{envio.codigo}</td>
-                    <td>
-                      <span className={`badge ${ESTADO_ENVIO_CLASE[envio.estado]}`}>{ESTADO_ENVIO_LABEL[envio.estado]}</span>
-                    </td>
-                    <td className="cell-muted">{envio.almacenDestino.nombre}</td>
-                    <td className="cell-muted">{compras.length > 0 ? compras.join(", ") : "—"}</td>
-                    <td className="num">
-                      {recibidas} de {total}
-                    </td>
-                    <td className="cell-muted">{formatDate(envio.fechaEnvio)}</td>
-                    <td className="cell-muted">{formatDate(envio.fechaRecepcion)}</td>
-                    <td className="cell-muted">{envio.nota ?? "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setAbiertos(data.items.every((e) => abiertos.has(e.id)) ? new Set() : new Set(data.items.map((e) => e.id)))}
+            >
+              {data.items.every((e) => abiertos.has(e.id)) ? "Contraer todo" : "Expandir todo"}
+            </button>
+          </div>
+          <div className="table-scroll">
+            <table className="table table-minimal table-compact">
+              <thead>
+                <tr>
+                  <th>Envío</th>
+                  <th>Estado</th>
+                  <th>Almacén destino</th>
+                  <th>Compras</th>
+                  <th className="num">Productos</th>
+                  <th className="num">Llegaron</th>
+                  <th>Salió</th>
+                  <th>Recibido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((envio) => {
+                  const total = envio.items.reduce((n, i) => n + i.cantidad, 0);
+                  const recibidas = envio.items.reduce((n, i) => n + i.cantidadRecibida, 0);
+                  const compras = Array.from(new Set(envio.items.map((i) => i.compraDetalle.proforma.codigo)));
+                  const abierto = abiertos.has(envio.id);
+                  return (
+                    <Fragment key={envio.id}>
+                      <tr className="reg-group" aria-expanded={abierto} onClick={() => alternar(envio.id)} style={{ cursor: "pointer" }}>
+                        <td className="reg-group-code">
+                          <span className="reg-chevron">{abierto ? "▾" : "▸"}</span>
+                          <Link href={`/dashboard/stock/envios/${envio.id}`} className="link-button" onClick={(e) => e.stopPropagation()}>
+                            {envio.codigo}
+                          </Link>
+                        </td>
+                        <td>
+                          <span className={`badge ${ESTADO_ENVIO_CLASE[envio.estado]}`}>{ESTADO_ENVIO_LABEL[envio.estado]}</span>
+                        </td>
+                        <td className="cell-muted" style={{ fontWeight: 400 }}>{envio.almacenDestino.nombre}</td>
+                        <td className="cell-muted" style={{ fontWeight: 400 }}>{compras.length > 0 ? compras.join(", ") : "—"}</td>
+                        <td className="num">{total}</td>
+                        <td className="num">
+                          {recibidas} de {total}
+                        </td>
+                        <td className="cell-muted" style={{ fontWeight: 400 }}>{formatDate(envio.fechaEnvio)}</td>
+                        <td className="cell-muted" style={{ fontWeight: 400 }}>{formatDate(envio.fechaRecepcion)}</td>
+                      </tr>
+                      {abierto && (
+                        <tr>
+                          <td colSpan={8} style={{ padding: "4px 12px 14px 34px" }}>
+                            <table className="table table-minimal table-compact">
+                              <thead>
+                                <tr>
+                                  <th>Marca</th>
+                                  <th style={{ minWidth: 220 }}>Producto</th>
+                                  <th>Compra</th>
+                                  <th>Proveedor</th>
+                                  <th className="num">Cant.</th>
+                                  <th className="num">Llegaron</th>
+                                  <th className="num">Faltan</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {envio.items.map((i) => {
+                                  const v = i.compraDetalle.variante;
+                                  const opciones = v.options.map((o) => o.optionValue.value).join(", ");
+                                  const falta = i.cantidad - i.cantidadRecibida;
+                                  return (
+                                    <tr key={i.id}>
+                                      <td className="cell-muted">{v.product.brand?.name ?? "—"}</td>
+                                      <td className="cell-primary">
+                                        {v.product.name}
+                                        {opciones && <span className="cell-muted" style={{ fontWeight: 400 }}> — {opciones}</span>}
+                                      </td>
+                                      <td>
+                                        <Link href={`/dashboard/proformas/${i.compraDetalle.proforma.id}`} className="link-button">
+                                          {i.compraDetalle.proforma.codigo}
+                                        </Link>
+                                      </td>
+                                      <td className="cell-muted">{i.compraDetalle.proveedor?.nombre ?? "—"}</td>
+                                      <td className="num">{i.cantidad}</td>
+                                      <td className="num">{i.cantidadRecibida}</td>
+                                      <td className="num">{falta > 0 ? <span className="badge badge-warn">{falta}</span> : <span className="cell-muted">—</span>}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot>
+                                <tr>
+                                  <td colSpan={4} className="cell-muted" style={{ textAlign: "right", fontWeight: 600 }}>
+                                    Total de unidades
+                                  </td>
+                                  <td className="num cell-primary">{total}</td>
+                                  <td className="num cell-primary">{recibidas}</td>
+                                  <td className="num cell-primary">{total - recibidas > 0 ? total - recibidas : "—"}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
+                              {envio.nota && <span className="cell-muted" style={{ fontSize: 12.5 }}>Nota: {envio.nota}</span>}
+                              {envio.notaPie && <span className="cell-muted" style={{ fontSize: 12.5 }}>Pie del PDF: {envio.notaPie}</span>}
+                              <span style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+                                <button type="button" className="action-btn" disabled={descargandoId === envio.id} onClick={() => descargar(envio)}>
+                                  {descargandoId === envio.id ? "Generando..." : "Descargar PDF"}
+                                </button>
+                                <Link href={`/dashboard/stock/envios/${envio.id}`} className="action-btn">
+                                  Abrir envío
+                                </Link>
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {data && data.items.length > 0 && totalPages > 1 && (

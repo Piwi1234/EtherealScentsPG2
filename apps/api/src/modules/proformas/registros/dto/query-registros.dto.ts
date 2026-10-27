@@ -24,6 +24,12 @@ export class QueryRegistrosDto {
   @IsBoolean()
   sinConcretar?: boolean;
 
+  @ApiPropertyOptional({ description: "Pagina por PROFORMA (page/limit cuentan proformas) y trae todas las líneas de cada una." })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  porProforma?: boolean;
+
   @ApiPropertyOptional({ enum: ["LISTA", "ESPERANDO"], description: "Solo ventas aprobadas: listas para completar o esperando mercadería (faltante o tránsito)." })
   @IsOptional()
   @IsIn(["LISTA", "ESPERANDO"])

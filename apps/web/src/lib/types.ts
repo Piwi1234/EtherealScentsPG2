@@ -1254,10 +1254,8 @@ export type Envio = {
   recepciones: EnvioRecepcion[];
 };
 
-/** Fila del listado: solo cantidades y códigos de las compras que viajan. */
-export type EnvioResumen = Omit<Envio, "items" | "recepciones"> & {
-  items: { cantidad: number; cantidadRecibida: number; compraDetalle: { proforma: { id: string; codigo: string } } }[];
-};
+/** Fila del listado: el envío con todos sus productos (en orden alfabético), para verlo desplegado. */
+export type EnvioResumen = Omit<Envio, "recepciones">;
 
 /** Línea de compra con unidades ya recogidas que todavía se pueden sumar a un envío. */
 export type EnvioDisponible = {

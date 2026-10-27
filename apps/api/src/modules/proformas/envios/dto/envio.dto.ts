@@ -67,6 +67,26 @@ export class QueryEnvioDto {
   @IsEnum(EstadoEnvio)
   estado?: EstadoEnvio;
 
+  @ApiPropertyOptional({ description: "Producto o marca: cada palabra tiene que coincidir con el nombre, el código o la marca de algún producto del envío." })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: "Envíos con productos de este proveedor." })
+  @IsOptional()
+  @IsUUID()
+  proveedorId?: string;
+
+  @ApiPropertyOptional({ description: "Envíos con productos de esta categoría (incluye sus subcategorías)." })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ description: "Almacén destino." })
+  @IsOptional()
+  @IsUUID()
+  almacenId?: string;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
