@@ -13,6 +13,7 @@ import {
   downloadProductsImportTemplate,
   downloadProductVariantsImportTemplate,
   getProductsStockSummary,
+  type ProductStock,
   importProductImagesFromFiles,
   importProductsFromFile,
   importProductVariantsFromFile,
@@ -105,7 +106,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState<Page<Product> | null>(null);
   // /catalog/products (público) no trae cantidades de stock — se piden aparte, autenticado, y se
   // mergean acá por id (ver getProductsStockSummary).
-  const [stockByProduct, setStockByProduct] = useState<Record<string, { disponible: number; reservado: number }>>({});
+  const [stockByProduct, setStockByProduct] = useState<Record<string, ProductStock>>({});
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState("");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
@@ -854,9 +855,10 @@ export default function ProductsPage() {
                       return (
                         <tr key={product.id} onClick={(e) => handleRowClick(e, product)} style={{ cursor: "pointer" }}>
                           <td>
+                            {/* Con variantes, el stock es el de la variante elegida en la fila (no el total del producto). */}
                             <StockCell
-                              disponible={stockByProduct[product.id]?.disponible ?? 0}
-                              reservado={stockByProduct[product.id]?.reservado ?? 0}
+                              disponible={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.disponible : stockByProduct[product.id]?.disponible) ?? 0}
+                              reservado={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.reservado : stockByProduct[product.id]?.reservado) ?? 0}
                             />
                           </td>
                           <td>

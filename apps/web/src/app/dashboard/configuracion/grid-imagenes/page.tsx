@@ -677,8 +677,8 @@ function CategoryTilesEditor({
       <label style={{ fontSize: 14, fontWeight: 600, display: "block", marginBottom: 4 }}>Explora por categoría</label>
       <p className="cell-muted" style={{ fontSize: 11.5, margin: "0 0 12px", lineHeight: 1.4, maxWidth: 720 }}>
         Una imagen por categoría para su tarjeta en el home (debajo de &quot;Descuento y Ofertas&quot;). El nombre de la categoría y sus
-        subcategorías se muestran solos sobre la imagen. Recorte apaisado: 1200×750px o más (relación 16:10); en el celular se
-        recorta a 16:9, así que conviene dejar el producto al centro. Si subes otra imagen, reemplaza la anterior.
+        subcategorías se muestran solos sobre la imagen. Recorte casi cuadrado: 1200×900px o más (relación 4:3); en el celular se
+        recorta un poco más a lo ancho (3:2), así que conviene dejar el producto al centro. Si subes otra imagen, reemplaza la anterior.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
         {categories.map((cat) => {
@@ -689,7 +689,7 @@ function CategoryTilesEditor({
               <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 6px" }}>{cat.name}</p>
               <div className="image-uploader" style={{ padding: 6, justifyContent: "center", position: "relative" }}>
                 {imagen ? (
-                  <img src={imgSrc(imagen.imageUrl)!} alt={cat.name} style={{ aspectRatio: "16 / 10", objectFit: "cover", width: "100%" }} />
+                  <img src={imgSrc(imagen.imageUrl)!} alt={cat.name} style={{ aspectRatio: "4 / 3", objectFit: "cover", width: "100%" }} />
                 ) : (
                   <span className="cell-muted" style={{ fontSize: 12, padding: "28px 0" }}>Sin imagen (se usa un degradado)</span>
                 )}

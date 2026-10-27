@@ -218,6 +218,9 @@ export type ProductVariantOption = {
 export type ProductVariant = {
   id: string;
   variantCode: string;
+  /** Solo poblados por /products (panel admin): el stock de ESTA variante, sumando almacenes. */
+  stockDisponible?: number;
+  stockReservado?: number;
   purchasePrice: string;
   utility: string;
   /** "Add May" (manual, opcional, campo minPriceBs, EN DÓLARES — se convierte a Bs al tipo de cambio

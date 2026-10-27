@@ -47,11 +47,24 @@ function withStock<T extends { variants: { stock: { cantidadFisica: number; cant
   }
   return {
     ...product,
-    variants: product.variants.map(({ stock, ...rest }) => rest),
+    // Cada variante lleva SU stock (suma de sus almacenes): la fila de un producto con variantes de precio propio muestra
+    // el de la variante elegida, no el total del producto.
+    variants: product.variants.map(({ stock, ...rest }) => ({
+      ...rest,
+      stockDisponible: stock.reduce((n, s) => n + s.cantidadFisica - s.cantidadReservada, 0),
+      stockReservado: stock.reduce((n, s) => n + s.cantidadReservada, 0),
+    })),
     stockDisponible: disponible,
     stockReservado: reservado,
   };
 }
+
+/** Stock de un producto (todas sus variantes) y desglose por variante. */
+export type StockProducto = {
+  disponible: number;
+  reservado: number;
+  variantes: Record<string, { disponible: number; reservado: number }>;
+};
 
 export type AttributeValueWrite = {
   attributeId: string;
@@ -525,20 +538,25 @@ export class ProductService {
   /** La tabla de Productos del panel lista vía /catalog/products (público, sin cantidades — ver
    * finalizeProduct en browse.service.ts), así que el stock real de esos productos se pide aparte,
    * acá, autenticado. Misma suma que `withStock`: todas las variantes y almacenes de cada producto. */
-  async stockSummary(productIds: string[]): Promise<Record<string, { disponible: number; reservado: number }>> {
-    const result: Record<string, { disponible: number; reservado: number }> = {};
-    for (const id of productIds) result[id] = { disponible: 0, reservado: 0 };
+  async stockSummary(productIds: string[]): Promise<Record<string, StockProducto>> {
+    const result: Record<string, StockProducto> = {};
+    for (const id of productIds) result[id] = { disponible: 0, reservado: 0, variantes: {} };
     if (productIds.length === 0) return result;
 
     const rows = await this.prisma.stock.findMany({
       where: { variante: { productId: { in: productIds } } },
-      select: { cantidadFisica: true, cantidadReservada: true, variante: { select: { productId: true } } },
+      select: { varianteId: true, cantidadFisica: true, cantidadReservada: true, variante: { select: { productId: true } } },
     });
     for (const row of rows) {
       const entry = result[row.variante.productId];
       if (!entry) continue;
-      entry.disponible += row.cantidadFisica - row.cantidadReservada;
+      const disponible = row.cantidadFisica - row.cantidadReservada;
+      entry.disponible += disponible;
       entry.reservado += row.cantidadReservada;
+      // También por variante: la tabla muestra el stock de la variante elegida en cada fila.
+      const v = (entry.variantes[row.varianteId] ??= { disponible: 0, reservado: 0 });
+      v.disponible += disponible;
+      v.reservado += row.cantidadReservada;
     }
     return result;
   }

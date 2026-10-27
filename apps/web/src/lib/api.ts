@@ -799,11 +799,18 @@ export function getProducts(query: { categoryId?: string; brandId?: string; sear
   return apiGet<Page<Product>>(`/products${qs ? `?${qs}` : ""}`);
 }
 
+/** Stock de un producto (todas sus variantes) y desglose por variante. */
+export type ProductStock = {
+  disponible: number;
+  reservado: number;
+  variantes: Record<string, { disponible: number; reservado: number }>;
+};
+
 /** La tabla de Productos lista vía /catalog/products (público, sin cantidades — ver Product.hasStock
  * en lib/types.ts), así que el stock real de esos productos se trae aparte, autenticado, acá. */
 export function getProductsStockSummary(productIds: string[]) {
-  if (productIds.length === 0) return Promise.resolve({} as Record<string, { disponible: number; reservado: number }>);
-  return apiGet<Record<string, { disponible: number; reservado: number }>>(`/products/stock-summary?ids=${productIds.join(",")}`);
+  if (productIds.length === 0) return Promise.resolve({} as Record<string, ProductStock>);
+  return apiGet<Record<string, ProductStock>>(`/products/stock-summary?ids=${productIds.join(",")}`);
 }
 
 export function getLotesCompra(
