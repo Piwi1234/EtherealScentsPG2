@@ -835,6 +835,8 @@ export type DashPendientes = {
   ventasEsperando: number;
   /** Compras aprobadas que todavía no están en ningún envío. */
   comprasSinEnvio: number;
+  /** Unidades ya recogidas que todavía no entraron a ningún envío. */
+  unidadesSinEnviar: number;
   /** Ventas con faltante sin compra ligada para las que ya hay stock libre sin reservar. */
   ventasConStockLibre: number;
   /** Líneas de solicitudes de stock abiertas que todavía no tienen compra. */
