@@ -133,7 +133,8 @@ export class ProformasService {
       this.prisma.proforma.findMany({ where, skip, take, orderBy: [{ estadoActualizadoAt: "desc" }, { createdAt: "desc" }], include: includeDetails }),
       this.prisma.proforma.count({ where }),
     ]);
-    return { items, total, page, pageSize };
+    // Cada faltante lleva el estado de la compra que lo cubre (comprado, recogido, enviado), como en el detalle.
+    return { items: items.map((p) => this.conEstadoDeFaltantes(p)), total, page, pageSize };
   }
 
   /** Solo quienes crearon al menos una VENTA — no el listado completo de usuarios (evita depender del
