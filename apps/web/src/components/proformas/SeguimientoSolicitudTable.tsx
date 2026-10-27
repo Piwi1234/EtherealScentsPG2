@@ -95,6 +95,7 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
               <th style={{ minWidth: 220 }}>Producto</th>
               <th className="num">Cant.</th>
               <th>Estado</th>
+              <th className="num">Precio compra</th>
               <th>Compra / Envío</th>
               <th></th>
             </tr>
@@ -136,6 +137,7 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
                       </div>
                     )}
                   </td>
+                  <td className="num cell-muted">{l.estadoLinea === "SIN_COMPRA" ? `$ ${Number(l.variante.purchasePrice).toFixed(2)}` : "—"}</td>
                   <td className="cell-muted">
                     {compra ? (
                       <>

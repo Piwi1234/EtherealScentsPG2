@@ -202,6 +202,7 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
               <th style={{ minWidth: 220 }}>Producto</th>
               <th className="num">Cant.</th>
               <th>Estado</th>
+              <th className="num">Precio compra</th>
               <th>Compra / Envío</th>
               <th></th>
             </tr>
@@ -244,6 +245,7 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
                       </div>
                     )}
                   </td>
+                  <td className="num cell-muted">{linea.estadoPedido === "SIN_COMPRA" ? `$ ${Number(variante.purchasePrice).toFixed(2)}` : "—"}</td>
                   <td className="cell-muted">
                     {compra && linea.estadoPedido !== "SIN_COMPRA" ? (
                       <>
