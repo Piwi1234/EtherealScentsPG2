@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularLineaSolicitud } from "../../lib/api";
 import type { SolicitudLineaSeguimiento } from "../../lib/types";
-import { EnviosDeLinea } from "./EnviosDeLinea";
+import { CompraChip, EnviosChips, NotaChip, enviosDeItems } from "./CodigosCompraEnvio";
 import { CrearComprasModal } from "./CrearComprasModal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { CLASES_LINEA_SOLICITUD, LABELS_LINEA_SOLICITUD } from "./seguimiento-estados";
@@ -96,7 +96,8 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
               <th className="num">Cant.</th>
               <th>Estado</th>
               <th className="num">Precio compra</th>
-              <th>Compra / Envío</th>
+              <th>Compra</th>
+              <th>Envío</th>
               <th></th>
             </tr>
           </thead>
@@ -118,9 +119,7 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
                   </td>
                   <td className="cell-muted">{formatFecha(l.solicitud.createdAt)}</td>
                   <td>
-                    <Link href={`/dashboard/stock/solicitudes/${l.solicitud.id}`} className="link-button">
-                      {l.solicitud.codigo}
-                    </Link>
+                    <NotaChip href={`/dashboard/stock/solicitudes/${l.solicitud.id}`} codigo={l.solicitud.codigo} />
                   </td>
                   <td className="cell-muted">{l.solicitud.creadoPor.nombre}</td>
                   <td className="cell-muted">{l.variante.product.brand?.name ?? "—"}</td>
@@ -138,18 +137,11 @@ export function SeguimientoSolicitudTable({ lineas }: { lineas: SolicitudLineaSe
                     )}
                   </td>
                   <td className="num cell-muted">{l.estadoLinea === "SIN_COMPRA" ? `$ ${Number(l.variante.purchasePrice).toFixed(2)}` : "—"}</td>
-                  <td className="cell-muted">
-                    {compra ? (
-                      <>
-                        <Link href={`/dashboard/proformas/${compra.id}`} className="link-button">
-                          {compra.codigo}
-                        </Link>
-                        {l.compraDetalle?.proveedor ? ` · ${l.compraDetalle.proveedor.nombre}` : ""}
-                        <EnviosDeLinea envioItems={l.compraDetalle?.envioItems} />
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                  <td>
+                    <CompraChip compra={compra} />
+                  </td>
+                  <td>
+                    <EnviosChips envios={enviosDeItems(l.compraDetalle?.envioItems)} />
                   </td>
                   <td>
                     {l.compraDetalleId && (

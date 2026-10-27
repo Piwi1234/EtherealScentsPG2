@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, desvincularPedido, getComprasCandidatas, reservarTodoElStockLibre, vincularPedido } from "../../lib/api";
-import { EnviosDeLinea } from "./EnviosDeLinea";
+import { CompraChip, EnviosChips, NotaChip, enviosDeItems } from "./CodigosCompraEnvio";
 import { CrearComprasModal } from "./CrearComprasModal";
 import type { CompraCandidata, SeguimientoLinea } from "../../lib/types";
 import { Modal } from "../Modal";
@@ -203,7 +203,8 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
               <th className="num">Cant.</th>
               <th>Estado</th>
               <th className="num">Precio compra</th>
-              <th>Compra / Envío</th>
+              <th>Compra</th>
+              <th>Envío</th>
               <th></th>
             </tr>
           </thead>
@@ -226,9 +227,7 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
                   </td>
                   <td className="cell-muted">{formatFecha(proforma.fecha)}</td>
                   <td>
-                    <Link href={`/dashboard/proformas/${proforma.id}`} className="link-button">
-                      {proforma.codigo}
-                    </Link>
+                    <NotaChip href={`/dashboard/proformas/${proforma.id}`} codigo={proforma.codigo} />
                   </td>
                   <td className="cell-muted">{proforma.cliente?.nombre ?? "—"}</td>
                   <td className="cell-muted">{variante.product.brand?.name ?? "—"}</td>
@@ -246,18 +245,11 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
                     )}
                   </td>
                   <td className="num cell-muted">{linea.estadoPedido === "SIN_COMPRA" ? `$ ${Number(variante.purchasePrice).toFixed(2)}` : "—"}</td>
-                  <td className="cell-muted">
-                    {compra && linea.estadoPedido !== "SIN_COMPRA" ? (
-                      <>
-                        <Link href={`/dashboard/proformas/${compra.id}`} className="link-button">
-                          {compra.codigo}
-                        </Link>
-                        {linea.compraDetalle?.proveedor ? ` · ${linea.compraDetalle.proveedor.nombre}` : ""}
-                        <EnviosDeLinea envioItems={linea.compraDetalle?.envioItems} />
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                  <td>
+                    <CompraChip compra={linea.estadoPedido !== "SIN_COMPRA" ? compra : null} />
+                  </td>
+                  <td>
+                    <EnviosChips envios={linea.estadoPedido !== "SIN_COMPRA" ? enviosDeItems(linea.compraDetalle?.envioItems) : []} />
                   </td>
                   <td>
                     <div className="row-actions">
