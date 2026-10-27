@@ -835,6 +835,8 @@ export type DashPendientes = {
   ventasEsperando: number;
   /** Compras aprobadas que todavía no están en ningún envío. */
   comprasSinEnvio: number;
+  /** Unidades ya recogidas que todavía no entraron a ningún envío. */
+  unidadesSinEnviar: number;
   /** Ventas con faltante sin compra ligada para las que ya hay stock libre sin reservar. */
   ventasConStockLibre: number;
   /** Líneas de solicitudes de stock abiertas que todavía no tienen compra. */
@@ -1055,6 +1057,9 @@ export type ProcuraCandidata = {
 
 /** Una línea de proforma (COMPRA o VENTA) vista desde el ledger de Registros — todas las proformas
  * de ese tipo a la vez, filtrable por fecha/categoría/marca/producto. */
+/** Proforma de Registros que todavía no tiene productos (ej. un borrador recién creado). */
+export type RegistroProformaVacia = RegistroLinea["proforma"];
+
 export type RegistroLinea = {
   id: string;
   cantidad: number;
@@ -1254,10 +1259,8 @@ export type Envio = {
   recepciones: EnvioRecepcion[];
 };
 
-/** Fila del listado: solo cantidades y códigos de las compras que viajan. */
-export type EnvioResumen = Omit<Envio, "items" | "recepciones"> & {
-  items: { cantidad: number; cantidadRecibida: number; compraDetalle: { proforma: { id: string; codigo: string } } }[];
-};
+/** Fila del listado: el envío con todos sus productos (en orden alfabético), para verlo desplegado. */
+export type EnvioResumen = Omit<Envio, "recepciones">;
 
 /** Línea de compra con unidades ya recogidas que todavía se pueden sumar a un envío. */
 export type EnvioDisponible = {

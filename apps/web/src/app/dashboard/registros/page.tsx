@@ -3,7 +3,7 @@
 import { Fragment, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ApiError, getBrands, getCategories, getEmpresas, getProducts, getProveedores, getRegistros } from "../../../lib/api";
+import { ApiError, deleteProforma, getBrands, getCategories, getEmpresas, getProducts, getProveedores, getRegistros } from "../../../lib/api";
 import type { Brand, Category, Empresa, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
 import { NuevaProformaBoton } from "../../../components/proformas/NuevaProformaBoton";
 import { EstadoBadge } from "../../../components/proformas/EstadoBadge";
@@ -33,7 +33,8 @@ function detalleSinConcretar(proforma: RegistroLinea["proforma"]): string {
   return `Creada por ${proforma.creadoPor.nombre} · hace ${dias} ${dias === 1 ? "día" : "días"}`;
 }
 
-const PAGE_SIZE = 20;
+// Proformas por página: cada una se puede desplegar y muestra todos sus productos.
+const PAGE_SIZE = 10;
 const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
 
 function formatDate(value: string): string {
@@ -44,7 +45,16 @@ function money(value: number | null, prefix = "Bs"): string {
   return value === null ? "—" : `${prefix} ${value.toFixed(2)}`;
 }
 
-type RegistrosData = { items: RegistroLinea[]; total: number; page: number; pageSize: number; resumen: RegistroResumen };
+type RegistrosData = {
+  items: RegistroLinea[];
+  total: number;
+  page: number;
+  pageSize: number;
+  resumen: RegistroResumen;
+  /** Orden de las proformas de la página y las que todavía no tienen productos (borradores vacíos). */
+  ordenProformas?: string[];
+  proformasVacias?: RegistroLinea["proforma"][];
+};
 
 /** Precio/costo unitario en Bs de una línea. En compras se convierte con el tipo de cambio de su proforma (null si no tiene). */
 function unitarioBs(linea: RegistroLinea, tipo: TipoProforma): number | null {
@@ -323,6 +333,8 @@ function RegistrosPanel({
   const [data, setData] = useState<RegistrosData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Se incrementa al eliminar un borrador vacío para volver a pedir la lista.
+  const [recarga, setRecarga] = useState(0);
 
   const parentCategories = categories.filter((c) => c.parentId === null);
   const subCategoryIds = categories.filter((c) => c.parentId === categoryId).map((c) => c.id);
@@ -373,6 +385,7 @@ function RegistrosPanel({
       tipo,
       estado: estado || undefined,
       sinConcretar: sinConcretar || undefined,
+      porProforma: true,
       entrega: tipo === "VENTA" && !sinConcretar ? entrega || undefined : undefined,
       codigo: codigo || undefined,
       search: search || undefined,
@@ -389,7 +402,7 @@ function RegistrosPanel({
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-  }, [activo, tipo, sinConcretar, estado, entrega, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
+  }, [recarga, activo, tipo, sinConcretar, estado, entrega, codigo, search, dateSelection, categoryId, brandId, productId, clienteId, proveedorId, pageNum]);
 
   useEffect(() => {
     const estadoActual: EstadoGuardado = {
@@ -441,11 +454,17 @@ function RegistrosPanel({
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   // Líneas de la página agrupadas por proforma (el backend las entrega contiguas).
-  const grupos: { proforma: RegistroLinea["proforma"]; lineas: RegistroLinea[] }[] = [];
+  let grupos: { proforma: RegistroLinea["proforma"]; lineas: RegistroLinea[] }[] = [];
   for (const linea of data?.items ?? []) {
     const ultimo = grupos[grupos.length - 1];
     if (ultimo && ultimo.proforma.id === linea.proforma.id) ultimo.lineas.push(linea);
     else grupos.push({ proforma: linea.proforma, lineas: [linea] });
+  }
+  // Las proformas sin productos (borradores vacíos) también se listan, en su lugar según el orden de la página.
+  if (data?.ordenProformas && data.proformasVacias && data.proformasVacias.length > 0) {
+    const porId = new Map(grupos.map((g) => [g.proforma.id, g]));
+    for (const v of data.proformasVacias) porId.set(v.id, { proforma: v, lineas: [] });
+    grupos = data.ordenProformas.map((id) => porId.get(id)).filter((g): g is (typeof grupos)[number] => Boolean(g));
   }
 
   function elegirEstado(valor: "" | "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA") {
@@ -765,9 +784,9 @@ function RegistrosPanel({
 
       {loading && <p className="cell-muted">Cargando...</p>}
 
-      {!loading && data && data.items.length === 0 && <p>No hay registros para estos filtros.</p>}
+      {!loading && data && grupos.length === 0 && <p>No hay registros para estos filtros.</p>}
 
-      {!loading && data && data.items.length > 0 && (
+      {!loading && data && grupos.length > 0 && (
         <>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
             <button
@@ -823,14 +842,35 @@ function RegistrosPanel({
                           </Link>
                         </td>
                         <td className="cell-muted" style={{ fontWeight: 400 }}>
+                          {g.lineas.length === 0 && <span className="badge badge-muted" style={{ marginRight: 6 }}>Sin productos</span>}
                           {formatDate(g.proforma.fecha)}
                           {tipo === "VENTA" && ` · ${g.proforma.cliente?.nombre ?? "Sin cliente"}`}
                           {g.proforma.almacen && ` · ${g.proforma.almacen.nombre}`}
                           {sinConcretar && ` · ${detalleSinConcretar(g.proforma)}`}
-                          {!abiertas.has(g.proforma.id) && ` · ${g.lineas.length} producto${g.lineas.length === 1 ? "" : "s"}`}
+                          {!abiertas.has(g.proforma.id) && g.lineas.length > 0 && ` · ${g.lineas.length} producto${g.lineas.length === 1 ? "" : "s"}`}
                         </td>
                         <td>
                           <EstadoBadge estado={g.proforma.estado} />
+                          {g.lineas.length === 0 && g.proforma.estado === "BORRADOR" && (
+                            <div style={{ marginTop: 2 }}>
+                              <button
+                                type="button"
+                                className="action-btn danger"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!confirm(`¿Eliminar el borrador ${g.proforma.codigo}? No tiene productos.`)) return;
+                                  try {
+                                    await deleteProforma(g.proforma.id);
+                                    setRecarga((n) => n + 1);
+                                  } catch (err) {
+                                    setError(err instanceof ApiError ? err.message : String(err));
+                                  }
+                                }}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          )}
                           {g.proforma.entrega && (
                             <div style={{ marginTop: 2 }}>
                               <EntregaResumen entrega={g.proforma.entrega} />

@@ -124,16 +124,53 @@ export class RegistrosService {
       },
     };
 
-    const [items, total, todas] = await Promise.all([
-      this.prisma.proformaDetalle.findMany({
-        where,
-        skip,
-        take,
-        // Las líneas de una misma proforma quedan contiguas (la pantalla las agrupa bajo su encabezado).
-        orderBy: [{ proforma: { fecha: "desc" } }, { proformaId: "asc" }, { createdAt: "asc" }],
+    // Por proforma: la página son N proformas (las que tienen alguna línea que cumple el filtro) y de cada una se traen
+    // TODAS sus líneas, para poder verla completa desplegada. Por línea: paginado clásico de líneas.
+    let ordenProformas: string[] | undefined;
+    let proformasVacias: Awaited<ReturnType<typeof this.prisma.proforma.findMany<{ select: typeof registroInclude.proforma.select }>>> = [];
+    const paginaDeLineas = async () => {
+      if (!query.porProforma) {
+        return Promise.all([
+          this.prisma.proformaDetalle.findMany({
+            where,
+            skip,
+            take,
+            // Las líneas de una misma proforma quedan contiguas (la pantalla las agrupa bajo su encabezado).
+            orderBy: [{ proforma: { fecha: "desc" } }, { proformaId: "asc" }, { createdAt: "asc" }],
+            include: registroInclude,
+          }),
+          this.prisma.proformaDetalle.count({ where }),
+        ]);
+      }
+      // Con filtros de producto/proveedor solo cuentan las proformas con alguna línea que los cumpla; sin ellos entran también
+      // las proformas todavía vacías (un borrador recién creado, sin productos), que si no quedarían invisibles.
+      const hayFiltroDeLinea = Boolean(query.proveedorId || query.productId || query.brandId || categoryIds || searchWords.length > 0);
+      const proformaWhere: Prisma.ProformaWhereInput = {
+        ...(where.proforma as Prisma.ProformaWhereInput),
+        ...(hayFiltroDeLinea ? { detalles: { some: { proveedorId: where.proveedorId, variante: where.variante } } } : {}),
+      };
+      const [pagina, totalProformas] = await Promise.all([
+        this.prisma.proforma.findMany({ where: proformaWhere, orderBy: [{ fecha: "desc" }, { createdAt: "desc" }, { id: "asc" }], skip, take, select: { id: true } }),
+        this.prisma.proforma.count({ where: proformaWhere }),
+      ]);
+      const orden = new Map(pagina.map((p, i) => [p.id, i]));
+      const lineas = await this.prisma.proformaDetalle.findMany({
+        where: { proformaId: { in: pagina.map((p) => p.id) } },
+        orderBy: { createdAt: "asc" },
         include: registroInclude,
-      }),
-      this.prisma.proformaDetalle.count({ where }),
+      });
+      lineas.sort((a, b) => (orden.get(a.proformaId) ?? 0) - (orden.get(b.proformaId) ?? 0));
+      ordenProformas = pagina.map((p) => p.id);
+      const conLineas = new Set(lineas.map((l) => l.proformaId));
+      const sinLineas = ordenProformas.filter((id) => !conLineas.has(id));
+      if (sinLineas.length > 0) {
+        proformasVacias = await this.prisma.proforma.findMany({ where: { id: { in: sinLineas } }, select: registroInclude.proforma.select });
+      }
+      return [lineas, totalProformas] as const;
+    };
+
+    const [[items, total], todas] = await Promise.all([
+      paginaDeLineas(),
       // Resumen de TODO el filtro (no solo de la página): total en Bs, piezas y proformas distintas.
       this.prisma.proformaDetalle.findMany({
         where,
@@ -168,17 +205,34 @@ export class RegistrosService {
       else if (l.variante.unidad === "ML") piezas += 1;
       else piezas += l.cantidad;
     }
+    // Las proformas todavía sin productos (borradores vacíos) también cuentan en el resumen (solo en modo por proforma y sin
+    // filtros de producto/proveedor, que son los que las excluyen).
+    const sinFiltroDeLinea = !(query.proveedorId || query.productId || query.brandId || categoryIds || searchWords.length > 0);
+    let proformasContadas = proformas.size;
+    if (query.porProforma && sinFiltroDeLinea) {
+      const vacias = await this.prisma.proforma.groupBy({
+        by: ["estado"],
+        where: { ...(where.proforma as Prisma.ProformaWhereInput), detalles: { none: {} } },
+        _count: { _all: true },
+      });
+      for (const v of vacias) {
+        const grupo = (porEstado[v.estado] ??= { totalBs: 0, proformas: new Set<string>() });
+        for (let i = 0; i < v._count._all; i++) grupo.proformas.add(`vacia-${v.estado}-${i}`);
+        proformasContadas += v._count._all;
+      }
+    }
     const resumen = {
       totalBs: Math.round(totalBs * 100) / 100,
       piezas,
-      proformas: proformas.size,
+      proformas: proformasContadas,
       porEstado: Object.fromEntries(
         Object.entries(porEstado).map(([estado, g]) => [estado, { totalBs: Math.round(g.totalBs * 100) / 100, proformas: g.proformas.size }]),
       ),
     };
 
     const conProforma = await this.conDatosDeProforma(items, query.tipo);
-    return { items: await this.conEstadoDeLinea(conProforma, query.tipo), total, page, pageSize, resumen };
+    // En modo por proforma: el orden de las proformas de la página y las que todavía no tienen productos.
+    return { items: await this.conEstadoDeLinea(conProforma, query.tipo), total, page, pageSize, resumen, ordenProformas, proformasVacias };
   }
 
   /**

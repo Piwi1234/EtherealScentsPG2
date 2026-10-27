@@ -958,6 +958,10 @@ export function aprobarProforma(id: string, data: AprobarProformaInput = {}) {
   return apiPost<Proforma>(`/proformas/${id}/aprobar`, data);
 }
 
+export function ajustarVenta(id: string, data: { lineas: { detalleId: string; cantidad: number }[]; carteraId?: string; motivo?: string }) {
+  return apiPost<Proforma>(`/proformas/${id}/ajustar`, data);
+}
+
 export function anularProforma(id: string, nota?: string) {
   return apiPost<Proforma>(`/proformas/${id}/anular`, { nota });
 }
@@ -1110,6 +1114,8 @@ export function getRegistros(
     tipo: string;
     estado?: "BORRADOR" | "APROBADA" | "COMPLETADA" | "ANULADA";
     sinConcretar?: boolean;
+    /** Pagina por proforma (page/limit cuentan proformas y cada una trae todas sus líneas). */
+    porProforma?: boolean;
     entrega?: "LISTA" | "ESPERANDO";
     codigo?: string;
     fechaDesde?: string;
@@ -1129,6 +1135,7 @@ export function getRegistros(
   if (query.estado) params.set("estado", query.estado);
   if (query.sinConcretar) params.set("sinConcretar", "true");
   if (query.entrega) params.set("entrega", query.entrega);
+  if (query.porProforma) params.set("porProforma", "true");
   if (query.search) params.set("search", query.search);
   if (query.codigo) params.set("codigo", query.codigo);
   if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
@@ -1244,9 +1251,15 @@ export function cobrarCuenta(id: string, data: { monto: number; carteraId: strin
 
 // --- Envíos ---
 
-export function getEnvios(query: { estado?: string; page?: number; limit?: number } = {}) {
+export function getEnvios(
+  query: { estado?: string; search?: string; proveedorId?: string; categoryId?: string; almacenId?: string; page?: number; limit?: number } = {},
+) {
   const params = new URLSearchParams();
   if (query.estado) params.set("estado", query.estado);
+  if (query.search) params.set("search", query.search);
+  if (query.proveedorId) params.set("proveedorId", query.proveedorId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.almacenId) params.set("almacenId", query.almacenId);
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();

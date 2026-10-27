@@ -224,10 +224,10 @@ export default function DashboardPage() {
           accion: "Ver solicitudes",
         },
         {
-          n: pendientes.comprasSinEnvio,
+          n: pendientes.unidadesSinEnviar,
           tono: "info",
-          titulo: `${plural(pendientes.comprasSinEnvio, "compra", "compras")} con productos recogidos sin enviar`,
-          detalle: "Todavía no salieron: armá un envío con ellos",
+          titulo: `${plural(pendientes.unidadesSinEnviar, "unidad recogida", "unidades recogidas")} sin enviar`,
+          detalle: `De ${plural(pendientes.comprasSinEnvio, "compra", "compras")}: todavía no salieron, armá un envío con ellas`,
           href: "/dashboard/stock/envios?nuevo=1",
           accion: "Armar envío",
         },

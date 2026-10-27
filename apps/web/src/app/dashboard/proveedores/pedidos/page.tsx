@@ -11,6 +11,8 @@ import { DateRangeDropdown, type DateSelection } from "../../../../components/Da
 import { ProformasTable } from "../../../../components/proformas/ProformasTable";
 
 const PAGE_SIZE = 20;
+// Vista "Por proforma" (desplegable): 10 proformas por página.
+const PROFORMAS_PAGE_SIZE = 10;
 const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
 
 function formatDate(value: string): string {
@@ -87,7 +89,7 @@ export default function PedidosProveedoresPage() {
         fechaDesde: dateSelection.fechaDesde,
         fechaHasta: dateSelection.fechaHasta,
         page: pageNum,
-        limit: PAGE_SIZE,
+        limit: PROFORMAS_PAGE_SIZE,
       })
         .then(setProformas)
         .catch((e) => setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)))

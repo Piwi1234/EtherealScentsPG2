@@ -346,17 +346,20 @@ export class DashboardService {
           detalles: { some: { asignaciones: { some: { origen: { in: [OrigenAsignacion.PROCURA, OrigenAsignacion.EN_TRANSITO] }, cantidad: { gt: 0 } } } } },
         },
       }),
-      // Compras con productos ya recogidos que todavía no entraron a ningún envío.
-      this.prisma.$queryRaw<{ compras: bigint }[]>`
-        SELECT COUNT(*) AS "compras" FROM (
-          SELECT p."id"
-          FROM "proformas" p
-          JOIN "proforma_detalles" d ON d."proforma_id" = p."id"
+      // Unidades ya recogidas que todavía no entraron a ningún envío (por línea: recogido - en envíos, sin bajar de 0).
+      this.prisma.$queryRaw<{ unidades: bigint | null; compras: bigint }[]>`
+        SELECT COALESCE(SUM(x."pendiente"), 0) AS "unidades", COUNT(DISTINCT x."proforma_id") AS "compras"
+        FROM (
+          SELECT d."proforma_id",
+                 GREATEST(
+                   COALESCE((SELECT SUM(rl."cantidad") FROM "recojo_lineas" rl WHERE rl."compra_detalle_id" = d."id"), 0)
+                   - COALESCE((SELECT SUM(i."cantidad") FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id" WHERE i."compra_detalle_id" = d."id" AND e."estado" <> 'ANULADO'), 0),
+                   0) AS "pendiente"
+          FROM "proforma_detalles" d
+          JOIN "proformas" p ON p."id" = d."proforma_id"
           WHERE p."estado" = 'APROBADA' AND p."tipo" = 'COMPRA'
-          GROUP BY p."id"
-          HAVING SUM(COALESCE((SELECT SUM(rl."cantidad") FROM "recojo_lineas" rl WHERE rl."compra_detalle_id" = d."id"), 0))
-               > SUM(COALESCE((SELECT SUM(i."cantidad") FROM "envio_items" i JOIN "envios" e ON e."id" = i."envio_id" WHERE i."compra_detalle_id" = d."id" AND e."estado" <> 'ANULADO'), 0))
-        ) t
+        ) x
+        WHERE x."pendiente" > 0
       `,
       // Líneas de solicitudes de stock abiertas que todavía no tienen compra.
       this.prisma.solicitudStockLinea.count({ where: { compraDetalleId: null, solicitud: { estado: "ABIERTA" } } }),
@@ -388,6 +391,7 @@ export class DashboardService {
       ventasEsperando,
       ventasConStockLibre: Number(ventasConStockLibre[0]?.ventas ?? 0),
       comprasSinEnvio: Number(comprasSinEnvio[0]?.compras ?? 0),
+      unidadesSinEnviar: Number(comprasSinEnvio[0]?.unidades ?? 0),
       solicitudesSinComprar,
     };
   }

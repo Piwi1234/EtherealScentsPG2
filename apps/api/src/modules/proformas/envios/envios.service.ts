@@ -4,6 +4,7 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
+import { CategoryService } from "../../../catalog/category/category.service";
 import { ProformaHistorialService } from "../proforma-historial.service";
 import { lockStockRows, stockKey } from "../stock-lock.util";
 import { resolverProcuraPendiente } from "../procura.util";
@@ -63,6 +64,7 @@ export class EnviosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly historial: ProformaHistorialService,
+    private readonly categories: CategoryService,
   ) {}
 
   async findAll(query: QueryEnvioDto) {
@@ -70,17 +72,48 @@ export class EnviosService {
       page: String(query.page ?? 1),
       pageSize: String(query.limit ?? 20),
     });
-    const where: Prisma.EnvioWhereInput = { estado: query.estado };
+    // Filtros por contenido: producto o marca (cada palabra exige su match), categoría y proveedor miran los productos del envío.
+    const palabras = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
+    const categoryIds = query.categoryId ? await this.categories.getDescendantIds(query.categoryId) : undefined;
+    const filtroProducto: Prisma.ProductWhereInput = {
+      categoryId: categoryIds ? { in: categoryIds } : undefined,
+      ...(palabras.length > 0
+        ? {
+            AND: palabras.map((word) => ({
+              OR: [
+                { name: { contains: word, mode: "insensitive" as const } },
+                { productCode: { contains: word, mode: "insensitive" as const } },
+                { brand: { name: { contains: word, mode: "insensitive" as const } } },
+              ],
+            })),
+          }
+        : {}),
+    };
+    const hayFiltroDeContenido = Boolean(query.proveedorId || categoryIds || palabras.length > 0);
+    const where: Prisma.EnvioWhereInput = {
+      estado: query.estado,
+      almacenDestinoId: query.almacenId,
+      ...(hayFiltroDeContenido
+        ? { items: { some: { compraDetalle: { proveedorId: query.proveedorId, variante: { product: filtroProducto } } } } }
+        : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.envio.findMany({
         where,
         skip,
         take,
         orderBy: { createdAt: "desc" },
+        // Todo el contenido del envío, para mostrarlo desplegado en la lista (productos en orden alfabético).
         include: {
           almacenDestino: true,
           creadoPor: { select: { id: true, nombre: true } },
-          items: { select: { cantidad: true, cantidadRecibida: true, compraDetalle: { select: { proforma: { select: { id: true, codigo: true } } } } } },
+          items: {
+            include: itemInclude,
+            orderBy: [
+              { compraDetalle: { variante: { product: { name: "asc" as const } } } },
+              { compraDetalle: { variante: { variantCode: "asc" as const } } },
+            ],
+          },
         },
       }),
       this.prisma.envio.count({ where }),
