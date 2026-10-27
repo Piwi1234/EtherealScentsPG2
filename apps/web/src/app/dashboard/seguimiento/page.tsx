@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiGetServer } from "../../../lib/api-server";
 import type { Category, Cliente, Empresa, Page, SeguimientoLinea, SeguimientoStockLinea, SolicitudLineaSeguimiento } from "../../../lib/types";
 import { SeguimientoFiltros } from "../../../components/proformas/SeguimientoFiltros";
+import { SeguimientoExportarBoton } from "../../../components/proformas/SeguimientoExportarBoton";
 import { SeguimientoPendienteTable } from "../../../components/proformas/SeguimientoPendienteTable";
 import { SeguimientoStockTable } from "../../../components/proformas/SeguimientoStockTable";
 import { SeguimientoSolicitudTable } from "../../../components/proformas/SeguimientoSolicitudTable";
@@ -80,6 +81,16 @@ export default async function SeguimientoPage({
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Seguimiento</h1>
+        <SeguimientoExportarBoton
+          vista={vista}
+          filtros={{
+            estado: params.estado,
+            categoryId: params.categoryId,
+            empresaId: params.empresaId,
+            clienteId: vista === "pedidos" ? params.clienteId : undefined,
+            search: params.search?.trim() || undefined,
+          }}
+        />
       </div>
 
       {/* Pestañas como tarjetas con el conteo grande: lo que se mira siempre es cuánto falta en cada una. */}

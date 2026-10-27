@@ -609,6 +609,21 @@ export function getStock(
   return apiGet<Page<StockRow>>(`/stock${qs ? `?${qs}` : ""}`);
 }
 
+/** Excel de la lista de Seguimiento de una vista, con los mismos filtros que la pantalla. */
+export function downloadSeguimientoExcel(
+  vista: "pedidos" | "solicitudes" | "stock",
+  filtros: { estado?: string; categoryId?: string; empresaId?: string; clienteId?: string; search?: string } = {},
+) {
+  const params = new URLSearchParams({ vista });
+  if (filtros.estado) params.set("estado", filtros.estado);
+  if (filtros.categoryId) params.set("categoryId", filtros.categoryId);
+  if (filtros.empresaId) params.set("empresaId", filtros.empresaId);
+  if (vista === "pedidos" && filtros.clienteId) params.set("clienteId", filtros.clienteId);
+  if (filtros.search) params.set("search", filtros.search);
+  const nombre = vista === "pedidos" ? "seguimiento-pedidos-de-clientes" : vista === "solicitudes" ? "seguimiento-stock-solicitado" : "seguimiento-stock-en-compra";
+  return apiDownload(`/proformas/seguimiento/export?${params.toString()}`, `${nombre}.xlsx`);
+}
+
 export function downloadStockExport() {
   return apiDownload("/stock/export", "existencias.xlsx");
 }
