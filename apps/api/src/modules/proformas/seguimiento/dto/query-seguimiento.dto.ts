@@ -8,6 +8,11 @@ export const ESTADOS_PEDIDO = ["SIN_COMPRA", "EN_PREPARACION", "COMPRADO", "RECO
 export type EstadoPedido = (typeof ESTADOS_PEDIDO)[number];
 
 export class QuerySeguimientoDto {
+  @ApiPropertyOptional({ enum: ["pedidos", "solicitudes", "stock"], description: "Solo para la exportación a Excel: qué lista se exporta." })
+  @IsOptional()
+  @IsIn(["pedidos", "solicitudes", "stock"])
+  vista?: "pedidos" | "solicitudes" | "stock";
+
   @ApiPropertyOptional({ enum: ESTADOS_PEDIDO })
   @IsOptional()
   @IsIn(ESTADOS_PEDIDO)

@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
 import { Roles } from "../../auth/decorators/roles.decorator";
 import { SeguimientoService } from "./seguimiento.service";
+import { SeguimientoExportService, type VistaSeguimiento } from "./seguimiento-export.service";
 import { QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
 import { VincularCompraDto } from "./dto/vincular.dto";
@@ -15,7 +17,10 @@ import type { AuthenticatedUser } from "../../auth/strategies/jwt.strategy";
 @Roles(Rol.ADMIN, Rol.SELLER)
 @Controller("proformas/seguimiento")
 export class SeguimientoResumenController {
-  constructor(private readonly seguimiento: SeguimientoService) {}
+  constructor(
+    private readonly seguimiento: SeguimientoService,
+    private readonly exportar: SeguimientoExportService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "Pedidos de clientes: todo lo que hoy está a Procura, con el estado derivado de la compra/envío que lo cubre." })
@@ -24,6 +29,19 @@ export class SeguimientoResumenController {
   }
 
   // Rutas estáticas antes de ":id".
+  @Get("export")
+  @ApiOperation({ summary: "Excel de la lista de Seguimiento (vista = pedidos | solicitudes | stock) con los mismos filtros que la pantalla." })
+  async exportExcel(@Query("vista") vista: string | undefined, @Query() query: QuerySeguimientoDto, @Res() res: Response) {
+    const v: VistaSeguimiento = vista === "stock" ? "stock" : vista === "solicitudes" ? "solicitudes" : "pedidos";
+    const buffer = await this.exportar.generar(v, query);
+    const nombre = v === "pedidos" ? "seguimiento-pedidos-de-clientes" : v === "solicitudes" ? "seguimiento-stock-solicitado" : "seguimiento-stock-en-compra";
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${nombre}.xlsx"`,
+    });
+    res.send(buffer);
+  }
+
   @Get("stock")
   @ApiOperation({ summary: "Stock pedido: compras para stock ya aprobadas y todavía sin recibir (comprado / en tránsito)." })
   findStockPedido(@Query() query: QuerySeguimientoDto) {

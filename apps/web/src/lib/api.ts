@@ -72,6 +72,8 @@ import type {
   Traspaso,
   TraspasoAlmacen,
   TraspasoAlmacenInput,
+  MovimientoProbador,
+  ProbadorResumen,
   TraspasoInput,
   UpdateDetalleInput,
 } from "./types";
@@ -609,6 +611,21 @@ export function getStock(
   return apiGet<Page<StockRow>>(`/stock${qs ? `?${qs}` : ""}`);
 }
 
+/** Excel de la lista de Seguimiento de una vista, con los mismos filtros que la pantalla. */
+export function downloadSeguimientoExcel(
+  vista: "pedidos" | "solicitudes" | "stock",
+  filtros: { estado?: string; categoryId?: string; empresaId?: string; clienteId?: string; search?: string } = {},
+) {
+  const params = new URLSearchParams({ vista });
+  if (filtros.estado) params.set("estado", filtros.estado);
+  if (filtros.categoryId) params.set("categoryId", filtros.categoryId);
+  if (filtros.empresaId) params.set("empresaId", filtros.empresaId);
+  if (vista === "pedidos" && filtros.clienteId) params.set("clienteId", filtros.clienteId);
+  if (filtros.search) params.set("search", filtros.search);
+  const nombre = vista === "pedidos" ? "seguimiento-pedidos-de-clientes" : vista === "solicitudes" ? "seguimiento-stock-solicitado" : "seguimiento-stock-en-compra";
+  return apiDownload(`/proformas/seguimiento/export?${params.toString()}`, `${nombre}.xlsx`);
+}
+
 export function downloadStockExport() {
   return apiDownload("/stock/export", "existencias.xlsx");
 }
@@ -857,6 +874,35 @@ export function getTraspasosAlmacen(
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<TraspasoAlmacen>>(`/traspasos-almacen${qs ? `?${qs}` : ""}`);
+}
+
+export function getProbadores(query: { almacenId?: string; categoryId?: string; brandId?: string; search?: string; incluirAgotados?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.search) params.set("search", query.search);
+  if (query.incluirAgotados) params.set("incluirAgotados", "true");
+  const qs = params.toString();
+  return apiGet<{ items: ProbadorResumen[]; totalPiezas: number }>(`/probadores${qs ? `?${qs}` : ""}`);
+}
+
+export function getMovimientosProbador(query: { almacenId?: string; tipo?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.tipo) params.set("tipo", query.tipo);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<MovimientoProbador>>(`/probadores/movimientos${qs ? `?${qs}` : ""}`);
+}
+
+export function convertirEnProbador(data: { varianteId: string; almacenId: string; lotes: { loteCompraId: string; cantidad: number }[]; nota?: string }) {
+  return apiPost<MovimientoProbador>("/probadores/convertir", data);
+}
+
+export function darBajaProbador(data: { varianteId: string; almacenId: string; cantidad: number; nota?: string }) {
+  return apiPost<MovimientoProbador>("/probadores/baja", data);
 }
 
 export function createTraspasoAlmacen(data: TraspasoAlmacenInput) {

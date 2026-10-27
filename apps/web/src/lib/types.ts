@@ -671,6 +671,35 @@ export type TraspasoAlmacen = {
   lotes: TraspasoAlmacenLote[];
 };
 
+export type ProbadorVariante = TraspasoAlmacen["variante"];
+
+/** Probadores que hay ahora de un producto en un almacén (convertidos menos dados de baja). */
+export type ProbadorResumen = {
+  varianteId: string;
+  almacenId: string;
+  variante: ProbadorVariante;
+  almacen: { id: string; nombre: string };
+  convertidos: number;
+  bajas: number;
+  saldo: number;
+  costoConvertido: number;
+  ultimoMovimiento: string | null;
+};
+
+export type MovimientoProbador = {
+  id: string;
+  tipo: "CONVERSION" | "BAJA";
+  fecha: string;
+  varianteId: string;
+  variante: ProbadorVariante;
+  almacenId: string;
+  almacen: { id: string; nombre: string };
+  cantidad: number;
+  costoTotal: string;
+  nota: string | null;
+  creadoPor: { id: string; nombre: string };
+};
+
 export type TraspasoAlmacenInput = {
   varianteId: string;
   almacenOrigenId: string;

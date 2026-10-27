@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CompraChip, EnviosChips } from "./CodigosCompraEnvio";
 import type { SeguimientoStockLinea } from "../../lib/types";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { LABELS_STOCK } from "./seguimiento-estados";
@@ -42,9 +42,7 @@ export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLine
               <tr key={linea.id}>
                 <td className="cell-muted">{formatFecha(linea.proforma.fecha)}</td>
                 <td>
-                  <Link href={`/dashboard/proformas/${linea.proforma.id}`} className="link-button">
-                    {linea.proforma.codigo}
-                  </Link>
+                  <CompraChip compra={linea.proforma} />
                 </td>
                 <td className="cell-muted">{linea.proveedor?.nombre ?? "—"}</td>
                 <td className="cell-muted">{linea.variante.product.brand?.name ?? "—"}</td>
@@ -63,19 +61,8 @@ export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLine
                     </div>
                   )}
                 </td>
-                <td className="cell-muted">
-                  {linea.envios.length > 0 ? (
-                    linea.envios.map((e, i) => (
-                      <span key={e.id}>
-                        {i > 0 && ", "}
-                        <Link href={`/dashboard/stock/envios/${e.id}`} className="link-button">
-                          {e.codigo}
-                        </Link>
-                      </span>
-                    ))
-                  ) : (
-                    "Sin envío"
-                  )}
+                <td>
+                  <EnviosChips envios={linea.envios} />
                 </td>
               </tr>
             );
