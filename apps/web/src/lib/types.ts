@@ -1055,6 +1055,9 @@ export type ProcuraCandidata = {
 
 /** Una línea de proforma (COMPRA o VENTA) vista desde el ledger de Registros — todas las proformas
  * de ese tipo a la vez, filtrable por fecha/categoría/marca/producto. */
+/** Proforma de Registros que todavía no tiene productos (ej. un borrador recién creado). */
+export type RegistroProformaVacia = RegistroLinea["proforma"];
+
 export type RegistroLinea = {
   id: string;
   cantidad: number;
