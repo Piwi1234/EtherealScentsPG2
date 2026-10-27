@@ -77,7 +77,11 @@ export function ProformaAcciones({
     setAvisoReserva("");
     try {
       const r = await reservarVenta(proformaId);
-      setAvisoReserva(r.unidadesReservadas > 0 ? `Se reservaron ${r.unidadesReservadas} unidad(es).` : "No hay stock libre para reservar.");
+      setAvisoReserva(
+        r.unidadesReservadas > 0
+          ? `Se reservaron ${r.unidadesReservadas} unidad(es)${r.pasadasDeTransito > 0 ? `, ${r.pasadasDeTransito} pasaron de tránsito a stock` : ""}.`
+          : "No hay stock libre para reservar.",
+      );
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));

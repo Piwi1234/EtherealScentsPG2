@@ -1011,11 +1011,11 @@ export function vincularPedido(asignacionId: string, compraDetalleId: string, ca
 // --- Reserva manual de stock libre ---
 
 export function reservarVenta(id: string) {
-  return apiPost<{ unidadesReservadas: number }>(`/proformas/${id}/reservar`, {});
+  return apiPost<{ unidadesReservadas: number; pasadasDeTransito: number }>(`/proformas/${id}/reservar`, {});
 }
 
 export function reservarTodoElStockLibre() {
-  return apiPost<{ unidadesReservadas: number }>("/proformas/reservar-todo", {});
+  return apiPost<{ unidadesReservadas: number; pasadasDeTransito: number }>("/proformas/reservar-todo", {});
 }
 
 // --- Recojos ---

@@ -37,7 +37,7 @@ export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
                   ) : asig.origen === "EN_TRANSITO" ? (
                     <span>
                       <span className="badge badge-muted">En tránsito</span> — {asig.almacen?.nombre ?? "—"}
-                      <div className="cell-muted" style={{ fontSize: 12 }}>Reservado en un envío en camino; se puede completar cuando llegue.</div>
+                      <div className="cell-muted" style={{ fontSize: 12 }}>Reservado en mercadería en camino; se puede completar cuando llegue. Si ya hay stock disponible, usa «Reservar stock» para tomarlo de ahí.</div>
                     </span>
                   ) : asig.estadoPedido && asig.estadoPedido !== "SIN_COMPRA" && asig.compraDetalle ? (
                     <span>

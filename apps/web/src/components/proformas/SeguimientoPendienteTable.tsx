@@ -149,7 +149,11 @@ export function SeguimientoPendienteTable({ lineas }: { lineas: SeguimientoLinea
     setAviso("");
     try {
       const r = await reservarTodoElStockLibre();
-      setAviso(r.unidadesReservadas > 0 ? `Se reservaron ${r.unidadesReservadas} unidad(es) para ventas con faltante.` : "No había stock libre para reservar.");
+      setAviso(
+        r.unidadesReservadas > 0
+          ? `Se reservaron ${r.unidadesReservadas} unidad(es)${r.pasadasDeTransito > 0 ? ` (${r.pasadasDeTransito} pasaron de tránsito a stock)` : ""}.`
+          : "No había stock libre para reservar.",
+      );
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
