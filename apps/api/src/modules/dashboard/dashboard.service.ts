@@ -367,9 +367,12 @@ export class DashboardService {
         JOIN "proforma_detalles" d ON d."id" = a."proforma_detalle_id"
         JOIN "proformas" p ON p."id" = d."proforma_id"
         JOIN "stock" s ON s."variante_id" = d."variante_id" AND s."almacen_id" = p."almacen_id"
-        WHERE a."origen" = 'PROCURA' AND a."cantidad" > 0 AND a."compra_detalle_id" IS NULL
-          AND p."estado" = 'APROBADA' AND p."tipo" = 'VENTA'
-          AND ((s."cantidad_fisica" - s."cantidad_reservada") > 0 OR (s."cantidad_en_transito" - s."cantidad_reservada_transito") > 0)
+        WHERE a."cantidad" > 0 AND p."estado" = 'APROBADA' AND p."tipo" = 'VENTA'
+          AND (
+            (a."origen" = 'PROCURA' AND a."compra_detalle_id" IS NULL
+              AND ((s."cantidad_fisica" - s."cantidad_reservada") > 0 OR (s."cantidad_en_transito" - s."cantidad_reservada_transito") > 0))
+            OR (a."origen" = 'EN_TRANSITO' AND (s."cantidad_fisica" - s."cantidad_reservada") > 0)
+          )
       `,
     ]);
     const diasBorradorMasViejo = borradorMasViejo ? Math.floor((Date.now() - borradorMasViejo.createdAt.getTime()) / 86400000) : 0;

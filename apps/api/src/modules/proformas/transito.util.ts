@@ -72,6 +72,51 @@ export async function reservarTransitoParaProcuras(
 }
 
 /**
+ * Pasa a stock físico lo que las ventas aprobadas tienen reservado "en tránsito", mientras haya stock físico libre
+ * (disponible = físico - reservado) en ese almacén: la más antigua primero. La mercadería en camino queda libre para
+ * otras ventas. Devuelve cuántas unidades pasaron.
+ */
+export async function pasarTransitoAStock(
+  tx: Prisma.TransactionClient,
+  params: { varianteId: string; almacenId: string; soloProformaId?: string },
+): Promise<number> {
+  const { varianteId, almacenId } = params;
+  const where = { varianteId_almacenId: { varianteId, almacenId } };
+  const stock = await tx.stock.findUniqueOrThrow({ where });
+  let libre = stock.cantidadFisica - stock.cantidadReservada;
+  if (libre <= 0) return 0;
+
+  const asignaciones = await tx.proformaDetalleAsignacion.findMany({
+    where: {
+      origen: OrigenAsignacion.EN_TRANSITO,
+      cantidad: { gt: 0 },
+      almacenId,
+      proformaDetalle: {
+        varianteId,
+        proforma: { estado: EstadoProforma.APROBADA, ...(params.soloProformaId ? { id: params.soloProformaId } : {}) },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let total = 0;
+  for (const a of asignaciones) {
+    if (libre <= 0) break;
+    const tomar = Math.min(libre, a.cantidad);
+    if (tomar === a.cantidad) await tx.proformaDetalleAsignacion.delete({ where: { id: a.id } });
+    else await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { cantidad: { decrement: tomar } } });
+    await sumarAsignacion(tx, a.proformaDetalleId, OrigenAsignacion.STOCK, almacenId, tomar);
+    libre -= tomar;
+    total += tomar;
+  }
+  if (total > 0) {
+    // Un único UPDATE: el CHECK de la fila se evalúa al final de la sentencia.
+    await tx.stock.update({ where, data: { cantidadReservada: { increment: total }, cantidadReservadaTransito: { decrement: total } } });
+  }
+  return total;
+}
+
+/**
  * Descuenta `quitar` unidades del tránsito de la variante+almacén (el envío se anuló o llegó). Si lo
  * que queda en tránsito ya no alcanza para cubrir las reservas en tránsito, el exceso se resuelve con
  * las ventas más antiguas primero: con `convertirAFisico` pasan a reservar stock físico (hasta lo

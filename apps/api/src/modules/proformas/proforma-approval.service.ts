@@ -6,7 +6,7 @@ import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { resolverProcuraPendiente } from "./procura.util";
-import { recalcularTransitoLinea, reservarTransitoParaProcuras } from "./transito.util";
+import { pasarTransitoAStock, recalcularTransitoLinea, reservarTransitoParaProcuras } from "./transito.util";
 import { calcularTotalesVenta } from "./proforma-totales.util";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
 
@@ -64,37 +64,59 @@ export class ProformaApprovalService {
   }
 
   /**
-   * Reserva a mano el stock libre (físico y en tránsito) para el faltante de ventas aprobadas, la más antigua
-   * primero. Con `proformaId` solo para esa nota; sin él, "reservar todo lo posible". Solo toca faltantes que
-   * no están ligados a una compra (los ligados se cubren al recibirla).
+   * Toma a mano el stock libre para ventas aprobadas, la más antigua primero. Con `proformaId` solo para esa nota; sin
+   * él, "reservar todo lo posible". Hace tres cosas por producto y almacén:
+   *  1. El faltante (Procura) sin compra ligada toma stock físico libre.
+   *  2. Lo reservado "en tránsito" pasa a stock físico si ya hay disponible para entrega inmediata (por ejemplo, tras
+   *     anular otra nota): la mercadería en camino queda libre para otras ventas.
+   *  3. Lo que aún falta toma stock en tránsito libre.
+   * Los faltantes ligados a una compra no se tocan (se cubren al recibirla).
    */
   async reservarFaltantes(usuarioId: string, proformaId?: string) {
+    const ventaFiltro: Prisma.ProformaWhereInput = { tipo: TipoProforma.VENTA, estado: EstadoProforma.APROBADA, ...(proformaId ? { id: proformaId } : {}) };
     const where: Prisma.ProformaDetalleAsignacionWhereInput = {
-      origen: OrigenAsignacion.PROCURA,
       cantidad: { gt: 0 },
-      compraDetalleId: null,
-      proformaDetalle: { proforma: { tipo: TipoProforma.VENTA, estado: EstadoProforma.APROBADA, ...(proformaId ? { id: proformaId } : {}) } },
+      OR: [{ origen: OrigenAsignacion.PROCURA, compraDetalleId: null }, { origen: OrigenAsignacion.EN_TRANSITO }],
+      proformaDetalle: { proforma: ventaFiltro },
     };
-    const antes = await this.prisma.proformaDetalleAsignacion.findMany({
+    const pendientes = await this.prisma.proformaDetalleAsignacion.findMany({
       where,
       orderBy: { createdAt: "asc" },
-      select: { cantidad: true, proformaDetalle: { select: { varianteId: true, proforma: { select: { almacenId: true } } } } },
+      select: { proformaDetalle: { select: { varianteId: true, proforma: { select: { almacenId: true } } } } },
     });
-    if (proformaId && antes.length === 0) {
+    if (proformaId && pendientes.length === 0) {
       const p = await this.prisma.proforma.findUnique({ where: { id: proformaId }, select: { tipo: true, estado: true } });
       if (!p) throw new NotFoundException("Proforma no encontrada.");
       if (p.tipo !== TipoProforma.VENTA || p.estado !== EstadoProforma.APROBADA) throw new ConflictException("Solo se reserva stock para ventas aprobadas.");
     }
     const pares = new Map<string, { varianteId: string; almacenId: string }>();
-    for (const a of antes) {
+    for (const a of pendientes) {
       const almacenId = a.proformaDetalle.proforma.almacenId;
       if (almacenId) pares.set(stockKey(a.proformaDetalle.varianteId, almacenId), { varianteId: a.proformaDetalle.varianteId, almacenId });
     }
-    const totalAntes = antes.reduce((n, a) => n + a.cantidad, 0);
-    const detalleAntes = await this.prisma.proformaDetalleAsignacion.findMany({
-      where,
-      select: { id: true, cantidad: true, proformaDetalle: { select: { proformaId: true, variante: { select: { product: { select: { name: true } } } } } } },
-    });
+
+    // Foto del stock físico reservado por línea antes y después: la diferencia es lo que se tomó.
+    const fotoStock = async () => {
+      const filas = await this.prisma.proformaDetalleAsignacion.findMany({
+        where: { origen: OrigenAsignacion.STOCK, cantidad: { gt: 0 }, proformaDetalle: { proforma: ventaFiltro } },
+        select: { cantidad: true, proformaDetalleId: true, proformaDetalle: { select: { proformaId: true, variante: { select: { product: { select: { name: true } } } } } } },
+      });
+      const porLinea = new Map<string, { cantidad: number; proformaId: string; producto: string }>();
+      for (const f of filas) {
+        const e = porLinea.get(f.proformaDetalleId) ?? { cantidad: 0, proformaId: f.proformaDetalle.proformaId, producto: f.proformaDetalle.variante.product.name };
+        e.cantidad += f.cantidad;
+        porLinea.set(f.proformaDetalleId, e);
+      }
+      return porLinea;
+    };
+    const sumaProcura = async () =>
+      (await this.prisma.proformaDetalleAsignacion.aggregate({
+        where: { origen: OrigenAsignacion.PROCURA, cantidad: { gt: 0 }, compraDetalleId: null, proformaDetalle: { proforma: ventaFiltro } },
+        _sum: { cantidad: true },
+      }))._sum.cantidad ?? 0;
+    const antes = await fotoStock();
+    const procuraAntes = await sumaProcura();
+    let pasadasDeTransito = 0;
 
     try {
       await this.prisma.$transaction(
@@ -109,6 +131,7 @@ export class ProformaApprovalService {
               soloLibres: true,
               soloProformaId: proformaId,
             });
+            pasadasDeTransito += await pasarTransitoAStock(tx, { ...par, soloProformaId: proformaId });
             await reservarTransitoParaProcuras(tx, { ...par, soloProformaId: proformaId });
           }
         },
@@ -117,22 +140,22 @@ export class ProformaApprovalService {
     } catch (error) {
       rethrowPrismaError(error, "Proforma");
     }
-    const despues = await this.prisma.proformaDetalleAsignacion.aggregate({ where, _sum: { cantidad: true } });
 
-    // Rastro en el historial de cada venta que recibió stock.
-    const quedan = new Map((await this.prisma.proformaDetalleAsignacion.findMany({ where, select: { id: true, cantidad: true } })).map((a) => [a.id, a.cantidad]));
+    // Rastro en el historial de cada venta que recibió stock físico.
+    const despues = await fotoStock();
     const porVenta = new Map<string, string[]>();
-    for (const a of detalleAntes) {
-      const reservadas = a.cantidad - (quedan.get(a.id) ?? 0);
-      if (reservadas <= 0) continue;
-      const lista = porVenta.get(a.proformaDetalle.proformaId) ?? [];
-      lista.push(`${reservadas} unidad(es) de ${a.proformaDetalle.variante.product.name}`);
-      porVenta.set(a.proformaDetalle.proformaId, lista);
+    for (const [lineaId, d] of despues) {
+      const tomadas = d.cantidad - (antes.get(lineaId)?.cantidad ?? 0);
+      if (tomadas <= 0) continue;
+      const lista = porVenta.get(d.proformaId) ?? [];
+      lista.push(`${tomadas} unidad(es) de ${d.producto}`);
+      porVenta.set(d.proformaId, lista);
     }
     for (const [id, lista] of porVenta) {
       await this.prisma.$transaction((tx) => this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId, `Stock reservado: ${lista.join(", ")}.`));
     }
-    return { unidadesReservadas: totalAntes - (despues._sum.cantidad ?? 0) };
+    const cubiertasDeFaltante = Math.max(0, procuraAntes - (await sumaProcura()));
+    return { unidadesReservadas: cubiertasDeFaltante + pasadasDeTransito, pasadasDeTransito };
   }
 
   async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string) {

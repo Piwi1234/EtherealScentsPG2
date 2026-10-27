@@ -202,8 +202,8 @@ export default function DashboardPage() {
         {
           n: pendientes.ventasConStockLibre,
           tono: "warn",
-          titulo: `${plural(pendientes.ventasConStockLibre, "venta con faltante", "ventas con faltante")} y hay stock libre`,
-          detalle: "El stock no se reserva solo: reservalo desde la venta o en Seguimiento",
+          titulo: `${plural(pendientes.ventasConStockLibre, "venta", "ventas")} puede${pendientes.ventasConStockLibre === 1 ? "" : "n"} tomar stock disponible`,
+          detalle: "Hay stock disponible: reservalo desde la venta o en Seguimiento (también pasa lo reservado en tránsito a stock)",
           href: "/dashboard/seguimiento",
           accion: "Reservar",
         },
