@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
+import { ApiError, convertirEnProbador, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockDetalle, StockResumen, StockResumenRow, StockRow } from "../../../lib/types";
 import { ExistenciaPanel } from "../../../components/stock/ExistenciaPanel";
 import { Modal } from "../../../components/Modal";
@@ -80,6 +80,13 @@ export default function StockPage() {
   const [traspasoNota, setTraspasoNota] = useState("");
   const [traspasoError, setTraspasoError] = useState("");
   const [traspasoSubmitting, setTraspasoSubmitting] = useState(false);
+
+  const [probadorRow, setProbadorRow] = useState<StockRow | null>(null);
+  const [probadorCantidad, setProbadorCantidad] = useState("");
+  const [probadorLotes, setProbadorLotes] = useState<{ loteCompraId: string; cantidad: number }[]>([]);
+  const [probadorNota, setProbadorNota] = useState("");
+  const [probadorError, setProbadorError] = useState("");
+  const [probadorSubmitting, setProbadorSubmitting] = useState(false);
 
   function loadStock() {
     setStockLoading(true);
@@ -219,6 +226,44 @@ export default function StockPage() {
     } catch (err) {
       setSolicitarError(err instanceof ApiError ? err.message : String(err));
       setSolicitando(false);
+    }
+  }
+
+  const probadorCantidadNum = Number(probadorCantidad) || 0;
+  const probadorDisponible = probadorRow ? probadorRow.cantidadFisica - probadorRow.cantidadReservada : 0;
+  const probadorCuadra = probadorCantidadNum > 0 && probadorLotes.reduce((sum, l) => sum + l.cantidad, 0) === probadorCantidadNum;
+
+  function openProbadorModal(row: StockRow) {
+    setProbadorRow(row);
+    setProbadorCantidad("");
+    setProbadorLotes([]);
+    setProbadorNota("");
+    setProbadorError("");
+  }
+
+  async function handleConfirmarProbador() {
+    if (!probadorRow) return;
+    setProbadorError("");
+    if (!probadorCuadra) {
+      setProbadorError("El reparto de lotes no cuadra con la cantidad.");
+      return;
+    }
+    setProbadorSubmitting(true);
+    try {
+      await convertirEnProbador({
+        varianteId: probadorRow.varianteId,
+        almacenId: probadorRow.almacenId,
+        lotes: probadorLotes,
+        nota: probadorNota.trim() || undefined,
+      });
+      setProbadorRow(null);
+      loadStock();
+      loadLotes();
+      if (abierto) cargarDetalle(abierto.varianteId);
+    } catch (e) {
+      setProbadorError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setProbadorSubmitting(false);
     }
   }
 
@@ -620,6 +665,7 @@ export default function StockPage() {
           cargando={detalleCargando}
           onClose={() => setAbierto(null)}
           onTrasladar={(row) => openTraspasoModal(row)}
+          onProbador={(row) => openProbadorModal(row)}
           onSolicitar={() => detalle?.almacenes[0] && openSolicitarModal(detalle.almacenes[0])}
           onVerLotes={() => handleVerLotes(abierto)}
         />
@@ -649,6 +695,62 @@ export default function StockPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {probadorRow && (
+        <Modal title={`Convertir en probador: ${probadorRow.variante.product.name}`} onClose={() => setProbadorRow(null)}>
+          <div className="form-grid">
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Saca piezas del stock vendible y las deja como probadores: no se venden ni generan ganancia. Se guarda el costo real de los lotes elegidos y
+              queda registrado en Inventario → Probadores.
+            </p>
+            <div>
+              <label>Almacén</label>
+              <input className="field" value={probadorRow.almacen.nombre} disabled />
+            </div>
+            <div>
+              <label>Cantidad a convertir {probadorRow.variante.unidad === "ML" ? "(ml)" : ""}</label>
+              <input
+                className="field"
+                type="number"
+                min={1}
+                max={probadorDisponible}
+                value={probadorCantidad}
+                onChange={(e) => {
+                  setProbadorCantidad(e.target.value);
+                  setProbadorLotes([]);
+                }}
+              />
+              <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                Disponible: {probadorDisponible}
+                {probadorRow.variante.unidad === "ML" ? " ml" : ""}
+              </p>
+            </div>
+            {probadorCantidadNum > 0 && (
+              <LoteAsignacionTable
+                key={probadorCantidadNum}
+                varianteId={probadorRow.varianteId}
+                almacenId={probadorRow.almacenId}
+                cantidadRequerida={probadorCantidadNum}
+                nombreProducto={probadorRow.variante.product.name}
+                onChange={setProbadorLotes}
+              />
+            )}
+            <div>
+              <label>Nota (opcional)</label>
+              <input className="field" value={probadorNota} maxLength={300} onChange={(e) => setProbadorNota(e.target.value)} placeholder="Ej. probador para la tienda del centro" />
+            </div>
+            {probadorError && <p className="error-text">{probadorError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setProbadorRow(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="button" disabled={probadorSubmitting || !probadorCuadra} onClick={handleConfirmarProbador}>
+                {probadorSubmitting ? "Convirtiendo..." : "Convertir en probador"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

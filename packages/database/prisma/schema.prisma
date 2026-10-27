@@ -36,6 +36,7 @@ model Usuario {
   movimientosCartera      MovimientoCartera[]
   traspasosCreados        Traspaso[]
   traspasosAlmacenCreados TraspasoAlmacen[]
+  movimientosProbador     MovimientoProbador[]
   enviosCreados           Envio[]
   recepcionesEnvio        EnvioRecepcion[]    @relation("EnvioRecepcionCreador")
 
@@ -543,6 +544,7 @@ model ProductVariant {
   proformaDetalles ProformaDetalle[]
   traspasosAlmacen TraspasoAlmacen[]
   recepcionItems   EnvioRecepcionItem[]
+  movimientosProbador MovimientoProbador[]
 
   solicitudStockLineas SolicitudStockLinea[]
 
@@ -743,6 +745,7 @@ model Almacen {
   asignaciones       ProformaDetalleAsignacion[]
   traspasosOrigen    TraspasoAlmacen[]           @relation("TraspasoAlmacenOrigen")
   traspasosDestino   TraspasoAlmacen[]           @relation("TraspasoAlmacenDestino")
+  movimientosProbador MovimientoProbador[]
   enviosDestino      Envio[]
   detallesEnTransito ProformaDetalle[]           @relation("DetalleTransitoAlmacen")
 
@@ -810,6 +813,7 @@ model LoteCompra {
   consumos             LoteCompraConsumo[]
   traspasosComoOrigen  TraspasoAlmacenLote[] @relation("LoteOrigenTraspaso")
   traspasosComoDestino TraspasoAlmacenLote[] @relation("LoteDestinoTraspaso")
+  movimientosProbador  MovimientoProbadorLote[]
 
   @@index([varianteId, almacenId, fecha])
   @@index([proformaDetalleId])
@@ -872,6 +876,51 @@ model TraspasoAlmacenLote {
   cantidad      Int
 
   @@map("traspasos_almacen_lote")
+}
+
+enum TipoMovimientoProbador {
+  CONVERSION
+  BAJA
+
+  @@map("tipo_movimiento_probador")
+}
+
+/// Control interno de probadores: piezas que salen del stock vendible (CONVERSION, sin venta ni ganancia) y
+/// piezas de probador que se agotan o se pierden (BAJA). El saldo de probadores de una variante en un almacén
+/// es la suma de conversiones menos la suma de bajas. Inmutable, igual criterio que TraspasoAlmacen. Una
+/// conversión descuenta Stock.cantidadFisica y consume lotes (reparto manual) para guardar el costo real.
+model MovimientoProbador {
+  id          String                     @id @default(uuid()) @db.Uuid
+  tipo        TipoMovimientoProbador
+  fecha       DateTime                   @default(now())
+  varianteId  String                     @map("variante_id") @db.Uuid
+  variante    ProductVariant             @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  almacenId   String                     @map("almacen_id") @db.Uuid
+  almacen     Almacen                    @relation(fields: [almacenId], references: [id], onDelete: Restrict)
+  cantidad    Int
+  /// Costo real de lo convertido (suma de lote × costo unitario); 0 en las bajas.
+  costoTotal  Decimal                    @default(0) @map("costo_total") @db.Decimal(12, 2)
+  nota        String?
+  creadoPorId String                     @map("creado_por_id") @db.Uuid
+  creadoPor   Usuario                    @relation(fields: [creadoPorId], references: [id])
+  createdAt   DateTime                   @default(now()) @map("created_at")
+
+  lotes MovimientoProbadorLote[]
+
+  @@index([varianteId, almacenId])
+  @@map("movimientos_probador")
+}
+
+model MovimientoProbadorLote {
+  id            String             @id @default(uuid()) @db.Uuid
+  movimientoId  String             @map("movimiento_id") @db.Uuid
+  movimiento    MovimientoProbador @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  loteCompraId  String             @map("lote_compra_id") @db.Uuid
+  loteCompra    LoteCompra         @relation(fields: [loteCompraId], references: [id], onDelete: Restrict)
+  cantidad      Int
+  costoUnitario Decimal            @map("costo_unitario") @db.Decimal(12, 2)
+
+  @@map("movimientos_probador_lote")
 }
 
 model Proforma {

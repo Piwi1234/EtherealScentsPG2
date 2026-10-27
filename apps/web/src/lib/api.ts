@@ -72,6 +72,8 @@ import type {
   Traspaso,
   TraspasoAlmacen,
   TraspasoAlmacenInput,
+  MovimientoProbador,
+  ProbadorResumen,
   TraspasoInput,
   UpdateDetalleInput,
 } from "./types";
@@ -872,6 +874,35 @@ export function getTraspasosAlmacen(
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
   return apiGet<Page<TraspasoAlmacen>>(`/traspasos-almacen${qs ? `?${qs}` : ""}`);
+}
+
+export function getProbadores(query: { almacenId?: string; categoryId?: string; brandId?: string; search?: string; incluirAgotados?: boolean } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.search) params.set("search", query.search);
+  if (query.incluirAgotados) params.set("incluirAgotados", "true");
+  const qs = params.toString();
+  return apiGet<{ items: ProbadorResumen[]; totalPiezas: number }>(`/probadores${qs ? `?${qs}` : ""}`);
+}
+
+export function getMovimientosProbador(query: { almacenId?: string; tipo?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.tipo) params.set("tipo", query.tipo);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<MovimientoProbador>>(`/probadores/movimientos${qs ? `?${qs}` : ""}`);
+}
+
+export function convertirEnProbador(data: { varianteId: string; almacenId: string; lotes: { loteCompraId: string; cantidad: number }[]; nota?: string }) {
+  return apiPost<MovimientoProbador>("/probadores/convertir", data);
+}
+
+export function darBajaProbador(data: { varianteId: string; almacenId: string; cantidad: number; nota?: string }) {
+  return apiPost<MovimientoProbador>("/probadores/baja", data);
 }
 
 export function createTraspasoAlmacen(data: TraspasoAlmacenInput) {

@@ -32,6 +32,7 @@ export function ExistenciaPanel({
   cargando,
   onClose,
   onTrasladar,
+  onProbador,
   onSolicitar,
   onVerLotes,
 }: {
@@ -41,6 +42,7 @@ export function ExistenciaPanel({
   cargando: boolean;
   onClose: () => void;
   onTrasladar: (row: StockRow) => void;
+  onProbador: (row: StockRow) => void;
   onSolicitar: () => void;
   onVerLotes: () => void;
 }) {
@@ -104,9 +106,14 @@ export function ExistenciaPanel({
                       <td className="num cell-primary">{a.cantidadFisica - a.cantidadReservada}</td>
                       <td className="num">
                         {a.cantidadFisica - a.cantidadReservada > 0 && (
-                          <button type="button" className="action-btn" onClick={() => onTrasladar(a)}>
-                            Trasladar
-                          </button>
+                          <span style={{ display: "inline-flex", gap: 6 }}>
+                            <button type="button" className="action-btn" onClick={() => onTrasladar(a)}>
+                              Trasladar
+                            </button>
+                            <button type="button" className="action-btn" onClick={() => onProbador(a)}>
+                              Probador
+                            </button>
+                          </span>
                         )}
                       </td>
                     </tr>
