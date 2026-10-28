@@ -859,6 +859,25 @@ a {
   font-weight: 500;
 }
 
+/* Tablas que listan una fila por variante (ej. agregar producto a una proforma): el sombreado alterna por PRODUCTO y las
+   variantes de un mismo producto se leen juntas (misma convención que .products-table). */
+.table-por-producto tbody tr:nth-child(even) {
+  background: none;
+}
+
+.table-por-producto tbody tr.pt-alt {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.table-por-producto tbody tr.pt-first td {
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.table-por-producto tbody tr.pt-cont td.cell-primary {
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  font-weight: 500;
+}
+
 /* Nombre y Acciones quedan clavadas en su lugar mientras el resto de las columnas se desliza por
    debajo al hacer scroll horizontal — con esta cantidad de columnas, sin esto perdés de vista de
    qué producto son los precios apenas scrolleás hacia la derecha. Nombre es siempre la 4ta columna

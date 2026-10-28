@@ -10,8 +10,10 @@ import type {
   Page,
   PresentacionVenta,
   Product,
+  ProductVariant,
   TipoProforma,
 } from "../../lib/types";
+import { ordenarVariantes } from "../../lib/variant-order";
 import { StockCell } from "../StockCell";
 
 const DEBOUNCE_MS = 300;
@@ -44,19 +46,36 @@ function productAttributeCell(product: Product, attributeId: string): string {
 
 type ExtraColumn = { id: string; name: string; type: AttributeType; variantMode: AttributeVariantMode };
 
-// Por defecto se elige la variante de mayor precio (ej. si "Tamaño" tiene 50 ML y 100 ML, arranca
-// mostrando — y agregando — la de 100 ML).
-function defaultVariantId(product: Product): string | undefined {
-  if (product.variants.length === 0) return undefined;
-  return product.variants.reduce((best, v) => (v.price > best.price ? v : best), product.variants[0]).id;
+// Una fila de la tabla: un producto sin variantes con precio propio ocupa una sola; uno con varias (ej. "Tamaño" 50 ML y
+// 100 ML) ocupa una por variante, y cada una se agrega por separado.
+type FilaProducto = {
+  /** Identifica la fila (la variante, o el producto si no tiene variantes) para el estado por fila. */
+  rowKey: string;
+  product: Product;
+  variant: ProductVariant | undefined;
+  /** Primera fila del producto: lleva el código, la marca y el nombre completos. */
+  esPrimera: boolean;
+  totalVariantes: number;
+  /** Posición del producto en el grupo, para alternar el sombreado por producto y no por fila. */
+  indice: number;
+};
+
+function filasDe(products: Product[]): FilaProducto[] {
+  const filas: FilaProducto[] = [];
+  products.forEach((product, indice) => {
+    const variantes: (ProductVariant | undefined)[] = product.variants.length > 0 ? ordenarVariantes(product.variants) : [undefined];
+    variantes.forEach((variant, i) => {
+      filas.push({ rowKey: variant?.id ?? product.id, product, variant, esPrimera: i === 0, totalVariantes: product.variants.length, indice });
+    });
+  });
+  return filas;
 }
 
 /**
  * Página completa (no modal, no inline) para elegir qué producto agregar a una proforma — tabla
  * acotada a lo que hace falta para decidir qué agregar: imagen, código, marca, nombre, los
- * atributos marcados `mostrarEnProforma` (con el mismo desplegable inline que ya usa
- * `/dashboard/products` cuando ese atributo tiene precio propio — así se sigue pudiendo elegir la
- * variante exacta), descuento y precio final Bs. Más una columna de Cantidad y un botón "Agregar"
+ * atributos marcados `mostrarEnProforma` (cada variante con precio propio es su propia fila, igual que
+ * en `/dashboard/products`, así que su valor se muestra como texto), descuento y precio final Bs. Más una columna de Cantidad y un botón "Agregar"
  * por fila, que suma la línea sin salir de la página — así se pueden cargar varios productos
  * seguidos. Mismos filtros en cascada que Productos (categoría → subcategoría → marca → búsqueda);
  * no se cargan productos hasta elegir al menos uno (2000+ productos en catálogo, no tiene sentido
@@ -88,7 +107,6 @@ export function AgregarProductoBrowser({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
   const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
@@ -157,21 +175,14 @@ export function AgregarProductoBrowser({
     setBrandId("");
   }
 
-  function getSelectedVariant(product: Product) {
-    if (product.variants.length === 0) return undefined;
-    const selectedId = selectedVariantByProduct[product.id] ?? defaultVariantId(product);
-    return product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
-  }
-
-  // Trae las presentaciones de cualquier variante unidad=ML que esté seleccionada en la página
-  // actual y todavía no esté en caché (lazy — no todas las filas son ML).
+  // Trae las presentaciones de cualquier variante unidad=ML de la página actual que todavía no esté en
+  // caché (lazy — no todas las filas son ML).
   useEffect(() => {
     if (!page || tipo !== "VENTA") return;
     const toFetch = new Set<string>();
     for (const product of page.items) {
-      const variant = getSelectedVariant(product);
-      if (variant && variant.unidad === "ML" && !presentacionesByVariant[variant.id]) {
-        toFetch.add(variant.id);
+      for (const variant of product.variants) {
+        if (variant.unidad === "ML" && !presentacionesByVariant[variant.id]) toFetch.add(variant.id);
       }
     }
     toFetch.forEach((varianteId) => {
@@ -180,34 +191,20 @@ export function AgregarProductoBrowser({
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, selectedVariantByProduct, tipo]);
+  }, [page, tipo]);
 
-  function renderAttributeCell(product: Product, column: ExtraColumn) {
+  function renderAttributeCell(product: Product, column: ExtraColumn, variant: ProductVariant | undefined) {
     if (column.variantMode === "PRICED_VARIANT") {
-      if (product.variants.length === 0) return "—";
-      const options = product.variants
-        .map((v) => ({ variantId: v.id, label: v.options.find((o) => o.optionValue.attributeId === column.id)?.optionValue.value }))
-        .filter((o): o is { variantId: string; label: string } => Boolean(o.label));
-      if (options.length === 0) return "—";
-      const selected = getSelectedVariant(product);
-      return (
-        <select
-          className="field"
-          style={{ minWidth: 110 }}
-          value={selected?.id ?? options[0].variantId}
-          onChange={(e) => setSelectedVariantByProduct((prev) => ({ ...prev, [product.id]: e.target.value }))}
-        >
-          {options.map((o) => (
-            <option key={o.variantId} value={o.variantId}>{o.label}</option>
-          ))}
-        </select>
-      );
+      // Cada variante con precio propio es su propia fila: se muestra el valor de ESTA variante, sin desplegable.
+      return variant?.options.find((o) => o.optionValue.attributeId === column.id)?.optionValue.value ?? "—";
     }
 
     if (column.variantMode === "MULTI_VALUE") {
       const matches = product.variantOptionValues.filter((v) => v.attributeId === column.id);
       if (matches.length === 0) return "—";
-      const cellKey = `${product.id}:${column.id}`;
+      // Con un solo valor posible no hace falta un desplegable: el select solo tiene sentido si hay algo entre qué elegir.
+      if (matches.length === 1) return matches[0].value;
+      const cellKey = `${variant?.id ?? product.id}:${column.id}`;
       const selectedValueId = selectedMultiValueByCell[cellKey] ?? matches[0].id;
       return (
         <select
@@ -226,7 +223,8 @@ export function AgregarProductoBrowser({
     if (column.type === "SELECT") {
       const matches = product.attributeValues.filter((pv) => pv.attributeId === column.id && pv.optionId);
       if (matches.length === 0) return "—";
-      const cellKey = `${product.id}:${column.id}`;
+      if (matches.length === 1) return matches[0].option!.value;
+      const cellKey = `${variant?.id ?? product.id}:${column.id}`;
       const selectedOptionId = selectedMultiValueByCell[cellKey] ?? matches[0].optionId!;
       return (
         <select
@@ -247,8 +245,7 @@ export function AgregarProductoBrowser({
 
   // Columnas de atributos: solo los marcados `mostrarEnProforma`, y solo los que efectivamente
   // aparecen en los productos pasados (evita columnas vacías de otras categorías). El de tipo
-  // PRICED_VARIANT (si está marcado) se renderiza como desplegable — es la forma de elegir cuál de
-  // las variantes se agrega. Factoreada aparte (antes era un solo cálculo sobre TODA la página) para
+  // PRICED_VARIANT (si está marcado) muestra el valor de la variante de cada fila. Factoreada aparte (antes era un solo cálculo sobre TODA la página) para
   // poder aplicarla por separado a cada grupo de productGroups, ver más abajo.
   function computeAtributosColumns(products: Product[]): ExtraColumn[] {
     const map = new Map<string, ExtraColumn>();
@@ -303,34 +300,33 @@ export function AgregarProductoBrowser({
     }));
   })();
 
-  async function handleAgregar(product: Product) {
-    const variant = getSelectedVariant(product);
+  async function handleAgregar(product: Product, variant: ProductVariant | undefined, rowKey: string) {
     if (!variant) return;
-    setSubmittingId(product.id);
-    setRowError((prev) => ({ ...prev, [product.id]: "" }));
+    setSubmittingId(rowKey);
+    setRowError((prev) => ({ ...prev, [rowKey]: "" }));
     try {
       if (modo === "SOLICITUD") {
-        const cantidad = cantidadByProduct[product.id] ?? 1;
+        const cantidad = cantidadByProduct[rowKey] ?? 1;
         await addLineaSolicitud(proformaId, { varianteId: variant.id, cantidad });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       } else if (tipo === "VENTA" && variant.unidad === "ML") {
-        const presentacionVentaId = presentacionIdByProduct[product.id];
-        const numPresentaciones = numPresentacionesByProduct[product.id] ?? 1;
+        const presentacionVentaId = presentacionIdByProduct[rowKey];
+        const numPresentaciones = numPresentacionesByProduct[rowKey] ?? 1;
         if (!presentacionVentaId) {
-          setRowError((prev) => ({ ...prev, [product.id]: "Elegí una presentación." }));
+          setRowError((prev) => ({ ...prev, [rowKey]: "Elegí una presentación." }));
           setSubmittingId(null);
           return;
         }
         await addDetalleVenta(proformaId, { varianteId: variant.id, presentacionVentaId, numPresentaciones });
       } else if (tipo === "VENTA") {
-        const cantidad = cantidadByProduct[product.id] ?? 1;
+        const cantidad = cantidadByProduct[rowKey] ?? 1;
         const precioUnitario = precioTipo === "MAY" ? variant.wholesalePriceBs : variant.finalPriceBs;
         await addDetalleVenta(proformaId, { varianteId: variant.id, cantidad, precioUnitario });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       } else {
         // Sin proveedor acá a propósito — se elige después, directo en la proforma ya creada (ver
         // ProformaDetalleTable), para no interrumpir el flujo rápido de cargar varios productos.
-        const cantidad = cantidadByProduct[product.id] ?? 1;
+        const cantidad = cantidadByProduct[rowKey] ?? 1;
         await addDetalleCompra(proformaId, {
           varianteId: variant.id,
           cantidad,
@@ -341,13 +337,13 @@ export function AgregarProductoBrowser({
         });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
-      setAddedFlash((prev) => ({ ...prev, [product.id]: true }));
-      setTimeout(() => setAddedFlash((prev) => ({ ...prev, [product.id]: false })), FLASH_MS);
-      setCantidadByProduct((prev) => ({ ...prev, [product.id]: 1 }));
-      setEditando((prev) => ({ ...prev, [product.id]: false }));
-      setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: 1 }));
+      setAddedFlash((prev) => ({ ...prev, [rowKey]: true }));
+      setTimeout(() => setAddedFlash((prev) => ({ ...prev, [rowKey]: false })), FLASH_MS);
+      setCantidadByProduct((prev) => ({ ...prev, [rowKey]: 1 }));
+      setEditando((prev) => ({ ...prev, [rowKey]: false }));
+      setNumPresentacionesByProduct((prev) => ({ ...prev, [rowKey]: 1 }));
     } catch (e) {
-      setRowError((prev) => ({ ...prev, [product.id]: e instanceof ApiError ? e.message : String(e) }));
+      setRowError((prev) => ({ ...prev, [rowKey]: e instanceof ApiError ? e.message : String(e) }));
     } finally {
       setSubmittingId(null);
     }
@@ -446,7 +442,7 @@ export function AgregarProductoBrowser({
                 </h3>
               )}
               <div className="table-scroll">
-                <table className="table table-minimal table-compact">
+                <table className="table table-minimal table-compact table-por-producto">
                   <thead>
                     <tr>
                       <th>Stock</th>
@@ -466,18 +462,21 @@ export function AgregarProductoBrowser({
                     </tr>
                   </thead>
                   <tbody>
-                    {group.products.map((product) => {
-                  const selectedVariant = getSelectedVariant(product);
+                    {filasDe(group.products).map(({ rowKey, product, variant: selectedVariant, esPrimera, totalVariantes, indice }) => {
+                  const multiple = totalVariantes > 1;
                   const priceSource = selectedVariant ?? product;
                   const esVentaMl = tipo === "VENTA" && selectedVariant?.unidad === "ML";
                   const esCompraMl = tipo === "COMPRA" && selectedVariant?.unidad === "ML";
                   const presentacionesDeVariante = selectedVariant ? presentacionesByVariant[selectedVariant.id] ?? [] : [];
                   const presentacionActiva = presentacionesDeVariante.filter((p) => p.activo);
                   const presentacionSeleccionada = presentacionesDeVariante.find(
-                    (p) => p.id === presentacionIdByProduct[product.id],
+                    (p) => p.id === presentacionIdByProduct[rowKey],
                   );
                   return (
-                    <tr key={product.id}>
+                    <tr
+                      key={rowKey}
+                      className={[indice % 2 === 1 ? "pt-alt" : "", multiple && esPrimera ? "pt-first" : "", multiple && !esPrimera ? "pt-cont" : ""].filter(Boolean).join(" ")}
+                    >
                       <td>
                         <StockCell
                           disponible={selectedVariant?.stockDisponible ?? product.stockDisponible}
@@ -495,19 +494,19 @@ export function AgregarProductoBrowser({
                           <span className="cell-muted">—</span>
                         )}
                       </td>
-                      <td className="cell-code">{product.productCode}</td>
-                      <td className="cell-muted">{product.brand?.name ?? "—"}</td>
+                      <td className="cell-code">{esPrimera ? product.productCode : ""}</td>
+                      <td className="cell-muted">{esPrimera ? (product.brand?.name ?? "—") : ""}</td>
                       <td className="cell-primary">{product.name}</td>
                       {group.columns.map((column) => (
-                        <td key={column.id}>{renderAttributeCell(product, column)}</td>
+                        <td key={column.id}>{renderAttributeCell(product, column, selectedVariant)}</td>
                       ))}
                       {tipo === "VENTA" && (
                         <td>
                           {esVentaMl ? (
                             <select
                               className="field"
-                              value={presentacionIdByProduct[product.id] ?? ""}
-                              onChange={(e) => setPresentacionIdByProduct((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                              value={presentacionIdByProduct[rowKey] ?? ""}
+                              onChange={(e) => setPresentacionIdByProduct((prev) => ({ ...prev, [rowKey]: e.target.value }))}
                               style={{ minWidth: 130 }}
                             >
                               <option value="">— Presentación —</option>
@@ -545,23 +544,23 @@ export function AgregarProductoBrowser({
                       </td>
                       <td className="num">
                         {(() => {
-                          const cantidadActual = (esVentaMl ? numPresentacionesByProduct[product.id] : cantidadByProduct[product.id]) ?? 1;
+                          const cantidadActual = (esVentaMl ? numPresentacionesByProduct[rowKey] : cantidadByProduct[rowKey]) ?? 1;
                           const fijar = (n: number) => {
-                            if (esVentaMl) setNumPresentacionesByProduct((prev) => ({ ...prev, [product.id]: n }));
-                            else setCantidadByProduct((prev) => ({ ...prev, [product.id]: n }));
+                            if (esVentaMl) setNumPresentacionesByProduct((prev) => ({ ...prev, [rowKey]: n }));
+                            else setCantidadByProduct((prev) => ({ ...prev, [rowKey]: n }));
                           };
-                          if (!editando[product.id]) {
+                          if (!editando[rowKey]) {
                             return (
                               <button
                                 type="button"
                                 className="action-btn"
                                 onClick={() => {
                                   fijar(1);
-                                  setRowError((prev) => ({ ...prev, [product.id]: "" }));
-                                  setEditando((prev) => ({ ...prev, [product.id]: true }));
+                                  setRowError((prev) => ({ ...prev, [rowKey]: "" }));
+                                  setEditando((prev) => ({ ...prev, [rowKey]: true }));
                                 }}
                               >
-                                {addedFlash[product.id] ? "Agregada ✓" : "Agregar"}
+                                {addedFlash[rowKey] ? "Agregada ✓" : "Agregar"}
                               </button>
                             );
                           }
@@ -570,7 +569,7 @@ export function AgregarProductoBrowser({
                               <button
                                 type="button"
                                 aria-label="Menos"
-                                onClick={() => (cantidadActual <= 1 ? setEditando((prev) => ({ ...prev, [product.id]: false })) : fijar(cantidadActual - 1))}
+                                onClick={() => (cantidadActual <= 1 ? setEditando((prev) => ({ ...prev, [rowKey]: false })) : fijar(cantidadActual - 1))}
                               >
                                 −
                               </button>
@@ -597,13 +596,13 @@ export function AgregarProductoBrowser({
                         )}
                       </td>
                       <td>
-                        {editando[product.id] && (
-                          <button type="button" className="button" onClick={() => handleAgregar(product)} disabled={submittingId === product.id}>
-                            {submittingId === product.id ? "Agregando..." : "Confirmar"}
+                        {editando[rowKey] && (
+                          <button type="button" className="button" onClick={() => handleAgregar(product, selectedVariant, rowKey)} disabled={submittingId === rowKey}>
+                            {submittingId === rowKey ? "Agregando..." : "Confirmar"}
                           </button>
                         )}
-                        {rowError[product.id] && (
-                          <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[product.id]}</p>
+                        {rowError[rowKey] && (
+                          <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[rowKey]}</p>
                         )}
                       </td>
                       </tr>

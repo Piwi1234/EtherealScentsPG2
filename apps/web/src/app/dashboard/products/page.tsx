@@ -34,6 +34,7 @@ import type {
 } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { StockCell } from "../../../components/StockCell";
+import { ordenarVariantes } from "../../../lib/variant-order";
 
 // Imágenes subidas antes de la migración a R2 tienen imageUrl relativo ("/uploads/..."); las nuevas
 // ya vienen con la URL pública completa.
@@ -540,13 +541,13 @@ export default function ProductsPage() {
     return true;
   }
 
-  // Una fila por variante con precio propio (de menor a mayor precio); los productos con una sola variante, o sin
+  // Una fila por variante con precio propio (en orden alfabético); los productos con una sola variante, o sin
   // ninguna, siguen ocupando una fila.
   function filasDe(products: Product[]): FilaProducto[] {
     const ahora = Date.now();
     const filas: FilaProducto[] = [];
     products.forEach((product, indice) => {
-      const todas = [...product.variants].sort((a, b) => a.price - b.price);
+      const todas = ordenarVariantes(product.variants);
       let visibles: (ProductVariant | undefined)[] = todas.length > 0 ? todas : [undefined];
       if (offerFilter && todas.length > 1) {
         const enOferta = todas.filter((v) => cumpleOferta(v, ahora));
