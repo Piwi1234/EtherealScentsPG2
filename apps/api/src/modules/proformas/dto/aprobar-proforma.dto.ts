@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsUUID } from "class-validator";
+import { Type } from "class-transformer";
+import { IsNumber, IsOptional, IsUUID, Min } from "class-validator";
 
 export class AprobarProformaDto {
   @ApiPropertyOptional({ description: "Obligatorio si la proforma es de VENTA: almacén contra el que se reserva stock." })
@@ -14,4 +15,13 @@ export class AprobarProformaDto {
   @IsOptional()
   @IsUUID()
   carteraId?: string;
+
+  @ApiPropertyOptional({
+    description: "Opcional, junto con carteraId: monto realmente cobrado como adelanto (Bs). Si no se manda, se cobra el monto calculado por el porcentaje. Puede ser menor o mayor, hasta el total de la venta.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  montoAdelanto?: number;
 }

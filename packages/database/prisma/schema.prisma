@@ -1014,6 +1014,10 @@ model ProformaDetalle {
   // después.
   precioUnitario Decimal? @map("precio_unitario") @db.Decimal(12, 2)
 
+  // VENTA: descuento por unidad (Bs). El descuento total de la nota (Proforma.descuentoGeneral) es la suma de
+  // cantidad × descuentoUnitario de sus líneas y lo calcula el servidor. `subtotal` sigue siendo bruto.
+  descuentoUnitario Decimal @default(0) @map("descuento_unitario") @db.Decimal(12, 2)
+
   // COMPRA: capturados por línea (no heredados del catálogo) — de esta compra puntual. Al completar
   // se usan para armar el LoteCompra; el catálogo (Product/ProductVariant) nunca se sobreescribe con
   // estos valores.

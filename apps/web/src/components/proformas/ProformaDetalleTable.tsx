@@ -243,7 +243,7 @@ function DetalleRow({
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
   const [ligando, setLigando] = useState(false);
-  const colSpan = (tipo === "VENTA" ? 6 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
+  const colSpan = (tipo === "VENTA" ? 7 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
   const recogidas = (detalle.recojoLineas ?? []).reduce((n, r) => n + r.cantidad, 0);
   const ligadas = (detalle.asignacionesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
   const solicitadas = (detalle.solicitudesCubiertas ?? []).reduce((n, a) => n + a.cantidad, 0);
@@ -330,13 +330,22 @@ function DetalleRow({
           </td>
         )}
         {tipo === "VENTA" ? (
-          <td className="num">
-            {editable ? (
-              <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
-            ) : (
-              money(detalle.precioUnitario, "Bs")
-            )}
-          </td>
+          <>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
+              ) : (
+                money(detalle.precioUnitario, "Bs")
+              )}
+            </td>
+            <td className="num">
+              {editable ? (
+                <EditableNumber value={detalle.descuentoUnitario} onCommit={(v) => commit({ descuentoUnitario: v })} />
+              ) : (
+                money(detalle.descuentoUnitario, "Bs")
+              )}
+            </td>
+          </>
         ) : (
           <>
             <td className="num">
@@ -432,7 +441,7 @@ export function ProformaDetalleTable({
   // Mismo cálculo de cantidad de columnas que usa DetalleRow para la fila de error — así la fila de
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
   const colsEtiqueta = tipo === "COMPRA" ? 4 + (mostrarProveedor ? 1 : 0) : 3;
-  const totalCols = (tipo === "VENTA" ? 6 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
+  const totalCols = (tipo === "VENTA" ? 7 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
   const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
   return (
@@ -448,7 +457,10 @@ export function ProformaDetalleTable({
             <th className="num">Cant.</th>
             {mostrarRecogido && <th className="num">Recogido</th>}
             {tipo === "VENTA" ? (
-              <th className="num">Precio unitario</th>
+              <>
+                <th className="num">Precio unitario</th>
+                <th className="num">Desc. unitario</th>
+              </>
             ) : (
               <>
                 <th className="num">Compra</th>

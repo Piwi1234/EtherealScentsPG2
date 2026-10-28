@@ -19,7 +19,24 @@ import type {
   Empresa,
   Page,
 } from "../../lib/types";
-import { BarChart, RankedBarList, SERIES_COLORS, StatTile } from "../../components/dashboard/charts";
+import { BarChart, MiniStats, RankedBarList, SERIES_COLORS, SplitBar, StatTile } from "../../components/dashboard/charts";
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "2026-10" -> "oct 26". */
+function mesCorto(key: string): string {
+  const [anio, mes] = key.split("-");
+  return `${MESES_CORTOS[Number(mes) - 1] ?? mes} ${anio.slice(2)}`;
+}
+
+/** Total, promedio (solo meses con movimiento) y mejor mes de una serie mensual. */
+function resumenMensual(data: DashMesTotal[] | null) {
+  if (!data) return null;
+  const activos = data.filter((m) => m.total > 0);
+  const total = data.reduce((n, m) => n + m.total, 0);
+  const mejor = activos.reduce<DashMesTotal | null>((b, m) => (!b || m.total > b.total ? m : b), null);
+  return { total, promedio: activos.length > 0 ? total / activos.length : 0, mejor };
+}
 
 const RANGE_OPTIONS = [
   { value: 6, label: "Últimos 6 meses" },
@@ -150,6 +167,16 @@ export default function DashboardPage() {
       ],
     }));
   }, [ingresosEgresos]);
+
+  const statsVentas = useMemo(() => resumenMensual(ventasMensuales), [ventasMensuales]);
+  const statsCompras = useMemo(() => resumenMensual(comprasMensuales), [comprasMensuales]);
+  const totalesMargen = useMemo(() => {
+    if (!margenBruto) return null;
+    const ingresos = margenBruto.reduce((n, m) => n + m.ingresos, 0);
+    const costos = margenBruto.reduce((n, m) => n + m.costos, 0);
+    const margen = ingresos - costos;
+    return { ingresos, costos, margen, pct: ingresos > 0 ? Math.round((margen / ingresos) * 100) : null };
+  }, [margenBruto]);
 
   // Las proformas nuevas arrancan con la casa matriz (se puede cambiar después en la cabecera).
   const empresasActivas = empresas.filter((e) => e.activo);
@@ -337,66 +364,96 @@ export default function DashboardPage() {
       </div>
 
       {/* ================= Ventas ================= */}
-      <p className="dash-section-title">Ventas</p>
-      <div className="dash-grid">
-        <div className="card">
+      <div className="dash-section-head">
+        <p className="dash-section-title">Ventas</p>
+        <small>{RANGE_OPTIONS.find((o) => o.value === rangeMonths)?.label}</small>
+      </div>
+      <div className="dash-g12">
+        <div className="card span-8">
           <p className="dash-widget-title">Ventas mensuales</p>
-          <p className="dash-widget-note">Total en Bs por mes (proformas aprobadas o completadas).</p>
-          {ventasMensuales ? (
-            <BarChart categories={ventasMensuales.map((m) => m.mes)} series={ventasSeries} formatValue={bs} />
+          <p className="dash-widget-note">Total en Bs por mes (proformas aprobadas o completadas). El mes en curso va resaltado.</p>
+          {ventasMensuales && statsVentas ? (
+            <>
+              <MiniStats
+                items={[
+                  { label: "Total del período", value: bs(statsVentas.total) },
+                  { label: "Promedio por mes con ventas", value: bs(statsVentas.promedio) },
+                  { label: "Mejor mes", value: statsVentas.mejor ? bs(statsVentas.mejor.total) : "—", note: statsVentas.mejor ? mesCorto(statsVentas.mejor.mes) : undefined },
+                  {
+                    label: "Este mes",
+                    value: ventasMes === null ? "—" : bs(ventasMes),
+                    note: variacionVentas === null ? undefined : `${variacionVentas > 0 ? "+" : ""}${variacionVentas}% vs. mes anterior`,
+                    tone: variacionVentas === null ? undefined : variacionVentas < 0 ? "neg" : "pos",
+                  },
+                ]}
+              />
+              <BarChart categories={ventasMensuales.map((m) => m.mes)} series={ventasSeries} formatValue={bs} highlightLast />
+            </>
           ) : (
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
+        <div className="card span-4">
+          <p className="dash-widget-title">Notas de venta</p>
+          <p className="dash-widget-note">Aprobadas y completadas en el período elegido.</p>
+          <div className="dash-stat-row">
+            <StatTile label="Aprobadas" value={proformasAprobadas === null ? "—" : String(proformasAprobadas)} sublabel="Esperando completarse" color={SERIES_COLORS[0]} />
+            <StatTile
+              label="Completadas"
+              value={proformasCompletadas ? String(proformasCompletadas.reduce((n, m) => n + m.total, 0)) : "—"}
+              sublabel="Entregadas y cobradas"
+              color={SERIES_COLORS[2]}
+            />
+          </div>
+          <p className="dash-widget-note" style={{ margin: "14px 0 6px" }}>Completadas por mes</p>
+          {proformasCompletadas ? (
+            <BarChart categories={proformasCompletadas.map((m) => m.mes)} series={proformasSeries} formatValue={(v) => String(v)} height={170} highlightLast />
+          ) : (
+            <p className="dash-empty">Cargando...</p>
+          )}
+        </div>
+        <div className="card span-6">
           <p className="dash-widget-title">Ventas por categoría</p>
-          <p className="dash-widget-note">Total en Bs en el período elegido.</p>
+          <p className="dash-widget-note">Total en Bs en el período elegido, con su peso sobre el total.</p>
           {ventasPorCategoria ? (
             <RankedBarList items={ventasPorCategoria.map((c) => ({ label: c.categoria, value: c.total }))} formatValue={bs} />
           ) : (
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <TopClientes items={topClientes} month={topClientesMonth} maxMonth={currentMonth()} onMonthChange={setTopClientesMonth} />
-        <div className="card">
-          <p className="dash-widget-title">Proformas aprobadas</p>
-          <p className="dash-widget-note">En el período elegido.</p>
-          <StatTile label="Cantidad" value={proformasAprobadas === null ? "—" : String(proformasAprobadas)} color={SERIES_COLORS[0]} />
-        </div>
-        <div className="card">
-          <p className="dash-widget-title">Proformas completadas por mes</p>
-          {proformasCompletadas ? (
-            <BarChart
-              categories={proformasCompletadas.map((m) => m.mes)}
-              series={proformasSeries}
-              formatValue={(v) => String(v)}
-            />
-          ) : (
-            <p className="dash-empty">Cargando...</p>
-          )}
-        </div>
+        <TopClientes className="span-6" items={topClientes} month={topClientesMonth} maxMonth={currentMonth()} onMonthChange={setTopClientesMonth} />
       </div>
 
       {/* ================= Compras ================= */}
-      <p className="dash-section-title">Compras</p>
-      <div className="dash-grid">
-        <div className="card">
+      <div className="dash-section-head">
+        <p className="dash-section-title">Compras</p>
+        <small>{RANGE_OPTIONS.find((o) => o.value === rangeMonths)?.label}</small>
+      </div>
+      <div className="dash-g12">
+        <div className="card span-7">
           <p className="dash-widget-title">Compras mensuales</p>
-          <p className="dash-widget-note">Total en Bs por mes (proformas aprobadas o completadas).</p>
-          {comprasMensuales ? (
-            <BarChart categories={comprasMensuales.map((m) => m.mes)} series={comprasSeries} formatValue={bs} />
+          <p className="dash-widget-note">Total en Bs por mes (proformas aprobadas o completadas), al tipo de cambio de cada compra.</p>
+          {comprasMensuales && statsCompras ? (
+            <>
+              <MiniStats
+                items={[
+                  { label: "Total del período", value: bs(statsCompras.total) },
+                  { label: "Promedio por mes con compras", value: bs(statsCompras.promedio) },
+                  { label: "Mayor mes", value: statsCompras.mejor ? bs(statsCompras.mejor.total) : "—", note: statsCompras.mejor ? mesCorto(statsCompras.mejor.mes) : undefined },
+                  { label: "Este mes", value: comprasMes === null ? "—" : bs(comprasMes) },
+                ]}
+              />
+              <BarChart categories={comprasMensuales.map((m) => m.mes)} series={comprasSeries} formatValue={bs} highlightLast />
+            </>
           ) : (
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
+        <div className="card span-5">
           <p className="dash-widget-title">Compras por proveedor y categoría</p>
-          <p className="dash-widget-note">Total en Bs en el período elegido.</p>
+          <p className="dash-widget-note">Total en Bs en el período elegido, con su peso sobre el total.</p>
           {comprasPorProveedor ? (
-            <RankedBarList
-              items={comprasPorProveedor.map((c) => ({ label: c.proveedor, sublabel: c.categoria, value: c.total }))}
-              formatValue={bs}
-            />
+            <RankedBarList items={comprasPorProveedor.map((c) => ({ label: c.proveedor, sublabel: c.categoria, value: c.total }))} formatValue={bs} />
           ) : (
             <p className="dash-empty">Cargando...</p>
           )}
@@ -404,35 +461,62 @@ export default function DashboardPage() {
       </div>
 
       {/* ================= Stock ================= */}
-      <p className="dash-section-title">Stock</p>
-      <div className="dash-grid">
-        <div className="card">
+      <div className="dash-section-head">
+        <p className="dash-section-title">Stock</p>
+      </div>
+      <div className="dash-g12">
+        <div className="card span-7">
           <p className="dash-widget-title">Productos por categoría</p>
+          <p className="dash-widget-note">Cantidad de productos del catálogo, con su peso sobre el total.</p>
           {productosPorCategoria ? (
-            <RankedBarList items={productosPorCategoria.map((c) => ({ label: c.categoria, value: c.total }))} formatValue={(v) => String(v)} />
+            <RankedBarList items={productosPorCategoria.map((c) => ({ label: c.categoria, value: c.total }))} formatValue={(v) => String(v)} maxItems={10} />
           ) : (
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
+        <div className="card span-5">
           <p className="dash-widget-title">Valor de stock</p>
           <p className="dash-widget-note">A costo promedio ponderado por variante.</p>
-          <div className="dash-stat-row">
-            <StatTile label="Disponible" value={stockValorizado ? bs(stockValorizado.disponibleBs) : "—"} color={SERIES_COLORS[2]} />
-            <StatTile label="Reservado" value={stockValorizado ? bs(stockValorizado.reservadoBs) : "—"} color={SERIES_COLORS[4]} />
-          </div>
+          {stockValorizado ? (
+            <>
+              <StatTile label="Valor total" value={bs(stockValorizado.disponibleBs + stockValorizado.reservadoBs)} color={SERIES_COLORS[2]} />
+              <div style={{ marginTop: 12 }}>
+                <SplitBar
+                  formatValue={bs}
+                  parts={[
+                    { label: "Disponible", value: stockValorizado.disponibleBs, color: SERIES_COLORS[2] },
+                    { label: "Reservado", value: stockValorizado.reservadoBs, color: SERIES_COLORS[3] },
+                  ]}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="dash-empty">Cargando...</p>
+          )}
         </div>
       </div>
 
       {/* ================= Finanzas ================= */}
-      <p className="dash-section-title">Finanzas</p>
-      <div className="dash-grid dash-grid--wide">
-        <div className="card">
+      <div className="dash-section-head">
+        <p className="dash-section-title">Finanzas</p>
+        <small>{RANGE_OPTIONS.find((o) => o.value === rangeMonths)?.label}</small>
+      </div>
+      <div className="dash-g12">
+        <div className="card span-8">
           <p className="dash-widget-title">Margen bruto</p>
           <p className="dash-widget-note">Ingresos por venta − costo real de lo vendido (lotes consumidos), por mes.</p>
           {margenBruto ? (
-            margenBruto.length > 0 ? (
-              <BarChart categories={margenBruto.map((m) => m.mes)} series={margenSeries} formatValue={bs} />
+            margenBruto.length > 0 && totalesMargen ? (
+              <>
+                <MiniStats
+                  items={[
+                    { label: "Ingresos", value: bs(totalesMargen.ingresos) },
+                    { label: "Costo", value: bs(totalesMargen.costos) },
+                    { label: "Margen", value: bs(totalesMargen.margen), tone: totalesMargen.margen < 0 ? "neg" : "pos", note: totalesMargen.pct === null ? undefined : `${totalesMargen.pct}% de los ingresos` },
+                  ]}
+                />
+                <BarChart categories={margenBruto.map((m) => m.mes)} series={margenSeries} formatValue={bs} highlightLast />
+              </>
             ) : (
               <p className="dash-empty">Sin ventas con costo registrado en el período elegido.</p>
             )
@@ -440,7 +524,7 @@ export default function DashboardPage() {
             <p className="dash-empty">Cargando...</p>
           )}
         </div>
-        <div className="card">
+        <div className="card span-4">
           <p className="dash-widget-title">Cuentas por cobrar</p>
           <p className="dash-widget-note">Pendientes de cobro, en Bs.</p>
           <StatTile
@@ -449,47 +533,43 @@ export default function DashboardPage() {
             sublabel={cuentasPorCobrar ? `${cuentasPorCobrar.cantidad} cuenta${cuentasPorCobrar.cantidad === 1 ? "" : "s"}` : undefined}
             color={SERIES_COLORS[7]}
           />
+          <p className="dash-widget-note" style={{ margin: "18px 0 8px" }}>Saldo por cartera</p>
+          {saldosCartera ? (
+            saldosCartera.length > 0 ? (
+              <div className="dash-stat-row">
+                {saldosCartera.map((c, i) => (
+                  <StatTile key={c.id} label={`${c.nombre} (${c.moneda})`} value={c.saldo.toLocaleString("es-BO")} color={SERIES_COLORS[i % SERIES_COLORS.length]} />
+                ))}
+              </div>
+            ) : (
+              <p className="dash-empty">No hay carteras activas.</p>
+            )
+          ) : (
+            <p className="dash-empty">Cargando...</p>
+          )}
         </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 32 }}>
-        <p className="dash-widget-title">Saldo por cartera</p>
-        {saldosCartera ? (
-          saldosCartera.length > 0 ? (
-            <div className="dash-stat-row">
-              {saldosCartera.map((c, i) => (
-                <StatTile key={c.id} label={`${c.nombre} (${c.moneda})`} value={c.saldo.toLocaleString("es-BO")} color={SERIES_COLORS[i % SERIES_COLORS.length]} />
-              ))}
-            </div>
+        <div className="card span-12">
+          <p className="dash-widget-title">Ingresos y egresos por cartera</p>
+          <p className="dash-widget-note">Por mes, en la moneda propia de cada cartera (no se convierten entre sí).</p>
+          {ingresosEgresos ? (
+            ingresosEgresosPorCartera.length > 0 ? (
+              <div className="dash-grid" style={{ marginBottom: 0 }}>
+                {ingresosEgresosPorCartera.map((c) => (
+                  <div key={c.cartera}>
+                    <p className="dash-widget-title" style={{ fontSize: 12.5 }}>
+                      {c.cartera} ({c.moneda})
+                    </p>
+                    <BarChart categories={c.categories} series={c.series} formatValue={(v) => v.toLocaleString("es-BO")} highlightLast />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="dash-empty">Sin movimientos en el período elegido.</p>
+            )
           ) : (
-            <p className="dash-empty">No hay carteras activas.</p>
-          )
-        ) : (
-          <p className="dash-empty">Cargando...</p>
-        )}
-      </div>
-
-      <div className="card">
-        <p className="dash-widget-title">Ingresos y egresos por cartera</p>
-        <p className="dash-widget-note">Por mes, en la moneda propia de cada cartera (no se convierten entre sí).</p>
-        {ingresosEgresos ? (
-          ingresosEgresosPorCartera.length > 0 ? (
-            <div className="dash-grid">
-              {ingresosEgresosPorCartera.map((c) => (
-                <div key={c.cartera}>
-                  <p className="dash-widget-title" style={{ fontSize: 12.5 }}>
-                    {c.cartera} ({c.moneda})
-                  </p>
-                  <BarChart categories={c.categories} series={c.series} formatValue={(v) => v.toLocaleString("es-BO")} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="dash-empty">Sin movimientos en el período elegido.</p>
-          )
-        ) : (
-          <p className="dash-empty">Cargando...</p>
-        )}
+            <p className="dash-empty">Cargando...</p>
+          )}
+        </div>
       </div>
     </div>
   );

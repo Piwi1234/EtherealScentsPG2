@@ -158,7 +158,7 @@ export class ProformaApprovalService {
     return { unidadesReservadas: cubiertasDeFaltante + pasadasDeTransito, pasadasDeTransito };
   }
 
-  async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string) {
+  async aprobar(id: string, usuarioId: string, almacenId?: string, carteraId?: string, montoAdelantoCobrado?: number) {
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -194,7 +194,7 @@ export class ProformaApprovalService {
           const almacen = await tx.almacen.findUnique({ where: { id: almacenId } });
           if (!almacen) throw new BadRequestException(`almacenId inválido: ${almacenId}`);
 
-          await this.aprobarVenta(tx, id, usuarioId, almacenId, carteraId);
+          await this.aprobarVenta(tx, id, usuarioId, almacenId, carteraId, montoAdelantoCobrado);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -210,7 +210,7 @@ export class ProformaApprovalService {
    * cuando se completa una compra que trae stock para esa variante+almacén (ver
    * proforma-completion.service.ts).
    */
-  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string) {
+  private async aprobarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, almacenId: string, carteraId?: string, montoAdelantoCobrado?: number) {
     const proforma = await tx.proforma.findUniqueOrThrow({ where: { id }, include: { detalles: { include: { variante: { include: { product: { select: { name: true } } } } } }, cliente: true } });
 
     if (!proforma.clienteId) throw new BadRequestException("Elegí un cliente antes de aprobar la proforma de venta.");
@@ -220,6 +220,9 @@ export class ProformaApprovalService {
     const { total, montoAdelanto } = calcularTotalesVenta(proforma);
     let adelantoCobrado = 0;
     if (montoAdelanto > 0 && carteraId) {
+      // El cliente a veces paga menos o más que el porcentaje pactado: se cobra lo que realmente entregó.
+      const montoCobrar = montoAdelantoCobrado !== undefined ? Math.round(montoAdelantoCobrado * 100) / 100 : montoAdelanto;
+      if (montoCobrar > Math.round(total * 100) / 100) throw new BadRequestException("El adelanto no puede superar el total de la venta.");
       const cartera = await tx.cartera.findUnique({ where: { id: carteraId } });
       if (!cartera || !cartera.activo) throw new BadRequestException(`carteraId inválido o inactivo: ${carteraId}`);
       if (cartera.moneda !== MonedaCartera.BS) throw new BadRequestException("La cartera del adelanto debe ser en Bs.");
@@ -232,13 +235,13 @@ export class ProformaApprovalService {
           fecha: new Date(),
           detalle: `CL: ${proforma.cliente?.nombre ?? "—"} - PR: ${proforma.codigo} - ADL: ${porcentaje}%`,
           naturaleza: NaturalezaMovimiento.INGRESO,
-          monto: montoAdelanto,
+          monto: montoCobrar,
           proformaId: id,
           creadoPorId: usuarioId,
         },
       });
-      await tx.cartera.update({ where: { id: carteraId }, data: { saldoActual: { increment: montoAdelanto } } });
-      adelantoCobrado = montoAdelanto;
+      await tx.cartera.update({ where: { id: carteraId }, data: { saldoActual: { increment: montoCobrar } } });
+      adelantoCobrado = montoCobrar;
     }
 
     // La cuenta por cobrar nace con la venta aprobada (no al completarla): así se le da seguimiento
