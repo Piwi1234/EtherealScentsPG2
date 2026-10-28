@@ -13,6 +13,8 @@ import { RegistrarPagoDto } from "./dto/registrar-pago.dto";
 import { ProformaPdfService } from "./proforma-pdf.service";
 import { ProformaAjusteService } from "./proforma-ajuste.service";
 import { AjustarVentaDto } from "./dto/ajustar-venta.dto";
+import { ProformaEntregaService } from "./proforma-entrega.service";
+import { EntregarVentaDto } from "./dto/entregar-venta.dto";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
@@ -39,6 +41,7 @@ export class ProformasController {
     private readonly pagos: ProformaPagosService,
     private readonly pdf: ProformaPdfService,
     private readonly ajuste: ProformaAjusteService,
+    private readonly entregas: ProformaEntregaService,
   ) {}
 
   @Get()
@@ -136,6 +139,27 @@ export class ProformasController {
   })
   ajustar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AjustarVentaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.ajuste.ajustar(id, dto, user.id);
+  }
+
+  @Post(":id/entregar")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Marca como entregados productos de una nota de venta APROBADA: solo lo reservado en stock físico. Consume los lotes elegidos y baja el stock; con todo entregado la nota se completa sola.",
+  })
+  @ApiResponse({ status: 409, description: "La nota no está aprobada o se pidió entregar más de lo reservado en stock." })
+  entregar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: EntregarVentaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.entregas.entregar(id, dto, user.id);
+  }
+
+  @Delete(":id/entregas/:entregaId")
+  @ApiOperation({ summary: "Deshace una entrega de una nota de venta aprobada: las unidades vuelven al lote y a lo reservado." })
+  deshacerEntrega(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("entregaId", ParseUUIDPipe) entregaId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.entregas.deshacer(id, entregaId, user.id);
   }
 
   @Post(":id/almacen-destino")

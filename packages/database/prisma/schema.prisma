@@ -39,6 +39,7 @@ model Usuario {
   movimientosProbador     MovimientoProbador[]
   enviosCreados           Envio[]
   recepcionesEnvio        EnvioRecepcion[]    @relation("EnvioRecepcionCreador")
+  entregasVenta           EntregaVenta[]
 
   @@map("usuarios")
 }
@@ -830,10 +831,37 @@ model LoteCompraConsumo {
   proformaDetalleAsignacionId String                    @map("proforma_detalle_asignacion_id") @db.Uuid
   asignacion                  ProformaDetalleAsignacion @relation(fields: [proformaDetalleAsignacionId], references: [id], onDelete: Restrict)
   cantidad                    Int
+  // Consumo de una entrega parcial (ver EntregaVenta); null = el consumo del completado final de la nota.
+  entregaId                   String?                   @map("entrega_id") @db.Uuid
+  entrega                     EntregaVenta?             @relation(fields: [entregaId], references: [id], onDelete: Restrict)
   createdAt                   DateTime                  @default(now()) @map("created_at")
 
-  @@unique([loteCompraId, proformaDetalleAsignacionId])
+  // La unicidad (lote, asignación) vive en dos índices parciales de la migración 20261028120000_entregas_venta:
+  // uno para los consumos del completado (entrega_id nulo) y otro por entrega.
+  @@index([loteCompraId])
+  @@index([entregaId])
   @@map("lotes_compra_consumo")
+}
+
+/// Entrega parcial de una línea de una nota de venta APROBADA: unidades que estaban reservadas en stock físico y salen
+/// del almacén hacia el cliente. Consume lotes (LoteCompraConsumo con entregaId) y baja Stock.cantidadFisica y
+/// cantidadReservada; la asignación STOCK de la línea baja lo mismo. Se puede deshacer mientras la nota siga aprobada.
+/// Cuando todas las líneas quedan entregadas la nota se completa sola; una nota COMPLETADA cuenta todo como entregado.
+model EntregaVenta {
+  id                String          @id @default(uuid()) @db.Uuid
+  proformaDetalleId String          @map("proforma_detalle_id") @db.Uuid
+  proformaDetalle   ProformaDetalle @relation(fields: [proformaDetalleId], references: [id], onDelete: Cascade)
+  cantidad          Int
+  nota              String?
+  fecha             DateTime        @default(now())
+  creadoPorId       String          @map("creado_por_id") @db.Uuid
+  creadoPor         Usuario         @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  consumos LoteCompraConsumo[]
+
+  @@index([proformaDetalleId])
+  @@map("entregas_venta")
 }
 
 /// Traspaso de stock físico de una variante entre dos almacenes — instantáneo, inmutable (igual
@@ -1059,6 +1087,8 @@ model ProformaDetalle {
   solicitudesCubiertas  SolicitudStockLinea[]       @relation("SolicitudCubiertaPor")
   // COMPRA: lo que se fue recogiendo de esta línea, recojo por recojo.
   recojoLineas          RecojoLinea[]
+  // VENTA: lo que ya se entregó al cliente, entrega por entrega (ver EntregaVenta).
+  entregas              EntregaVenta[]
 
   @@map("proforma_detalles")
 }

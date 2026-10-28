@@ -772,9 +772,25 @@ export type ProformaDetalle = {
   recojoLineas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
+  /** VENTA: lo entregado al cliente, entrega por entrega (una nota COMPLETADA cuenta todo como entregado). */
+  entregas?: EntregaVenta[];
   loteCompras: LoteCompra[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type EntregaVenta = {
+  id: string;
+  proformaDetalleId: string;
+  cantidad: number;
+  nota: string | null;
+  fecha: string;
+  creadoPor: { id: string; nombre: string };
+};
+
+export type EntregarVentaInput = {
+  lineas: { proformaDetalleId: string; lotes: { loteCompraId: string; cantidad: number }[] }[];
+  nota?: string;
 };
 
 export type Proforma = {

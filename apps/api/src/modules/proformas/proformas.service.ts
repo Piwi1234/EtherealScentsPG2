@@ -69,6 +69,8 @@ export const includeDetails = {
         },
       },
       loteCompras: true,
+      // VENTA: lo entregado al cliente, entrega por entrega.
+      entregas: { orderBy: { fecha: "asc" as const }, include: { creadoPor: { select: { id: true, nombre: true } } } },
     },
   },
   historial: {

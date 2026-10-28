@@ -2,6 +2,7 @@ import { clearSession } from "./auth";
 import type {
   Almacen,
   AprobarProformaInput,
+  EntregarVentaInput,
   Brand,
   BrandImportReport,
   BrandNormalizeCasePreviewRow,
@@ -956,6 +957,14 @@ export function getPagosProforma(id: string) {
 
 export function registrarPagoProforma(id: string, data: { carteraId: string; monto: number; nota?: string }) {
   return apiPost<PagosVenta>(`/proformas/${id}/pagos`, data);
+}
+
+export function entregarVenta(id: string, data: EntregarVentaInput) {
+  return apiPost<Proforma>(`/proformas/${id}/entregar`, data);
+}
+
+export function deshacerEntregaVenta(id: string, entregaId: string) {
+  return apiDelete<Proforma>(`/proformas/${id}/entregas/${entregaId}`);
 }
 
 export function createProforma(data: ProformaInput) {
