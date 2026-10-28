@@ -859,6 +859,7 @@ export default function ProductsPage() {
                             <StockCell
                               disponible={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.disponible : stockByProduct[product.id]?.disponible) ?? 0}
                               reservado={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.reservado : stockByProduct[product.id]?.reservado) ?? 0}
+                              transito={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.disponibleTransito : stockByProduct[product.id]?.disponibleTransito) ?? 0}
                             />
                           </td>
                           <td>

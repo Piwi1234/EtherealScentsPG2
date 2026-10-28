@@ -46,7 +46,7 @@ export class ProformaAjusteService {
             where: { id },
             include: {
               cliente: true,
-              detalles: { include: { asignaciones: true, variante: { include: { product: { select: { name: true } } } } } },
+              detalles: { include: { asignaciones: true, entregas: { select: { cantidad: true } }, variante: { include: { product: { select: { name: true } } } } } },
             },
           });
 
@@ -58,6 +58,10 @@ export class ProformaAjusteService {
             if (!d) throw new BadRequestException("Una de las líneas no pertenece a esta nota.");
             if (l.cantidad < 0 || l.cantidad >= d.cantidad) {
               throw new BadRequestException(`${d.variante.product.name}: la cantidad nueva tiene que ser menor a ${d.cantidad} (0 quita el producto).`);
+            }
+            const entregadas = d.entregas.reduce((n, e) => n + e.cantidad, 0);
+            if (l.cantidad < entregadas) {
+              throw new BadRequestException(`${d.variante.product.name}: ya se entregaron ${entregadas}, no se puede bajar a ${l.cantidad}. Deshacé la entrega primero.`);
             }
             cambios.set(l.detalleId, l.cantidad);
           }

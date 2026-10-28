@@ -13,6 +13,7 @@ import { AsignacionAlmacenTable } from "../../../../components/proformas/Asignac
 import { VolverALista } from "../../../../components/proformas/VolverALista";
 import { ProformaAcciones } from "../../../../components/proformas/ProformaAcciones";
 import { ProformaPagos } from "../../../../components/proformas/ProformaPagos";
+import { EntregasVenta } from "../../../../components/proformas/EntregasVenta";
 import { ProformaRecojos } from "../../../../components/proformas/ProformaRecojos";
 
 export default async function ProformaDetallePage({ params }: { params: Promise<{ id: string }> }) {
@@ -95,6 +96,10 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
           <h2 style={{ fontSize: 16, margin: "24px 0 12px" }}>Reparto por almacén</h2>
           <AsignacionAlmacenTable proforma={proforma} />
         </>
+      )}
+
+      {proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && (
+        <EntregasVenta proforma={proforma} carterasBs={carterasBs} />
       )}
 
       {proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && (

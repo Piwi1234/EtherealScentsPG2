@@ -576,6 +576,10 @@ export type StockRow = {
   updatedAt: string;
   variante: StockVariante;
   almacen: StockAlmacenRef;
+  /** Solo en el detalle de un producto: todo lo que viaja a este almacén (libre + ligado a notas)... */
+  transitoTotal?: number;
+  /** ...y de eso, lo apartado por ventas o ligado a notas. */
+  transitoReservado?: number;
 };
 
 /** Existencias de un producto sumando almacenes (GET /stock/resumen). */
@@ -584,7 +588,9 @@ export type StockResumenRow = {
   almacenes: number;
   cantidadFisica: number;
   cantidadReservada: number;
+  /** Todo lo que viaja: lo libre más lo ya ligado a notas de venta. */
   cantidadEnTransito: number;
+  /** De lo que viaja, lo apartado por ventas o ligado a notas. */
   cantidadReservadaTransito: number;
   disponible: number;
   valorBs: number;
@@ -592,7 +598,7 @@ export type StockResumenRow = {
 };
 
 export type StockResumen = Page<StockResumenRow> & {
-  indicadores: { productos: number; unidadesFisicas: number; reservadas: number; enTransito: number; sinDisponible: number; valorBs: number };
+  indicadores: { productos: number; unidadesFisicas: number; reservadas: number; enTransito: number; reservadoTransito: number; sinDisponible: number; valorBs: number };
 };
 
 type ClienteRef = { id: string; nombre: string } | null;
@@ -766,9 +772,25 @@ export type ProformaDetalle = {
   recojoLineas?: { cantidad: number }[];
   subtotal: string;
   asignaciones: ProformaDetalleAsignacion[];
+  /** VENTA: lo entregado al cliente, entrega por entrega (una nota COMPLETADA cuenta todo como entregado). */
+  entregas?: EntregaVenta[];
   loteCompras: LoteCompra[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type EntregaVenta = {
+  id: string;
+  proformaDetalleId: string;
+  cantidad: number;
+  nota: string | null;
+  fecha: string;
+  creadoPor: { id: string; nombre: string };
+};
+
+export type EntregarVentaInput = {
+  lineas: { proformaDetalleId: string; lotes: { loteCompraId: string; cantidad: number }[] }[];
+  nota?: string;
 };
 
 export type Proforma = {

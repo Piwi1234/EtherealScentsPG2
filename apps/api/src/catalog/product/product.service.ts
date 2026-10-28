@@ -16,6 +16,7 @@ import { CreateVariantOptionValueDto, UpdateVariantOptionValueDto } from "./dto/
 import { generateUniqueEntityCode } from "../entity-code";
 import { computeBsPrices, computeCatalogPrice, withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
+import { transitoCompras } from "../../modules/almacenes/transito-compras.util";
 
 const includeDetails = {
   brand: true,
@@ -63,7 +64,9 @@ function withStock<T extends { variants: { stock: { cantidadFisica: number; cant
 export type StockProducto = {
   disponible: number;
   reservado: number;
-  variantes: Record<string, { disponible: number; reservado: number }>;
+  /** Lo que viaja y todavía no está apartado ni ligado a una nota (lo "disponible" de tránsito). */
+  disponibleTransito: number;
+  variantes: Record<string, { disponible: number; reservado: number; disponibleTransito: number }>;
 };
 
 export type AttributeValueWrite = {
@@ -540,13 +543,21 @@ export class ProductService {
    * acá, autenticado. Misma suma que `withStock`: todas las variantes y almacenes de cada producto. */
   async stockSummary(productIds: string[]): Promise<Record<string, StockProducto>> {
     const result: Record<string, StockProducto> = {};
-    for (const id of productIds) result[id] = { disponible: 0, reservado: 0, variantes: {} };
+    for (const id of productIds) result[id] = { disponible: 0, reservado: 0, disponibleTransito: 0, variantes: {} };
     if (productIds.length === 0) return result;
 
     const rows = await this.prisma.stock.findMany({
       where: { variante: { productId: { in: productIds } } },
-      select: { varianteId: true, cantidadFisica: true, cantidadReservada: true, variante: { select: { productId: true } } },
+      select: {
+        varianteId: true,
+        cantidadFisica: true,
+        cantidadReservada: true,
+        cantidadReservadaTransito: true,
+        variante: { select: { productId: true } },
+      },
     });
+    // Reservado de tránsito por variante: lo apartado por ventas (en Stock) + lo ligado a notas (en las compras).
+    const reservadoTransito = new Map<string, number>();
     for (const row of rows) {
       const entry = result[row.variante.productId];
       if (!entry) continue;
@@ -554,9 +565,28 @@ export class ProductService {
       entry.disponible += disponible;
       entry.reservado += row.cantidadReservada;
       // También por variante: la tabla muestra el stock de la variante elegida en cada fila.
-      const v = (entry.variantes[row.varianteId] ??= { disponible: 0, reservado: 0 });
+      const v = (entry.variantes[row.varianteId] ??= { disponible: 0, reservado: 0, disponibleTransito: 0 });
       v.disponible += disponible;
       v.reservado += row.cantidadReservada;
+      reservadoTransito.set(row.varianteId, (reservadoTransito.get(row.varianteId) ?? 0) + row.cantidadReservadaTransito);
+    }
+
+    const variantes = await this.prisma.productVariant.findMany({ where: { productId: { in: productIds } }, select: { id: true, productId: true } });
+    const productoDe = new Map(variantes.map((v) => [v.id, v.productId]));
+    const enTransito = new Map<string, { total: number; ligado: number }>();
+    for (const t of await transitoCompras(this.prisma, { varianteIds: variantes.map((v) => v.id) })) {
+      const acc = enTransito.get(t.varianteId) ?? { total: 0, ligado: 0 };
+      acc.total += t.total;
+      acc.ligado += t.ligado;
+      enTransito.set(t.varianteId, acc);
+    }
+    for (const [varianteId, t] of enTransito) {
+      const entry = result[productoDe.get(varianteId) ?? ""];
+      if (!entry) continue;
+      const libre = Math.max(0, t.total - t.ligado - (reservadoTransito.get(varianteId) ?? 0));
+      entry.disponibleTransito += libre;
+      const v = (entry.variantes[varianteId] ??= { disponible: 0, reservado: 0, disponibleTransito: 0 });
+      v.disponibleTransito += libre;
     }
     return result;
   }

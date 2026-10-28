@@ -413,6 +413,9 @@ export class ProformaApprovalService {
           }
 
           if (lock.tipo === TipoProforma.VENTA) {
+            if ((await tx.entregaVenta.count({ where: { proformaDetalle: { proformaId: id } } })) > 0) {
+              throw new ConflictException("No se puede anular: ya se entregaron productos de esta nota. Deshacé las entregas primero.");
+            }
             await this.liberarReservas(tx, id);
             await this.revertirPagos(tx, id, usuarioId, nota);
             await tx.cuentaPorCobrar.deleteMany({ where: { proformaId: id } });

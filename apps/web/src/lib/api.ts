@@ -2,6 +2,7 @@ import { clearSession } from "./auth";
 import type {
   Almacen,
   AprobarProformaInput,
+  EntregarVentaInput,
   Brand,
   BrandImportReport,
   BrandNormalizeCasePreviewRow,
@@ -820,7 +821,9 @@ export function getProducts(query: { categoryId?: string; brandId?: string; sear
 export type ProductStock = {
   disponible: number;
   reservado: number;
-  variantes: Record<string, { disponible: number; reservado: number }>;
+  /** Lo que viaja y todavía no está apartado ni ligado a una nota. */
+  disponibleTransito: number;
+  variantes: Record<string, { disponible: number; reservado: number; disponibleTransito: number }>;
 };
 
 /** La tabla de Productos lista vía /catalog/products (público, sin cantidades — ver Product.hasStock
@@ -954,6 +957,14 @@ export function getPagosProforma(id: string) {
 
 export function registrarPagoProforma(id: string, data: { carteraId: string; monto: number; nota?: string }) {
   return apiPost<PagosVenta>(`/proformas/${id}/pagos`, data);
+}
+
+export function entregarVenta(id: string, data: EntregarVentaInput) {
+  return apiPost<Proforma>(`/proformas/${id}/entregar`, data);
+}
+
+export function deshacerEntregaVenta(id: string, entregaId: string) {
+  return apiDelete<Proforma>(`/proformas/${id}/entregas/${entregaId}`);
 }
 
 export function createProforma(data: ProformaInput) {

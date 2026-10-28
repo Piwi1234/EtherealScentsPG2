@@ -31,17 +31,31 @@ export function EntregaBadge({ proforma }: { proforma: Proforma }) {
     }
   }
 
+  const entregadas = proforma.detalles.reduce((n, d) => n + (d.entregas ?? []).reduce((m, e) => m + e.cantidad, 0), 0);
+  const parcial =
+    entregadas > 0 ? (
+      <span className="badge badge-comprado entrega-badge" title="Unidades ya entregadas al cliente (entregas parciales).">
+        Entregado · {entregadas}
+      </span>
+    ) : null;
+
   if (pendientes === 0 || !peor) {
     return (
-      <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">
-        Lista para completar
-      </span>
+      <>
+        <span className="badge badge-lista entrega-badge" title="Todo está reservado en stock físico: se puede completar.">
+          Lista para completar
+        </span>
+        {parcial}
+      </>
     );
   }
   const info = INFO[peor];
   return (
-    <span className={`${info.clase} entrega-badge`} title={info.ayuda}>
-      {info.label} · {pendientes}
-    </span>
+    <>
+      <span className={`${info.clase} entrega-badge`} title={info.ayuda}>
+        {info.label} · {pendientes}
+      </span>
+      {parcial}
+    </>
   );
 }

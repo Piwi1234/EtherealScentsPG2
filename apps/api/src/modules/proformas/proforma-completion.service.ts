@@ -49,17 +49,17 @@ export class ProformaCompletionService {
           } else {
             if (!lock.almacenId) throw new ConflictException("La proforma no tiene almacén asignado (debería haberse fijado al aprobar).");
             await this.assertSinProcuraPendiente(tx, id);
-            if (!dto.asignaciones || dto.asignaciones.length === 0) {
+            // Lo ya entregado (entregas parciales) no vuelve a repartirse: solo hace falta repartir lo que sigue reservado.
+            const pendientesStock = await tx.proformaDetalleAsignacion.count({
+              where: { origen: OrigenAsignacion.STOCK, cantidad: { gt: 0 }, proformaDetalle: { proformaId: id } },
+            });
+            if (pendientesStock > 0 && (!dto.asignaciones || dto.asignaciones.length === 0)) {
               throw new BadRequestException("Falta el reparto de lotes (asignaciones) para completar la venta.");
             }
-            await this.completarVenta(tx, id, lock.almacenId, dto.asignaciones);
+            await this.completarVenta(tx, id, lock.almacenId, dto.asignaciones ?? []);
           }
 
-          await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.COMPLETADA } });
-          await this.historial.registrar(tx, id, EstadoProforma.COMPLETADA, usuarioId);
-          if (lock.tipo === TipoProforma.VENTA) {
-            await this.crearCuentaPorCobrarSiCorresponde(tx, id);
-          }
+          await this.finalizarVenta(tx, id, usuarioId, lock.tipo === TipoProforma.VENTA);
         },
         { timeout: 15000, maxWait: 5000 },
       );
@@ -67,6 +67,14 @@ export class ProformaCompletionService {
       rethrowPrismaError(error, "Proforma");
     }
     return this.proformas.findOne(id);
+  }
+
+  /** Cierra la nota: pasa a COMPLETADA, deja el historial y asegura su cuenta por cobrar. También la usa la entrega
+   * parcial cuando la última unidad sale (ver proforma-entrega.service.ts). */
+  async finalizarVenta(tx: Prisma.TransactionClient, id: string, usuarioId: string, esVenta: boolean, nota?: string) {
+    await tx.proforma.update({ where: { id }, data: { estado: EstadoProforma.COMPLETADA } });
+    await this.historial.registrar(tx, id, EstadoProforma.COMPLETADA, usuarioId, nota);
+    if (esVenta) await this.crearCuentaPorCobrarSiCorresponde(tx, id);
   }
 
   private async assertSinProcuraPendiente(tx: Prisma.TransactionClient, proformaId: string) {
