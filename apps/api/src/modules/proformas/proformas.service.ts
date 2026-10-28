@@ -7,6 +7,7 @@ import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
 import { generateUniqueEntityCode } from "../../catalog/entity-code";
 import { ProformaHistorialService } from "./proforma-historial.service";
+import { recalcularDescuentoGeneral } from "./proforma-totales.util";
 import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace } from "./recojo.util";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
@@ -236,7 +237,6 @@ export class ProformasService {
     } else {
       if (dto.clienteId) throw new BadRequestException("clienteId no aplica a una proforma de compra.");
       if (dto.ciudadEntregaId) throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
-      if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
       if (dto.proveedorId) await this.assertProveedorExists(dto.proveedorId);
     }
@@ -279,7 +279,6 @@ export class ProformasService {
             tipoCambioProf,
             proveedorId: dto.tipo === TipoProforma.COMPRA ? dto.proveedorId : undefined,
             creadoPorId,
-            descuentoGeneral: dto.descuentoGeneral ?? 0,
             adelantoPorcentaje: dto.adelantoPorcentaje,
           },
         });
@@ -314,7 +313,6 @@ export class ProformasService {
       if (dto.ciudadEntregaId !== undefined) {
         throw new BadRequestException("ciudadEntregaId no aplica a una proforma de compra.");
       }
-      if (dto.descuentoGeneral) throw new BadRequestException("descuentoGeneral no aplica a una proforma de compra.");
       if (dto.adelantoPorcentaje) throw new BadRequestException("adelantoPorcentaje no aplica a una proforma de compra.");
     }
     if (dto.empresaId) await this.assertEmpresaExists(dto.empresaId);
@@ -373,9 +371,12 @@ export class ProformasService {
     if (existente) {
       const nuevaCantidad = existente.cantidad + cantidad;
       try {
-        await this.prisma.proformaDetalle.update({
-          where: { id: existente.id },
-          data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * Number(existente.precioUnitario) },
+        await this.prisma.$transaction(async (tx) => {
+          await tx.proformaDetalle.update({
+            where: { id: existente.id },
+            data: { cantidad: nuevaCantidad, subtotal: nuevaCantidad * Number(existente.precioUnitario) },
+          });
+          await recalcularDescuentoGeneral(tx, id);
         });
         return this.findOne(id);
       } catch (error) {
@@ -464,7 +465,11 @@ export class ProformasService {
 
     if (proforma.tipo === TipoProforma.VENTA) {
       const precioUnitario = dto.precioUnitario ?? Number(detalle.precioUnitario);
-      data = { cantidad, precioUnitario, subtotal: cantidad * precioUnitario };
+      const descuentoUnitario = dto.descuentoUnitario ?? Number(detalle.descuentoUnitario);
+      if (descuentoUnitario > precioUnitario) {
+        throw new BadRequestException("El descuento unitario no puede superar el precio unitario.");
+      }
+      data = { cantidad, precioUnitario, descuentoUnitario, subtotal: cantidad * precioUnitario };
     } else {
       const precioCompra = dto.precioCompra ?? Number(detalle.precioCompra);
       const costoEnvio = dto.costoEnvio ?? Number(detalle.costoEnvio);
@@ -488,6 +493,7 @@ export class ProformasService {
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.proformaDetalle.update({ where: { id: detalleId }, data });
+        if (proforma.tipo === TipoProforma.VENTA) await recalcularDescuentoGeneral(tx, id);
         // Si la cantidad baja por debajo de lo ligado a notas de venta, se sueltan los vínculos sobrantes.
         if (proforma.tipo === TipoProforma.COMPRA && dto.cantidad !== undefined) {
           // Primero se sueltan las solicitudes de stock (las ventas tienen prioridad), luego los faltantes.
@@ -548,7 +554,10 @@ export class ProformasService {
       throw new NotFoundException("Línea no encontrada.");
     }
     try {
-      await this.prisma.proformaDetalle.delete({ where: { id: detalleId } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proformaDetalle.delete({ where: { id: detalleId } });
+        if (proforma.tipo === TipoProforma.VENTA) await recalcularDescuentoGeneral(tx, id);
+      });
     } catch (error) {
       rethrowPrismaError(error, "Línea de proforma");
     }

@@ -7,6 +7,7 @@ import { AjustarVentaDto } from "./dto/ajustar-venta.dto";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { totalPagado } from "./proforma-pagos.service";
+import { sumarDescuentos } from "./proforma-totales.util";
 import { lockStockRows, stockKey } from "./stock-lock.util";
 import { recalcularTransitoLinea } from "./transito.util";
 
@@ -65,9 +66,9 @@ export class ProformaAjusteService {
           if (quedan.length === 0) throw new ConflictException("Con esos cambios la nota queda sin productos: anulala en vez de ajustarla.");
 
           // --- Nuevo total y cuánto hay que devolver ---
+          // El descuento es por unidad: cada línea que baja devuelve su precio menos su descuento.
           const subtotalNuevo = quedan.reduce((n, d) => n + (cambios.get(d.id) ?? d.cantidad) * Number(d.precioUnitario ?? 0), 0);
-          const descuentoActual = Number(proforma.descuentoGeneral);
-          const descuentoNuevo = Math.min(descuentoActual, subtotalNuevo); // el descuento nunca supera el subtotal
+          const descuentoNuevo = sumarDescuentos(quedan.map((d) => ({ cantidad: cambios.get(d.id) ?? d.cantidad, descuentoUnitario: d.descuentoUnitario })));
           const total = redondear(subtotalNuevo - descuentoNuevo);
           const pagado = await totalPagado(tx, id);
           const exceso = Math.max(0, redondear(pagado - total));
@@ -145,7 +146,7 @@ export class ProformaAjusteService {
             where: { proformaId: id },
             data: { montoTotal: total, montoAdeudado: adeudado, estado: adeudado <= 0 ? EstadoCuentaPorCobrar.COMPLETADO : EstadoCuentaPorCobrar.PENDIENTE },
           });
-          if (descuentoNuevo !== descuentoActual) await tx.proforma.update({ where: { id }, data: { descuentoGeneral: descuentoNuevo } });
+          await tx.proforma.update({ where: { id }, data: { descuentoGeneral: descuentoNuevo } });
 
           // Lo que estaba ligado a una compra deja de cubrir esas unidades: el tránsito libre se recalcula.
           for (const compraDetalleId of comprasAfectadas) await recalcularTransitoLinea(tx, compraDetalleId);

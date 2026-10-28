@@ -745,6 +745,8 @@ export type ProformaDetalle = {
   presentacionVenta: PresentacionVenta | null;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
+  /** VENTA: descuento por unidad (Bs). El descuento total de la nota es la suma de cantidad × este valor. */
+  descuentoUnitario: string;
   /** COMPRA: capturados por línea, no heredados del catálogo. */
   precioCompra: string | null;
   costoEnvio: string | null;
@@ -881,7 +883,6 @@ export type ProformaInput = {
   clienteId?: string;
   ciudadEntregaId?: string;
   tipoCambioProf?: number;
-  descuentoGeneral?: number;
   adelantoPorcentaje?: number;
 };
 
@@ -908,6 +909,7 @@ export type DetalleCompraInput = {
 export type UpdateDetalleInput = {
   cantidad?: number;
   precioUnitario?: number;
+  descuentoUnitario?: number;
   precioCompra?: number;
   costoEnvio?: number;
   costoSeguridad?: number;

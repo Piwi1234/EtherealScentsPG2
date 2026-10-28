@@ -54,17 +54,18 @@ export function ProformaTotales({ proforma, editable }: { proforma: Proforma; ed
   const subtotal = proforma.detalles.reduce((sum, d) => sum + Number(d.subtotal), 0);
   const esVenta = proforma.tipo === "VENTA";
 
-  const [descuentoGeneral, setDescuentoGeneral] = useState(proforma.descuentoGeneral);
+  // Lo calcula el servidor (suma de cantidad × descuento unitario) y se refresca tras cada cambio de línea.
+  const descuentoTotal = esVenta ? Number(proforma.descuentoGeneral) || 0 : 0;
   const [adelantoPorcentaje, setAdelantoPorcentaje] = useState(proforma.adelantoPorcentaje ?? "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const total = esVenta ? subtotal - (Number(descuentoGeneral) || 0) : subtotal;
+  const total = esVenta ? subtotal - descuentoTotal : subtotal;
   const porcentaje = esVenta ? Number(adelantoPorcentaje) || 0 : 0;
   const montoAdelanto = total * (porcentaje / 100);
   const saldo = total - montoAdelanto;
 
-  async function commit(field: "descuentoGeneral" | "adelantoPorcentaje", raw: string) {
+  async function commit(field: "adelantoPorcentaje", raw: string) {
     const value = Number(raw);
     if (Number.isNaN(value)) return;
     setError("");
@@ -95,22 +96,9 @@ export function ProformaTotales({ proforma, editable }: { proforma: Proforma; ed
         <span>{money(subtotal, prefix)}</span>
       </Row>
 
-      <Row label="Descuento general">
-        {editable ? (
-          <input
-            className="field"
-            type="number"
-            min={0}
-            step="0.01"
-            defaultValue={descuentoGeneral}
-            onChange={(e) => setDescuentoGeneral(e.target.value)}
-            onBlur={(e) => commit("descuentoGeneral", e.target.value)}
-            disabled={submitting}
-            style={{ width: 100, textAlign: "right" }}
-          />
-        ) : (
-          <span>{money(Number(descuentoGeneral), prefix)}</span>
-        )}
+      {/* Suma automática de los descuentos unitarios de las líneas: no se edita acá. */}
+      <Row label="Descuento total">
+        <span>{money(descuentoTotal, prefix)}</span>
       </Row>
 
       <Row label="Total" strong border>

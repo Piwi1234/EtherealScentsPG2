@@ -40,7 +40,8 @@ export function AjustarVentaModal({
   }, [proforma.id]);
 
   const subtotalNuevo = proforma.detalles.reduce((n, d) => n + (nuevas[d.id] ?? d.cantidad) * Number(d.precioUnitario ?? 0), 0);
-  const descuento = Math.min(Number(proforma.descuentoGeneral), subtotalNuevo);
+  // Descuento por unidad: lo que se quita devuelve su precio menos su descuento.
+  const descuento = proforma.detalles.reduce((n, d) => n + (nuevas[d.id] ?? d.cantidad) * Number(d.descuentoUnitario || 0), 0);
   const totalNuevo = Math.round((subtotalNuevo - descuento) * 100) / 100;
   const cobrado = pagos?.pagado ?? 0;
   const exceso = Math.max(0, Math.round((cobrado - totalNuevo) * 100) / 100);
@@ -88,7 +89,8 @@ export function AjustarVentaModal({
               <th className="num">Cantidad actual</th>
               <th className="num">Cantidad nueva</th>
               <th className="num">Precio Bs</th>
-              <th className="num">Subtotal nuevo Bs</th>
+              <th className="num">Desc. unit. Bs</th>
+              <th className="num">Subtotal nuevo Bs (con desc.)</th>
             </tr>
           </thead>
           <tbody>
@@ -131,7 +133,8 @@ export function AjustarVentaModal({
                     </div>
                   </td>
                   <td className="num cell-muted">{Number(d.precioUnitario ?? 0).toFixed(2)}</td>
-                  <td className="num">{(nueva * Number(d.precioUnitario ?? 0)).toFixed(2)}</td>
+                  <td className="num cell-muted">{Number(d.descuentoUnitario || 0).toFixed(2)}</td>
+                  <td className="num">{(nueva * (Number(d.precioUnitario ?? 0) - Number(d.descuentoUnitario || 0))).toFixed(2)}</td>
                 </tr>
               );
             })}

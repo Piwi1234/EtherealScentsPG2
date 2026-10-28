@@ -18,6 +18,12 @@ export class UpdateDetalleDto {
   @Min(0)
   precioUnitario?: number;
 
+  @ApiPropertyOptional({ description: "Solo VENTA: descuento por unidad (Bs); no puede superar el precio unitario." })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  descuentoUnitario?: number;
+
   @ApiPropertyOptional({ description: "Solo COMPRA." })
   @IsOptional()
   @IsNumber()

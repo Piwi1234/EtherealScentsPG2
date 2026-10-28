@@ -1,5 +1,18 @@
 import { Prisma } from "@app/database";
 
+/** Descuento total de una nota de venta: suma de cantidad × descuento unitario de cada línea. */
+export function sumarDescuentos(detalles: { cantidad: number; descuentoUnitario: Prisma.Decimal | number }[]): number {
+  return Math.round(detalles.reduce((n, d) => n + d.cantidad * Number(d.descuentoUnitario), 0) * 100) / 100;
+}
+
+/** Deja Proforma.descuentoGeneral igual a la suma de los descuentos de sus líneas (no se edita a mano). */
+export async function recalcularDescuentoGeneral(tx: Prisma.TransactionClient, proformaId: string): Promise<number> {
+  const detalles = await tx.proformaDetalle.findMany({ where: { proformaId }, select: { cantidad: true, descuentoUnitario: true } });
+  const descuentoGeneral = sumarDescuentos(detalles);
+  await tx.proforma.update({ where: { id: proformaId }, data: { descuentoGeneral } });
+  return descuentoGeneral;
+}
+
 /** Mismo cálculo que ProformaTotales.tsx (frontend) — nada se persiste server-side salvo el
  * adelanto (al aprobar) y el saldo pendiente (al completar, ver CuentaPorCobrar), así que se
  * replica acá. Redondeado a 2 decimales (Decimal(14,2) de MovimientoCartera.monto /
