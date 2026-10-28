@@ -2,7 +2,7 @@ import { EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database
 import { PrismaService } from "../../common/prisma.service";
 
 /**
- * Lo que viaja por compra aprobada, por variante y almacén destino: recogido − recibido de cada línea (`total`), y de
+ * Lo que viaja por compra aprobada, por variante y almacén destino: lo que va en envíos despachados (EN_TRANSITO) y todavía no llegó, por línea (`total`), y de
  * eso, lo que ya está ligado a notas de venta (`ligado`, nunca más que lo que viaja). Es lo mismo que
  * recalcularTransitoLinea descuenta de Stock.cantidadEnTransito, pero acá se cuenta completo (Stock.cantidadEnTransito
  * solo lleva lo libre). Disponible en tránsito = total − ligado − Stock.cantidadReservadaTransito.
@@ -20,8 +20,7 @@ export async function transitoCompras(
     select: {
       varianteId: true,
       proforma: { select: { almacenId: true } },
-      recojoLineas: { select: { cantidad: true } },
-      envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } },
+      envioItems: { where: { envio: { estado: EstadoEnvio.EN_TRANSITO } }, select: { cantidad: true, cantidadRecibida: true } },
       asignacionesCubiertas: { select: { cantidad: true } },
     },
   });
@@ -29,7 +28,7 @@ export async function transitoCompras(
   for (const l of lineas) {
     const almacenId = l.proforma.almacenId;
     if (!almacenId) continue;
-    const total = Math.max(0, l.recojoLineas.reduce((n, r) => n + r.cantidad, 0) - l.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0));
+    const total = l.envioItems.reduce((n, i) => n + Math.max(0, i.cantidad - i.cantidadRecibida), 0);
     if (total === 0) continue;
     const ligado = Math.min(total, l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0));
     const key = `${l.varianteId}|${almacenId}`;

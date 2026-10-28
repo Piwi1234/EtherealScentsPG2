@@ -319,8 +319,9 @@ export class EnviosService {
             }
           }
 
-          // El stock en tránsito ya se contó al recoger: salir en un envío no lo cambia.
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.EN_TRANSITO, fechaEnvio: new Date() } });
+          // Recién ahora lo del envío viaja: cuenta como stock en tránsito (y las ventas ligadas lo reflejan).
+          for (const i of items) await recalcularTransitoLinea(tx, i.compraDetalleId);
         },
         { timeout: 20000, maxWait: 5000 },
       );
@@ -340,7 +341,10 @@ export class EnviosService {
             throw new ConflictException("El envío ya recibió mercadería: no se puede anular. Cerralo para dar por no llegado lo que falta.");
           }
 
+          const items = await tx.envioItem.findMany({ where: { envioId: id }, select: { compraDetalleId: true } });
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.ANULADO } });
+          // Un envío anulado ya no viaja: lo que estaba en tránsito deja de contar.
+          for (const i of items) await recalcularTransitoLinea(tx, i.compraDetalleId);
         },
         { timeout: 20000, maxWait: 5000 },
       );
@@ -528,13 +532,15 @@ export class EnviosService {
           }
           const items = await tx.envioItem.findMany({
             where: { envioId: id },
-            select: { id: true, cantidad: true, cantidadRecibida: true },
+            select: { id: true, compraDetalleId: true, cantidad: true, cantidadRecibida: true },
           });
           for (const item of items) {
             if (item.cantidadRecibida === 0) await tx.envioItem.delete({ where: { id: item.id } });
             else await tx.envioItem.update({ where: { id: item.id }, data: { cantidad: item.cantidadRecibida } });
           }
           await tx.envio.update({ where: { id }, data: { estado: EstadoEnvio.RECIBIDO, fechaRecepcion: new Date() } });
+          // Lo que no llegó deja de viajar: sale del tránsito (vuelve a estar por enviar).
+          for (const item of items) await recalcularTransitoLinea(tx, item.compraDetalleId);
         },
         { timeout: 20000, maxWait: 5000 },
       );

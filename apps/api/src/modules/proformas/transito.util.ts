@@ -177,17 +177,18 @@ export async function liquidarTransito(
 }
 
 /**
- * Lo que una línea de compra aporta al stock en tránsito: lo recogido que todavía no llegó y que NO está ligado a
- * una venta ni a una solicitud (esas unidades ya tienen dueño y absorben primero lo que viaja).
+ * Lo que una línea de compra aporta al stock en tránsito: lo que va en envíos ya despachados (EN_TRANSITO) y todavía no
+ * llegó, y que NO está ligado a una venta ni a una solicitud (esas unidades ya tienen dueño y absorben primero lo que
+ * viaja). Lo recogido que sigue en un envío "Armando" o sin envío todavía no viaja y no cuenta.
  */
-export function aporteEnTransito(params: { recogido: number; recibido: number; ligadas: number }): number {
-  return Math.max(0, params.recogido - params.recibido - params.ligadas);
+export function aporteEnTransito(params: { viaja: number; ligadas: number }): number {
+  return Math.max(0, params.viaja - params.ligadas);
 }
 
 /**
  * Recalcula cuánto aporta al stock en tránsito una línea de compra y ajusta por la diferencia contra lo que ya
  * había aportado (ProformaDetalle.enTransitoContado), en el almacén destino de la compra. Se llama cuando cambia
- * lo recogido, lo recibido o lo ligado a ventas/solicitudes. Con `convertirAFisico` (recepción de un envío) las
+ * lo que viaja (un envío sale, se anula, se cierra o recibe) o lo ligado a ventas/solicitudes. Con `convertirAFisico` (recepción de un envío) las
  * ventas con reserva en tránsito pasan a reservar el stock físico que acaba de llegar; si no, lo que ya no tiene
  * de dónde salir vuelve a Procura.
  */
@@ -203,8 +204,7 @@ export async function recalcularTransitoLinea(
       enTransitoContado: true,
       enTransitoAlmacenId: true,
       proforma: { select: { estado: true, almacenId: true } },
-      recojoLineas: { select: { cantidad: true } },
-      envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } },
+      envioItems: { where: { envio: { estado: EstadoEnvio.EN_TRANSITO } }, select: { cantidad: true, cantidadRecibida: true } },
       asignacionesCubiertas: { select: { cantidad: true } },
       solicitudesCubiertas: { select: { cantidad: true, cantidadRecibida: true } },
     },
@@ -213,12 +213,11 @@ export async function recalcularTransitoLinea(
 
   const almacenId = linea.proforma.almacenId;
   const activa = linea.proforma.estado === EstadoProforma.APROBADA && Boolean(almacenId);
-  const recogido = linea.recojoLineas.reduce((n, r) => n + r.cantidad, 0);
-  const recibido = linea.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0);
+  const viaja = linea.envioItems.reduce((n, i) => n + Math.max(0, i.cantidad - i.cantidadRecibida), 0);
   const ligadas =
     linea.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0) +
     linea.solicitudesCubiertas.reduce((n, s) => n + Math.max(0, s.cantidad - s.cantidadRecibida), 0);
-  const deseado = activa ? aporteEnTransito({ recogido, recibido, ligadas }) : 0;
+  const deseado = activa ? aporteEnTransito({ viaja, ligadas }) : 0;
 
   const pares = new Map<string, { varianteId: string; almacenId: string }>();
   if (linea.enTransitoAlmacenId) pares.set(linea.enTransitoAlmacenId, { varianteId: linea.varianteId, almacenId: linea.enTransitoAlmacenId });
