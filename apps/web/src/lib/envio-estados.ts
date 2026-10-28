@@ -7,10 +7,10 @@ export const ESTADO_ENVIO_LABEL: Record<EstadoEnvio, string> = {
   ANULADO: "Anulado",
 };
 
-/** Clases de .badge ya existentes (badge-accent = activo/positivo, badge-muted = neutro/terminal). */
+/** Clases de .badge ya existentes (badge-enviado = azul, badge-success = verde, badge-muted = neutro/terminal). */
 export const ESTADO_ENVIO_CLASE: Record<EstadoEnvio, string> = {
   ARMANDO: "badge-muted",
-  EN_TRANSITO: "badge-accent",
-  RECIBIDO: "badge-accent",
+  EN_TRANSITO: "badge-enviado",
+  RECIBIDO: "badge-success",
   ANULADO: "badge-muted",
 };
