@@ -4,6 +4,7 @@ import { Prisma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
+import { transitoCompras } from "./transito-compras.util";
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E6F7" } };
 
@@ -23,6 +24,7 @@ const varianteProductInclude = {
 const stockInclude = {
   variante: {
     select: {
+      id: true,
       unidad: true,
       purchasePrice: true,
       utility: true,
@@ -124,39 +126,76 @@ export class StockExportService {
     private readonly settings: SettingsService,
   ) {}
 
-  /** Existencias: Almacén, Marca, Producto, atributos de tarjeta, Precio final Bs, Stock. Todas las
-   * existencias con stock físico > 0, sin filtrar por almacén. */
+  /** Existencias: Almacén, Marca, Producto, atributos de tarjeta, Precio final Bs, Disponible y Disponible en tránsito.
+   * Disponible = físico − reservado; Disponible en tránsito = lo que viaja y todavía no está apartado ni ligado a una nota
+   * (ver transito-compras.util.ts). Solo los productos con algo disponible (en el almacén o viajando), sin filtrar por almacén. */
   async buildExistenciasExport(): Promise<Buffer> {
-    const [rows, exchangeRate] = await Promise.all([
+    const [stockRows, transito, exchangeRate] = await Promise.all([
       this.prisma.stock.findMany({
-        where: { cantidadFisica: { gt: 0 } },
+        where: { OR: [{ cantidadFisica: { gt: 0 } }, { cantidadEnTransito: { gt: 0 } }, { cantidadReservadaTransito: { gt: 0 } }] },
         orderBy: [{ variante: { product: { brand: { name: "asc" } } } }, { variante: { product: { name: "asc" } } }],
         include: stockInclude,
       }),
+      transitoCompras(this.prisma, {}),
       this.settings.getExchangeRate(),
     ]);
 
-    const entries: ExportEntry[] = rows.map((row) => {
-      const v = row.variante;
-      const priceUsd = computeCatalogPrice(v.purchasePrice, v.utility, v.product.category);
-      const { finalPriceBs } = computeBsPrices(priceUsd, v, exchangeRate);
-      return {
-        variante: v,
+    // Pares (variante, almacén) que solo existen por lo que viaja: no tienen fila de stock todavía.
+    const clave = (varianteId: string, almacenId: string) => `${varianteId}|${almacenId}`;
+    const conFila = new Set(stockRows.map((r) => clave(r.varianteId, r.almacenId)));
+    const soloTransito = transito.filter((t) => !conFila.has(clave(t.varianteId, t.almacenId)));
+    const [variantesExtra, almacenesExtra] = soloTransito.length
+      ? await Promise.all([
+          this.prisma.productVariant.findMany({ where: { id: { in: soloTransito.map((t) => t.varianteId) } }, select: stockInclude.variante.select }),
+          this.prisma.almacen.findMany({ where: { id: { in: soloTransito.map((t) => t.almacenId) } }, select: { id: true, nombre: true } }),
+        ])
+      : [[], []];
+    const varianteExtraPorId = new Map(variantesExtra.map((v) => [v.id, v]));
+    const almacenExtraPorId = new Map(almacenesExtra.map((a) => [a.id, a.nombre]));
+    const transitoPorPar = new Map(transito.map((t) => [clave(t.varianteId, t.almacenId), t]));
+
+    const filas: { variante: StockRow["variante"]; almacen: string; disponible: number; disponibleTransito: number }[] = [];
+    for (const row of stockRows) {
+      const t = transitoPorPar.get(clave(row.varianteId, row.almacenId));
+      filas.push({
+        variante: row.variante,
         almacen: row.almacen.nombre,
-        extras: {
-          precio: finalPriceBs,
-          stock: v.unidad === "ML" ? `${row.cantidadFisica} ml` : row.cantidadFisica,
-        },
-      };
-    });
+        disponible: row.cantidadFisica - row.cantidadReservada,
+        disponibleTransito: Math.max(0, (t?.total ?? 0) - (t?.ligado ?? 0) - row.cantidadReservadaTransito),
+      });
+    }
+    for (const t of soloTransito) {
+      const variante = varianteExtraPorId.get(t.varianteId);
+      if (!variante) continue;
+      filas.push({ variante, almacen: almacenExtraPorId.get(t.almacenId) ?? "—", disponible: 0, disponibleTransito: Math.max(0, t.total - t.ligado) });
+    }
+
+    const entries: ExportEntry[] = filas
+      .filter((f) => f.disponible > 0 || f.disponibleTransito > 0)
+      .map((f) => {
+        const v = f.variante;
+        const priceUsd = computeCatalogPrice(v.purchasePrice, v.utility, v.product.category);
+        const { finalPriceBs } = computeBsPrices(priceUsd, v, exchangeRate);
+        const cantidad = (n: number) => (v.unidad === "ML" ? `${n} ml` : n);
+        return {
+          variante: v,
+          almacen: f.almacen,
+          extras: {
+            precio: finalPriceBs,
+            disponible: cantidad(f.disponible),
+            disponibleTransito: cantidad(f.disponibleTransito),
+          },
+        };
+      });
 
     return this.buildWorkbook(
       entries,
       [
         { header: "Precio final Bs", key: "precio", width: 16, numFmt: "#,##0.00" },
-        { header: "Stock", key: "stock", width: 12 },
+        { header: "Disponible", key: "disponible", width: 13 },
+        { header: "Disponible en tránsito", key: "disponibleTransito", width: 22 },
       ],
-      "Sin existencias con stock físico mayor a 0.",
+      "Sin existencias disponibles ni disponibles en tránsito.",
     );
   }
 

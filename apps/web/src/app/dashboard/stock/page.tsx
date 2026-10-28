@@ -360,7 +360,7 @@ export default function StockPage() {
             <div className="dash-kpi">
               <span className="dash-kpi-label">En tránsito</span>
               <span className="dash-kpi-value">{stockPage.indicadores.enTransito}</span>
-              <span className="dash-kpi-note">recogidas o enviadas, sin llegar</span>
+              <span className="dash-kpi-note">en envíos despachados, sin llegar</span>
             </div>
             <div className="dash-kpi">
               <span className="dash-kpi-label">Sin disponible</span>
