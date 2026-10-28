@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addLineaSolicitud, API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones } from "../../lib/api";
+import { addLineaSolicitud, API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones, getProductsStockSummary, type ProductStock } from "../../lib/api";
 import type {
   AttributeType,
   AttributeVariantMode,
@@ -107,6 +107,8 @@ export function AgregarProductoBrowser({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Lo disponible en tránsito por variante (no viene en /products): se pide aparte, igual que en la tabla de Productos.
+  const [stockByProduct, setStockByProduct] = useState<Record<string, ProductStock>>({});
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
   const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
@@ -158,7 +160,10 @@ export function AgregarProductoBrowser({
     if (brandId) params.set("brandId", brandId);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     apiGet<Page<Product>>(`/products?${params.toString()}`)
-      .then(setPage)
+      .then((result) => {
+        setPage(result);
+        return getProductsStockSummary(result.items.map((item) => item.id)).then(setStockByProduct);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -481,6 +486,7 @@ export function AgregarProductoBrowser({
                         <StockCell
                           disponible={selectedVariant?.stockDisponible ?? product.stockDisponible}
                           reservado={selectedVariant?.stockReservado ?? product.stockReservado}
+                          transito={(selectedVariant ? stockByProduct[product.id]?.variantes[selectedVariant.id]?.disponibleTransito : stockByProduct[product.id]?.disponibleTransito) ?? 0}
                         />
                       </td>
                       <td>
