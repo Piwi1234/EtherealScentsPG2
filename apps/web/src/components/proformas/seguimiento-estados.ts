@@ -13,9 +13,9 @@ export const LABELS_PEDIDO: Record<EstadoPedido, string> = {
 export const CLASES_PEDIDO: Record<EstadoPedido, string> = {
   SIN_COMPRA: "badge badge-muted",
   EN_PREPARACION: "badge badge-muted",
-  COMPRADO: "badge badge-accent",
-  RECOGIDO: "badge badge-info",
-  EN_TRANSITO: "badge badge-accent",
+  COMPRADO: "badge badge-comprado",
+  RECOGIDO: "badge badge-recogido",
+  EN_TRANSITO: "badge badge-enviado",
 };
 
 export const LABELS_STOCK: Record<"COMPRADO" | "RECOGIDO" | "EN_TRANSITO", string> = {

@@ -114,9 +114,9 @@ const ESTADO_PRODUCTO: Record<NonNullable<RegistroLinea["estadoLinea"]>["estado"
   SALIO: { label: "Salió de stock", clase: "badge badge-success" },
   EN_STOCK: { label: "En stock", clase: "badge badge-lista" },
   RECIBIDO: { label: "Recibido", clase: "badge badge-success" },
-  EN_TRANSITO: { label: "Enviado", clase: "badge badge-accent" },
-  RECOGIDO: { label: "Recogido", clase: "badge badge-info" },
-  COMPRADO: { label: "Comprado", clase: "badge badge-accent" },
+  EN_TRANSITO: { label: "Enviado", clase: "badge badge-enviado" },
+  RECOGIDO: { label: "Recogido", clase: "badge badge-recogido" },
+  COMPRADO: { label: "Comprado", clase: "badge badge-comprado" },
   EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted" },
   SIN_COMPRA: { label: "Sin compra", clase: "badge badge-warn" },
 };
@@ -150,9 +150,9 @@ function EntregaResumen({ entrega }: { entrega: NonNullable<RegistroLinea["profo
   const info: Record<EstadoPedido, { label: string; clase: string; ayuda: string }> = {
     SIN_COMPRA: { label: "Falta comprar", clase: "badge badge-warn", ayuda: "Hay productos sin stock y todavía sin compra." },
     EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted", ayuda: "La compra que los cubre todavía es un borrador." },
-    COMPRADO: { label: "Comprado", clase: "badge badge-accent", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
-    RECOGIDO: { label: "Recogido", clase: "badge badge-info", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
-    EN_TRANSITO: { label: "Enviado", clase: "badge badge-info", ayuda: "Lo que falta ya viaja en un envío." },
+    COMPRADO: { label: "Comprado", clase: "badge badge-comprado", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
+    RECOGIDO: { label: "Recogido", clase: "badge badge-recogido", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
+    EN_TRANSITO: { label: "Enviado", clase: "badge badge-enviado", ayuda: "Lo que falta ya viaja en un envío." },
   };
   const e = info[entrega.estado];
   return (
@@ -167,9 +167,9 @@ function AvanceCompra({ avance }: { avance: NonNullable<RegistroLinea["proforma"
   const { cantidad, recogido, enviado, recibido } = avance;
   if (recibido >= cantidad) return <span className="badge badge-success">Recibido</span>;
   if (recibido > 0) return <span className="badge badge-info">Recibido · {recibido} de {cantidad}</span>;
-  if (enviado > 0) return <span className="badge badge-accent">Enviado · {enviado} de {cantidad}</span>;
-  if (recogido > 0) return <span className="badge badge-info">Recogido · {recogido} de {cantidad}</span>;
-  return <span className="badge badge-accent">Comprado</span>;
+  if (enviado > 0) return <span className="badge badge-enviado">Enviado · {enviado} de {cantidad}</span>;
+  if (recogido > 0) return <span className="badge badge-recogido">Recogido · {recogido} de {cantidad}</span>;
+  return <span className="badge badge-comprado">Comprado</span>;
 }
 
 function atributosLabel(variante: RegistroLinea["variante"]): string | null {

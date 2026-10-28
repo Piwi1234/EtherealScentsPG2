@@ -5,9 +5,9 @@ const ORDEN: EstadoPedido[] = ["SIN_COMPRA", "EN_PREPARACION", "COMPRADO", "RECO
 const INFO: Record<EstadoPedido, { label: string; clase: string; ayuda: string }> = {
   SIN_COMPRA: { label: "Falta comprar", clase: "badge badge-warn", ayuda: "Hay productos sin stock y todavía sin compra." },
   EN_PREPARACION: { label: "Compra en preparación", clase: "badge badge-muted", ayuda: "La compra que los cubre todavía es un borrador." },
-  COMPRADO: { label: "Comprado", clase: "badge badge-accent", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
-  RECOGIDO: { label: "Recogido", clase: "badge badge-info", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
-  EN_TRANSITO: { label: "Enviado", clase: "badge badge-info", ayuda: "Lo que falta ya viaja en un envío." },
+  COMPRADO: { label: "Comprado", clase: "badge badge-comprado", ayuda: "Ya se compró lo que falta; todavía no se recogió." },
+  RECOGIDO: { label: "Recogido", clase: "badge badge-recogido", ayuda: "Ya se recogió lo que falta; todavía no se envió." },
+  EN_TRANSITO: { label: "Enviado", clase: "badge badge-enviado", ayuda: "Lo que falta ya viaja en un envío." },
 };
 
 /**
