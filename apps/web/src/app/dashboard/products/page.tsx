@@ -532,10 +532,9 @@ export default function ProductsPage() {
   const totalPages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
 
   // Con el filtro de ofertas, el servidor devuelve productos que tienen AL MENOS una variante en oferta: acá se ocultan
-  // las variantes que no cumplen, para que no aparezca una fila sin descuento ni temporizador (la Preventa no cuenta,
-  // igual que en el servidor).
+  // las variantes que no tienen descuento ni temporizador, y se muestran TODAS las que sí (cualquiera sea su estado: en el
+  // panel interesa ver cada variante con oferta, aunque esté en Preventa).
   function cumpleOferta(v: ProductVariant, ahora: number): boolean {
-    if (v.estado === "PREVENTA") return false;
     if (offerFilter === "discount") return Number(v.discountBs) > 0;
     if (offerFilter === "flash") return Boolean(v.ofertaFlashHasta) && new Date(v.ofertaFlashHasta!).getTime() > ahora;
     return true;
