@@ -469,15 +469,16 @@ export default function StockPage() {
               <table className="table table-minimal table-compact" style={{ tableLayout: "fixed", width: "100%", minWidth: 960 }}>
                 <thead>
                   <tr>
-                    <th style={{ width: "10%" }}>Marca</th>
-                    <th style={{ width: "40%" }}>Producto</th>
+                    <th style={{ width: "8%" }}>Marca</th>
+                    <th style={{ width: "36%" }}>Producto</th>
                     <th className="num" style={{ width: "7%" }}>Disponible</th>
                     <th className="num" style={{ width: "6%" }}>Física</th>
                     <th className="num" style={{ width: "7%" }}>Reservada</th>
                     <th className="num" style={{ width: "7%" }}>En tránsito</th>
-                    <th className="num" style={{ width: "9%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo apartado por ventas o ligado a notas">Reservado de tránsito</th>
-                    <th className="num" style={{ width: "8%" }}>Valor Bs</th>
-                    <th className="num" style={{ width: "6%" }}>Almacenes</th>
+                    <th className="num" style={{ width: "8%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo que todavía no está apartado ni ligado a ninguna nota">Disponible en tránsito</th>
+                    <th className="num" style={{ width: "8%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo apartado por ventas o ligado a notas">Reservado de tránsito</th>
+                    <th className="num" style={{ width: "7%" }}>Valor Bs</th>
+                    <th className="num" style={{ width: "6%" }} title="Almacenes con este producto">Alm.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -485,6 +486,7 @@ export default function StockPage() {
                     const etiqueta = atributosLabel(row);
                     const ml = row.variante.unidad === "ML" ? " ml" : "";
                     const total = Math.max(1, row.cantidadFisica + row.cantidadEnTransito);
+                    const disponibleTransito = Math.max(0, row.cantidadEnTransito - row.cantidadReservadaTransito);
                     return (
                       <tr key={row.varianteId} className="stock-row" onClick={() => abrirPanel(row)}>
                         <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
@@ -503,6 +505,9 @@ export default function StockPage() {
                         <td className="num">{row.cantidadFisica}{ml}</td>
                         <td className="num">{row.cantidadReservada}{ml}</td>
                         <td className="num">{row.cantidadEnTransito > 0 ? row.cantidadEnTransito : <span className="cell-muted">—</span>}</td>
+                        <td className="num">
+                          {disponibleTransito > 0 ? <strong>{disponibleTransito}</strong> : <span className="cell-muted">—</span>}
+                        </td>
                         <td className="num">
                           {row.cantidadReservadaTransito > 0 ? (
                             <span className="badge badge-info">{Math.min(row.cantidadReservadaTransito, row.cantidadEnTransito)}</span>

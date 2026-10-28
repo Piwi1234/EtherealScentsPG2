@@ -92,6 +92,7 @@ export function ExistenciaPanel({
                     <th className="num">Física</th>
                     <th className="num">Reserv.</th>
                     <th className="num">Tránsito</th>
+                    <th className="num" title="Lo que viaja y todavía no está apartado ni ligado a una nota">Trán. disp.</th>
                     <th className="num" title="De lo que viaja, lo apartado por ventas o ligado a notas">Trán. reserv.</th>
                     <th className="num">Disp.</th>
                     <th></th>
@@ -104,6 +105,9 @@ export function ExistenciaPanel({
                       <td className="num">{a.cantidadFisica}</td>
                       <td className="num">{a.cantidadReservada}</td>
                       <td className="num">{a.transitoTotal ?? a.cantidadEnTransito}</td>
+                      <td className="num">
+                        {Math.max(0, (a.transitoTotal ?? a.cantidadEnTransito) - (a.transitoReservado ?? a.cantidadReservadaTransito))}
+                      </td>
                       <td className="num">{a.transitoReservado ?? a.cantidadReservadaTransito}</td>
                       <td className="num cell-primary">{a.cantidadFisica - a.cantidadReservada}</td>
                       <td className="num">
