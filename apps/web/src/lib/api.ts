@@ -820,7 +820,9 @@ export function getProducts(query: { categoryId?: string; brandId?: string; sear
 export type ProductStock = {
   disponible: number;
   reservado: number;
-  variantes: Record<string, { disponible: number; reservado: number }>;
+  /** Lo que viaja y todavía no está apartado ni ligado a una nota. */
+  disponibleTransito: number;
+  variantes: Record<string, { disponible: number; reservado: number; disponibleTransito: number }>;
 };
 
 /** La tabla de Productos lista vía /catalog/products (público, sin cantidades — ver Product.hasStock

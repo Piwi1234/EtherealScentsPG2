@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { transitoCompras } from "./transito-compras.util";
 
 const stockInclude = {
   variante: {
@@ -108,42 +109,6 @@ export class StockService {
     return { items, total, page, pageSize };
   }
 
-  /**
-   * Lo que viaja por compra aprobada, por variante y almacén destino: recogido − recibido de cada línea (`total`), y
-   * de eso, lo que ya está ligado a notas de venta (`ligado`, nunca más que lo que viaja). Es lo mismo que
-   * recalcularTransitoLinea descuenta de Stock.cantidadEnTransito, pero acá se cuenta completo.
-   */
-  private async transitoCompras(opts: { almacenId?: string; varianteId?: string; varianteWhere?: Prisma.ProductVariantWhereInput }) {
-    const lineas = await this.prisma.proformaDetalle.findMany({
-      where: {
-        varianteId: opts.varianteId,
-        variante: opts.varianteWhere,
-        proforma: { tipo: TipoProforma.COMPRA, estado: EstadoProforma.APROBADA, almacenId: opts.almacenId ?? { not: null } },
-      },
-      select: {
-        varianteId: true,
-        proforma: { select: { almacenId: true } },
-        recojoLineas: { select: { cantidad: true } },
-        envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } },
-        asignacionesCubiertas: { select: { cantidad: true } },
-      },
-    });
-    const porPar = new Map<string, { varianteId: string; almacenId: string; total: number; ligado: number }>();
-    for (const l of lineas) {
-      const almacenId = l.proforma.almacenId;
-      if (!almacenId) continue;
-      const total = Math.max(0, l.recojoLineas.reduce((n, r) => n + r.cantidad, 0) - l.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0));
-      if (total === 0) continue;
-      const ligado = Math.min(total, l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0));
-      const key = `${l.varianteId}|${almacenId}`;
-      const acc = porPar.get(key) ?? { varianteId: l.varianteId, almacenId, total: 0, ligado: 0 };
-      acc.total += total;
-      acc.ligado += ligado;
-      porPar.set(key, acc);
-    }
-    return Array.from(porPar.values());
-  }
-
   async findLotes(query: {
     page?: string;
     pageSize?: string;
@@ -215,7 +180,7 @@ export class StockService {
     // Lo que viaja de verdad (recogido y no recibido), incluido lo ya ligado a notas: Stock.cantidadEnTransito solo
     // lleva lo libre, así que un producto con todo su tránsito ligado a notas no aparecía ni en la columna ni en la lista.
     const transitoPorVariante = new Map<string, { total: number; ligado: number }>();
-    for (const t of await this.transitoCompras({ almacenId: query.almacenId, varianteWhere })) {
+    for (const t of await transitoCompras(this.prisma, { almacenId: query.almacenId, varianteWhere })) {
       const acc = transitoPorVariante.get(t.varianteId) ?? { total: 0, ligado: 0 };
       acc.total += t.total;
       acc.ligado += t.ligado;
@@ -377,7 +342,7 @@ export class StockService {
       .filter((c) => c.pendiente > 0);
 
     // Tránsito por almacén destino: total que viaja y lo ya ligado a notas (los almacenes sin fila de stock se agregan en cero).
-    const transito = await this.transitoCompras({ varianteId });
+    const transito = await transitoCompras(this.prisma, { varianteId });
     const sinFila = transito.filter((t) => !almacenes.some((a) => a.almacenId === t.almacenId));
     const almacenesExtra = sinFila.length
       ? await this.prisma.almacen.findMany({ where: { id: { in: sinFila.map((t) => t.almacenId) } }, select: { id: true, nombre: true } })
