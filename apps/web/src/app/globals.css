@@ -10090,6 +10090,27 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   font-weight: 600;
 }
 
+.badge-comprado {
+  background: rgba(234, 179, 8, 0.16);
+  border-color: #d9a406;
+  color: #a87b00;
+  font-weight: 600;
+}
+
+.badge-enviado {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: #38a9e0;
+  color: #1b82b8;
+  font-weight: 600;
+}
+
+.badge-recogido {
+  background: rgba(52, 211, 153, 0.16);
+  border-color: #2fbf8f;
+  color: #178a64;
+  font-weight: 600;
+}
+
 .badge-lista {
   background: rgba(20, 150, 140, 0.12);
   border-color: #14968c;
@@ -10107,6 +10128,24 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   background: color-mix(in srgb, #5b95ff 14%, transparent);
   border-color: #5b95ff;
   color: #5b95ff;
+}
+
+.nocturne-theme .badge-comprado {
+  background: color-mix(in srgb, #facc15 14%, transparent);
+  border-color: #facc15;
+  color: #facc15;
+}
+
+.nocturne-theme .badge-enviado {
+  background: color-mix(in srgb, #7dd3fc 14%, transparent);
+  border-color: #7dd3fc;
+  color: #7dd3fc;
+}
+
+.nocturne-theme .badge-recogido {
+  background: color-mix(in srgb, #6ee7b7 14%, transparent);
+  border-color: #6ee7b7;
+  color: #6ee7b7;
 }
 
 .nocturne-theme .badge-lista {

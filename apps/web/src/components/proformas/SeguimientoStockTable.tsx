@@ -52,7 +52,7 @@ export function SeguimientoStockTable({ lineas }: { lineas: SeguimientoStockLine
                 </td>
                 <td className="num">{linea.cantidad}</td>
                 <td>
-                  <span className={`badge ${linea.estadoStock === "EN_TRANSITO" ? "badge-accent" : linea.estadoStock === "RECOGIDO" ? "badge-info" : "badge-muted"}`}>
+                  <span className={`badge ${linea.estadoStock === "EN_TRANSITO" ? "badge-enviado" : linea.estadoStock === "RECOGIDO" ? "badge-recogido" : "badge-muted"}`}>
                     {LABELS_STOCK[linea.estadoStock]}
                   </span>
                   {linea.estadoStock !== "EN_TRANSITO" && (
