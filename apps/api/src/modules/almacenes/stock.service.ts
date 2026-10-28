@@ -108,6 +108,42 @@ export class StockService {
     return { items, total, page, pageSize };
   }
 
+  /**
+   * Lo que viaja por compra aprobada, por variante y almacén destino: recogido − recibido de cada línea (`total`), y
+   * de eso, lo que ya está ligado a notas de venta (`ligado`, nunca más que lo que viaja). Es lo mismo que
+   * recalcularTransitoLinea descuenta de Stock.cantidadEnTransito, pero acá se cuenta completo.
+   */
+  private async transitoCompras(opts: { almacenId?: string; varianteId?: string; varianteWhere?: Prisma.ProductVariantWhereInput }) {
+    const lineas = await this.prisma.proformaDetalle.findMany({
+      where: {
+        varianteId: opts.varianteId,
+        variante: opts.varianteWhere,
+        proforma: { tipo: TipoProforma.COMPRA, estado: EstadoProforma.APROBADA, almacenId: opts.almacenId ?? { not: null } },
+      },
+      select: {
+        varianteId: true,
+        proforma: { select: { almacenId: true } },
+        recojoLineas: { select: { cantidad: true } },
+        envioItems: { where: { envio: { estado: { not: EstadoEnvio.ANULADO } } }, select: { cantidadRecibida: true } },
+        asignacionesCubiertas: { select: { cantidad: true } },
+      },
+    });
+    const porPar = new Map<string, { varianteId: string; almacenId: string; total: number; ligado: number }>();
+    for (const l of lineas) {
+      const almacenId = l.proforma.almacenId;
+      if (!almacenId) continue;
+      const total = Math.max(0, l.recojoLineas.reduce((n, r) => n + r.cantidad, 0) - l.envioItems.reduce((n, i) => n + i.cantidadRecibida, 0));
+      if (total === 0) continue;
+      const ligado = Math.min(total, l.asignacionesCubiertas.reduce((n, a) => n + a.cantidad, 0));
+      const key = `${l.varianteId}|${almacenId}`;
+      const acc = porPar.get(key) ?? { varianteId: l.varianteId, almacenId, total: 0, ligado: 0 };
+      acc.total += total;
+      acc.ligado += ligado;
+      porPar.set(key, acc);
+    }
+    return Array.from(porPar.values());
+  }
+
   async findLotes(query: {
     page?: string;
     pageSize?: string;
@@ -150,22 +186,23 @@ export class StockService {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
     const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
 
+    const varianteWhere: Prisma.ProductVariantWhereInput = {
+      product: { categoryId: categoryIds ? { in: categoryIds } : undefined, brandId: query.brandId },
+      ...(query.search
+        ? {
+            OR: [
+              { variantCode: { contains: query.search, mode: "insensitive" } },
+              { product: { name: { contains: query.search, mode: "insensitive" } } },
+              { product: { productCode: { contains: query.search, mode: "insensitive" } } },
+              { product: { brand: { name: { contains: query.search, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
+    };
     const where: Prisma.StockWhereInput = {
       almacenId: query.almacenId,
       OR: [{ cantidadFisica: { gt: 0 } }, { cantidadEnTransito: { gt: 0 } }, { cantidadReservada: { gt: 0 } }],
-      variante: {
-        product: { categoryId: categoryIds ? { in: categoryIds } : undefined, brandId: query.brandId },
-        ...(query.search
-          ? {
-              OR: [
-                { variantCode: { contains: query.search, mode: "insensitive" } },
-                { product: { name: { contains: query.search, mode: "insensitive" } } },
-                { product: { productCode: { contains: query.search, mode: "insensitive" } } },
-                { product: { brand: { name: { contains: query.search, mode: "insensitive" } } } },
-              ],
-            }
-          : {}),
-      },
+      variante: varianteWhere,
     };
 
     const grupos = await this.prisma.stock.groupBy({
@@ -174,21 +211,48 @@ export class StockService {
       _sum: { cantidadFisica: true, cantidadReservada: true, cantidadEnTransito: true, cantidadReservadaTransito: true },
       _count: { almacenId: true },
     });
-    const filas = grupos
-      .map((g) => {
-        const fisica = g._sum.cantidadFisica ?? 0;
-        const reservada = g._sum.cantidadReservada ?? 0;
-        return {
-          varianteId: g.varianteId,
-          almacenes: g._count.almacenId,
-          cantidadFisica: fisica,
-          cantidadReservada: reservada,
-          cantidadEnTransito: g._sum.cantidadEnTransito ?? 0,
-          cantidadReservadaTransito: g._sum.cantidadReservadaTransito ?? 0,
-          disponible: fisica - reservada,
-        };
-      })
-      .filter((f) => (query.estado === "SIN_DISPONIBLE" ? f.disponible <= 0 : query.estado === "CON_DISPONIBLE" ? f.disponible > 0 : true));
+
+    // Lo que viaja de verdad (recogido y no recibido), incluido lo ya ligado a notas: Stock.cantidadEnTransito solo
+    // lleva lo libre, así que un producto con todo su tránsito ligado a notas no aparecía ni en la columna ni en la lista.
+    const transitoPorVariante = new Map<string, { total: number; ligado: number }>();
+    for (const t of await this.transitoCompras({ almacenId: query.almacenId, varianteWhere })) {
+      const acc = transitoPorVariante.get(t.varianteId) ?? { total: 0, ligado: 0 };
+      acc.total += t.total;
+      acc.ligado += t.ligado;
+      transitoPorVariante.set(t.varianteId, acc);
+    }
+
+    const filasStock = grupos.map((g) => {
+      const fisica = g._sum.cantidadFisica ?? 0;
+      const reservada = g._sum.cantidadReservada ?? 0;
+      const libre = g._sum.cantidadEnTransito ?? 0;
+      const t = transitoPorVariante.get(g.varianteId);
+      return {
+        varianteId: g.varianteId,
+        almacenes: g._count.almacenId,
+        cantidadFisica: fisica,
+        cantidadReservada: reservada,
+        // En tránsito = todo lo que viaja; reservado de tránsito = lo apartado por ventas + lo ligado a notas.
+        cantidadEnTransito: Math.max(libre, t?.total ?? 0),
+        cantidadReservadaTransito: (g._sum.cantidadReservadaTransito ?? 0) + (t?.ligado ?? 0),
+        disponible: fisica - reservada,
+      };
+    });
+    const conStock = new Set(grupos.map((g) => g.varianteId));
+    const filasSoloTransito = Array.from(transitoPorVariante.entries())
+      .filter(([varianteId, t]) => !conStock.has(varianteId) && t.total > 0)
+      .map(([varianteId, t]) => ({
+        varianteId,
+        almacenes: 0,
+        cantidadFisica: 0,
+        cantidadReservada: 0,
+        cantidadEnTransito: t.total,
+        cantidadReservadaTransito: t.ligado,
+        disponible: 0,
+      }));
+    const filas = [...filasStock, ...filasSoloTransito].filter((f) =>
+      query.estado === "SIN_DISPONIBLE" ? f.disponible <= 0 : query.estado === "CON_DISPONIBLE" ? f.disponible > 0 : true,
+    );
 
     // Valor en Bs de los lotes con saldo: costo (en la moneda de la compra) × tipo de cambio de ESA compra.
     const ids = filas.map((f) => f.varianteId);
@@ -210,6 +274,7 @@ export class StockService {
       unidadesFisicas: filas.reduce((n, f) => n + f.cantidadFisica, 0),
       reservadas: filas.reduce((n, f) => n + f.cantidadReservada, 0),
       enTransito: filas.reduce((n, f) => n + f.cantidadEnTransito, 0),
+      reservadoTransito: filas.reduce((n, f) => n + f.cantidadReservadaTransito, 0),
       sinDisponible: filas.filter((f) => f.disponible <= 0).length,
       valorBs: Math.round(Array.from(valorPorVariante.values()).reduce((n, v) => n + v, 0) * 100) / 100,
     };
@@ -311,8 +376,36 @@ export class StockService {
       })
       .filter((c) => c.pendiente > 0);
 
+    // Tránsito por almacén destino: total que viaja y lo ya ligado a notas (los almacenes sin fila de stock se agregan en cero).
+    const transito = await this.transitoCompras({ varianteId });
+    const sinFila = transito.filter((t) => !almacenes.some((a) => a.almacenId === t.almacenId));
+    const almacenesExtra = sinFila.length
+      ? await this.prisma.almacen.findMany({ where: { id: { in: sinFila.map((t) => t.almacenId) } }, select: { id: true, nombre: true } })
+      : [];
+    const almacenesConTransito = [
+      ...almacenes,
+      ...almacenesExtra.map((al) => ({
+        varianteId,
+        almacenId: al.id,
+        cantidadFisica: 0,
+        cantidadReservada: 0,
+        cantidadEnTransito: 0,
+        cantidadReservadaTransito: 0,
+        updatedAt: new Date(),
+        variante: almacenes[0]?.variante,
+        almacen: al,
+      })),
+    ].map((a) => {
+      const t = transito.find((x) => x.almacenId === a.almacenId);
+      return {
+        ...a,
+        transitoTotal: Math.max(a.cantidadEnTransito, t?.total ?? 0),
+        transitoReservado: a.cantidadReservadaTransito + (t?.ligado ?? 0),
+      };
+    });
+
     return {
-      almacenes,
+      almacenes: almacenesConTransito,
       lotes: lotesBs,
       costoPromedioBs: unidadesConCosto > 0 ? Math.round((valorBs / unidadesConCosto) * 100) / 100 : null,
       valorBs: Math.round(valorBs * 100) / 100,

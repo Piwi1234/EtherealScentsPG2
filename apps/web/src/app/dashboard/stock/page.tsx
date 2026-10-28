@@ -465,17 +465,19 @@ export default function StockPage() {
         ) : (
           <>
             <div className="table-scroll">
-              <table className="table table-minimal table-compact">
+              {/* Producto y marca ocupan la mitad izquierda; las columnas numéricas, la mitad derecha. */}
+              <table className="table table-minimal table-compact" style={{ tableLayout: "fixed", width: "100%", minWidth: 960 }}>
                 <thead>
                   <tr>
-                    <th>Marca</th>
-                    <th style={{ minWidth: 220 }}>Producto</th>
-                    <th className="num">Disponible</th>
-                    <th className="num">Física</th>
-                    <th className="num">Reservada</th>
-                    <th className="num">En tránsito</th>
-                    <th className="num">Valor Bs</th>
-                    <th className="num">Almacenes</th>
+                    <th style={{ width: "10%" }}>Marca</th>
+                    <th style={{ width: "40%" }}>Producto</th>
+                    <th className="num" style={{ width: "7%" }}>Disponible</th>
+                    <th className="num" style={{ width: "6%" }}>Física</th>
+                    <th className="num" style={{ width: "7%" }}>Reservada</th>
+                    <th className="num" style={{ width: "7%" }}>En tránsito</th>
+                    <th className="num" style={{ width: "9%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo apartado por ventas o ligado a notas">Reservado de tránsito</th>
+                    <th className="num" style={{ width: "8%" }}>Valor Bs</th>
+                    <th className="num" style={{ width: "6%" }}>Almacenes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -501,6 +503,13 @@ export default function StockPage() {
                         <td className="num">{row.cantidadFisica}{ml}</td>
                         <td className="num">{row.cantidadReservada}{ml}</td>
                         <td className="num">{row.cantidadEnTransito > 0 ? row.cantidadEnTransito : <span className="cell-muted">—</span>}</td>
+                        <td className="num">
+                          {row.cantidadReservadaTransito > 0 ? (
+                            <span className="badge badge-info">{Math.min(row.cantidadReservadaTransito, row.cantidadEnTransito)}</span>
+                          ) : (
+                            <span className="cell-muted">—</span>
+                          )}
+                        </td>
                         <td className="num cell-muted">{row.valorBs > 0 ? row.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
                         <td className="num cell-muted">{row.almacenes}</td>
                       </tr>

@@ -92,17 +92,19 @@ export function ExistenciaPanel({
                     <th className="num">Física</th>
                     <th className="num">Reserv.</th>
                     <th className="num">Tránsito</th>
+                    <th className="num" title="De lo que viaja, lo apartado por ventas o ligado a notas">Trán. reserv.</th>
                     <th className="num">Disp.</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {detalle.almacenes.filter((a) => a.cantidadFisica > 0 || a.cantidadReservada > 0 || a.cantidadEnTransito > 0).map((a) => (
+                  {detalle.almacenes.filter((a) => a.cantidadFisica > 0 || a.cantidadReservada > 0 || (a.transitoTotal ?? a.cantidadEnTransito) > 0).map((a) => (
                     <tr key={a.almacenId}>
                       <td>{a.almacen.nombre}</td>
                       <td className="num">{a.cantidadFisica}</td>
                       <td className="num">{a.cantidadReservada}</td>
-                      <td className="num">{a.cantidadEnTransito}</td>
+                      <td className="num">{a.transitoTotal ?? a.cantidadEnTransito}</td>
+                      <td className="num">{a.transitoReservado ?? a.cantidadReservadaTransito}</td>
                       <td className="num cell-primary">{a.cantidadFisica - a.cantidadReservada}</td>
                       <td className="num">
                         {a.cantidadFisica - a.cantidadReservada > 0 && (
