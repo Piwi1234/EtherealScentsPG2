@@ -915,7 +915,7 @@ export type UpdateDetalleInput = {
   proveedorId?: string;
 };
 
-export type AprobarProformaInput = { almacenId?: string; carteraId?: string };
+export type AprobarProformaInput = { almacenId?: string; carteraId?: string; montoAdelanto?: number };
 
 export type AsignacionLoteInput = { proformaDetalleAsignacionId: string; loteCompraId: string; cantidad: number };
 

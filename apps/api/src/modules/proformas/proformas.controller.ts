@@ -160,7 +160,7 @@ export class ProformasController {
   })
   @ApiResponse({ status: 409, description: "Ya no está en BORRADOR (aprobación concurrente u otro estado)." })
   aprobar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AprobarProformaDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.approval.aprobar(id, user.id, dto.almacenId, dto.carteraId);
+    return this.approval.aprobar(id, user.id, dto.almacenId, dto.carteraId, dto.montoAdelanto);
   }
 
   @Get(":id/pagos")

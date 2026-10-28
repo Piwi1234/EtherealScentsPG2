@@ -57,6 +57,7 @@ export function ProformaAcciones({
   const [nota, setNota] = useState("");
   const [almacenId, setAlmacenId] = useState("");
   const [carteraId, setCarteraId] = useState("");
+  const [montoCobrado, setMontoCobrado] = useState("");
   const [descargando, setDescargando] = useState(false);
   const [errorPdf, setErrorPdf] = useState("");
   const [ajustando, setAjustando] = useState(false);
@@ -102,6 +103,7 @@ export function ProformaAcciones({
     setError("");
     setAlmacenId("");
     setCarteraId("");
+    setMontoCobrado(montoAdelanto > 0 ? montoAdelanto.toFixed(2) : "");
     setNota("");
     setModal(m);
   }
@@ -111,10 +113,21 @@ export function ProformaAcciones({
       setError("Elegí el almacén contra el que se reserva stock.");
       return;
     }
+    let monto: number | undefined;
+    if (requiereCartera && carteraId) {
+      monto = Math.round(Number(montoCobrado.replace(",", ".")) * 100) / 100;
+      if (!Number.isFinite(monto) || monto <= 0) {
+        setError("Ingresá un monto de adelanto mayor a 0.");
+        return;
+      }
+    }
     setSubmitting("aprobar");
     setError("");
     try {
-      await aprobarProforma(proformaId, tipo === "VENTA" ? { almacenId, ...(requiereCartera && carteraId ? { carteraId } : {}) } : {});
+      await aprobarProforma(
+        proformaId,
+        tipo === "VENTA" ? { almacenId, ...(requiereCartera && carteraId ? { carteraId, montoAdelanto: monto } : {}) } : {},
+      );
       setModal(null);
       router.refresh();
     } catch (e) {
@@ -217,6 +230,15 @@ export function ProformaAcciones({
               <CarteraSelector options={carterasBs} value={carteraId} onChange={setCarteraId} placeholder="— Cobrar después —" />
               <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
                 Si no eliges cartera, el adelanto queda pendiente y se cobra desde la sección Pagos de la proforma.
+              </p>
+            </div>
+          )}
+          {requiereCartera && carteraId && (
+            <div className="filter-field" style={{ marginBottom: 12 }}>
+              <label className="filter-label">Monto del adelanto cobrado (Bs)</label>
+              <input className="field" type="number" min="0.01" step="0.01" value={montoCobrado} onChange={(e) => setMontoCobrado(e.target.value)} />
+              <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                Calculado según el porcentaje: Bs {montoAdelanto.toFixed(2)}. Cámbialo si el cliente pagó menos o más.
               </p>
             </div>
           )}
