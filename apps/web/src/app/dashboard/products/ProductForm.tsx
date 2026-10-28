@@ -15,6 +15,7 @@ import {
   updatePresentacion,
 } from "../../../lib/api";
 import { consumeFlashMessage, getProductsListQuery, setFlashMessage } from "../../../lib/flash";
+import { ordenarVariantes } from "../../../lib/variant-order";
 import type {
   Attribute,
   Brand,
@@ -885,7 +886,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                 ) : (
                   <div className="grid-2">
                     {multiValueAttrs.map((def) => {
-                      const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
+                      const values = currentProduct.variantOptionValues
+                          .filter((v) => v.attributeId === def.id)
+                          .sort((a, b) => a.value.localeCompare(b.value, "es", { numeric: true, sensitivity: "base" }));
                       return (
                         <div key={def.id}>
                           <label>
@@ -1021,7 +1024,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                             </tr>
                           </thead>
                           <tbody>
-                            {currentProduct.variants.map((variant) => (
+                            {ordenarVariantes(currentProduct.variants).map((variant) => (
                               <Fragment key={variant.id}>
                                 <tr>
                                   <td data-label="Imagen">
@@ -1170,7 +1173,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                       }}
                     >
                       {pricedVariantAttrs.map((def) => {
-                        const values = currentProduct.variantOptionValues.filter((v) => v.attributeId === def.id);
+                        const values = currentProduct.variantOptionValues
+                          .filter((v) => v.attributeId === def.id)
+                          .sort((a, b) => a.value.localeCompare(b.value, "es", { numeric: true, sensitivity: "base" }));
                         return (
                           <div key={def.id}>
                             <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>

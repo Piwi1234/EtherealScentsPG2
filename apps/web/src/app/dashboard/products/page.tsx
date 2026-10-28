@@ -34,6 +34,7 @@ import type {
 } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
 import { StockCell } from "../../../components/StockCell";
+import { ordenarVariantes } from "../../../lib/variant-order";
 
 // Imágenes subidas antes de la migración a R2 tienen imageUrl relativo ("/uploads/..."); las nuevas
 // ya vienen con la URL pública completa.
@@ -67,12 +68,19 @@ function productAttributeCell(product: Product, attributeIds: string[]): string 
 // solo va a tener valor bajo uno de ellos, el de su propia categoría).
 type ExtraColumn = { key: string; name: string; type: AttributeType; variantMode: AttributeVariantMode; attributeIds: string[] };
 
-// Por defecto se elige la variante de mayor precio (ej. si "Tamaño" tiene 50 ML y 100 ML,
-// arranca mostrando la de 100 ML).
-function defaultVariantId(product: Product): string | undefined {
-  if (product.variants.length === 0) return undefined;
-  return product.variants.reduce((best, v) => (v.price > best.price ? v : best), product.variants[0]).id;
-}
+// Una fila de la tabla: un producto sin variantes con precio propio ocupa una sola; uno con varias (ej. "Tamaño" 50 ML y
+// 100 ML) ocupa una por variante, cada una con su stock, precio y estado.
+type FilaProducto = {
+  key: string;
+  product: Product;
+  variant: ProductVariant | undefined;
+  /** Primera fila del producto: lleva el nombre completo y el menú de acciones del producto. */
+  esPrimera: boolean;
+  /** Cantidad total de variantes del producto (aunque algún filtro oculte algunas filas). */
+  totalVariantes: number;
+  /** Posición del producto en el grupo, para alternar el sombreado por producto y no por fila. */
+  indice: number;
+};
 
 // A pedido: el desplegable de Estado colorea su propio texto según el valor elegido — no solo el
 // de la lista desplegada (que ya toman el color de cada <option>), también el del select cerrado,
@@ -125,9 +133,8 @@ export default function ProductsPage() {
   const [importingImages, setImportingImages] = useState(false);
   const [importImagesReport, setImportImagesReport] = useState<ProductImageImportReport | null>(null);
   const [importImagesReportError, setImportImagesReportError] = useState("");
-  // Selección de variante (por producto) y de valor múltiple (por celda), para los desplegables
-  // de la tabla. Es puramente de vista: no se guarda en el backend.
-  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
+  // Selección de valor múltiple (por celda), para los desplegables de la tabla. Es puramente de vista: no se
+  // guarda en el backend.
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
 
   // Preview de la imagen de un producto al centro de la pantalla — se abre con un click en la
@@ -386,7 +393,8 @@ export default function ProductsPage() {
   ]);
 
   async function handleDelete(product: Product) {
-    if (!confirm(`¿Eliminar el producto "${product.name}"?`)) return;
+    const variantes = product.variants.length > 1 ? ` y sus ${product.variants.length} variantes` : "";
+    if (!confirm(`¿Eliminar el producto "${product.name}"${variantes}?`)) return;
     try {
       await apiDelete(`/products/${product.id}`);
       loadProducts();
@@ -524,39 +532,43 @@ export default function ProductsPage() {
 
   const totalPages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
 
-  // Variante actualmente elegida para ese producto (por defecto, la de mayor precio). Se usa tanto
-  // para las columnas de atributos con precio propio como para Precio de compra/Utilidad/Precio $.
-  function getSelectedVariant(product: Product): ProductVariant | undefined {
-    if (product.variants.length === 0) return undefined;
-    const selectedId = selectedVariantByProduct[product.id] ?? defaultVariantId(product);
-    return product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
+  // Con el filtro de ofertas, el servidor devuelve productos que tienen AL MENOS una variante en oferta: acá se ocultan
+  // las variantes que no tienen descuento ni temporizador, y se muestran TODAS las que sí (cualquiera sea su estado: en el
+  // panel interesa ver cada variante con oferta, aunque esté en Preventa).
+  function cumpleOferta(v: ProductVariant, ahora: number): boolean {
+    if (offerFilter === "discount") return Number(v.discountBs) > 0;
+    if (offerFilter === "flash") return Boolean(v.ofertaFlashHasta) && new Date(v.ofertaFlashHasta!).getTime() > ahora;
+    return true;
   }
+
+  // Una fila por variante con precio propio (en orden alfabético); los productos con una sola variante, o sin
+  // ninguna, siguen ocupando una fila.
+  function filasDe(products: Product[]): FilaProducto[] {
+    const ahora = Date.now();
+    const filas: FilaProducto[] = [];
+    products.forEach((product, indice) => {
+      const todas = ordenarVariantes(product.variants);
+      let visibles: (ProductVariant | undefined)[] = todas.length > 0 ? todas : [undefined];
+      if (offerFilter && todas.length > 1) {
+        const enOferta = todas.filter((v) => cumpleOferta(v, ahora));
+        if (enOferta.length > 0) visibles = enOferta;
+      }
+      visibles.forEach((variant, i) => {
+        filas.push({ key: `${product.id}:${variant?.id ?? "base"}`, product, variant, esPrimera: i === 0, totalVariantes: todas.length, indice });
+      });
+    });
+    return filas;
+  }
+
+  const totalFilas = productGroups.reduce((n, g) => n + filasDe(g.products).length, 0);
 
   // Columnas de atributo tipo "Lista" (SELECT) se muestran como desplegable: para las de precio
   // propio, eligiendo un valor elige la variante entera (y así también cambia Precio $).
-  function renderAttributeCell(product: Product, column: ExtraColumn) {
+  function renderAttributeCell(product: Product, column: ExtraColumn, variant: ProductVariant | undefined) {
     if (column.variantMode === "PRICED_VARIANT") {
-      if (product.variants.length === 0) return "—";
-      const options = product.variants
-        .map((v) => ({
-          variantId: v.id,
-          label: v.options.find((o) => column.attributeIds.includes(o.optionValue.attributeId))?.optionValue.value,
-        }))
-        .filter((o): o is { variantId: string; label: string } => Boolean(o.label));
-      if (options.length === 0) return "—";
-      const selected = getSelectedVariant(product);
-      return (
-        <select
-          className="field"
-          style={{ minWidth: 110 }}
-          value={selected?.id ?? options[0].variantId}
-          onChange={(e) => setSelectedVariantByProduct((prev) => ({ ...prev, [product.id]: e.target.value }))}
-        >
-          {options.map((o) => (
-            <option key={o.variantId} value={o.variantId}>{o.label}</option>
-          ))}
-        </select>
-      );
+      // Cada variante con precio propio es su propia fila: se muestra el valor de ESTA variante, sin desplegable.
+      const label = variant?.options.find((o) => column.attributeIds.includes(o.optionValue.attributeId))?.optionValue.value;
+      return label ?? "—";
     }
 
     if (column.variantMode === "MULTI_VALUE") {
@@ -846,14 +858,18 @@ export default function ProductsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {group.products.map((product) => {
-                      const selectedVariant = getSelectedVariant(product);
+                    {filasDe(group.products).map(({ key, product, variant: selectedVariant, esPrimera, totalVariantes, indice }) => {
                       // Product y ProductVariant comparten la misma forma para estos campos de precio,
-                      // así que alcanza con elegir la fuente (variante seleccionada o producto base) una vez.
+                      // así que alcanza con elegir la fuente (la variante de la fila o el producto base) una vez.
                       const priceSource = selectedVariant ?? product;
-                      const variantCount = product.variants.length;
+                      const multiple = totalVariantes > 1;
                       return (
-                        <tr key={product.id} onClick={(e) => handleRowClick(e, product)} style={{ cursor: "pointer" }}>
+                        <tr
+                          key={key}
+                          onClick={(e) => handleRowClick(e, product)}
+                          style={{ cursor: "pointer" }}
+                          className={[indice % 2 === 1 ? "pt-alt" : "", multiple && esPrimera ? "pt-first" : "", multiple && !esPrimera ? "pt-cont" : ""].filter(Boolean).join(" ")}
+                        >
                           <td>
                             {/* Con variantes, el stock es el de la variante elegida en la fila (no el total del producto). */}
                             <StockCell
@@ -881,16 +897,15 @@ export default function ProductsPage() {
                               <span className="cell-muted">—</span>
                             )}
                           </td>
-                          <td className="cell-muted">{product.brand?.name ?? "—"}</td>
+                          <td className="cell-muted">{esPrimera ? (product.brand?.name ?? "—") : ""}</td>
                           <td className="cell-primary">{product.name}</td>
                           {group.columns.map((column) => (
-                            <td key={column.key}>{renderAttributeCell(product, column)}</td>
+                            <td key={column.key}>{renderAttributeCell(product, column, selectedVariant)}</td>
                           ))}
                           <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
                           <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
                           <td className="num">
                             <span className="unit">$</span>{priceSource.price.toFixed(2)}
-                            {variantCount > 1 && <span className="cell-muted" style={{ fontSize: 12, marginLeft: 4 }}>(de {variantCount})</span>}
                           </td>
                           <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
                           <td className="num">
@@ -925,20 +940,23 @@ export default function ProductsPage() {
                             {/* Sin link "Editar" a propósito: un click en cualquier parte de la fila ya abre
                                 editar (ver handleRowClick) — este menú queda solo para lo que no tiene su
                                 propio gesto, por ahora nada más que Eliminar. */}
-                            <div className="row-actions-menu">
-                              <button
-                                type="button"
-                                className="row-actions-trigger"
-                                aria-label="Más acciones"
-                                onClick={(e) => handleToggleActionsMenu(e, product)}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                  <circle cx="12" cy="5" r="1.8" />
-                                  <circle cx="12" cy="12" r="1.8" />
-                                  <circle cx="12" cy="19" r="1.8" />
-                                </svg>
-                              </button>
-                            </div>
+                            {/* Eliminar borra el producto COMPLETO (todas sus variantes): el menú vive solo en su primera fila. */}
+                            {esPrimera && (
+                              <div className="row-actions-menu">
+                                <button
+                                  type="button"
+                                  className="row-actions-trigger"
+                                  aria-label="Más acciones"
+                                  onClick={(e) => handleToggleActionsMenu(e, product)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="5" r="1.8" />
+                                    <circle cx="12" cy="12" r="1.8" />
+                                    <circle cx="12" cy="19" r="1.8" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -949,7 +967,8 @@ export default function ProductsPage() {
             </div>
           ))}
           <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 0 }}>
-            {page.total} producto{page.total === 1 ? "" : "s"} en total.
+            {page.total} producto{page.total === 1 ? "" : "s"} en total
+            {totalFilas > page.items.length ? ` · ${totalFilas} filas en esta página (una por variante con precio propio)` : ""}.
           </p>
           {totalPages > 1 && (
             <div className="pagination">
@@ -1107,7 +1126,9 @@ export default function ProductsPage() {
                 handleDelete(product);
               }}
             >
-              Eliminar
+              {openActionsMenu.product.variants.length > 1
+                ? `Eliminar producto (${openActionsMenu.product.variants.length} variantes)`
+                : "Eliminar"}
             </button>
           </div>
         </>
