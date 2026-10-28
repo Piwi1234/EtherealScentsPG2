@@ -30,7 +30,9 @@ export function TopClientes({
   month,
   maxMonth,
   onMonthChange,
+  className = "",
 }: {
+  className?: string;
   items: Item[] | null;
   month: string;
   maxMonth: string;
@@ -42,7 +44,7 @@ export function TopClientes({
   const suma = (items ?? []).reduce((n, i) => n + i.total, 0);
 
   return (
-    <div className="card topc">
+    <div className={`card topc ${className}`}>
       <div className="topc-head">
         <div style={{ minWidth: 0 }}>
           <p className="dash-widget-title">Top 10 clientes</p>
