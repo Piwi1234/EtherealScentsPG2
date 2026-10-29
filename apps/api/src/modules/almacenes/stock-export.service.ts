@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import ExcelJS from "exceljs";
-import { Prisma } from "@app/database";
+import { AttributeVariantMode, Prisma } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
@@ -239,7 +239,7 @@ export class StockExportService {
   }
 
   /** Una hoja por SUBcategoría (nombre "Categoría／Subcategoría"). Columnas fijas Almacén/Marca/
-   * Producto, después una por cada atributo marcado "mostrar en tarjeta" definido para esa
+   * Producto, después una por cada atributo marcado "mostrar en tarjeta" (o con precio propio) definido para esa
    * subcategoría (propio o heredado de su raíz, en el orden de la tarjeta), y al final las columnas
    * extra propias de cada export. */
   private async buildWorkbook(entries: ExportEntry[], extraColumns: ExtraColumn[], emptyMessage: string): Promise<Buffer> {
@@ -272,7 +272,9 @@ export class StockExportService {
     for (const [subId, grupo] of porSubcategoria) {
       const categoryIds = grupo.parentId ? [subId, grupo.parentId] : [subId];
       const attributes = await this.prisma.attribute.findMany({
-        where: { categoryId: { in: categoryIds }, mostrarEnTarjeta: true },
+        // Los de tarjeta y, siempre, los de precio propio (ej. Sabor en Vapes): cada fila del export es una variante, así que
+        // su valor es justo lo que distingue una fila de otra.
+        where: { categoryId: { in: categoryIds }, OR: [{ mostrarEnTarjeta: true }, { variantMode: AttributeVariantMode.PRICED_VARIANT }] },
         select: { name: true, ordenTarjeta: true },
         orderBy: { ordenTarjeta: "asc" },
       });
