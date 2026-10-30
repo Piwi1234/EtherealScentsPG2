@@ -29,6 +29,12 @@ const includeDetails = {
       // Solo lo necesario para calcular `hasStock` (ver más abajo) — nunca se expone tal cual en
       // la respuesta pública, así no se filtran cantidades exactas de stock.
       stock: { select: { cantidadFisica: true, cantidadReservada: true } },
+      // Decants (variantes en ml): lo que se vende y a qué precio. Sin el costo de empaque, que es interno.
+      presentaciones: {
+        where: { activo: true },
+        orderBy: { cantidadMl: "asc" },
+        select: { id: true, varianteId: true, cantidadMl: true, precioVentaBs: true },
+      },
     },
   },
 } as const;

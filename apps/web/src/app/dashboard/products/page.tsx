@@ -562,12 +562,37 @@ export default function ProductsPage() {
 
   const totalFilas = productGroups.reduce((n, g) => n + filasDe(g.products).length, 0);
 
+  // Decants: presentación elegida en cada variante en ml (por defecto la más chica).
+  const [presentacionPorVariante, setPresentacionPorVariante] = useState<Record<string, string>>({});
+  function presentacionElegida(variant: ProductVariant) {
+    const lista = variant.presentaciones ?? [];
+    return lista.find((p) => p.id === presentacionPorVariante[variant.id]) ?? lista[0];
+  }
+
   // Columnas de atributo tipo "Lista" (SELECT) se muestran como desplegable: para las de precio
   // propio, eligiendo un valor elige la variante entera (y así también cambia Precio $).
   function renderAttributeCell(product: Product, column: ExtraColumn, variant: ProductVariant | undefined) {
     if (column.variantMode === "PRICED_VARIANT") {
       // Cada variante con precio propio es su propia fila: se muestra el valor de ESTA variante, sin desplegable.
       const label = variant?.options.find((o) => column.attributeIds.includes(o.optionValue.attributeId))?.optionValue.value;
+      // Decants (ml): además se elige la presentación (5 ml, 10 ml...) y el Final Bs de la fila cambia con ella.
+      if (variant?.unidad === "ML" && variant.presentaciones && variant.presentaciones.length > 0) {
+        const elegida = presentacionElegida(variant);
+        return (
+          // El nombre del valor ("DECANTS") va junto al nombre del perfume (ver la columna Nombre), no acá.
+          <select
+            className="field"
+            style={{ minWidth: 90 }}
+            value={elegida?.id}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setPresentacionPorVariante((prev) => ({ ...prev, [variant.id]: e.target.value }))}
+          >
+            {variant.presentaciones.map((p) => (
+              <option key={p.id} value={p.id}>{p.cantidadMl} ml</option>
+            ))}
+          </select>
+        );
+      }
       return label ?? "—";
     }
 
@@ -863,6 +888,8 @@ export default function ProductsPage() {
                       // así que alcanza con elegir la fuente (la variante de la fila o el producto base) una vez.
                       const priceSource = selectedVariant ?? product;
                       const multiple = totalVariantes > 1;
+                      const esMl = selectedVariant?.unidad === "ML";
+                      const presentacion = selectedVariant && esMl ? presentacionElegida(selectedVariant) : undefined;
                       return (
                         <tr
                           key={key}
@@ -898,27 +925,52 @@ export default function ProductsPage() {
                             )}
                           </td>
                           <td className="cell-muted">{esPrimera ? (product.brand?.name ?? "—") : ""}</td>
-                          <td className="cell-primary">{product.name}</td>
+                          <td className="cell-primary">
+                            {product.name}
+                            {/* Decants: el valor de la variante ("DECANTS") se suma al nombre del perfume. */}
+                            {esMl && selectedVariant && selectedVariant.options.length > 0 ? ` ${selectedVariant.options.map((o) => o.optionValue.value).join(" ")}` : ""}
+                          </td>
                           {group.columns.map((column) => (
                             <td key={column.key}>{renderAttributeCell(product, column, selectedVariant)}</td>
                           ))}
-                          <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
-                          <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
-                          <td className="num">
-                            <span className="unit">$</span>{priceSource.price.toFixed(2)}
-                          </td>
-                          <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
-                          <td className="num">
-                            {priceSource.minPriceBs !== null ? (
-                              <><span className="unit">$</span>{priceSource.minPriceBs}</>
-                            ) : (
-                              <span className="cell-muted">—</span>
-                            )}
-                          </td>
-                          <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
-                          <td className="num cell-primary final-bs-col">
-                            <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
-                          </td>
+                          {esMl ? (
+                            // Decants: sin precios propios (el costo sale de los frascos convertidos); el precio es el de la presentación elegida.
+                            <>
+                              <td className="num compra-col"><span className="cell-muted">—</span></td>
+                              <td className="num"><span className="cell-muted">—</span></td>
+                              <td className="num"><span className="cell-muted">—</span></td>
+                              <td className="num col-group-start may-bs-col"><span className="cell-muted">—</span></td>
+                              <td className="num"><span className="cell-muted">—</span></td>
+                              <td className="num"><span className="cell-muted">—</span></td>
+                              <td className="num cell-primary final-bs-col">
+                                {presentacion ? (
+                                  <><span className="unit">Bs</span> {Number(presentacion.precioVentaBs).toFixed(2)}</>
+                                ) : (
+                                  <span className="cell-muted">—</span>
+                                )}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="num compra-col"><span className="unit">$</span>{priceSource.purchasePrice}</td>
+                              <td className="num"><span className="unit">$</span>{priceSource.utility}</td>
+                              <td className="num">
+                                <span className="unit">$</span>{priceSource.price.toFixed(2)}
+                              </td>
+                              <td className="num col-group-start may-bs-col"><span className="unit">Bs</span> {priceSource.wholesalePriceBs.toFixed(2)}</td>
+                              <td className="num">
+                                {priceSource.minPriceBs !== null ? (
+                                  <><span className="unit">$</span>{priceSource.minPriceBs}</>
+                                ) : (
+                                  <span className="cell-muted">—</span>
+                                )}
+                              </td>
+                              <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
+                              <td className="num cell-primary final-bs-col">
+                                <span className="unit">Bs</span> {priceSource.finalPriceBs.toFixed(2)}
+                              </td>
+                            </>
+                          )}
                           <td>
                             {selectedVariant ? (
                               <select

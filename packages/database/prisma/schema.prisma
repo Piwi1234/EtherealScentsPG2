@@ -1126,11 +1126,12 @@ model ProformaDetalle {
 
   // VENTA: nace de ProductVariant.precioFinalBs (calculado en vivo al agregar la línea) y es editable
   // después.
-  precioUnitario Decimal? @map("precio_unitario") @db.Decimal(12, 2)
+  // 4 decimales: en decants el precio y el descuento son POR ML (ej. 100 Bs / 30 ml = 3.3333).
+  precioUnitario Decimal? @map("precio_unitario") @db.Decimal(12, 4)
 
   // VENTA: descuento por unidad (Bs). El descuento total de la nota (Proforma.descuentoGeneral) es la suma de
   // cantidad × descuentoUnitario de sus líneas y lo calcula el servidor. `subtotal` sigue siendo bruto.
-  descuentoUnitario Decimal @default(0) @map("descuento_unitario") @db.Decimal(12, 2)
+  descuentoUnitario Decimal @default(0) @map("descuento_unitario") @db.Decimal(12, 4)
 
   // COMPRA: capturados por línea (no heredados del catálogo) — de esta compra puntual. Al completar
   // se usan para armar el LoteCompra; el catálogo (Product/ProductVariant) nunca se sobreescribe con

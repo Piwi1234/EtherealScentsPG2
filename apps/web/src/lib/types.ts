@@ -251,6 +251,8 @@ export type ProductVariant = {
   // reservada > 0). Nunca informa cantidades.
   hasStock: boolean;
   options: ProductVariantOption[];
+  /** Variantes unidad=ML (decants): presentaciones activas, de menor a mayor, sin el costo de empaque (interno). */
+  presentaciones?: Pick<PresentacionVenta, "id" | "varianteId" | "cantidadMl" | "precioVentaBs">[];
 };
 
 /** Subvariante con precio propio de una ProductVariant con unidad = ML (ej. decant de 10ml). */
@@ -1156,6 +1158,8 @@ export type RegistroLinea = {
   costoSeguridad: string | null;
   costoLogistica: string | null;
   subtotal: string;
+  /** VENTA de un decant: la presentación vendida (la cantidad de la línea está en ml). */
+  presentacionVenta?: { cantidadMl: number } | null;
   /** COMPRA: a quién se le compra ESTA línea puntual. Null en líneas de venta. */
   proveedor: { id: string; nombre: string; paisProcedencia: { id: string; nombre: string } | null } | null;
   proforma: {

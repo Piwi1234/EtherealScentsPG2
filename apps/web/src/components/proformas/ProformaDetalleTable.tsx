@@ -18,6 +18,7 @@ import type { ProcuraCandidata, SolicitudLineaParaCompra, Proforma, ProformaDeta
 import { Modal } from "../Modal";
 import { formatAtributosVisibles } from "./AtributosVisibles";
 import { ProveedorSelector } from "./selectors";
+import { mlPorPresentacion, porUnidadLinea, unidadesLinea } from "../../lib/linea-venta";
 
 /** Qué distingue a esta variante puntual (ej. "Tamaño: 50 ML") + los atributos heredados de la
  * categoría marcados para mostrarse en proforma +, si es una venta fraccionada (unidad=ML), qué
@@ -272,6 +273,9 @@ function DetalleRow({
   }
 
   const etiqueta = atributosLabel(detalle);
+  // Decants (solo venta): la línea guarda ml y precio por ml, pero se ve y se edita por presentación.
+  const factor = tipo === "VENTA" ? mlPorPresentacion(detalle) : 1;
+  const cantidadVista = tipo === "VENTA" ? unidadesLinea(detalle) : detalle.cantidad;
 
   return (
     <>
@@ -319,9 +323,9 @@ function DetalleRow({
         )}
         <td className="num">
           {editable ? (
-            <EditableNumber value={detalle.cantidad} min={1} step="1" onCommit={(v) => commit({ cantidad: v })} />
+            <EditableNumber value={cantidadVista} min={1} step="1" onCommit={(v) => commit({ cantidad: Math.round(v) * factor })} />
           ) : (
-            detalle.cantidad
+            cantidadVista
           )}
         </td>
         {tipo === "COMPRA" && mostrarRecogido && (
@@ -333,16 +337,16 @@ function DetalleRow({
           <>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.precioUnitario} onCommit={(v) => commit({ precioUnitario: v })} />
+                <EditableNumber value={porUnidadLinea(detalle, detalle.precioUnitario)} onCommit={(v) => commit({ precioUnitario: v / factor })} />
               ) : (
-                money(detalle.precioUnitario, "Bs")
+                money(String(porUnidadLinea(detalle, detalle.precioUnitario)), "Bs")
               )}
             </td>
             <td className="num">
               {editable ? (
-                <EditableNumber value={detalle.descuentoUnitario} onCommit={(v) => commit({ descuentoUnitario: v })} />
+                <EditableNumber value={porUnidadLinea(detalle, detalle.descuentoUnitario)} onCommit={(v) => commit({ descuentoUnitario: v / factor })} />
               ) : (
-                money(detalle.descuentoUnitario, "Bs")
+                money(String(porUnidadLinea(detalle, detalle.descuentoUnitario)), "Bs")
               )}
             </td>
           </>
@@ -442,7 +446,8 @@ export function ProformaDetalleTable({
   // total de unidades, al final de la tabla, siempre calza sin importar tipo/editable.
   const colsEtiqueta = tipo === "COMPRA" ? 4 + (mostrarProveedor ? 1 : 0) : 3;
   const totalCols = (tipo === "VENTA" ? 7 : (mostrarProveedor ? 13 : 12) + (mostrarRecogido ? 1 : 0)) + (editable ? 1 : 0);
-  const totalCantidad = detalles.reduce((sum, d) => sum + d.cantidad, 0);
+  // Un decant cuenta por presentación (1 decant de 5 ml = 1 unidad), no por ml.
+  const totalCantidad = detalles.reduce((sum, d) => sum + (tipo === "VENTA" ? unidadesLinea(d) : d.cantidad), 0);
 
   return (
     <div className="table-scroll">

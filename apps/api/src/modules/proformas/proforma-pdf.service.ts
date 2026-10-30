@@ -89,7 +89,9 @@ function conceptoLabel(detalle: Detalle): string {
   const variante = detalle.variante;
   const propias = variante.options.map((o) => o.optionValue.value);
   const heredados = atributosHeredadosLabel(variante.product);
-  const partes = [...propias, ...(heredados ? [heredados] : [])];
+  // Decants: la presentación vendida ("5 ml") va en el concepto; la cantidad y el precio de la fila son por presentación.
+  const presentacion = detalle.presentacionVenta ? [`${detalle.presentacionVenta.cantidadMl} ml`] : [];
+  const partes = [...propias, ...(heredados ? [heredados] : []), ...presentacion];
   return partes.length > 0 ? `${variante.product.name} - ${partes.join(", ")}` : variante.product.name;
 }
 
@@ -248,8 +250,11 @@ export class ProformaPdfService {
     for (const detalle of proforma.detalles) {
       const concepto = conceptoLabel(detalle);
       const marca = detalle.variante.product.brand?.name ?? "—";
+      // Decants: la línea guarda ml y precio por ml, pero se imprime por presentación (1 decant de 5 ml × su precio).
+      const mlPorPresentacion = esVenta ? (detalle.presentacionVenta?.cantidadMl ?? 1) : 1;
+      const cantidadMostrada = detalle.cantidad / mlPorPresentacion;
       const precioUnitario = esVenta
-        ? Number(detalle.precioUnitario ?? 0)
+        ? Math.round(Number(detalle.precioUnitario ?? 0) * mlPorPresentacion * 100) / 100
         : Number(detalle.precioCompra ?? 0) +
           Number(detalle.costoEnvio ?? 0) +
           Number(detalle.costoSeguridad ?? 0) +
@@ -268,7 +273,7 @@ export class ProformaPdfService {
       doc.font("Roboto").fillColor(ES_MUTED).text(marca, left, y + 3, { width: colMarca });
       if (!esVenta) doc.text(detalle.proveedor?.nombre ?? "—", left + colMarca, y + 3, { width: colProveedor });
       doc.fillColor("#000000").text(concepto, xConcepto, y + 3, { width: colConcepto });
-      doc.text(String(detalle.cantidad), xCantidad, y + 3, { width: colCantidad, align: "center" });
+      doc.text(String(cantidadMostrada), xCantidad, y + 3, { width: colCantidad, align: "center" });
       doc.text(money(precioUnitario, prefix), xPrecio, y + 3, { width: colPrecio, align: "right" });
       doc.font("Roboto-Bold").text(money(total, prefix), xTotal, y + 3, { width: colTotal, align: "right" });
 
