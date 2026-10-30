@@ -10347,7 +10347,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 100vw);
+  /* Ancho para que entre la tabla "Por almacén" (8 columnas, con Trasladar y Probador) sin cortarse. */
+  width: min(860px, 100vw);
   background: var(--card, #232535);
   border-left: 1px solid var(--line);
   z-index: 61;
@@ -10395,6 +10396,10 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 .stock-panel-sec {
   margin-top: 20px;
+}
+.stock-panel-sec .table th,
+.stock-panel-sec .table td {
+  white-space: nowrap;
 }
 .stock-panel-sec h3 {
   margin: 0 0 6px;
