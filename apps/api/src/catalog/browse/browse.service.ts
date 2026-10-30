@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { filtroProductoPorPalabras, palabrasBusqueda } from "../../common/busqueda";
 import { CategoryService } from "../category/category.service";
 import { AttributeService } from "../attribute/attribute.service";
 import { SettingsService } from "../../settings/settings.service";
@@ -154,15 +155,8 @@ export class CatalogBrowseService {
       // producto "Amber Oud" de la marca "Al Haramain" aunque ninguna palabra sola esté completa ni
       // en el nombre ni en la marca — cada palabra exige su propio match (nombre O marca), todas las
       // palabras en AND entre sí.
-      const words = query.search.trim().split(/\s+/).filter(Boolean);
-      for (const word of words) {
-        andConditions.push({
-          OR: [
-            { name: { contains: word, mode: "insensitive" } },
-            { brand: { name: { contains: word, mode: "insensitive" } } },
-          ],
-        });
-      }
+      // Sin importar mayúsculas ni acentos ("cafe" encuentra "Café", "hermes" encuentra "Hermès").
+      andConditions.push(...filtroProductoPorPalabras(palabrasBusqueda(query.search), { codigo: false }));
     }
 
     if (query.productCode && query.productCode.trim()) {

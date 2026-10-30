@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
 import { getPagination, slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { filtroProductoPorPalabras, palabrasBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { deleteFromR2 } from "../../common/r2-storage";
 import { CategoryService } from "../category/category.service";
@@ -299,19 +300,13 @@ export class ProductService {
     // producto "Amber Oud" de la marca "Al Haramain" aunque ninguna palabra sola esté completa ni en
     // el nombre ni en la marca — cada palabra exige su propio match (nombre, código o marca), todas
     // las palabras en AND entre sí. Mismo criterio que CatalogBrowseService.findProducts.
-    const searchWords = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
+    const searchWords = palabrasBusqueda(query.search);
     const where: Prisma.ProductWhereInput = {
       categoryId: categoryIds ? { in: categoryIds } : undefined,
       brandId: query.brandId,
       ...(searchWords.length > 0
         ? {
-            AND: searchWords.map((word) => ({
-              OR: [
-                { name: { contains: word, mode: "insensitive" as const } },
-                { productCode: { contains: word, mode: "insensitive" as const } },
-                { brand: { name: { contains: word, mode: "insensitive" as const } } },
-              ],
-            })),
+            AND: filtroProductoPorPalabras(searchWords),
           }
         : {}),
     };

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
+import { filtroProductoPorPalabras, palabrasBusqueda } from "../../../common/busqueda";
 import { CategoryService } from "../../../catalog/category/category.service";
 import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace, type EstadoPedidoDerivado } from "../recojo.util";
 import { QueryRegistrosDto } from "./dto/query-registros.dto";
@@ -82,7 +83,7 @@ export class RegistrosService {
 
     // Mismo criterio que la búsqueda de Productos: cada palabra exige su propio match (nombre, código
     // o marca) y todas las palabras van en AND, así "waka double" encuentra la marca y el producto.
-    const searchWords = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
+    const searchWords = palabrasBusqueda(query.search);
 
     // Entrega de una venta aprobada: pendiente = faltante (Procura) o reserva en tránsito sin llegar.
     const conPendiente: Prisma.ProformaWhereInput = {
@@ -111,13 +112,7 @@ export class RegistrosService {
           brandId: query.brandId,
           ...(searchWords.length > 0
             ? {
-                AND: searchWords.map((word) => ({
-                  OR: [
-                    { name: { contains: word, mode: "insensitive" as const } },
-                    { productCode: { contains: word, mode: "insensitive" as const } },
-                    { brand: { name: { contains: word, mode: "insensitive" as const } } },
-                  ],
-                })),
+                AND: filtroProductoPorPalabras(searchWords),
               }
             : {}),
         },

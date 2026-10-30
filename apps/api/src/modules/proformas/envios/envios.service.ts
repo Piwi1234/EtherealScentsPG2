@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { EstadoEnvio, EstadoProforma, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
+import { filtroProductoPorPalabras, palabrasBusqueda } from "../../../common/busqueda";
 import { rethrowPrismaError } from "../../../common/prisma-errors";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
 import { CategoryService } from "../../../catalog/category/category.service";
@@ -73,19 +74,13 @@ export class EnviosService {
       pageSize: String(query.limit ?? 20),
     });
     // Filtros por contenido: producto o marca (cada palabra exige su match), categoría y proveedor miran los productos del envío.
-    const palabras = query.search?.trim() ? query.search.trim().split(/\s+/).filter(Boolean) : [];
+    const palabras = palabrasBusqueda(query.search);
     const categoryIds = query.categoryId ? await this.categories.getDescendantIds(query.categoryId) : undefined;
     const filtroProducto: Prisma.ProductWhereInput = {
       categoryId: categoryIds ? { in: categoryIds } : undefined,
       ...(palabras.length > 0
         ? {
-            AND: palabras.map((word) => ({
-              OR: [
-                { name: { contains: word, mode: "insensitive" as const } },
-                { productCode: { contains: word, mode: "insensitive" as const } },
-                { brand: { name: { contains: word, mode: "insensitive" as const } } },
-              ],
-            })),
+            AND: filtroProductoPorPalabras(palabras),
           }
         : {}),
     };

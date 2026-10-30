@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { OrigenCliente, Prisma, TipoCliente } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { validarClienteNoDuplicado } from "../../common/cliente-duplicate-check";
 import { CreateClienteDto } from "./dto/create-cliente.dto";
@@ -24,7 +25,7 @@ export class ClientesService {
       ...(query.search
         ? {
             OR: [
-              { nombre: { contains: query.search, mode: "insensitive" } },
+              { nombreSearch: { contains: normalizarBusqueda(query.search.trim()) } },
               { email: { contains: query.search, mode: "insensitive" } },
             ],
           }

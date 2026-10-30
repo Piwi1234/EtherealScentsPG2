@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { contieneBusqueda } from "../../lib/busqueda";
 
 // Compartido entre CategoriaClient (Subcategoría/Marca/Atributos) y BuscarClient (Marca) — antes
 // vivía solo en CategoriaClient; al necesitarse también en /buscar para el filtro de Marca, se
@@ -38,8 +39,8 @@ export function FilterOptionList({
   const [showAll, setShowAll] = useState(false);
 
   const sorted = useMemo(() => [...options].sort((a, b) => a.label.localeCompare(b.label)), [options]);
-  const term = search.trim().toLowerCase();
-  const filtered = term ? sorted.filter((o) => o.label.toLowerCase().includes(term)) : sorted;
+  const term = search.trim();
+  const filtered = term ? sorted.filter((o) => contieneBusqueda(o.label, term)) : sorted;
   const needsSearch = sorted.length > FILTER_VISIBLE_DEFAULT;
   const visible =
     variant === "scroll" ? filtered : term || showAll ? filtered : filtered.slice(0, FILTER_VISIBLE_DEFAULT);

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable } from "@nestjs/comm
 import { Prisma, TipoMovimientoProbador } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { lockStockRows, stockKey } from "../proformas/stock-lock.util";
 import { BajaProbadorDto, ConvertirProbadorDto } from "./dto/probador.dto";
@@ -59,7 +60,9 @@ export class ProbadorService {
         product: {
           categoryId: categoryIds ? { in: categoryIds } : undefined,
           brandId: query.brandId,
-          ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { brand: { name: { contains: search, mode: "insensitive" } } }] } : {}),
+          ...(search
+            ? { OR: [{ nameSearch: { contains: normalizarBusqueda(search) } }, { brand: { nameSearch: { contains: normalizarBusqueda(search) } } }] }
+            : {}),
         },
       },
     };

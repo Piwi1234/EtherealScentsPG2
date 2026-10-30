@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { Prisma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { CreateProveedorDto } from "./dto/create-proveedor.dto";
 import { UpdateProveedorDto } from "./dto/update-proveedor.dto";
@@ -25,7 +26,7 @@ export class ProveedoresService {
 
     const where: Prisma.ProveedorWhereInput = {
       activo: query.activo !== undefined ? query.activo === "true" : undefined,
-      nombre: query.search ? { contains: query.search, mode: "insensitive" } : undefined,
+      nombreSearch: query.search?.trim() ? { contains: normalizarBusqueda(query.search.trim()) } : undefined,
     };
 
     const [items, total] = await Promise.all([

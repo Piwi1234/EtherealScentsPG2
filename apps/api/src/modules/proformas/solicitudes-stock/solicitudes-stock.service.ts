@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { EstadoProforma, EstadoSolicitudStock, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
+import { normalizarBusqueda } from "../../../common/busqueda";
 import { generateUniqueEntityCode } from "../../../catalog/entity-code";
 import { recalcularTransitoLinea } from "../transito.util";
 import { compraConEnlacesSelect, enviadasDeEnlace, recogidasDeEnlace, type CompraConEnlaces } from "../recojo.util";
@@ -104,7 +105,7 @@ export class SolicitudesStockService {
         ? {
             OR: [
               { codigo: { contains: query.search.trim(), mode: "insensitive" as const } },
-              { lineas: { some: { variante: { product: { name: { contains: query.search.trim(), mode: "insensitive" as const } } } } } },
+              { lineas: { some: { variante: { product: { nameSearch: { contains: normalizarBusqueda(query.search.trim()) } } } } } },
             ],
           }
         : {}),

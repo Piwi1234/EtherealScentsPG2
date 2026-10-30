@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands } from "../../lib/api";
 import { brandLinkHref, productImageSrc } from "../../lib/catalog-display";
+import { contieneBusqueda } from "../../lib/busqueda";
 import type { Brand, Category } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -78,7 +79,7 @@ export default function MarcasPage() {
           ? b.categories.some((bc) => bc.categoryId === subCategoryFilter)
           : b.categories.some((bc) => bc.category.parentId === rootCategoryFilter),
       )
-      .filter((b) => !query || b.name.toLowerCase().includes(query));
+      .filter((b) => !query || contieneBusqueda(b.name, query));
   }, [brands, rootCategoryFilter, subCategoryFilter, search]);
 
   const availableLetters = useMemo(() => {

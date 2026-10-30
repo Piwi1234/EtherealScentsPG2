@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { HistoriaCategoria, HistoriaSugerenciaTipo } from "@app/database";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { deleteFromR2 } from "../../common/r2-storage";
 import { CreateHistoriaDto } from "./dto/create-historia.dto";
@@ -83,7 +84,7 @@ export class HistoriaService {
       where: {
         publicada: true,
         categorias: options.categoria ? { some: { categoria: options.categoria } } : undefined,
-        titulo: options.search ? { contains: options.search, mode: "insensitive" } : undefined,
+        tituloSearch: options.search?.trim() ? { contains: normalizarBusqueda(options.search.trim()) } : undefined,
       },
       orderBy: { orden: "asc" },
       include: listInclude,

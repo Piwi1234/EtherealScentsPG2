@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../../common/prisma.service";
+import { filtroProductoPorPalabras, palabrasBusqueda } from "../../../common/busqueda";
 import { ProformasService } from "../proformas.service";
 import { compraConEnlacesSelect, enviadasDeEnlace, estadoSegunCompra, recogidasDeEnlace, totalEnviado, totalRecogido } from "../recojo.util";
 import { SolicitudesStockService, estadoLineaSolicitud } from "../solicitudes-stock/solicitudes-stock.service";
@@ -121,20 +122,14 @@ export class SeguimientoService {
 
   /** Filtro de producto: categoría (con subcategorías) y/o texto — cada palabra exige su match (nombre, código o marca). */
   private varianteWhere(categoryIds: string[] | undefined, search: string | undefined): Prisma.ProductVariantWhereInput | undefined {
-    const palabras = search?.trim() ? search.trim().split(/\s+/).filter(Boolean) : [];
+    const palabras = palabrasBusqueda(search);
     if (!categoryIds && palabras.length === 0) return undefined;
     return {
       product: {
         categoryId: categoryIds ? { in: categoryIds } : undefined,
         ...(palabras.length > 0
           ? {
-              AND: palabras.map((word) => ({
-                OR: [
-                  { name: { contains: word, mode: "insensitive" as const } },
-                  { productCode: { contains: word, mode: "insensitive" as const } },
-                  { brand: { name: { contains: word, mode: "insensitive" as const } } },
-                ],
-              })),
+              AND: filtroProductoPorPalabras(palabras),
             }
           : {}),
       },
