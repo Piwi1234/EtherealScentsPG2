@@ -32,6 +32,8 @@ const stockInclude = {
       discountBs: true,
       product: varianteProductInclude,
       options: { include: { optionValue: { include: { attribute: true } } } },
+      // Decants (unidad ML): lo que se vende de esos ml, con su precio.
+      presentaciones: { where: { activo: true }, orderBy: { cantidadMl: "asc" }, select: { cantidadMl: true, precioVentaBs: true } },
     },
   },
   almacen: { select: { nombre: true } },
@@ -111,7 +113,14 @@ function formatDate(value: Date): string {
   return value.toLocaleDateString("es-VE", { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
-type ExtraColumn = { header: string; key: string; width: number; numFmt?: string };
+type ExtraColumn = {
+  header: string;
+  key: string;
+  width: number;
+  numFmt?: string;
+  /** La columna solo sale en las hojas donde algún renglón tiene valor (ej. presentaciones, solo en hojas con decants). */
+  soloSiHayValor?: boolean;
+};
 type ExportEntry = {
   variante: VarianteRow;
   almacen: string;
@@ -177,11 +186,14 @@ export class StockExportService {
         const priceUsd = computeCatalogPrice(v.purchasePrice, v.utility, v.product.category);
         const { finalPriceBs } = computeBsPrices(priceUsd, v, exchangeRate);
         const cantidad = (n: number) => (v.unidad === "ML" ? `${n} ml` : n);
+        const esDecant = v.unidad === "ML";
         return {
           variante: v,
           almacen: f.almacen,
           extras: {
-            precio: finalPriceBs,
+            // Los ml no se venden directo: no tienen precio propio, se venden por las presentaciones de abajo.
+            precio: esDecant ? null : finalPriceBs,
+            presentaciones: esDecant ? v.presentaciones.map((p) => `${p.cantidadMl} ml: Bs ${Number(p.precioVentaBs).toFixed(2)}`).join(" · ") : null,
             disponible: cantidad(f.disponible),
             disponibleTransito: cantidad(f.disponibleTransito),
           },
@@ -192,6 +204,7 @@ export class StockExportService {
       entries,
       [
         { header: "Precio final Bs", key: "precio", width: 16, numFmt: "#,##0.00" },
+        { header: "Presentaciones decants", key: "presentaciones", width: 34, soloSiHayValor: true },
         { header: "Disponible", key: "disponible", width: 13 },
         { header: "Disponible en tránsito", key: "disponibleTransito", width: 22 },
       ],
@@ -303,12 +316,13 @@ export class StockExportService {
     for (const [subId, grupo] of sorted) {
       const attributeNames = attributeColumnsBySub.get(subId) ?? [];
       const sheet = wb.addWorksheet(sheetName(grupo.rootName, grupo.subName, usedSheetNames));
+      const extrasDeHoja = extraColumns.filter((c) => !c.soloSiHayValor || grupo.entries.some((e) => e.extras[c.key]));
       sheet.columns = [
         { header: "Almacén", key: "almacen", width: 20 },
         { header: "Marca", key: "marca", width: 22 },
         { header: "Producto", key: "producto", width: 32 },
         ...attributeNames.map((name, i) => ({ header: name, key: `attr${i}`, width: 18 })),
-        ...extraColumns.map((c) => ({ header: c.header, key: c.key, width: c.width, style: c.numFmt ? { numFmt: c.numFmt } : undefined })),
+        ...extrasDeHoja.map((c) => ({ header: c.header, key: c.key, width: c.width, style: c.numFmt ? { numFmt: c.numFmt } : undefined })),
       ];
       sheet.getRow(1).font = { bold: true };
       sheet.getRow(1).eachCell((cell) => (cell.fill = HEADER_FILL));

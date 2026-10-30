@@ -83,6 +83,7 @@ export default function CategoriesPage() {
   const [securityCost, setSecurityCost] = useState("");
   const [comentario, setComentario] = useState("");
   const [orden, setOrden] = useState("");
+  const [permiteDecants, setPermiteDecants] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -103,6 +104,7 @@ export default function CategoriesPage() {
     setSecurityCost("");
     setComentario("");
     setOrden("");
+    setPermiteDecants(false);
     setFormError("");
     setModalOpen(true);
   }
@@ -116,6 +118,7 @@ export default function CategoriesPage() {
     setSecurityCost(node.securityCost ?? "");
     setComentario(node.comentario ?? "");
     setOrden(node.parentId ? "" : String(node.orden));
+    setPermiteDecants(node.permiteDecants);
     setFormError("");
     setModalOpen(true);
   }
@@ -150,7 +153,7 @@ export default function CategoriesPage() {
         : {};
       const comentarioField = parentId ? {} : { comentario: comentario.trim() || null };
       const ordenField = parentId ? {} : { orden: orden.trim() === "" ? 0 : Number(orden) };
-      const payload = { name, parentId: parentId || undefined, ...costs, ...comentarioField, ...ordenField };
+      const payload = { name, parentId: parentId || undefined, ...costs, ...comentarioField, ...ordenField, permiteDecants };
       if (editing) {
         await apiPatch(`/categories/${editing.id}`, { ...payload, parentId: parentId || null });
       } else {
@@ -227,6 +230,16 @@ export default function CategoriesPage() {
                     <option key={opt.id} value={opt.id}>{opt.label}</option>
                   ))}
               </select>
+            </div>
+            <div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={permiteDecants} onChange={(e) => setPermiteDecants(e.target.checked)} />
+                Permite decants (venta por ml)
+              </label>
+              <p className="cell-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Para perfumes: habilita la variante Decants (unidad ML), sus presentaciones de venta y la conversión de frascos a ml.
+                Aplica también a las subcategorías.
+              </p>
             </div>
             {!parentId && (
               <div>

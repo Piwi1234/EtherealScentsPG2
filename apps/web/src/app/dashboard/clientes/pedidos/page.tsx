@@ -239,8 +239,8 @@ export default function PedidosClientesPage() {
                         {linea.variante.product.name}
                         {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
                       </td>
-                      <td className="num">{linea.cantidad}</td>
-                      <td className="num">{money(Number(linea.precioUnitario ?? 0))}</td>
+                      <td className="num">{linea.cantidad / (linea.presentacionVenta?.cantidadMl ?? 1)}</td>
+                      <td className="num">{money(Number(linea.precioUnitario ?? 0) * (linea.presentacionVenta?.cantidadMl ?? 1))}</td>
                       <td className="num cell-primary">{money(Number(linea.subtotal))}</td>
                     </tr>
                   );

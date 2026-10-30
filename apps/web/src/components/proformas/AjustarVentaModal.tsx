@@ -48,7 +48,7 @@ export function AjustarVentaModal({
   const cambios = proforma.detalles.filter((d) => (nuevas[d.id] ?? d.cantidad) !== d.cantidad);
   const sinProductos = proforma.detalles.every((d) => (nuevas[d.id] ?? d.cantidad) === 0);
 
-  /** Paso de cada línea: las ventas por presentación (ml) bajan de a una presentación. */
+  /** ml por presentación: un decant se ve y se baja por presentación (internamente la línea está en ml). */
   const pasoDe = (d: Proforma["detalles"][number]) => d.presentacionVenta?.cantidadMl ?? 1;
 
   async function confirmar() {
@@ -97,17 +97,16 @@ export function AjustarVentaModal({
             {proforma.detalles.map((d) => {
               const nueva = nuevas[d.id] ?? d.cantidad;
               const paso = pasoDe(d);
-              const unidad = d.presentacionVenta ? "ml" : "";
+              const vista = nueva / paso;
+              const maxVista = d.cantidad / paso;
               return (
                 <tr key={d.id} style={nueva !== d.cantidad ? { background: "rgba(201, 169, 110, 0.1)" } : undefined}>
                   <td className="cell-primary">
                     {d.variante.product.name}
                     {d.variante.product.brand?.name && <span className="cell-muted" style={{ fontWeight: 400 }}> · {d.variante.product.brand.name}</span>}
+                    {d.presentacionVenta && <span className="cell-muted" style={{ fontWeight: 400 }}> · {d.presentacionVenta.cantidadMl} ml</span>}
                   </td>
-                  <td className="num">
-                    {d.cantidad}
-                    {unidad && ` ${unidad}`}
-                  </td>
+                  <td className="num">{maxVista}</td>
                   <td className="num">
                     <span className="qty-stepper">
                       <button type="button" aria-label="Menos" disabled={nueva <= 0} onClick={() => setNuevas((p) => ({ ...p, [d.id]: Math.max(0, nueva - paso) }))}>
@@ -116,11 +115,11 @@ export function AjustarVentaModal({
                       <input
                         type="number"
                         min={0}
-                        max={d.cantidad}
-                        step={paso}
-                        value={nueva}
+                        max={maxVista}
+                        step={1}
+                        value={vista}
                         aria-label={`Cantidad nueva de ${d.variante.product.name}`}
-                        onChange={(e) => setNuevas((p) => ({ ...p, [d.id]: Math.max(0, Math.min(d.cantidad, parseInt(e.target.value, 10) || 0)) }))}
+                        onChange={(e) => setNuevas((p) => ({ ...p, [d.id]: Math.max(0, Math.min(maxVista, parseInt(e.target.value, 10) || 0)) * paso }))}
                       />
                       <button type="button" aria-label="Más" disabled={nueva >= d.cantidad} onClick={() => setNuevas((p) => ({ ...p, [d.id]: Math.min(d.cantidad, nueva + paso) }))}>
                         +
@@ -132,8 +131,8 @@ export function AjustarVentaModal({
                       </button>
                     </div>
                   </td>
-                  <td className="num cell-muted">{Number(d.precioUnitario ?? 0).toFixed(2)}</td>
-                  <td className="num cell-muted">{Number(d.descuentoUnitario || 0).toFixed(2)}</td>
+                  <td className="num cell-muted">{(Number(d.precioUnitario ?? 0) * paso).toFixed(2)}</td>
+                  <td className="num cell-muted">{(Number(d.descuentoUnitario || 0) * paso).toFixed(2)}</td>
                   <td className="num">{(nueva * (Number(d.precioUnitario ?? 0) - Number(d.descuentoUnitario || 0))).toFixed(2)}</td>
                 </tr>
               );

@@ -41,7 +41,7 @@ function atributosDe(d: Proforma["detalles"][number]): string {
 
 /** Precio (venta) o costo (compra) unitario en Bs; en compras se convierte con el tipo de cambio de la proforma. */
 function unitarioBs(proforma: Proforma, d: Proforma["detalles"][number]): number | null {
-  if (proforma.tipo === "VENTA") return d.precioUnitario !== null ? Number(d.precioUnitario) : null;
+  if (proforma.tipo === "VENTA") return d.precioUnitario !== null ? Number(d.precioUnitario) * (d.presentacionVenta?.cantidadMl ?? 1) : null;
   const tc = proforma.tipoCambioProf ? Number(proforma.tipoCambioProf) : null;
   if (!tc) return null;
   return (Number(d.precioCompra ?? 0) + Number(d.costoEnvio ?? 0) + Number(d.costoSeguridad ?? 0) + Number(d.costoLogistica ?? 0)) * tc;
@@ -141,7 +141,7 @@ export function ProformasTable({ proformas, mostrarVendedor, desplegable = false
                         <td className="cell-muted">{d.variante.product.brand?.name ?? "—"}</td>
                         <td className="cell-primary">{d.variante.product.name}</td>
                         <td className="cell-muted">{atributosDe(d)}</td>
-                        <td className="num">{d.cantidad}</td>
+                        <td className="num">{proforma.tipo === "VENTA" ? d.cantidad / (d.presentacionVenta?.cantidadMl ?? 1) : d.cantidad}</td>
                         {proforma.tipo === "COMPRA" && <td className="cell-muted">{d.proveedor?.nombre ?? "—"}</td>}
                         <td className="num cell-muted">{unitarioBs(proforma, d)?.toFixed(2) ?? "—"}</td>
                         <td className="num">{subtotalBs(proforma, d)?.toFixed(2) ?? "—"}</td>

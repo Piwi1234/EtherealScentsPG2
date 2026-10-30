@@ -33,6 +33,7 @@ export function ExistenciaPanel({
   onClose,
   onTrasladar,
   onProbador,
+  onDecants,
   onSolicitar,
   onVerLotes,
 }: {
@@ -43,6 +44,8 @@ export function ExistenciaPanel({
   onClose: () => void;
   onTrasladar: (row: StockRow) => void;
   onProbador: (row: StockRow) => void;
+  /** Solo si el producto tiene variante Decants (ML): convierte frascos de esta fila en ml. */
+  onDecants?: (row: StockRow) => void;
   onSolicitar: () => void;
   onVerLotes: () => void;
 }) {
@@ -119,6 +122,11 @@ export function ExistenciaPanel({
                             <button type="button" className="action-btn" onClick={() => onProbador(a)}>
                               Probador
                             </button>
+                            {onDecants && a.variante.unidad === "PZA" && (
+                              <button type="button" className="action-btn" onClick={() => onDecants(a)}>
+                                Decants
+                              </button>
+                            )}
                           </span>
                         )}
                       </td>

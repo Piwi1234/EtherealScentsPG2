@@ -74,6 +74,9 @@ import type {
   TraspasoAlmacen,
   TraspasoAlmacenInput,
   MovimientoProbador,
+  MovimientoDecant,
+  DecantResumen,
+  ProbadorVariante,
   ProbadorResumen,
   TraspasoInput,
   UpdateDetalleInput,
@@ -908,6 +911,51 @@ export function darBajaProbador(data: { varianteId: string; almacenId: string; c
   return apiPost<MovimientoProbador>("/probadores/baja", data);
 }
 
+export function getDecants(query: { almacenId?: string; search?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiGet<{ items: DecantResumen[]; totalMl: number }>(`/decants${qs ? `?${qs}` : ""}`);
+}
+
+export function getDecantDestinos(varianteOrigenId: string) {
+  return apiGet<ProbadorVariante[]>(`/decants/destinos?varianteOrigenId=${varianteOrigenId}`);
+}
+
+export function getDecantCostoMl(varianteId: string) {
+  return apiGet<{ mlDisponibles: number; costoMlBs: number | null }>(`/decants/costo-ml?varianteId=${varianteId}`);
+}
+
+export function getMovimientosDecant(query: { almacenId?: string; tipo?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.almacenId) params.set("almacenId", query.almacenId);
+  if (query.tipo) params.set("tipo", query.tipo);
+  if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return apiGet<Page<MovimientoDecant>>(`/decants/movimientos${qs ? `?${qs}` : ""}`);
+}
+
+export function convertirEnDecants(data: {
+  varianteOrigenId: string;
+  varianteId: string;
+  almacenId: string;
+  mlPorFrasco: number;
+  lotes: { loteCompraId: string; cantidad: number }[];
+  nota?: string;
+}) {
+  return apiPost<MovimientoDecant>("/decants/convertir", data);
+}
+
+export function darBajaMl(data: { varianteId: string; almacenId: string; cantidadMl: number; nota?: string }) {
+  return apiPost<MovimientoDecant>("/decants/baja", data);
+}
+
+export function deshacerConversionDecant(id: string) {
+  return apiPost<MovimientoDecant>(`/decants/movimientos/${id}/deshacer`, {});
+}
+
 export function createTraspasoAlmacen(data: TraspasoAlmacenInput) {
   return apiPost<TraspasoAlmacen>("/traspasos-almacen", data);
 }
@@ -987,7 +1035,7 @@ export function getPresentaciones(varianteId: string) {
   return apiGet<PresentacionVenta[]>(`/products/variants/${varianteId}/presentaciones`);
 }
 
-export function createPresentacion(varianteId: string, data: { cantidadMl: number; precioVentaBs: number }) {
+export function createPresentacion(varianteId: string, data: { cantidadMl: number; precioVentaBs: number; costoEmpaqueBs?: number }) {
   return apiPost<PresentacionVenta>(`/products/variants/${varianteId}/presentaciones`, data);
 }
 

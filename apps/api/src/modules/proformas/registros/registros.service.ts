@@ -44,6 +44,8 @@ const registroInclude = {
   // Incluye el país del proveedor: el país de origen ya no se guarda en la proforma/línea, se
   // consulta en vivo desde acá.
   proveedor: { select: { id: true, nombre: true, paisProcedencia: { select: { id: true, nombre: true } } } },
+  // Decants: la línea guarda ml; con esto el panel la muestra por presentación.
+  presentacionVenta: { select: { cantidadMl: true } },
   variante: {
     include: {
       product: {

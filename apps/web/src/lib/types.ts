@@ -25,6 +25,8 @@ export type Category = {
   // Solo aplica a categorías raíz — orden manual de su bloque en el Home (menor primero). Las
   // subcategorías siempre quedan en 0.
   orden: number;
+  // Habilita decants (unidad ML, presentaciones, conversión de frascos a ml) en los productos de esta categoría y sus subcategorías.
+  permiteDecants: boolean;
   // Solo aplica a categorías raíz — el carrusel del bloque "Producto destacado" del home.
   // Ordenado por `orden` (ya viene ordenado del backend).
   carouselImages: CarouselImage[];
@@ -249,6 +251,8 @@ export type ProductVariant = {
   // reservada > 0). Nunca informa cantidades.
   hasStock: boolean;
   options: ProductVariantOption[];
+  /** Variantes unidad=ML (decants): presentaciones activas, de menor a mayor, sin el costo de empaque (interno). */
+  presentaciones?: Pick<PresentacionVenta, "id" | "varianteId" | "cantidadMl" | "precioVentaBs">[];
 };
 
 /** Subvariante con precio propio de una ProductVariant con unidad = ML (ej. decant de 10ml). */
@@ -257,12 +261,14 @@ export type PresentacionVenta = {
   varianteId: string;
   cantidadMl: number;
   precioVentaBs: string;
+  /** Costo del empaque de una presentación, en Bs. */
+  costoEmpaqueBs: string;
   activo: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export type PresentacionVentaInput = { cantidadMl?: number; precioVentaBs?: number; activo?: boolean };
+export type PresentacionVentaInput = { cantidadMl?: number; precioVentaBs?: number; costoEmpaqueBs?: number; activo?: boolean };
 
 export type Product = {
   id: string;
@@ -706,6 +712,36 @@ export type MovimientoProbador = {
   creadoPor: { id: string; nombre: string };
 };
 
+/** ml que hay ahora en una variante Decants y almacén. */
+export type DecantResumen = {
+  varianteId: string;
+  almacenId: string;
+  variante: ProbadorVariante;
+  almacen: { id: string; nombre: string };
+  mlFisicos: number;
+  mlReservados: number;
+  mlDisponibles: number;
+};
+
+export type MovimientoDecant = {
+  id: string;
+  tipo: "CONVERSION" | "BAJA";
+  fecha: string;
+  varianteId: string;
+  variante: ProbadorVariante;
+  varianteOrigenId: string | null;
+  varianteOrigen: ProbadorVariante | null;
+  almacenId: string;
+  almacen: { id: string; nombre: string };
+  cantidadFrascos: number;
+  mlPorFrasco: number;
+  cantidadMl: number;
+  costoTotal: string;
+  nota: string | null;
+  revertidoAt: string | null;
+  creadoPor: { id: string; nombre: string };
+};
+
 export type TraspasoAlmacenInput = {
   varianteId: string;
   almacenOrigenId: string;
@@ -1122,6 +1158,8 @@ export type RegistroLinea = {
   costoSeguridad: string | null;
   costoLogistica: string | null;
   subtotal: string;
+  /** VENTA de un decant: la presentación vendida (la cantidad de la línea está en ml). */
+  presentacionVenta?: { cantidadMl: number } | null;
   /** COMPRA: a quién se le compra ESTA línea puntual. Null en líneas de venta. */
   proveedor: { id: string; nombre: string; paisProcedencia: { id: string; nombre: string } | null } | null;
   proforma: {

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayMinSize, IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min } from "class-validator";
+import { ArrayMinSize, IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min, ValidateIf } from "class-validator";
 import { EstadoVariante, UnidadVariante } from "@app/database";
 
 export class CreateProductVariantDto {
@@ -14,10 +14,14 @@ export class CreateProductVariantDto {
   @IsEnum(UnidadVariante)
   unidad?: UnidadVariante;
 
-  @ApiProperty({ example: 12, description: "Precio de compra propio de esta variante." })
+  @ApiPropertyOptional({
+    example: 12,
+    description: "Precio de compra propio de esta variante. Obligatorio salvo en unidad ML (decants): ahí el costo sale de los frascos convertidos.",
+  })
+  @ValidateIf((o: { unidad?: UnidadVariante }) => o.unidad !== UnidadVariante.ML)
   @IsNumber()
   @IsPositive()
-  purchasePrice!: number;
+  purchasePrice?: number;
 
   @ApiPropertyOptional({ example: 5, default: 0, description: "Utilidad propia de esta variante." })
   @IsOptional()

@@ -12,12 +12,14 @@ import { TraspasoAlmacenController } from "./traspaso-almacen.controller";
 import { TraspasoAlmacenService } from "./traspaso-almacen.service";
 import { ProbadorController } from "./probador.controller";
 import { ProbadorService } from "./probador.service";
+import { DecantController } from "./decant.controller";
+import { DecantService } from "./decant.service";
 import { SettingsModule } from "../../settings/settings.module";
 
 @Module({
   imports: [SettingsModule],
-  controllers: [CiudadController, PaisProcedenciaController, AlmacenController, StockController, TraspasoAlmacenController, ProbadorController],
-  providers: [CiudadService, PaisProcedenciaService, AlmacenService, StockService, StockExportService, TraspasoAlmacenService, ProbadorService],
+  controllers: [CiudadController, PaisProcedenciaController, AlmacenController, StockController, TraspasoAlmacenController, ProbadorController, DecantController],
+  providers: [CiudadService, PaisProcedenciaService, AlmacenService, StockService, StockExportService, TraspasoAlmacenService, ProbadorService, DecantService],
   exports: [CiudadService, PaisProcedenciaService, AlmacenService, StockService, TraspasoAlmacenService],
 })
 export class AlmacenesModule {}

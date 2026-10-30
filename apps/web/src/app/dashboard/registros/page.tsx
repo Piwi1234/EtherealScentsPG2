@@ -58,7 +58,7 @@ type RegistrosData = {
 
 /** Precio/costo unitario en Bs de una línea. En compras se convierte con el tipo de cambio de su proforma (null si no tiene). */
 function unitarioBs(linea: RegistroLinea, tipo: TipoProforma): number | null {
-  if (tipo === "VENTA") return Number(linea.precioUnitario ?? 0);
+  if (tipo === "VENTA") return Number(linea.precioUnitario ?? 0) * (linea.presentacionVenta?.cantidadMl ?? 1);
   const tc = linea.proforma.tipoCambioProf ? Number(linea.proforma.tipoCambioProf) : null;
   if (!tc) return null;
   const usd = Number(linea.precioCompra ?? 0) + Number(linea.costoEnvio ?? 0) + Number(linea.costoSeguridad ?? 0) + Number(linea.costoLogistica ?? 0);
@@ -923,7 +923,7 @@ function RegistrosPanel({
                             <td className="cell-muted" title={etiqueta ?? undefined}>
                               {atributosCompactos(etiqueta)}
                             </td>
-                            <td className="num">{linea.cantidad}</td>
+                            <td className="num">{tipo === "VENTA" ? linea.cantidad / (linea.presentacionVenta?.cantidadMl ?? 1) : linea.cantidad}</td>
                             <td>
                               <EstadoProducto linea={linea} tipo={tipo} />
                             </td>
@@ -940,7 +940,7 @@ function RegistrosPanel({
                 })}
                 <tr className="reg-total">
                   <td colSpan={3}>Total de esta página</td>
-                  <td className="num">{data.items.reduce((n, l) => n + l.cantidad, 0)}</td>
+                  <td className="num">{data.items.reduce((n, l) => n + (tipo === "VENTA" ? l.cantidad / (l.presentacionVenta?.cantidadMl ?? 1) : l.cantidad), 0)}</td>
                   <td />
                   <td />
                   <td className="num">{money(sumaBs(data.items.map((l) => subtotalBs(l, tipo))))}</td>

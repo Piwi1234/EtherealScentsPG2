@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
+import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
 
 export class CreateCategoryDto {
   @ApiProperty({ example: "Celulares" })
@@ -48,4 +48,9 @@ export class CreateCategoryDto {
   @IsInt()
   @Min(0)
   orden?: number;
+
+  @ApiPropertyOptional({ description: "Permite decants: habilita la unidad ML, las presentaciones de venta y la conversión de frascos a ml (perfumes)." })
+  @IsOptional()
+  @IsBoolean()
+  permiteDecants?: boolean;
 }
