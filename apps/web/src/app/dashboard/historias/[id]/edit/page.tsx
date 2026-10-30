@@ -1,4 +1,5 @@
 "use client";
+import { contieneBusqueda } from "../../../../../lib/busqueda";
 
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -170,7 +171,7 @@ function HistoriaEditor({ historia, onChanged }: { historia: HistoriaDetalle; on
     const q = relacionadaSearch.trim().toLowerCase();
     return todasHistorias
       .filter((h) => h.id !== historia.id && !relacionadaIds.has(h.id))
-      .filter((h) => h.titulo.toLowerCase().includes(q))
+      .filter((h) => contieneBusqueda(h.titulo, q))
       .slice(0, 8);
   }, [todasHistorias, relacionadaSearch, relacionadaIds, historia.id]);
 

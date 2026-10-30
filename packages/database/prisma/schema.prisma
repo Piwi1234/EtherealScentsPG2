@@ -80,6 +80,9 @@ model Cliente {
   id       String      @id @default(uuid()) @db.Uuid
   tipo     TipoCliente @default(NATURAL)
   nombre   String
+  // Columna calculada por la base (minúsculas y vocales sin acento) para buscar sin importar tildes: no se escribe nunca
+  // desde la app (ver apps/api/src/common/busqueda.ts y las migraciones *_busqueda_sin_tildes*).
+  nombreSearch String? @default(dbgenerated()) @map("nombre_search")
   email    String?     @unique
   telefono String?
   ciudad   String?
@@ -706,6 +709,9 @@ model PaisProcedencia {
 model Proveedor {
   id                String           @id @default(uuid()) @db.Uuid
   nombre            String
+  // Columna calculada por la base (minúsculas y vocales sin acento) para buscar sin importar tildes: no se escribe nunca
+  // desde la app (ver apps/api/src/common/busqueda.ts y las migraciones *_busqueda_sin_tildes*).
+  nombreSearch      String? @default(dbgenerated()) @map("nombre_search")
   paisProcedenciaId String?          @map("pais_procedencia_id") @db.Uuid
   paisProcedencia   PaisProcedencia? @relation(fields: [paisProcedenciaId], references: [id], onDelete: Restrict)
   nota              String?
@@ -1414,6 +1420,9 @@ enum HistoriaCategoria {
 model Historia {
   id        String  @id @default(uuid()) @db.Uuid
   titulo    String
+  // Columna calculada por la base (minúsculas y vocales sin acento) para buscar sin importar tildes: no se escribe nunca
+  // desde la app (ver apps/api/src/common/busqueda.ts y las migraciones *_busqueda_sin_tildes*).
+  tituloSearch String? @default(dbgenerated()) @map("titulo_search")
   // Se genera desde el título al crear (slugify) — no se regenera después, mismo criterio que
   // Product.slug, para no romper el link público si cambia el título.
   slug      String  @unique

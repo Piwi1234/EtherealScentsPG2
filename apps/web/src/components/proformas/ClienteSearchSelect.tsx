@@ -1,4 +1,5 @@
 "use client";
+import { contieneBusqueda } from "../../lib/busqueda";
 
 import { useEffect, useRef, useState } from "react";
 import type { Cliente } from "../../lib/types";
@@ -43,7 +44,7 @@ export function ClienteSearchSelect({
         // email es opcional en la base (String?) — algunos clientes se crean sin uno cargado
         // todavía, y sin este chequeo el .toLowerCase() de abajo tira una excepción no atajada que
         // rompe toda la página en cuanto se escribe algo acá.
-        return c.nombre.toLowerCase().includes(q) || (c.email?.toLowerCase().includes(q) ?? false);
+        return contieneBusqueda(c.nombre, q) || contieneBusqueda(c.email, q);
       })
     : clientes;
 

@@ -1,4 +1,5 @@
 "use client";
+import { contieneBusqueda } from "../../lib/busqueda";
 
 import { useEffect, useRef, useState } from "react";
 import type { Proveedor } from "../../lib/types";
@@ -38,7 +39,7 @@ export function ProveedorSearchSelect({
   }, []);
 
   const matches = query.trim()
-    ? proveedores.filter((p) => p.nombre.toLowerCase().includes(query.trim().toLowerCase()))
+    ? proveedores.filter((p) => contieneBusqueda(p.nombre, query))
     : proveedores;
 
   function handleSelect(proveedor: Proveedor) {

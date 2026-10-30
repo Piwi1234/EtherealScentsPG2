@@ -1,4 +1,5 @@
 "use client";
+import { contieneBusqueda } from "../../lib/busqueda";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -35,7 +36,7 @@ export default function HistoriasPage() {
     const q = search.trim().toLowerCase();
     return historias.filter((h) => {
       if (categoria && !h.categorias.some((c) => c.categoria === categoria)) return false;
-      if (q && !h.titulo.toLowerCase().includes(q)) return false;
+      if (q && !contieneBusqueda(h.titulo, q)) return false;
       return true;
     });
   }, [historias, categoria, search]);
