@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Product } from "../../lib/types";
+import { contieneBusqueda } from "../../lib/busqueda";
 
 /**
  * Buscador de producto con autocompletado: filtra la lista ya cargada (scoped por categoría/marca
@@ -41,7 +42,7 @@ export function ProductoSearchSelect({
   }, []);
 
   const matches = query.trim()
-    ? products.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()))
+    ? products.filter((p) => contieneBusqueda(p.name, query))
     : products;
 
   function handleSelect(product: Product) {

@@ -323,6 +323,9 @@ model CarouselImage {
 model Brand {
   id      String  @id @default(uuid()) @db.Uuid
   name    String
+  // Columna calculada por la base (minúsculas y vocales sin acento) para buscar sin importar tildes: no se escribe nunca
+  // desde la app (ver apps/api/src/common/busqueda.ts y la migración 20261029100000_busqueda_sin_tildes).
+  nameSearch String? @default(dbgenerated()) @map("name_search")
   slug    String  @unique
   logoUrl String? @map("logo_url")
 
@@ -418,6 +421,9 @@ model AttributeOption {
 model Product {
   id               String    @id @default(uuid()) @db.Uuid
   name             String
+  // Columna calculada por la base (minúsculas y vocales sin acento) para buscar sin importar tildes: no se escribe nunca
+  // desde la app (ver apps/api/src/common/busqueda.ts y la migración 20261029100000_busqueda_sin_tildes).
+  nameSearch       String?   @default(dbgenerated()) @map("name_search")
   // Se genera solo al crear el producto (slugify(name) + productCode) — nunca se regenera después
   // aunque cambie el nombre, para que la URL pública (/producto/[slug]) no se rompa. El sufijo del
   // código garantiza que sea único sin tener que reintentar con sufijos numéricos.

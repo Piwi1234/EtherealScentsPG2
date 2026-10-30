@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { EstadoEnvio, EstadoProforma, EstadoSolicitudStock, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { transitoCompras } from "./transito-compras.util";
 
 const stockInclude = {
@@ -87,7 +88,7 @@ export class StockService {
           ? {
               OR: [
                 { variantCode: { contains: query.search, mode: "insensitive" } },
-                { product: { name: { contains: query.search, mode: "insensitive" } } },
+                { product: { nameSearch: { contains: normalizarBusqueda(query.search.trim()) } } },
                 { product: { productCode: { contains: query.search, mode: "insensitive" } } },
               ],
             }
@@ -157,9 +158,9 @@ export class StockService {
         ? {
             OR: [
               { variantCode: { contains: query.search, mode: "insensitive" } },
-              { product: { name: { contains: query.search, mode: "insensitive" } } },
+              { product: { nameSearch: { contains: normalizarBusqueda(query.search.trim()) } } },
               { product: { productCode: { contains: query.search, mode: "insensitive" } } },
-              { product: { brand: { name: { contains: query.search, mode: "insensitive" } } } },
+              { product: { brand: { nameSearch: { contains: normalizarBusqueda(query.search.trim()) } } } },
             ],
           }
         : {}),

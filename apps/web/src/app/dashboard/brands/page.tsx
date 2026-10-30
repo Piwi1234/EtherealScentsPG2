@@ -18,6 +18,7 @@ import {
 } from "../../../lib/api";
 import type { Brand, BrandImportReport, BrandNormalizeCasePreviewRow, Category } from "../../../lib/types";
 import { Modal } from "../../../components/Modal";
+import { contieneBusqueda } from "../../../lib/busqueda";
 
 // Marcas sembradas antes de este cambio podrían tener logoUrl absoluto; los subidos desde acá en
 // adelante son siempre relativos ("/uploads/brands/...").
@@ -131,7 +132,7 @@ export default function BrandsPage() {
     .sort((a, b) => a.parentName.localeCompare(b.parentName));
 
   const filteredBrands = (brands ?? []).filter((brand) =>
-    brand.name.toLowerCase().includes(search.trim().toLowerCase()),
+    contieneBusqueda(brand.name, search),
   );
   const totalPages = Math.max(1, Math.ceil(filteredBrands.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
