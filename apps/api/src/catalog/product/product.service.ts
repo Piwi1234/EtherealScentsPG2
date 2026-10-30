@@ -796,7 +796,8 @@ export class ProductService {
 
   async createVariant(productId: string, dto: CreateProductVariantDto) {
     const product = await this.findOne(productId);
-    if (dto.unidad === UnidadVariante.ML) await this.assertCategoriaPermiteDecants(product.categoryId);
+    const esMl = dto.unidad === UnidadVariante.ML;
+    if (esMl) await this.assertCategoriaPermiteDecants(product.categoryId);
     const options = await this.buildVariantOptions(productId, product.categoryId, dto.optionValueIds);
     await this.assertVariantCombinationIsUnique(productId, dto.optionValueIds);
     const variantCode = await this.generateVariantCode();
@@ -806,10 +807,11 @@ export class ProductService {
         data: {
           productId,
           variantCode,
-          purchasePrice: dto.purchasePrice,
-          utility: dto.utility ?? 0,
-          minPriceBs: dto.minPriceBs,
-          discountBs: dto.discountBs ?? 0,
+          // Una variante en ml no lleva precios propios: su costo sale de los frascos convertidos y su precio de cada presentación.
+          purchasePrice: esMl ? 0 : dto.purchasePrice!,
+          utility: esMl ? 0 : (dto.utility ?? 0),
+          minPriceBs: esMl ? undefined : dto.minPriceBs,
+          discountBs: esMl ? 0 : (dto.discountBs ?? 0),
           unidad: dto.unidad ?? UnidadVariante.PZA,
           estado: dto.estado,
           options: { create: options },

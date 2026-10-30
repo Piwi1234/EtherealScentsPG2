@@ -500,21 +500,28 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       setVariantError("Elegí al menos un valor para la variante.");
       return;
     }
-    if (!variantForm.purchasePrice) {
+    const esMl = variantForm.unidad === "ML";
+    if (!esMl && !variantForm.purchasePrice) {
       setVariantError("Ingresá el precio de compra de la variante.");
       return;
     }
 
     setVariantSubmitting(true);
     try {
-      const updated = await apiPost<Product>(`/products/${currentProduct.id}/variants`, {
-        purchasePrice: Number(variantForm.purchasePrice),
-        utility: Number(variantForm.utility || 0),
-        minPriceBs: variantForm.minPriceBs ? Number(variantForm.minPriceBs) : undefined,
-        discountBs: Number(variantForm.discountBs || 0),
-        unidad: variantForm.unidad,
-        optionValueIds,
-      });
+      // Decants (ml): sin precios propios; el costo viene de los frascos convertidos y el precio de cada presentación.
+      const updated = await apiPost<Product>(
+        `/products/${currentProduct.id}/variants`,
+        esMl
+          ? { unidad: variantForm.unidad, optionValueIds }
+          : {
+              purchasePrice: Number(variantForm.purchasePrice),
+              utility: Number(variantForm.utility || 0),
+              minPriceBs: variantForm.minPriceBs ? Number(variantForm.minPriceBs) : undefined,
+              discountBs: Number(variantForm.discountBs || 0),
+              unidad: variantForm.unidad,
+              optionValueIds,
+            },
+      );
       setCurrentProduct(updated);
       setVariantForm(EMPTY_VARIANT_FORM);
     } catch (e) {
@@ -1117,6 +1124,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                       </button>
                                     )}
                                   </td>
+                                  {variant.unidad === "ML" ? (
+                                    <td data-label="Precios" colSpan={8} className="cell-muted" style={{ fontSize: 12 }}>
+                                      Sin precios propios: el costo sale de los frascos convertidos y el precio, de cada presentación.
+                                    </td>
+                                  ) : (
+                                    <>
                                   <td data-label="Compra">
                                     <input
                                       className="field variant-field-sm"
@@ -1170,6 +1183,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                       {variant.ofertaFlashHasta ? "Activa ⚡" : "Sin temporizador"}
                                     </button>
                                   </td>
+                                    </>
+                                  )}
                                   <td>
                                     <button
                                       type="button"
@@ -1241,6 +1256,13 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           </select>
                         </div>
                       )}
+                      {variantForm.unidad === "ML" ? (
+                        <p className="cell-muted" style={{ gridColumn: "1 / -1", fontSize: 12, margin: 0 }}>
+                          Una variante en ml no lleva precio de compra, utilidad ni descuento: el costo por ml sale del frasco que conviertas en
+                          Existencias (más el empaque de cada presentación) y el precio de venta se fija en sus presentaciones.
+                        </p>
+                      ) : (
+                        <>
                       <div>
                         <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
                         <input
@@ -1298,6 +1320,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           <span className="price-stat-value">Bs {variantFinalBsPreview.toFixed(2)}</span>
                         </div>
                       </div>
+                        </>
+                      )}
                       {variantError && <p className="error-text" style={{ gridColumn: "1 / -1" }}>{variantError}</p>}
                       <button
                         type="button"
