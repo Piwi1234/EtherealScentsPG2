@@ -25,7 +25,7 @@ function LockIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
