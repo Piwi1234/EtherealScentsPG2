@@ -103,7 +103,12 @@ export default async function ProformaDetallePage({ params }: { params: Promise<
       )}
 
       {proforma.tipo === "VENTA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && (
-        <ProformaPagos proformaId={proforma.id} estado={proforma.estado} carterasBs={carterasBs} />
+        <ProformaPagos
+          proformaId={proforma.id}
+          estado={proforma.estado}
+          carterasBs={carterasBs}
+          version={`${totalVenta}|${proforma.historial.length}|${proforma.estado}`}
+        />
       )}
 
       {proforma.tipo === "COMPRA" && (proforma.estado === "APROBADA" || proforma.estado === "COMPLETADA") && <ProformaRecojos proforma={proforma} />}

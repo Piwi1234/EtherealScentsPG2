@@ -25,10 +25,13 @@ export function ProformaPagos({
   proformaId,
   estado,
   carterasBs,
+  version,
 }: {
   proformaId: string;
   estado: EstadoProforma;
   carterasBs: Cartera[];
+  /** Cambia cuando la nota cambia por fuera de este panel (ajuste, entrega...): fuerza a volver a pedir total y saldo. */
+  version?: string;
 }) {
   const router = useRouter();
   const [pagos, setPagos] = useState<PagosVenta | null>(null);
@@ -46,9 +49,11 @@ export function ProformaPagos({
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   }, [proformaId]);
 
+  // `version` hace que el resumen se vuelva a pedir cuando la nota cambia (ej. se ajustó y bajó el total): router.refresh()
+  // no remonta este componente, y sin esto quedaría mostrando el total y el saldo de antes del ajuste.
   useEffect(() => {
     cargar();
-  }, [cargar]);
+  }, [cargar, version]);
 
   function abrirModal() {
     if (!pagos) return;
