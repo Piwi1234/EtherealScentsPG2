@@ -157,12 +157,24 @@ export class DashboardService {
   async margenBruto(from: Date, to: Date) {
     const ventas = await this.prisma.proformaDetalle.findMany({
       where: { proforma: { tipo: TipoProforma.VENTA, estado: { in: ESTADOS_REALES }, fecha: { gte: from, lte: to } } },
-      select: { subtotal: true, proforma: { select: { fecha: true } } },
+      select: {
+        subtotal: true,
+        cantidad: true,
+        costoEmpaqueBs: true,
+        presentacionVenta: { select: { cantidadMl: true } },
+        proforma: { select: { fecha: true } },
+      },
     });
     const ingresosPorMes = new Map<string, number>();
+    const costosPorMes = new Map<string, number>();
     for (const v of ventas) {
       const key = monthKey(v.proforma.fecha);
       ingresosPorMes.set(key, (ingresosPorMes.get(key) ?? 0) + Number(v.subtotal));
+      // Decants: además de los ml consumidos, cada presentación vendida lleva su empaque (ya en Bs, copiado al vender).
+      if (v.presentacionVenta && Number(v.costoEmpaqueBs) > 0) {
+        const presentaciones = v.cantidad / v.presentacionVenta.cantidadMl;
+        costosPorMes.set(key, (costosPorMes.get(key) ?? 0) + presentaciones * Number(v.costoEmpaqueBs));
+      }
     }
 
     const consumos = await this.prisma.loteCompraConsumo.findMany({
@@ -179,7 +191,6 @@ export class DashboardService {
         asignacion: { select: { proformaDetalle: { select: { proforma: { select: { fecha: true } } } } } },
       },
     });
-    const costosPorMes = new Map<string, number>();
     for (const c of consumos) {
       const key = monthKey(c.asignacion.proformaDetalle.proforma.fecha);
       const tc = Number(c.loteCompra.proformaDetalle.proforma.tipoCambioProf ?? 0);

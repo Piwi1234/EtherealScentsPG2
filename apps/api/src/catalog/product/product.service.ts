@@ -779,8 +779,24 @@ export class ProductService {
     }
   }
 
+  /** La unidad ML (decants) solo existe en categorías con "Permite decants", propio o heredado de una categoría padre. */
+  private async assertCategoriaPermiteDecants(categoryId: string) {
+    let id: string | null = categoryId;
+    while (id) {
+      const cat: { permiteDecants: boolean; parentId: string | null } | null = await this.prisma.category.findUnique({
+        where: { id },
+        select: { permiteDecants: true, parentId: true },
+      });
+      if (!cat) break;
+      if (cat.permiteDecants) return;
+      id = cat.parentId;
+    }
+    throw new BadRequestException("Esta categoría no permite decants (unidad ML). Actívalo en la categoría primero.");
+  }
+
   async createVariant(productId: string, dto: CreateProductVariantDto) {
     const product = await this.findOne(productId);
+    if (dto.unidad === UnidadVariante.ML) await this.assertCategoriaPermiteDecants(product.categoryId);
     const options = await this.buildVariantOptions(productId, product.categoryId, dto.optionValueIds);
     await this.assertVariantCombinationIsUnique(productId, dto.optionValueIds);
     const variantCode = await this.generateVariantCode();

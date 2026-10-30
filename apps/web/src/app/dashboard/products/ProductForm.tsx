@@ -11,6 +11,7 @@ import {
   apiUpload,
   ApiError,
   createPresentacion,
+  getDecantCostoMl,
   getPresentaciones,
   updatePresentacion,
 } from "../../../lib/api";
@@ -212,6 +213,9 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   const [presentaciones, setPresentaciones] = useState<PresentacionVenta[]>([]);
   const [nuevaCantidadMl, setNuevaCantidadMl] = useState("");
   const [nuevoPrecioBs, setNuevoPrecioBs] = useState("");
+  const [nuevoEmpaqueBs, setNuevoEmpaqueBs] = useState("");
+  // Costo promedio por ml (Bs) de los ml que hay en la variante Decants: sirve para mostrar el margen de cada presentación.
+  const [costoMlBs, setCostoMlBs] = useState<number | null>(null);
   const [presentacionError, setPresentacionError] = useState("");
   const [presentacionSubmitting, setPresentacionSubmitting] = useState(false);
 
@@ -630,8 +634,23 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     setPresentacionesVarianteId(varianteId);
     setNuevaCantidadMl("");
     setNuevoPrecioBs("");
+    setNuevoEmpaqueBs("");
+    setCostoMlBs(null);
     setPresentacionError("");
     loadPresentaciones(varianteId);
+    getDecantCostoMl(varianteId)
+      .then((r) => setCostoMlBs(r.costoMlBs))
+      .catch(() => {});
+  }
+
+  async function handleUpdatePresentacionCampo(presentacion: PresentacionVenta, campo: "precioVentaBs" | "costoEmpaqueBs", valor: string) {
+    if (!presentacionesVarianteId || valor.trim() === "" || Number(valor) === Number(presentacion[campo])) return;
+    try {
+      await updatePresentacion(presentacion.id, { [campo]: Number(valor) });
+    } catch (e) {
+      setPresentacionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    }
+    loadPresentaciones(presentacionesVarianteId);
   }
 
   async function handleAddPresentacion(e: React.FormEvent) {
@@ -647,9 +666,11 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       await createPresentacion(presentacionesVarianteId, {
         cantidadMl: Number(nuevaCantidadMl),
         precioVentaBs: Number(nuevoPrecioBs),
+        costoEmpaqueBs: nuevoEmpaqueBs.trim() === "" ? 0 : Number(nuevoEmpaqueBs),
       });
       setNuevaCantidadMl("");
       setNuevoPrecioBs("");
+      setNuevoEmpaqueBs("");
       loadPresentaciones(presentacionesVarianteId);
     } catch (e) {
       setPresentacionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -671,6 +692,16 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   // Vista previa en vivo: misma fórmula que calcula el backend.
   // Precio $ = Precio de compra + costos heredados de la categoría + utilidad.
   const selectedCategory = categories.find((cat) => cat.id === categoryId);
+  // La unidad ML (Decants) solo se ofrece en categorías con "Permite decants", propio o heredado de la categoría padre.
+  const categoriaPermiteDecants = (() => {
+    let cur = selectedCategory;
+    while (cur) {
+      if (cur.permiteDecants) return true;
+      const parentId: string | null = cur.parentId;
+      cur = parentId ? categories.find((cat) => cat.id === parentId) : undefined;
+    }
+    return false;
+  })();
   const logisticsCostPreview = Number(selectedCategory?.logisticsCost ?? 0);
   const shippingCostPreview = Number(selectedCategory?.shippingCost ?? 0);
   const securityCostPreview = Number(selectedCategory?.securityCost ?? 0);
@@ -1197,17 +1228,19 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           </div>
                         );
                       })}
-                      <div>
-                        <label style={{ fontSize: 12, color: "var(--muted)" }}>Unidad</label>
-                        <select
-                          className="field"
-                          value={variantForm.unidad}
-                          onChange={(e) => setVariantForm((prev) => ({ ...prev, unidad: e.target.value as UnidadVariante }))}
-                        >
-                          <option value="PZA">Pieza (de siempre)</option>
-                          <option value="ML">Ml (no se vende directo — solo por presentaciones)</option>
-                        </select>
-                      </div>
+                      {categoriaPermiteDecants && (
+                        <div>
+                          <label style={{ fontSize: 12, color: "var(--muted)" }}>Unidad</label>
+                          <select
+                            className="field"
+                            value={variantForm.unidad}
+                            onChange={(e) => setVariantForm((prev) => ({ ...prev, unidad: e.target.value as UnidadVariante }))}
+                          >
+                            <option value="PZA">Pieza (de siempre)</option>
+                            <option value="ML">Decants en ml (se vende solo por presentaciones)</option>
+                          </select>
+                        </div>
+                      )}
                       <div>
                         <label style={{ fontSize: 12, color: "var(--muted)" }}>Precio de compra</label>
                         <input
@@ -1466,28 +1499,79 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
       </form>
 
       {presentacionesVarianteId && (
-        <Modal title="Presentaciones de venta" onClose={() => setPresentacionesVarianteId(null)}>
+        <Modal title="Presentaciones de venta" onClose={() => setPresentacionesVarianteId(null)} maxWidth={720}>
           {presentaciones.length === 0 ? (
             <p className="cell-muted" style={{ fontSize: 13 }}>Ninguna todavía.</p>
           ) : (
-            <div style={{ marginBottom: 12 }}>
-              {presentaciones.map((p) => (
-                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                  <span>
-                    {p.cantidadMl} ml — Bs {p.precioVentaBs}
-                    {!p.activo && <span className="badge badge-muted" style={{ marginLeft: 8 }}>Inactiva</span>}
-                  </span>
-                  {p.activo && (
-                    <button type="button" className="link-button" onClick={() => handleDeactivatePresentacion(p)}>
-                      Desactivar
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div className="table-scroll" style={{ marginBottom: 12 }}>
+              <table className="table table-minimal table-compact">
+                <thead>
+                  <tr>
+                    <th>Presentación</th>
+                    <th className="num">Precio Bs</th>
+                    <th className="num">Empaque Bs</th>
+                    <th className="num">Costo Bs</th>
+                    <th className="num">Margen Bs</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {presentaciones.map((p) => {
+                    const costo = costoMlBs === null ? null : costoMlBs * p.cantidadMl + Number(p.costoEmpaqueBs);
+                    const margen = costo === null ? null : Number(p.precioVentaBs) - costo;
+                    return (
+                      <tr key={`${p.id}-${p.precioVentaBs}-${p.costoEmpaqueBs}`} style={p.activo ? undefined : { opacity: 0.5 }}>
+                        <td>
+                          {p.cantidadMl} ml
+                          {!p.activo && <span className="badge badge-muted" style={{ marginLeft: 8 }}>Inactiva</span>}
+                        </td>
+                        <td className="num">
+                          <input
+                            className="field variant-field-sm"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            defaultValue={p.precioVentaBs}
+                            disabled={!p.activo}
+                            onBlur={(e) => handleUpdatePresentacionCampo(p, "precioVentaBs", e.target.value)}
+                          />
+                        </td>
+                        <td className="num">
+                          <input
+                            className="field variant-field-sm"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            defaultValue={p.costoEmpaqueBs}
+                            disabled={!p.activo}
+                            onBlur={(e) => handleUpdatePresentacionCampo(p, "costoEmpaqueBs", e.target.value)}
+                          />
+                        </td>
+                        <td className="num">{costo === null ? "—" : costo.toFixed(2)}</td>
+                        <td className="num" style={margen !== null && margen < 0 ? { color: "var(--danger, #c64232)" } : undefined}>
+                          {margen === null ? "—" : margen.toFixed(2)}
+                        </td>
+                        <td>
+                          {p.activo && (
+                            <button type="button" className="link-button" onClick={() => handleDeactivatePresentacion(p)}>
+                              Desactivar
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="cell-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+                {costoMlBs === null
+                  ? "Costo y margen aparecen cuando hay ml en stock (convierte un frasco a decants)."
+                  : `Costo = ml × costo promedio por ml (Bs ${costoMlBs.toFixed(4)}) + empaque. Margen = precio − costo.`}
+              </p>
             </div>
           )}
           <form className="form-grid" onSubmit={handleAddPresentacion}>
-            <div className="grid-2">
+            <div className="grid-3">
               <div>
                 <label>Cantidad (ml)</label>
                 <input
@@ -1497,6 +1581,18 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                   step="1"
                   value={nuevaCantidadMl}
                   onChange={(e) => setNuevaCantidadMl(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>Empaque Bs</label>
+                <input
+                  className="field"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={nuevoEmpaqueBs}
+                  onChange={(e) => setNuevoEmpaqueBs(e.target.value)}
+                  placeholder="0"
                 />
               </div>
               <div>

@@ -11,6 +11,12 @@ export class CreatePresentacionVentaDto {
   @IsNumber()
   @Min(0)
   precioVentaBs!: number;
+
+  @ApiPropertyOptional({ example: 3, description: "Costo en Bs del empaque de UNA presentación (distinto por tamaño). Por defecto 0." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoEmpaqueBs?: number;
 }
 
 // cantidadMl es inmutable después de creada (define la presentación) — solo precioVentaBs/activo se editan.

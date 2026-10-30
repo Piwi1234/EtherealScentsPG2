@@ -34,7 +34,7 @@ export class PresentacionVentaService {
     await this.assertVarianteFraccionable(varianteId);
     try {
       return await this.prisma.presentacionVenta.create({
-        data: { varianteId, cantidadMl: dto.cantidadMl, precioVentaBs: dto.precioVentaBs },
+        data: { varianteId, cantidadMl: dto.cantidadMl, precioVentaBs: dto.precioVentaBs, costoEmpaqueBs: dto.costoEmpaqueBs ?? 0 },
       });
     } catch (error) {
       rethrowPrismaError(error, "Presentación de venta");
@@ -49,7 +49,7 @@ export class PresentacionVentaService {
     try {
       return await this.prisma.presentacionVenta.update({
         where: { id },
-        data: { precioVentaBs: dto.precioVentaBs, activo: dto.activo },
+        data: { precioVentaBs: dto.precioVentaBs, costoEmpaqueBs: dto.costoEmpaqueBs, activo: dto.activo },
       });
     } catch (error) {
       rethrowPrismaError(error, "Presentación de venta");

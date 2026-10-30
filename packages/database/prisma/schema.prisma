@@ -37,7 +37,8 @@ model Usuario {
   traspasosCreados        Traspaso[]
   traspasosAlmacenCreados TraspasoAlmacen[]
   movimientosProbador     MovimientoProbador[]
-  enviosCreados           Envio[]
+  movimientosDecant       MovimientoDecant[]
+  enviosCreados          Envio[]
   recepcionesEnvio        EnvioRecepcion[]    @relation("EnvioRecepcionCreador")
   entregasVenta           EntregaVenta[]
 
@@ -262,6 +263,10 @@ model Category {
   // bloques en la página de Home (menor primero). Las subcategorías quedan siempre en 0 y se ordenan
   // por nombre (ver CategoryService.findAll).
   orden Int @default(0)
+
+  // Solo categorías raíz o subcategorías donde se venden fracciones (perfumes → decants): habilita la unidad ML en sus
+  // variantes con precio propio, las presentaciones de venta y la conversión de frascos a ml.
+  permiteDecants Boolean @default(false) @map("permite_decants")
 
   brands         BrandCategory[]
   attributes     Attribute[]
@@ -555,6 +560,8 @@ model ProductVariant {
   traspasosAlmacen TraspasoAlmacen[]
   recepcionItems   EnvioRecepcionItem[]
   movimientosProbador MovimientoProbador[]
+  movimientosDecant       MovimientoDecant[]       @relation("DecantVariante")
+  movimientosDecantOrigen MovimientoDecant[]       @relation("DecantVarianteOrigen")
 
   solicitudStockLineas SolicitudStockLinea[]
 
@@ -610,6 +617,9 @@ model PresentacionVenta {
   variante      ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
   cantidadMl    Int            @map("cantidad_ml")
   precioVentaBs Decimal        @map("precio_venta_bs") @db.Decimal(12, 2)
+  // Costo del empaque de UNA presentación (frasquito, caja, etiqueta), en Bs: distinto por tamaño. Se suma al costo
+  // de la venta junto con los ml consumidos (ver margenBruto en dashboard.service.ts).
+  costoEmpaqueBs Decimal       @default(0) @map("costo_empaque_bs") @db.Decimal(12, 2)
   activo        Boolean        @default(true)
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
@@ -759,6 +769,7 @@ model Almacen {
   traspasosOrigen    TraspasoAlmacen[]           @relation("TraspasoAlmacenOrigen")
   traspasosDestino   TraspasoAlmacen[]           @relation("TraspasoAlmacenDestino")
   movimientosProbador MovimientoProbador[]
+  movimientosDecant  MovimientoDecant[]
   enviosDestino      Envio[]
   detallesEnTransito ProformaDetalle[]           @relation("DetalleTransitoAlmacen")
 
@@ -818,7 +829,8 @@ model LoteCompra {
   // clave única (verificado), así que aflojar la restricción no cambia ningún comportamiento existente.
   proformaDetalleId  String          @map("proforma_detalle_id") @db.Uuid
   proformaDetalle    ProformaDetalle @relation(fields: [proformaDetalleId], references: [id], onDelete: Restrict)
-  costoUnitario      Decimal         @map("costo_unitario") @db.Decimal(12, 2)
+  // 4 decimales: los lotes de decants (ml) heredan el costo del frasco dividido entre sus ml (ej. 0.3550 por ml).
+  costoUnitario      Decimal         @map("costo_unitario") @db.Decimal(12, 4)
   cantidadInicial    Int             @map("cantidad_inicial")
   cantidadDisponible Int             @map("cantidad_disponible")
   fecha              DateTime        @default(now())
@@ -827,6 +839,8 @@ model LoteCompra {
   traspasosComoOrigen  TraspasoAlmacenLote[] @relation("LoteOrigenTraspaso")
   traspasosComoDestino TraspasoAlmacenLote[] @relation("LoteDestinoTraspaso")
   movimientosProbador  MovimientoProbadorLote[]
+  decantsComoOrigen    MovimientoDecantLote[]   @relation("DecantLoteOrigen")
+  decantsComoDestino   MovimientoDecantLote[]   @relation("DecantLoteDestino")
 
   @@index([varianteId, almacenId, fecha])
   @@index([proformaDetalleId])
@@ -951,6 +965,63 @@ model MovimientoProbador {
   @@map("movimientos_probador")
 }
 
+enum TipoMovimientoDecant {
+  CONVERSION
+  BAJA
+
+  @@map("tipo_movimiento_decant")
+}
+
+/// Decants: CONVERSION saca frascos enteros del stock de una variante (unidad PZA) y suma sus ml al stock de la
+/// variante Decants (unidad ML) del mismo producto, heredando el costo real del lote (costo del frasco / ml). BAJA
+/// descuenta ml perdidos (derrame, merma) del stock de la variante Decants. Inmutable salvo `revertidoAt`: una
+/// conversión se puede deshacer mientras sus ml no se hayan tocado.
+model MovimientoDecant {
+  id               String                 @id @default(uuid()) @db.Uuid
+  tipo             TipoMovimientoDecant
+  fecha            DateTime               @default(now())
+  /// Variante Decants (ML) cuyo stock sube (CONVERSION) o baja (BAJA).
+  varianteId       String                 @map("variante_id") @db.Uuid
+  variante         ProductVariant         @relation("DecantVariante", fields: [varianteId], references: [id], onDelete: Restrict)
+  /// Variante de frascos de la que salen los frascos (solo CONVERSION).
+  varianteOrigenId String?                @map("variante_origen_id") @db.Uuid
+  varianteOrigen   ProductVariant?        @relation("DecantVarianteOrigen", fields: [varianteOrigenId], references: [id], onDelete: Restrict)
+  almacenId        String                 @map("almacen_id") @db.Uuid
+  almacen          Almacen                @relation(fields: [almacenId], references: [id], onDelete: Restrict)
+  cantidadFrascos  Int                    @default(0) @map("cantidad_frascos")
+  mlPorFrasco      Int                    @default(0) @map("ml_por_frasco")
+  /// ml que entran (CONVERSION) o que se pierden (BAJA).
+  cantidadMl       Int                    @map("cantidad_ml")
+  /// Costo real (misma moneda que los lotes de compra) de lo convertido o perdido.
+  costoTotal       Decimal                @default(0) @map("costo_total") @db.Decimal(12, 2)
+  nota             String?
+  creadoPorId      String                 @map("creado_por_id") @db.Uuid
+  creadoPor        Usuario                @relation(fields: [creadoPorId], references: [id])
+  revertidoAt      DateTime?              @map("revertido_at")
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  lotes MovimientoDecantLote[]
+
+  @@index([varianteId, almacenId])
+  @@map("movimientos_decant")
+}
+
+/// CONVERSION: loteOrigen = lote de frascos del que salieron `cantidad` frascos, loteDestino = lote de ml creado.
+/// BAJA: loteOrigen = lote de ml del que salieron `cantidad` ml (FIFO), sin loteDestino.
+model MovimientoDecantLote {
+  id             String           @id @default(uuid()) @db.Uuid
+  movimientoId   String           @map("movimiento_id") @db.Uuid
+  movimiento     MovimientoDecant @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  loteOrigenId   String           @map("lote_origen_id") @db.Uuid
+  loteOrigen     LoteCompra       @relation("DecantLoteOrigen", fields: [loteOrigenId], references: [id], onDelete: Restrict)
+  loteDestinoId  String?          @map("lote_destino_id") @db.Uuid
+  loteDestino    LoteCompra?      @relation("DecantLoteDestino", fields: [loteDestinoId], references: [id], onDelete: Restrict)
+  cantidad       Int
+  costoUnitario  Decimal          @map("costo_unitario") @db.Decimal(12, 4)
+
+  @@map("movimientos_decant_lote")
+}
+
 model MovimientoProbadorLote {
   id            String             @id @default(uuid()) @db.Uuid
   movimientoId  String             @map("movimiento_id") @db.Uuid
@@ -1049,6 +1120,9 @@ model ProformaDetalle {
   // aprobación, completación) no sabe ni le importa que exista una presentación detrás.
   presentacionVentaId String?            @map("presentacion_venta_id") @db.Uuid
   presentacionVenta   PresentacionVenta? @relation(fields: [presentacionVentaId], references: [id], onDelete: Restrict)
+  // Costo de empaque (Bs) de UNA presentación al momento de agregar la línea (copia de PresentacionVenta.costoEmpaqueBs,
+  // para que cambiar el costo después no altere el margen de ventas ya hechas). 0 en líneas sin presentación.
+  costoEmpaqueBs Decimal @default(0) @map("costo_empaque_bs") @db.Decimal(12, 2)
 
   // VENTA: nace de ProductVariant.precioFinalBs (calculado en vivo al agregar la línea) y es editable
   // después.

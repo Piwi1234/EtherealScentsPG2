@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, convertirEnProbador, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
-import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, StockDetalle, StockResumen, StockResumenRow, StockRow } from "../../../lib/types";
+import { ApiError, convertirEnDecants, convertirEnProbador, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getDecantDestinos, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
+import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, ProbadorVariante, StockDetalle, StockResumen, StockResumenRow, StockRow } from "../../../lib/types";
 import { ExistenciaPanel } from "../../../components/stock/ExistenciaPanel";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
@@ -18,6 +18,15 @@ function atributosLabel(row: { variante: StockRow["variante"] }): string | null 
   const heredados = formatAtributosVisibles(row.variante.product.attributeValues, row.variante.product.variantOptionValues);
   const partes = [...opciones, ...(heredados ? [heredados] : [])];
   return partes.length > 0 ? partes.join(", ") : null;
+}
+
+/** Sugiere los ml de un frasco a partir de sus atributos (ej. "Tamaño: 100 ML" → 100); vacío si no hay ninguno. */
+function mlDelFrasco(variante: StockRow["variante"]): string {
+  for (const o of variante.options) {
+    const m = o.optionValue.value.match(/(\d+(?:[.,]\d+)?)\s*ml/i);
+    if (m) return String(Math.round(Number(m[1].replace(",", "."))));
+  }
+  return "";
 }
 
 function formatDate(value: string): string {
@@ -87,6 +96,17 @@ export default function StockPage() {
   const [probadorNota, setProbadorNota] = useState("");
   const [probadorError, setProbadorError] = useState("");
   const [probadorSubmitting, setProbadorSubmitting] = useState(false);
+
+  // Decants: variantes Decants (ML) del producto abierto, y el modal para convertir frascos en ml.
+  const [decantDestinos, setDecantDestinos] = useState<ProbadorVariante[]>([]);
+  const [decantRow, setDecantRow] = useState<StockRow | null>(null);
+  const [decantDestinoId, setDecantDestinoId] = useState("");
+  const [decantFrascos, setDecantFrascos] = useState("");
+  const [decantMlPorFrasco, setDecantMlPorFrasco] = useState("");
+  const [decantLotes, setDecantLotes] = useState<{ loteCompraId: string; cantidad: number }[]>([]);
+  const [decantNota, setDecantNota] = useState("");
+  const [decantError, setDecantError] = useState("");
+  const [decantSubmitting, setDecantSubmitting] = useState(false);
 
   function loadStock() {
     setStockLoading(true);
@@ -179,7 +199,13 @@ export default function StockPage() {
   function abrirPanel(row: StockResumenRow) {
     setAbierto(row);
     setDetalle(null);
+    setDecantDestinos([]);
     cargarDetalle(row.varianteId);
+    if (row.variante.unidad === "PZA") {
+      getDecantDestinos(row.varianteId)
+        .then(setDecantDestinos)
+        .catch(() => {});
+    }
   }
 
   function handleVerLotes(row: { varianteId: string; variante: StockRow["variante"] }) {
@@ -264,6 +290,57 @@ export default function StockPage() {
       setProbadorError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setProbadorSubmitting(false);
+    }
+  }
+
+  const decantFrascosNum = Number(decantFrascos) || 0;
+  const decantMlNum = Number(decantMlPorFrasco) || 0;
+  const decantDisponible = decantRow ? decantRow.cantidadFisica - decantRow.cantidadReservada : 0;
+  const decantCuadra = decantFrascosNum > 0 && decantLotes.reduce((sum, l) => sum + l.cantidad, 0) === decantFrascosNum;
+
+  function openDecantModal(row: StockRow) {
+    setDecantRow(row);
+    setDecantDestinoId(decantDestinos.length === 1 ? decantDestinos[0].id : "");
+    setDecantFrascos("");
+    setDecantMlPorFrasco(mlDelFrasco(row.variante));
+    setDecantLotes([]);
+    setDecantNota("");
+    setDecantError("");
+  }
+
+  async function handleConfirmarDecant() {
+    if (!decantRow) return;
+    setDecantError("");
+    if (!decantDestinoId) {
+      setDecantError("Elige la variante Decants que recibe los ml.");
+      return;
+    }
+    if (decantMlNum < 1) {
+      setDecantError("Indica cuántos ml trae cada frasco.");
+      return;
+    }
+    if (!decantCuadra) {
+      setDecantError("El reparto de lotes no cuadra con la cantidad de frascos.");
+      return;
+    }
+    setDecantSubmitting(true);
+    try {
+      await convertirEnDecants({
+        varianteOrigenId: decantRow.varianteId,
+        varianteId: decantDestinoId,
+        almacenId: decantRow.almacenId,
+        mlPorFrasco: decantMlNum,
+        lotes: decantLotes,
+        nota: decantNota.trim() || undefined,
+      });
+      setDecantRow(null);
+      loadStock();
+      loadLotes();
+      if (abierto) cargarDetalle(abierto.varianteId);
+    } catch (e) {
+      setDecantError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setDecantSubmitting(false);
     }
   }
 
@@ -680,6 +757,7 @@ export default function StockPage() {
           onClose={() => setAbierto(null)}
           onTrasladar={(row) => openTraspasoModal(row)}
           onProbador={(row) => openProbadorModal(row)}
+          onDecants={decantDestinos.length > 0 ? (row) => openDecantModal(row) : undefined}
           onSolicitar={() => detalle?.almacenes[0] && openSolicitarModal(detalle.almacenes[0])}
           onVerLotes={() => handleVerLotes(abierto)}
         />
@@ -762,6 +840,81 @@ export default function StockPage() {
               </button>
               <button type="button" className="button" disabled={probadorSubmitting || !probadorCuadra} onClick={handleConfirmarProbador}>
                 {probadorSubmitting ? "Convirtiendo..." : "Convertir en probador"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {decantRow && (
+        <Modal title={`Convertir en decants: ${decantRow.variante.product.name}`} onClose={() => setDecantRow(null)}>
+          <div className="form-grid">
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Saca frascos del stock vendible y suma sus ml a la variante Decants del producto. El costo de cada ml sale del costo real del frasco. Se
+              venden después por presentaciones (2, 5, 10 ml...) y queda registrado en Inventario → Decants.
+            </p>
+            <div className="grid-2">
+              <div>
+                <label>Almacén</label>
+                <input className="field" value={decantRow.almacen.nombre} disabled />
+              </div>
+              <div>
+                <label>Variante Decants (destino)</label>
+                <select className="field" value={decantDestinoId} onChange={(e) => setDecantDestinoId(e.target.value)}>
+                  <option value="">— Elegir —</option>
+                  {decantDestinos.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.options.map((o) => o.optionValue.value).join(" · ") || d.variantCode}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid-2">
+              <div>
+                <label>Frascos a convertir</label>
+                <input
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={decantDisponible}
+                  value={decantFrascos}
+                  onChange={(e) => {
+                    setDecantFrascos(e.target.value);
+                    setDecantLotes([]);
+                  }}
+                />
+                <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Disponibles: {decantDisponible}</p>
+              </div>
+              <div>
+                <label>ml por frasco</label>
+                <input className="field" type="number" min={1} value={decantMlPorFrasco} onChange={(e) => setDecantMlPorFrasco(e.target.value)} />
+                <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  {decantFrascosNum > 0 && decantMlNum > 0 ? `Suma ${decantFrascosNum * decantMlNum} ml` : "Confirma el tamaño del frasco"}
+                </p>
+              </div>
+            </div>
+            {decantFrascosNum > 0 && (
+              <LoteAsignacionTable
+                key={decantFrascosNum}
+                varianteId={decantRow.varianteId}
+                almacenId={decantRow.almacenId}
+                cantidadRequerida={decantFrascosNum}
+                nombreProducto={decantRow.variante.product.name}
+                onChange={setDecantLotes}
+              />
+            )}
+            <div>
+              <label>Nota (opcional)</label>
+              <input className="field" value={decantNota} maxLength={300} onChange={(e) => setDecantNota(e.target.value)} placeholder="Ej. decants para la feria" />
+            </div>
+            {decantError && <p className="error-text">{decantError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setDecantRow(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="button" disabled={decantSubmitting || !decantCuadra} onClick={handleConfirmarDecant}>
+                {decantSubmitting ? "Convirtiendo..." : "Convertir en decants"}
               </button>
             </div>
           </div>

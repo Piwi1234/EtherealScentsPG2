@@ -345,6 +345,7 @@ export class ProformasService {
     let cantidad: number;
     let precioUnitario: number;
     let presentacionVentaId: string | null = null;
+    let costoEmpaqueBs = 0;
 
     if (dto.presentacionVentaId) {
       if (!dto.numPresentaciones) {
@@ -358,6 +359,7 @@ export class ProformasService {
         throw new BadRequestException("Esta presentación está desactivada.");
       }
       presentacionVentaId = presentacion.id;
+      costoEmpaqueBs = Number(presentacion.costoEmpaqueBs);
       cantidad = dto.numPresentaciones * presentacion.cantidadMl;
       precioUnitario = Number(presentacion.precioVentaBs) / presentacion.cantidadMl;
     } else {
@@ -390,7 +392,7 @@ export class ProformasService {
 
     try {
       await this.prisma.proformaDetalle.create({
-        data: { proformaId: id, varianteId: dto.varianteId, presentacionVentaId, cantidad, precioUnitario, subtotal },
+        data: { proformaId: id, varianteId: dto.varianteId, presentacionVentaId, costoEmpaqueBs, cantidad, precioUnitario, subtotal },
       });
       return this.findOne(id);
     } catch (error) {

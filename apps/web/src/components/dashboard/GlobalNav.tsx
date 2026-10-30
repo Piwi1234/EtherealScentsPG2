@@ -54,6 +54,7 @@ const GROUPS: NavGroup[] = [
           { href: "/dashboard/stock", label: "Existencias", desc: "Stock físico, reservado y en tránsito por almacén" },
           { href: "/dashboard/stock/traspasos", label: "Traspasos", desc: "Mover mercadería entre almacenes" },
           { href: "/dashboard/stock/probadores", label: "Probadores", desc: "Piezas sacadas del stock para probar, con control interno" },
+          { href: "/dashboard/stock/decants", label: "Decants", desc: "Perfumes convertidos a ml: conversiones y bajas" },
           { href: "/dashboard/categories", label: "Categorías", desc: "Organización del catálogo" },
           { href: "/dashboard/brands", label: "Marcas", desc: "Marcas de los productos" },
         ],

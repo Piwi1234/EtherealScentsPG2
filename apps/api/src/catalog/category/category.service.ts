@@ -63,6 +63,7 @@ export class CategoryService {
           securityCost: dto.securityCost,
           comentario: dto.parentId ? undefined : dto.comentario,
           orden: dto.parentId ? undefined : dto.orden,
+          permiteDecants: dto.permiteDecants,
         },
       });
     } catch (error) {
@@ -214,6 +215,7 @@ export class CategoryService {
           securityCost: clearingParent ? null : dto.securityCost,
           comentario: becomingSubcategory ? null : dto.comentario,
           orden: becomingSubcategory ? 0 : dto.orden,
+          permiteDecants: dto.permiteDecants,
         },
       });
     } catch (error) {
