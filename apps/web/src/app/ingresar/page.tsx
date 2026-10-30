@@ -46,7 +46,14 @@ export default function IngresarPage() {
       <LandingNavbar variant="dark" overlay={false} />
 
       <section className="landing-section landing-auth-section">
-        <div className="landing-auth-card">
+        <form
+          className="landing-auth-card"
+          method="post"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
           <h1 className="landing-auth-title">Ingresar</h1>
           <p className="landing-auth-lead">Entrá con tu cuenta para ver tu perfil y tus pedidos.</p>
 
@@ -56,7 +63,13 @@ export default function IngresarPage() {
             <label htmlFor="ingresar-email">Email</label>
             <input
               id="ingresar-email"
+              name="email"
               type="email"
+              autoComplete="username"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
@@ -66,10 +79,11 @@ export default function IngresarPage() {
             <label htmlFor="ingresar-password">Contraseña</label>
             <input
               id="ingresar-password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
               placeholder="••••••••"
             />
           </div>
@@ -78,7 +92,7 @@ export default function IngresarPage() {
             <Link href="/olvide-contrasena">¿Olvidaste tu contraseña?</Link>
           </p>
 
-          <button type="button" className="landing-btn landing-btn-primary landing-auth-submit" onClick={submit} disabled={loading}>
+          <button type="submit" className="landing-btn landing-btn-primary landing-auth-submit" disabled={loading}>
             {loading ? "Ingresando..." : "Ingresar"}
           </button>
 
@@ -92,7 +106,7 @@ export default function IngresarPage() {
           <p className="landing-auth-footer">
             ¿No tienes cuenta? <Link href="/registro">Registrate</Link>
           </p>
-        </div>
+        </form>
       </section>
 
       <LandingFooter />
