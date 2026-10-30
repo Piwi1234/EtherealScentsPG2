@@ -50,7 +50,15 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      {/* <form> real + name/autocomplete: sin esto el llavero de iOS (y los gestores de contraseñas) no ofrecen guardar ni autocompletar. */}
+      <form
+        className="login-card"
+        method="post"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
         <img className="login-logo" src="/logo-e.png" alt="Ethereal Scents" />
         <div className="login-badge">Iniciar sesión</div>
 
@@ -58,6 +66,13 @@ export default function LoginPage() {
           <label htmlFor="login-email" className="sr-only">Email</label>
           <input
             id="login-email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
@@ -71,10 +86,11 @@ export default function LoginPage() {
           <label htmlFor="login-pass" className="sr-only">Contraseña</label>
           <input
             id="login-pass"
+            name="password"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Contraseña"
           />
           <span className="login-field-icon">
@@ -84,10 +100,10 @@ export default function LoginPage() {
 
         {error && <p className="login-error">{error}</p>}
 
-        <button className="login-submit" type="button" onClick={submit} disabled={loading}>
+        <button className="login-submit" type="submit" disabled={loading}>
           {loading ? "Ingresando..." : "Ingresar"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

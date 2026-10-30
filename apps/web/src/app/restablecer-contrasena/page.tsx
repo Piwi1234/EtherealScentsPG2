@@ -58,7 +58,14 @@ function RestablecerContrasenaContent() {
   }
 
   return (
-    <div className="landing-auth-card">
+    <form
+      className="landing-auth-card"
+      method="post"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
       <h1 className="landing-auth-title">Elegí una contraseña nueva</h1>
 
       {error && <p className="landing-auth-error">{error}</p>}
@@ -67,7 +74,9 @@ function RestablecerContrasenaContent() {
         <label htmlFor="reset-password">Contraseña nueva</label>
         <input
           id="reset-password"
+          name="new-password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
@@ -77,18 +86,19 @@ function RestablecerContrasenaContent() {
         <label htmlFor="reset-confirm">Confirmar contraseña</label>
         <input
           id="reset-confirm"
+          name="confirm-password"
           type="password"
+          autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="••••••••"
         />
       </div>
 
-      <button type="button" className="landing-btn landing-btn-primary landing-auth-submit" onClick={submit} disabled={loading}>
+      <button type="submit" className="landing-btn landing-btn-primary landing-auth-submit" disabled={loading}>
         {loading ? "Guardando..." : "Guardar contraseña"}
       </button>
-    </div>
+    </form>
   );
 }
 

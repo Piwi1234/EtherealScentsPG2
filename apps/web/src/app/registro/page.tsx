@@ -56,7 +56,14 @@ export default function RegistroPage() {
       <LandingNavbar variant="dark" overlay={false} />
 
       <section className="landing-section landing-auth-section">
-        <div className="landing-auth-card">
+        <form
+          className="landing-auth-card"
+          method="post"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
           <h1 className="landing-auth-title">Creá tu cuenta</h1>
           <p className="landing-auth-lead">Registrate para guardar tus datos y ver tus pedidos.</p>
 
@@ -64,13 +71,19 @@ export default function RegistroPage() {
 
           <div className="landing-auth-field">
             <label htmlFor="registro-nombre">Nombre</label>
-            <input id="registro-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre" />
+            <input id="registro-nombre" name="name" autoComplete="name" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre" />
           </div>
           <div className="landing-auth-field">
             <label htmlFor="registro-email">Email</label>
             <input
               id="registro-email"
+              name="email"
               type="email"
+              autoComplete="username"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
@@ -80,7 +93,9 @@ export default function RegistroPage() {
             <label htmlFor="registro-password">Contraseña</label>
             <input
               id="registro-password"
+              name="new-password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres"
@@ -90,15 +105,16 @@ export default function RegistroPage() {
             <label htmlFor="registro-confirm">Confirmar contraseña</label>
             <input
               id="registro-confirm"
+              name="confirm-password"
               type="password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
               placeholder="Repetí tu contraseña"
             />
           </div>
 
-          <button type="button" className="landing-btn landing-btn-primary landing-auth-submit" onClick={submit} disabled={loading}>
+          <button type="submit" className="landing-btn landing-btn-primary landing-auth-submit" disabled={loading}>
             {loading ? "Creando cuenta..." : "Crear cuenta"}
           </button>
 
@@ -112,7 +128,7 @@ export default function RegistroPage() {
           <p className="landing-auth-footer">
             ¿Ya tenés cuenta? <Link href="/ingresar">Ingresá</Link>
           </p>
-        </div>
+        </form>
       </section>
 
       <LandingFooter />
