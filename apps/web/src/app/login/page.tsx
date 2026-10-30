@@ -14,19 +14,21 @@ function UserIcon() {
   );
 }
 
-function LockIcon() {
+function EyeIcon({ off }: { off: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {off && <path d="M3 3l18 18" />}
     </svg>
   );
 }
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [verPassword, setVerPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   async function submit() {
@@ -87,15 +89,21 @@ export default function LoginPage() {
           <input
             id="login-pass"
             name="password"
-            type="password"
+            type={verPassword ? "text" : "password"}
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Contraseña"
           />
-          <span className="login-field-icon">
-            <LockIcon />
-          </span>
+          <button
+            type="button"
+            className="login-field-icon login-field-toggle"
+            onClick={() => setVerPassword((v) => !v)}
+            aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            aria-pressed={verPassword}
+          >
+            <EyeIcon off={verPassword} />
+          </button>
         </div>
 
         {error && <p className="login-error">{error}</p>}
