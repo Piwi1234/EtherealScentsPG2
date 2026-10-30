@@ -2612,6 +2612,19 @@ a {
   pointer-events: none;
 }
 
+.login-field-toggle {
+  pointer-events: auto;
+  background: none;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.login-field-toggle:hover,
+.login-field-toggle:focus-visible {
+  color: #fff;
+}
+
 .login-error {
   font-size: 13px;
   color: #ffb4b4;
