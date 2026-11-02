@@ -28,7 +28,10 @@ function resumenComponentes(combo: Combo): string {
 export default function CombosPage() {
   const [combos, setCombos] = useState<Combo[] | null>(null);
   const [categorias, setCategorias] = useState<Category[]>([]);
-  const [categoryId, setCategoryId] = useState("");
+  const [rootFiltro, setRootFiltro] = useState("");
+  const [subFiltro, setSubFiltro] = useState("");
+  // Con subcategoría se filtra por ella; si no, por toda la categoría.
+  const categoryId = subFiltro || rootFiltro;
   const [search, setSearch] = useState("");
   const [buscar, setBuscar] = useState("");
   const [error, setError] = useState("");
@@ -63,6 +66,7 @@ export default function CombosPage() {
   }, [cargar]);
 
   const raices = useMemo(() => categorias.filter((c) => c.parentId === null), [categorias]);
+  const subcategorias = useMemo(() => categorias.filter((c) => c.parentId === rootFiltro).sort((a, b) => a.name.localeCompare(b.name)), [categorias, rootFiltro]);
 
   // Agrupados por categoría (el nombre de la categoría del combo).
   const grupos = useMemo(() => {
@@ -114,11 +118,29 @@ export default function CombosPage() {
       <div className="filters-bar" style={{ marginBottom: 16 }}>
         <div className="filter-field">
           <label className="filter-label">Categoría</label>
-          <select className="field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <select
+            className="field"
+            value={rootFiltro}
+            onChange={(e) => {
+              setRootFiltro(e.target.value);
+              setSubFiltro("");
+            }}
+          >
             <option value="">Todas</option>
             {raices.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="filter-field">
+          <label className="filter-label">Subcategoría</label>
+          <select className="field" value={subFiltro} onChange={(e) => setSubFiltro(e.target.value)} disabled={!rootFiltro || subcategorias.length === 0}>
+            <option value="">Todas</option>
+            {subcategorias.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>

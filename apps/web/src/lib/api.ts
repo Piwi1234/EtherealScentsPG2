@@ -813,8 +813,9 @@ export function importProductImagesFromFiles(files: File[]) {
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de
  * /brands, que hace match exacto — ahí el cascade se resuelve del lado del cliente). */
-export function getProducts(query: { categoryId?: string; brandId?: string; search?: string; pageSize?: number } = {}) {
+export function getProducts(query: { categoryId?: string; brandId?: string; search?: string; page?: number; pageSize?: number } = {}) {
   const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.brandId) params.set("brandId", query.brandId);
   if (query.search) params.set("search", query.search);

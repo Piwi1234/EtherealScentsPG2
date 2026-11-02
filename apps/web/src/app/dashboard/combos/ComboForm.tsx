@@ -3,9 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiError, createCombo, getCategories, getProducts, updateCombo, uploadComboImage } from "../../../lib/api";
+import { ApiError, createCombo, getCategories, getProducts, getProductsStockSummary, updateCombo, uploadComboImage, type ProductStock } from "../../../lib/api";
 import { productImageSrc } from "../../../lib/catalog-display";
 import type { Category, Combo, Product, ProductVariant } from "../../../lib/types";
+import { StockCell } from "../../../components/StockCell";
+import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
+
+const PRODUCTOS_POR_PAGINA = 20;
 
 type Elegido = {
   varianteId: string;
@@ -28,6 +32,13 @@ function precioDe(product: Product, variant: ProductVariant): number {
 function etiquetaDe(variant: ProductVariant): string | null {
   const e = variant.options.map((o) => o.optionValue.value).join(" · ");
   return e || null;
+}
+
+/** Atributos de la fila, como en la proforma: lo que distingue a la variante (ej. "Tamaño: 90 ML") y los atributos marcados para proforma. */
+function atributosDe(product: Product, variant: ProductVariant): string {
+  const propios = variant.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
+  const heredados = formatAtributosVisibles(product.attributeValues, product.variantOptionValues);
+  return [...propios, ...(heredados ? [heredados] : [])].join(", ") || "—";
 }
 
 /**
@@ -56,6 +67,11 @@ export function ComboForm({ combo }: { combo?: Combo }) {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<Product[] | null>(null);
+  // Tabla para elegir productos: 20 por página.
+  const [pagina, setPagina] = useState(1);
+  const [totalProductos, setTotalProductos] = useState(0);
+  // Stock por producto y variante (disponible, reservado y en tránsito), igual que la tabla de Productos.
+  const [stock, setStock] = useState<Record<string, ProductStock>>({});
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const inputImagen = useRef<HTMLInputElement>(null);
@@ -73,12 +89,33 @@ export function ComboForm({ combo }: { combo?: Combo }) {
       return;
     }
     const t = setTimeout(() => {
-      getProducts({ categoryId, search: busqueda.trim() || undefined, pageSize: 12 })
-        .then((p) => setResultados(p.items))
-        .catch(() => setResultados([]));
+      getProducts({ categoryId, search: busqueda.trim() || undefined, page: pagina, pageSize: PRODUCTOS_POR_PAGINA })
+        .then((p) => {
+          setResultados(p.items);
+          setTotalProductos(p.total);
+        })
+        .catch(() => {
+          setResultados([]);
+          setTotalProductos(0);
+        });
     }, 250);
     return () => clearTimeout(t);
+  }, [categoryId, busqueda, pagina]);
+
+  // Otra categoría o otra búsqueda: se vuelve a la primera página.
+  useEffect(() => {
+    setPagina(1);
   }, [categoryId, busqueda]);
+
+  useEffect(() => {
+    if (!resultados || resultados.length === 0) {
+      setStock({});
+      return;
+    }
+    getProductsStockSummary(resultados.map((p) => p.id))
+      .then(setStock)
+      .catch(() => setStock({}));
+  }, [resultados]);
 
   useEffect(() => {
     if (!imagen) {
@@ -90,18 +127,15 @@ export function ComboForm({ combo }: { combo?: Combo }) {
     return () => URL.revokeObjectURL(url);
   }, [imagen]);
 
-  const opcionesCategoria = useMemo(() => {
-    const raices = categorias.filter((c) => c.parentId === null).sort((a, b) => a.name.localeCompare(b.name));
-    const filas: { id: string; label: string }[] = [];
-    for (const r of raices) {
-      filas.push({ id: r.id, label: r.name });
-      for (const s of categorias.filter((c) => c.parentId === r.id).sort((a, b) => a.name.localeCompare(b.name))) {
-        filas.push({ id: s.id, label: `${r.name} / ${s.name}` });
-      }
-    }
-    return filas;
-  }, [categorias]);
+  // Categoría en dos pasos, como en Productos: primero la categoría y, si quieres acotar, la subcategoría. El combo queda en la
+  // subcategoría elegida o, sin ella, en la categoría (sus productos pueden ser de cualquiera de sus subcategorías).
+  const raices = useMemo(() => categorias.filter((c) => c.parentId === null).sort((a, b) => a.name.localeCompare(b.name)), [categorias]);
+  const categoriaActual = categorias.find((c) => c.id === categoryId);
+  const rootId = categoriaActual ? (categoriaActual.parentId ?? categoriaActual.id) : "";
+  const subId = categoriaActual?.parentId ? categoriaActual.id : "";
+  const subcategorias = useMemo(() => categorias.filter((c) => c.parentId === rootId).sort((a, b) => a.name.localeCompare(b.name)), [categorias, rootId]);
 
+  const totalPaginas = Math.max(1, Math.ceil(totalProductos / PRODUCTOS_POR_PAGINA));
   const suma = elegidos.reduce((n, e) => n + e.precioUnitarioBs * e.cantidad, 0);
   const descuentoNum = Number(descuento) || 0;
   const total = Math.max(0, Math.round((suma - descuentoNum) * 100) / 100);
@@ -177,16 +211,29 @@ export function ComboForm({ combo }: { combo?: Combo }) {
               <label>Nombre del combo</label>
               <input className="field" value={nombre} maxLength={120} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Dúo Árabes" />
             </div>
-            <div>
-              <label>Categoría</label>
-              <select className="field" value={categoryId} onChange={(e) => cambiarCategoria(e.target.value)}>
-                <option value="">— Elegir —</option>
-                {opcionesCategoria.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+            <div className="grid-2">
+              <div>
+                <label>Categoría</label>
+                <select className="field" value={rootId} onChange={(e) => cambiarCategoria(e.target.value)}>
+                  <option value="">— Elegir —</option>
+                  {raices.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label>Subcategoría</label>
+                <select className="field" value={subId} onChange={(e) => cambiarCategoria(e.target.value || rootId)} disabled={!rootId || subcategorias.length === 0}>
+                  <option value="">Todas</option>
+                  {subcategorias.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <div>
@@ -240,30 +287,63 @@ export function ComboForm({ combo }: { combo?: Combo }) {
             />
             {categoryId && resultados && resultados.length === 0 && <p className="cell-muted" style={{ fontSize: 13 }}>No hay productos con esa búsqueda en esta categoría.</p>}
             {resultados && resultados.length > 0 && (
-              <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 6, maxHeight: 280, overflowY: "auto" }}>
-                {resultados.map((p) =>
-                  p.variants
-                    .filter((v) => v.unidad !== "ML")
-                    .map((v) => {
-                      const ya = elegidos.some((e) => e.varianteId === v.id);
-                      const stock = v.stockDisponible ?? 0;
-                      return (
-                        <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderBottom: "1px solid var(--line)" }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <span className="cell-primary">{p.name}</span>
-                            <span className="cell-muted" style={{ fontSize: 12 }}>
-                              {p.brand?.name ? ` · ${p.brand.name}` : ""}
-                              {etiquetaDe(v) ? ` · ${etiquetaDe(v)}` : ""}
-                            </span>
-                          </div>
-                          <span className="cell-muted" style={{ fontSize: 12 }}>stock {stock}</span>
-                          <span style={{ minWidth: 80, textAlign: "right" }}>{bs(precioDe(p, v))}</span>
-                          <button type="button" className="action-btn" disabled={ya || elegidos.length >= 4} onClick={() => agregar(p, v)}>
-                            {ya ? "Agregado" : "Agregar"}
-                          </button>
-                        </div>
-                      );
-                    }),
+              <div className="table-scroll" style={{ marginTop: 6 }}>
+                <table className="table table-minimal table-compact">
+                  <thead>
+                    <tr>
+                      <th>Stock</th>
+                      <th>Marca</th>
+                      <th style={{ minWidth: 180 }}>Nombre</th>
+                      <th style={{ minWidth: 200 }}>Atributos</th>
+                      <th className="num">Precio final Bs</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resultados.map((p) =>
+                      p.variants
+                        .filter((v) => v.unidad !== "ML")
+                        .map((v) => {
+                          const ya = elegidos.some((e) => e.varianteId === v.id);
+                          const st = stock[p.id]?.variantes[v.id];
+                          return (
+                            <tr key={v.id}>
+                              <td>
+                                <StockCell
+                                  disponible={st?.disponible ?? v.stockDisponible ?? 0}
+                                  reservado={st?.reservado ?? v.stockReservado ?? 0}
+                                  transito={st ? st.disponibleTransito : undefined}
+                                />
+                              </td>
+                              <td className="cell-muted">{p.brand?.name ?? "—"}</td>
+                              <td className="cell-primary">{p.name}</td>
+                              <td className="cell-muted">{atributosDe(p, v)}</td>
+                              <td className="num cell-primary">
+                                <span className="unit">Bs</span> {precioDe(p, v).toFixed(2)}
+                              </td>
+                              <td>
+                                <button type="button" className="action-btn" disabled={ya || elegidos.length >= 4} onClick={() => agregar(p, v)}>
+                                  {ya ? "Agregado" : "Agregar"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        }),
+                    )}
+                  </tbody>
+                </table>
+                {totalPaginas > 1 && (
+                  <div className="pagination">
+                    <button type="button" className={`pagination-btn${pagina <= 1 ? " disabled" : ""}`} disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>
+                      ← Anterior
+                    </button>
+                    <span className="pagination-info">
+                      Página {pagina} de {totalPaginas} · {totalProductos} productos
+                    </span>
+                    <button type="button" className={`pagination-btn${pagina >= totalPaginas ? " disabled" : ""}`} disabled={pagina >= totalPaginas} onClick={() => setPagina((p) => p + 1)}>
+                      Siguiente →
+                    </button>
+                  </div>
                 )}
               </div>
             )}
