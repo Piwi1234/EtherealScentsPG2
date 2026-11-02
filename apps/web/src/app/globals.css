@@ -10716,3 +10716,88 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     flex: 1;
   }
 }
+
+/* Páginas "Cuenta X" (lista de carteras de una moneda): resumen del total y una tarjeta por cartera. */
+.cartera-resumen {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.cartera-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.cartera-total {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.cartera-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.cartera-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.cartera-card.is-inactiva {
+  opacity: 0.6;
+}
+
+.cartera-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.cartera-nombre {
+  font-size: 16px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.cartera-nombre:hover {
+  text-decoration: underline;
+}
+
+.cartera-saldo {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.cartera-saldo.neg {
+  color: #e5736a;
+}
+
+.cartera-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
