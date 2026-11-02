@@ -62,10 +62,11 @@ export default async function ProductoPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ variante?: string }>;
+  searchParams: Promise<{ v?: string; variante?: string }>;
 }) {
   const { slug } = await params;
-  const { variante } = await searchParams;
+  // `v` = código corto de la variante (link actual); `variante` = id completo, de los links viejos ya compartidos.
+  const { v, variante } = await searchParams;
 
   const product = await getProductBySlug(slug);
   if (!product) notFound();
@@ -74,7 +75,8 @@ export default async function ProductoPage({
   // es la que calificó para esa sección (descuento/flash/preventa activo), no necesariamente la más
   // barata que el selector de abajo elegiría por default. Se valida contra las variantes reales del
   // producto antes de usarla, para no confiar a ciegas en un query param armado a mano.
-  const initialVariantId = variante && product.variants.some((v) => v.id === variante) ? variante : null;
+  const initialVariantId =
+    product.variants.find((x) => (v && x.variantCode.toUpperCase() === v.toUpperCase()) || (variante && x.id === variante))?.id ?? null;
 
   const categories = await apiGet<Category[]>("/categories").catch(() => [] as Category[]);
 

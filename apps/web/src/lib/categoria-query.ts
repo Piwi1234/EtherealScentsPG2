@@ -17,6 +17,8 @@ export type CategoriaFiltersFromUrl = {
   discountOnly: boolean;
   flashOnly: boolean;
   preventaOnly: boolean;
+  /** "?combos=true": en vez de productos, la lista muestra los combos de la categoría. */
+  combosOnly: boolean;
   inStockOnly: boolean;
   priceApplied: PriceRange | null;
   brandFilters: string[];
@@ -48,6 +50,7 @@ export function parseCategoriaFiltersFromSearchParams(searchParams: URLSearchPar
     discountOnly: searchParams.get("descuento") === "true",
     flashOnly: searchParams.get("flash") === "true",
     preventaOnly: searchParams.get("preventa") === "true",
+    combosOnly: searchParams.get("combos") === "true",
     inStockOnly: searchParams.get("stock") === "true",
     priceApplied:
       minPriceFromQuery !== null || maxPriceFromQuery !== null
