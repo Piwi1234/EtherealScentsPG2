@@ -298,6 +298,16 @@ export function HomeClient({
     [productsPage, productsPageMode, offersMode],
   );
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
+  // "Combos" usa el mismo carrusel (flechas, autoplay, transición, alto medido, columnas por ancho) con sus propias páginas.
+  const comboChunks = useMemo(() => chunk(ofertasCombos, offersSlideSize), [ofertasCombos, offersSlideSize]);
+  const offersTotal = verCombosEnOfertas ? comboChunks.length : offersChunks.length;
+  // Al entrar o salir de "Combos" el carrusel vuelve a su primera página (el fetch de productos ya lo hace al cambiar de modo/categoría).
+  useEffect(() => {
+    offersCurrentRef.current = 0;
+    offersAnimatingRef.current = false;
+    setOffersSlide(0);
+    setOffersAnim(null);
+  }, [verCombosEnOfertas]);
 
   // Link del botón "Ver más": la página de la categoría elegida arriba (1ra fila de pills), con el
   // mismo modo de oferta activo (Descuentos/Ofertas Flash/Preventa) ya marcado como filtro — mismo
@@ -339,17 +349,17 @@ export function HomeClient({
   // Avanza sola cada 7s; se reinicia cuando el usuario navega a mano (offersAutoKey) para no
   // "pelear" con un click reciente.
   useEffect(() => {
-    if (offersChunks.length <= 1) return;
+    if (offersTotal <= 1) return;
     const timer = setInterval(() => {
       if (offersAnimatingRef.current) return;
       goToOffersSlide(offersCurrentRef.current + 1, 1);
     }, OFFERS_AUTOPLAY_MS);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offersChunks.length, offersAutoKey]);
+  }, [offersTotal, offersAutoKey]);
 
   function goToOffersSlide(index: number, dir: 1 | -1) {
-    const total = offersChunks.length;
+    const total = offersTotal;
     if (total === 0 || offersAnimatingRef.current) return;
     const from = offersCurrentRef.current;
     const target = ((index % total) + total) % total;
@@ -369,10 +379,27 @@ export function HomeClient({
   useLayoutEffect(() => {
     const el = offersFrameRef.current;
     if (!el) return;
-    setOffersHeight(el.scrollHeight);
-  }, [offersChunks, offersSlide, offersAnim, offersColumns]);
+    // Se mide el contenido (no el scrollHeight del marco): con un alto fijo puesto, scrollHeight nunca baja de ese alto, así que al
+    // achicar la ventana el marco se quedaba con el alto viejo. También se re-mide al cambiar el ancho (las tarjetas se escalan).
+    const measure = () => {
+      const content = el.firstElementChild as HTMLElement | null;
+      if (content) setOffersHeight(Math.ceil(content.getBoundingClientRect().height));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [offersChunks, comboChunks, verCombosEnOfertas, offersSlide, offersAnim, offersColumns]);
 
   function renderOffersWindow(index: number) {
+    if (verCombosEnOfertas) {
+      return (
+        <div className="landing-product-grid landing-product-grid--carousel">
+          {(comboChunks[index] ?? []).map((combo) => (
+            <ComboCard key={combo.id} combo={combo} />
+          ))}
+        </div>
+      );
+    }
     const chunk = offersChunks[index] ?? [];
     return (
       <div className="landing-product-grid landing-product-grid--carousel">
@@ -571,23 +598,8 @@ export function HomeClient({
             )}
           </div>
 
-          {verCombosEnOfertas && (
-            <>
-              <div className="landing-product-grid landing-product-grid--carousel">
-                {ofertasCombos.slice(0, 4).map((combo) => (
-                  <ComboCard key={combo.id} combo={combo} />
-                ))}
-              </div>
-              <div className="landing-offers-channel-cta">
-                <Link className="landing-offers-channel-btn" href="/combos">
-                  Ver todos los combos
-                </Link>
-              </div>
-            </>
-          )}
-
-          {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. */}
-          {!verCombosEnOfertas && (<>
+          {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. No aplica a Combos. */}
+          {!verCombosEnOfertas && (
           <div className="landing-filter-pills">
             {rootCategories.map((cat) => (
               <button
@@ -600,10 +612,11 @@ export function HomeClient({
               </button>
             ))}
           </div>
+          )}
 
           {error && <p className="error-text">{error}</p>}
-          {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
-          {productsPage && productsPage.items.length === 0 && (
+          {!verCombosEnOfertas && !productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
+          {!verCombosEnOfertas && productsPage && productsPage.items.length === 0 && (
             <div className="landing-offers-empty">
               <p className="landing-offers-empty-text">
                 {offersMode === "preventa" ? "No hay productos en preventa por el momento." : "No hay productos en oferta por el momento."}
@@ -619,14 +632,14 @@ export function HomeClient({
             </div>
           )}
 
-          {offersChunks.length > 0 && (
+          {offersTotal > 0 && (
             <div className="landing-carousel">
               <button
                 type="button"
                 className="landing-carousel-arrow landing-carousel-arrow--prev"
                 aria-label="Ofertas anteriores"
                 onClick={() => goToOffersSlide(offersSlide - 1, -1)}
-                disabled={offersChunks.length <= 1}
+                disabled={offersTotal <= 1}
               >
                 ‹
               </button>
@@ -661,17 +674,17 @@ export function HomeClient({
                 className="landing-carousel-arrow landing-carousel-arrow--next"
                 aria-label="Siguientes ofertas"
                 onClick={() => goToOffersSlide(offersSlide + 1, 1)}
-                disabled={offersChunks.length <= 1}
+                disabled={offersTotal <= 1}
               >
                 ›
               </button>
             </div>
           )}
 
-          {offersChunks.length > 0 && (
+          {offersTotal > 0 && (
             <div className="landing-offers-channel-cta">
-              {offersViewMoreHref && (
-                <Link className="landing-offers-channel-btn" href={offersViewMoreHref}>
+              {(verCombosEnOfertas || offersViewMoreHref) && (
+                <Link className="landing-offers-channel-btn" href={verCombosEnOfertas ? "/combos" : (offersViewMoreHref as string)}>
                   Ver más
                 </Link>
               )}
@@ -685,7 +698,6 @@ export function HomeClient({
               </a>
             </div>
           )}
-          </>)}
         </div>
       </section>
 
