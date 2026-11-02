@@ -8,6 +8,8 @@ export type CartItem = {
   key: string;
   productId: string;
   productSlug: string;
+  // Adónde lleva el nombre en el carrito: por defecto la ficha del producto; un combo lleva a su propia página.
+  href?: string;
   variantId: string | null;
   name: string;
   brand: string | null;

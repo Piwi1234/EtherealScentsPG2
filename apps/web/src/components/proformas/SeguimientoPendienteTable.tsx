@@ -37,11 +37,11 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   }, [linea.id]);
 
-  async function handleLigar(compraDetalleId: string, cantidad: number) {
+  async function handleLigar(compraDetalleId: string, cantidad: number, desplazar: boolean) {
     setSavingId(compraDetalleId);
     setError("");
     try {
-      await vincularPedido(linea.id, compraDetalleId, cantidad);
+      await vincularPedido(linea.id, compraDetalleId, cantidad, desplazar);
       onSaved();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -64,12 +64,19 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
       {candidatas && candidatas.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {candidatas.map((c) => {
-            const maximo = Math.min(c.restante, linea.cantidad);
+            // Un pedido tiene prioridad: además de lo libre, se puede tomar lo que cubren las solicitudes de stock.
+            const maximo = Math.min(c.restante + c.desplazable, linea.cantidad);
             const elegida = Math.min(cantidades[c.id] ?? maximo, maximo);
+            const aQuitar = Math.max(0, elegida - Math.max(0, c.restante));
             return (
               <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span>
-                  {c.proforma.codigo} · {c.proveedor?.nombre ?? "Sin proveedor"} · {c.restante} sin cubrir de {c.cantidad}
+                  {c.proforma.codigo} · {c.proveedor?.nombre ?? "Sin proveedor"} · {Math.max(0, c.restante)} sin cubrir de {c.cantidad}
+                  {c.desplazable > 0 && (
+                    <span className="cell-muted" style={{ display: "block", fontSize: 12 }}>
+                      {c.desplazable} ligadas a {c.solicitudes.length === 1 ? "la solicitud" : "las solicitudes"} {c.solicitudes.join(", ")} (el pedido tiene prioridad)
+                    </span>
+                  )}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {maximo > 0 && (
@@ -84,8 +91,31 @@ function LigarCompraModal({ linea, onClose, onSaved }: { linea: SeguimientoLinea
                       style={{ width: 64, textAlign: "center" }}
                     />
                   )}
-                  <button type="button" className="action-btn" disabled={maximo <= 0 || savingId !== null} onClick={() => handleLigar(c.id, elegida)}>
-                    {savingId === c.id ? "Ligando..." : maximo <= 0 ? "Sin cupo" : elegida < linea.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                  <button
+                    type="button"
+                    className="action-btn"
+                    disabled={maximo <= 0 || savingId !== null}
+                    onClick={() => {
+                      if (
+                        aQuitar > 0 &&
+                        !confirm(
+                          `Esta línea tiene ${c.desplazable} unidad(es) ligadas a ${c.solicitudes.length === 1 ? "la solicitud" : "las solicitudes"} ${c.solicitudes.join(", ")}. ` +
+                            `Para ligar ${elegida} a ${linea.proformaDetalle.proforma.codigo} se le quitarán ${aQuitar} a la solicitud, que vuelven a "Sin compra". ¿Seguir?`,
+                        )
+                      )
+                        return;
+                      handleLigar(c.id, elegida, aQuitar > 0);
+                    }}
+                  >
+                    {savingId === c.id
+                      ? "Ligando..."
+                      : maximo <= 0
+                        ? "Sin cupo"
+                        : aQuitar > 0
+                          ? `Ligar ${elegida} (quita ${aQuitar} de la solicitud)`
+                          : elegida < linea.cantidad
+                            ? `Ligar ${elegida}`
+                            : "Ligar"}
                   </button>
                 </span>
               </div>

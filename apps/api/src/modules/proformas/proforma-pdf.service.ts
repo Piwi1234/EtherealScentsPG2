@@ -91,7 +91,9 @@ function conceptoLabel(detalle: Detalle): string {
   const heredados = atributosHeredadosLabel(variante.product);
   // Decants: la presentación vendida ("5 ml") va en el concepto; la cantidad y el precio de la fila son por presentación.
   const presentacion = detalle.presentacionVenta ? [`${detalle.presentacionVenta.cantidadMl} ml`] : [];
-  const partes = [...propias, ...(heredados ? [heredados] : []), ...presentacion];
+  // Línea de un combo vendido: se identifica en el concepto (el descuento del combo ya va repartido en el precio).
+  const combo = detalle.comboNombre ? [`Combo ${detalle.comboNombre}`] : [];
+  const partes = [...propias, ...(heredados ? [heredados] : []), ...presentacion, ...combo];
   return partes.length > 0 ? `${variante.product.name} - ${partes.join(", ")}` : variante.product.name;
 }
 

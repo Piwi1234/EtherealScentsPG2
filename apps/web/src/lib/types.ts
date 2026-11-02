@@ -785,6 +785,10 @@ export type ProformaDetalle = {
   /** VENTA de una variante unidad=ML: qué presentación (subvariante) se vendió en esta línea. */
   presentacionVentaId: string | null;
   presentacionVenta: PresentacionVenta | null;
+  /** Línea de un combo vendido: el combo, su nombre (copia de cuando se agregó) y las unidades de esta variante por combo. */
+  comboId?: string | null;
+  comboNombre?: string | null;
+  comboUnidades?: number | null;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
   /** VENTA: descuento por unidad (Bs). El descuento total de la nota es la suma de cantidad × este valor. */
@@ -1130,6 +1134,10 @@ export type CompraCandidata = {
   id: string;
   cantidad: number;
   restante: number;
+  /** Unidades que hoy cubren solicitudes de stock (y todavía no llegaron): se les pueden quitar para ligar este faltante. */
+  desplazable: number;
+  /** Códigos de las solicitudes de stock ligadas a esta línea. */
+  solicitudes: string[];
   proveedor: { id: string; nombre: string } | null;
   proforma: { id: string; codigo: string; estado: EstadoProforma };
 };
@@ -1368,4 +1376,79 @@ export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?
 export type CreateRecepcionInput = {
   nota?: string;
   items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
+};
+
+// --- Combos ---
+
+/** Un componente de un combo con su precio actual (en vivo) y si alcanza el stock. */
+export type ComboItemInfo = {
+  id: string;
+  varianteId: string;
+  cantidad: number;
+  producto: { id: string; name: string; slug: string; productCode: string; brand: { id: string; name: string } | null };
+  variante: { id: string; etiqueta: string | null; estado: EstadoVariante; isDefault: boolean };
+  imageUrl: string | null;
+  precioUnitarioBs: number;
+  subtotalBs: number;
+  /** El producto ya tiene un descuento propio (el combo suma su precio con ese descuento). */
+  conDescuento: boolean;
+  /** Alcanza el stock para las unidades que lleva el combo (o está en Preventa). */
+  hayStock: boolean;
+  /** Solo en gestión: la web pública nunca ve cantidades. */
+  stockDisponible?: number;
+};
+
+/** 2 a 4 productos de una misma categoría vendidos juntos con un descuento fijo en Bs; el precio se calcula en vivo. */
+export type Combo = {
+  id: string;
+  nombre: string;
+  slug: string;
+  comboCode: string;
+  descripcion: string | null;
+  imageUrl: string | null;
+  publicado: boolean;
+  orden: number;
+  categoryId: string;
+  category: { id: string; name: string; slug: string };
+  items: ComboItemInfo[];
+  /** Suma de los precios de venta de los componentes (× cantidad). */
+  sumaBs: number;
+  descuentoBs: number;
+  totalBs: number;
+  ahorroBs: number;
+  /** Solo en gestión: cuántos combos completos se pueden armar hoy con el stock disponible (null si no hay stock que contar). */
+  armables?: number | null;
+  /** Algún componente no tiene stock suficiente o no está disponible. */
+  agotado: boolean;
+  /** Algún componente está en Preventa (y ninguno agotado). */
+  preventa: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Combos vendidos (notas aprobadas o completadas), por combo. */
+export type ComboVentas = {
+  items: {
+    comboId: string;
+    nombre: string;
+    /** false si el combo se borró después de venderse. */
+    existe: boolean;
+    combos: number;
+    notas: number;
+    ingresosBs: number;
+    descuentoBs: number;
+    ultimaVenta: string | null;
+  }[];
+  totalCombos: number;
+  totalIngresosBs: number;
+  totalDescuentoBs: number;
+};
+
+export type ComboInput = {
+  nombre?: string;
+  categoryId?: string;
+  descripcion?: string | null;
+  descuentoBs?: number;
+  publicado?: boolean;
+  items?: { varianteId: string; cantidad: number }[];
 };

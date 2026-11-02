@@ -13,6 +13,9 @@ import type {
   Ciudad,
   Cliente,
   ClienteImportReport,
+  Combo,
+  ComboInput,
+  ComboVentas,
   ClienteInput,
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
@@ -810,8 +813,9 @@ export function importProductImagesFromFiles(files: File[]) {
 
 /** categoryId ya expande a categoría padre + subcategorías del lado del backend (a diferencia de
  * /brands, que hace match exacto — ahí el cascade se resuelve del lado del cliente). */
-export function getProducts(query: { categoryId?: string; brandId?: string; search?: string; pageSize?: number } = {}) {
+export function getProducts(query: { categoryId?: string; brandId?: string; search?: string; page?: number; pageSize?: number } = {}) {
   const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.brandId) params.set("brandId", query.brandId);
   if (query.search) params.set("search", query.search);
@@ -1031,6 +1035,19 @@ export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
   return apiPost<Proforma>(`/proformas/${proformaId}/detalles/venta`, data);
 }
 
+/** Agrega combos completos a una nota de venta en borrador: una línea por producto, con el descuento del combo repartido. */
+export function addComboToProforma(proformaId: string, comboId: string, cantidad: number) {
+  return apiPost<Proforma>(`/proformas/${proformaId}/detalles/combo`, { comboId, cantidad });
+}
+
+export function setComboCantidad(proformaId: string, comboId: string, cantidad: number) {
+  return apiPatch<Proforma>(`/proformas/${proformaId}/combos/${comboId}`, { cantidad });
+}
+
+export function removeComboFromProforma(proformaId: string, comboId: string) {
+  return apiDelete<void>(`/proformas/${proformaId}/combos/${comboId}`);
+}
+
 export function getPresentaciones(varianteId: string) {
   return apiGet<PresentacionVenta[]>(`/products/variants/${varianteId}/presentaciones`);
 }
@@ -1113,8 +1130,13 @@ export function getProcurasParaCompra(compraDetalleId: string) {
   return apiGet<ProcuraCandidata[]>(`/proformas/seguimiento/compra/${compraDetalleId}/procuras`);
 }
 
-export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
-  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+/** `desplazarSolicitudes`: los pedidos tienen prioridad; si la compra no tiene cupo libre se le quitan unidades a las solicitudes de stock. */
+export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number, desplazarSolicitudes?: boolean) {
+  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, {
+    compraDetalleId,
+    ...(cantidad ? { cantidad } : {}),
+    ...(desplazarSolicitudes ? { desplazarSolicitudes: true } : {}),
+  });
 }
 
 // --- Reserva manual de stock libre ---
@@ -1421,4 +1443,51 @@ export function updateNotaPieEnvio(id: string, notaPie: string) {
 
 export function cerrarEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/cerrar`, {});
+}
+
+// --- Combos ---
+
+export function getCombos(query: { categoryId?: string; search?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiGet<Combo[]>(`/combos${qs ? `?${qs}` : ""}`);
+}
+
+export function getComboVentas(query: { fechaDesde?: string; fechaHasta?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
+  const qs = params.toString();
+  return apiGet<ComboVentas>(`/combos/ventas${qs ? `?${qs}` : ""}`);
+}
+
+export function getCombo(id: string) {
+  return apiGet<Combo>(`/combos/${id}`);
+}
+
+export function createCombo(data: ComboInput) {
+  return apiPost<Combo>("/combos", data);
+}
+
+export function updateCombo(id: string, data: ComboInput) {
+  return apiPatch<Combo>(`/combos/${id}`, data);
+}
+
+export function deleteCombo(id: string) {
+  return apiDelete<{ ok: true }>(`/combos/${id}`);
+}
+
+export function uploadComboImage(id: string, file: File) {
+  return apiUpload<Combo>(`/combos/${id}/image`, file);
+}
+
+/** Web pública: combos publicados (sin cantidades de stock). */
+export function getPublicCombos(categoryId?: string) {
+  return apiGet<Combo[]>(`/catalog/combos${categoryId ? `?categoryId=${categoryId}` : ""}`);
+}
+
+export function getPublicCombo(slug: string) {
+  return apiGet<Combo>(`/catalog/combos/${slug}`);
 }

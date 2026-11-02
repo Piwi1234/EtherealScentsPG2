@@ -10,6 +10,7 @@ import { EstadoPedido, QuerySeguimientoDto } from "./dto/query-seguimiento.dto";
 import { UpdateEstadoSeguimientoDto } from "./dto/update-estado-seguimiento.dto";
 import { CrearComprasDto } from "./dto/crear-compras.dto";
 import { recalcularTransitoLinea } from "../transito.util";
+import { desplazarSolicitudes, unidadesDesplazables } from "../solicitudes-stock/desplazar-solicitudes.util";
 
 // Mismo shape que ProformaDetalleTable/AgregarProductoBrowser necesitan para mostrar la variante
 // (opciones propias + atributos heredados marcados mostrarEnProforma) y para poder filtrar por
@@ -240,7 +241,7 @@ export class SeguimientoService {
   private async getProcura(id: string) {
     const asignacion = await this.prisma.proformaDetalleAsignacion.findUnique({
       where: { id },
-      include: { proformaDetalle: { select: { varianteId: true, proforma: { select: { estado: true } } } } },
+      include: { proformaDetalle: { select: { varianteId: true, proforma: { select: { estado: true, codigo: true } } } } },
     });
     if (!asignacion) throw new NotFoundException("Línea de Procura no encontrada.");
     if (asignacion.origen !== OrigenAsignacion.PROCURA || asignacion.cantidad <= 0) {
@@ -267,7 +268,7 @@ export class SeguimientoService {
         proveedor: { select: { id: true, nombre: true } },
         proforma: { select: { id: true, codigo: true, estado: true } },
         asignacionesCubiertas: { select: { id: true, cantidad: true } },
-        solicitudesCubiertas: { select: { cantidad: true } },
+        solicitudesCubiertas: { select: { cantidad: true, cantidadRecibida: true, solicitud: { select: { codigo: true } } } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -277,6 +278,9 @@ export class SeguimientoService {
         c.cantidad -
         asignacionesCubiertas.filter((a) => a.id !== asignacionId).reduce((s, a) => s + a.cantidad, 0) -
         solicitudesCubiertas.reduce((s, a) => s + a.cantidad, 0),
+      // Un pedido tiene prioridad: lo que hoy cubre solicitudes de stock (y todavía no llegó) se les puede quitar para ligarlo.
+      desplazable: solicitudesCubiertas.reduce((s, a) => s + unidadesDesplazables(a), 0),
+      solicitudes: [...new Set(solicitudesCubiertas.map((a) => a.solicitud.codigo))],
     }));
   }
 
@@ -312,7 +316,7 @@ export class SeguimientoService {
    * a lo que falta, la fila se parte en dos — la cantidad ligada queda en una fila propia con la compra
    * y el resto sigue libre para ligarse a otra. Sin `cantidad` se liga lo máximo que cabe.
    */
-  async vincular(asignacionId: string, compraDetalleId: string, cantidad?: number) {
+  async vincular(asignacionId: string, compraDetalleId: string, cantidad?: number, desplazar = false) {
     const asignacion = await this.getProcura(asignacionId);
     if (asignacion.compraDetalleId) {
       throw new ConflictException("Ese faltante ya está ligado a una compra: soltalo primero para ligarlo a otra.");
@@ -324,7 +328,7 @@ export class SeguimientoService {
         cantidad: true,
         proforma: { select: { tipo: true, estado: true, codigo: true } },
         asignacionesCubiertas: { select: { id: true, cantidad: true } },
-        solicitudesCubiertas: { select: { cantidad: true } },
+        solicitudesCubiertas: { select: { cantidad: true, cantidadRecibida: true } },
       },
     });
     if (!compra || compra.proforma.tipo !== TipoProforma.COMPRA) throw new BadRequestException("Línea de compra inválida.");
@@ -339,18 +343,39 @@ export class SeguimientoService {
       compra.cantidad -
       compra.asignacionesCubiertas.reduce((s, a) => s + a.cantidad, 0) -
       compra.solicitudesCubiertas.reduce((s, a) => s + a.cantidad, 0);
-    if (libre <= 0) {
-      throw new ConflictException(`La línea de compra de ${compra.proforma.codigo} ya tiene todas sus unidades ligadas.`);
+    // Un pedido tiene prioridad sobre las solicitudes de stock: si la compra no tiene cupo libre, se le pueden quitar unidades a las solicitudes.
+    const desplazable = compra.solicitudesCubiertas.reduce((s, a) => s + unidadesDesplazables(a), 0);
+    const maximo = libre + (desplazar ? desplazable : 0);
+    if (maximo <= 0) {
+      throw new ConflictException(
+        desplazable > 0
+          ? `La línea de compra de ${compra.proforma.codigo} tiene sus unidades ligadas a solicitudes de stock (${desplazable}). Para ligar este pedido hay que quitárselas a la solicitud: confirmalo y se liga.`
+          : `La línea de compra de ${compra.proforma.codigo} ya tiene todas sus unidades ligadas.`,
+      );
     }
-    const aLigar = cantidad ?? Math.min(asignacion.cantidad, libre);
+    const aLigar = cantidad ?? Math.min(asignacion.cantidad, maximo);
     if (aLigar > asignacion.cantidad) {
       throw new BadRequestException(`El faltante es de ${asignacion.cantidad} unidad(es): no se pueden ligar ${aLigar}.`);
     }
-    if (aLigar > libre) {
-      throw new ConflictException(`La línea de compra solo tiene ${libre} unidad(es) sin cubrir y quisiste ligar ${aLigar}.`);
+    if (aLigar > maximo) {
+      throw new ConflictException(
+        desplazar
+          ? `La línea de compra solo puede cubrir ${maximo} unidad(es) (con las de solicitudes incluidas) y quisiste ligar ${aLigar}.`
+          : `La línea de compra solo tiene ${libre} unidad(es) sin cubrir y quisiste ligar ${aLigar}.`,
+      );
     }
+    const aQuitar = Math.max(0, aLigar - libre);
 
     return this.prisma.$transaction(async (tx) => {
+      // Primero se liberan las unidades de solicitudes que hagan falta (lo más reciente primero): así queda el cupo para este pedido.
+      if (aQuitar > 0) {
+        await desplazarSolicitudes(
+          tx,
+          compraDetalleId,
+          aQuitar,
+          `Se quitaron ${aQuitar} unidad(es) de la compra ${compra.proforma.codigo} para cubrir el pedido ${asignacion.proformaDetalle.proforma.codigo}.`,
+        );
+      }
       const ligar = async () => {
       // Si este mismo faltante ya tiene una fila ligada a esa compra, lo que se liga se suma a ella.
       const existente = await tx.proformaDetalleAsignacion.findFirst({

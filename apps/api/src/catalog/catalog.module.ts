@@ -5,8 +5,9 @@ import { AttributeModule } from "./attribute/attribute.module";
 import { ProductModule } from "./product/product.module";
 import { CatalogBrowseModule } from "./browse/browse.module";
 import { HistoriaModule } from "./historia/historia.module";
+import { ComboModule } from "./combo/combo.module";
 
 @Module({
-  imports: [CategoryModule, BrandModule, AttributeModule, ProductModule, CatalogBrowseModule, HistoriaModule],
+  imports: [CategoryModule, BrandModule, AttributeModule, ProductModule, CatalogBrowseModule, HistoriaModule, ComboModule],
 })
 export class CatalogModule {}

@@ -4,6 +4,7 @@ import { apiGetServer } from "../../../../../lib/api-server";
 import { ApiError } from "../../../../../lib/api";
 import type { Proforma } from "../../../../../lib/types";
 import { AgregarProductoBrowser } from "../../../../../components/proformas/AgregarProductoBrowser";
+import { AgregarComboPanel } from "../../../../../components/proformas/AgregarComboPanel";
 
 export default async function AgregarProductoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,6 +38,7 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
           ← Volver a la proforma
         </Link>
       </div>
+      {proforma.tipo === "VENTA" && <AgregarComboPanel proformaId={id} />}
       <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} cantidadesIniciales={cantidadesIniciales} />
     </div>
   );

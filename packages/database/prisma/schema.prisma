@@ -268,6 +268,8 @@ model Category {
   // variantes con precio propio, las presentaciones de venta y la conversión de frascos a ml.
   permiteDecants Boolean @default(false) @map("permite_decants")
 
+  combos Combo[]
+
   brands         BrandCategory[]
   attributes     Attribute[]
   products       Product[]
@@ -562,10 +564,53 @@ model ProductVariant {
   movimientosProbador MovimientoProbador[]
   movimientosDecant       MovimientoDecant[]       @relation("DecantVariante")
   movimientosDecantOrigen MovimientoDecant[]       @relation("DecantVarianteOrigen")
+  comboItems              ComboItem[]
 
   solicitudStockLineas SolicitudStockLinea[]
 
   @@map("product_variants")
+}
+
+/// Combo: 2 a 4 productos (variantes) de una misma categoría que se venden juntos con un descuento fijo en Bs sobre la suma de sus
+/// precios de venta. No tiene stock ni precio propios: el precio se calcula en vivo con el precio final actual de cada componente
+/// (suma - descuentoBs) y está disponible solo si todos sus componentes tienen stock. La imagen se sube a mano. Se muestra en la
+/// web pública mientras `publicado`.
+model Combo {
+  id          String      @id @default(uuid()) @db.Uuid
+  nombre      String
+  // Se genera al crear (slugify(nombre) + comboCode) y no cambia después, para no romper el link público.
+  slug        String      @unique
+  comboCode   String      @unique @map("combo_code") @db.VarChar(7)
+  categoryId  String      @map("category_id") @db.Uuid
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  descripcion String?
+  // Descuento fijo en Bs sobre la suma de los precios de venta de los componentes.
+  descuentoBs Decimal     @default(0) @map("descuento_bs") @db.Decimal(12, 2)
+  imageUrl    String?     @map("image_url")
+  publicado   Boolean     @default(false)
+  orden       Int         @default(0)
+  items       ComboItem[]
+  // Líneas de notas de venta que vendieron este combo (se conservan con su copia del nombre si el combo se borra).
+  lineasVenta ProformaDetalle[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@map("combos")
+}
+
+/// Un componente del combo: una variante (la auto-provista en productos simples) y cuántas unidades lleva.
+model ComboItem {
+  id         String         @id @default(uuid()) @db.Uuid
+  comboId    String         @map("combo_id") @db.Uuid
+  combo      Combo          @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  varianteId String         @map("variante_id") @db.Uuid
+  variante   ProductVariant @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  cantidad   Int            @default(1)
+
+  @@unique([comboId, varianteId])
+  @@index([varianteId])
+  @@map("combo_items")
 }
 
 /// Valor propio de un producto para un atributo MULTI_VALUE o PRICED_VARIANT (ej. "Menta" para el
@@ -1120,6 +1165,14 @@ model ProformaDetalle {
   // aprobación, completación) no sabe ni le importa que exista una presentación detrás.
   presentacionVentaId String?            @map("presentacion_venta_id") @db.Uuid
   presentacionVenta   PresentacionVenta? @relation(fields: [presentacionVentaId], references: [id], onDelete: Restrict)
+
+  // VENTA de un combo (ver Combo): las líneas del combo son productos normales (stock, reservas y entregas funcionan igual) con el
+  // descuento del combo repartido en su descuento unitario; estos campos solo las agrupan. comboNombre y comboUnidades (unidades de
+  // esta variante por cada combo) son copia de cuando se agregó, para que la nota no cambie si luego se edita o se borra el combo.
+  comboId       String? @map("combo_id") @db.Uuid
+  combo         Combo?  @relation(fields: [comboId], references: [id], onDelete: SetNull)
+  comboNombre   String? @map("combo_nombre")
+  comboUnidades Int?    @map("combo_unidades")
   // Costo de empaque (Bs) de UNA presentación al momento de agregar la línea (copia de PresentacionVenta.costoEmpaqueBs,
   // para que cambiar el costo después no altere el margen de ventas ya hechas). 0 en líneas sin presentación.
   costoEmpaqueBs Decimal @default(0) @map("costo_empaque_bs") @db.Decimal(12, 2)
@@ -1177,6 +1230,7 @@ model ProformaDetalle {
   // VENTA: lo que ya se entregó al cliente, entrega por entrega (ver EntregaVenta).
   entregas              EntregaVenta[]
 
+  @@index([comboId])
   @@map("proforma_detalles")
 }
 

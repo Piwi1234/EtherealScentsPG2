@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -9,7 +9,9 @@ import {
   desvincularPedido,
   getProcurasParaCompra,
   getSolicitudesParaCompra,
+  removeComboFromProforma,
   removeDetalle,
+  setComboCantidad,
   updateDetalle,
   vincularLineaSolicitud,
   vincularPedido,
@@ -55,7 +57,8 @@ function EditableNumber({
       defaultValue={value ?? 0}
       onBlur={(e) => {
         const parsed = Number(e.target.value);
-        if (!Number.isNaN(parsed)) onCommit(parsed);
+        // Sin cambios no se guarda: así un valor que se muestra redondeado (ej. el descuento por unidad de un combo) no se pisa al pasar por el campo.
+        if (!Number.isNaN(parsed) && parsed !== Number(value ?? 0)) onCommit(parsed);
       }}
       style={{ width: 70, textAlign: "center" }}
     />
@@ -91,7 +94,22 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
     setError("");
     try {
       if (p.compraDetalleId === detalle.id) await desvincularPedido(p.id);
-      else await vincularPedido(p.id, detalle.id, Math.min(cantidades[p.id] ?? maximo, maximo));
+      else {
+        const cantidad = Math.min(cantidades[p.id] ?? maximo, maximo);
+        // Un pedido tiene prioridad sobre las solicitudes de stock: lo que pase del cupo libre se le quita a las solicitudes.
+        const aQuitar = Math.max(0, cantidad - Math.max(0, libre));
+        if (
+          aQuitar > 0 &&
+          !confirm(
+            `Esta línea tiene ${cubiertoSolicitudes} unidad(es) ligadas a solicitudes de stock. Para ligar ${cantidad} a la nota ${p.proformaDetalle.proforma.codigo} ` +
+              `se le quitarán ${aQuitar} a la solicitud, que vuelven a "Sin compra". ¿Seguir?`,
+          )
+        ) {
+          setBusyId(null);
+          return;
+        }
+        await vincularPedido(p.id, detalle.id, cantidad, aQuitar > 0);
+      }
       load();
       onChanged();
     } catch (e) {
@@ -135,8 +153,10 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {procuras.map((p) => {
             const ligada = p.compraDetalleId === detalle.id;
-            const maximo = Math.min(p.cantidad, libre);
+            // Además del cupo libre, un pedido puede tomar lo que hoy cubren las solicitudes de stock (tiene prioridad).
+            const maximo = ligada ? Math.min(p.cantidad, libre) : Math.min(p.cantidad, libre + cubiertoSolicitudes);
             const elegida = Math.min(cantidades[p.id] ?? maximo, maximo);
+            const aQuitar = ligada ? 0 : Math.max(0, elegida - Math.max(0, libre));
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
@@ -162,7 +182,15 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
                     disabled={busyId !== null || (!ligada && maximo <= 0)}
                     onClick={() => toggle(p, maximo)}
                   >
-                    {ligada ? "Soltar" : maximo <= 0 ? "Sin cupo" : elegida < p.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                    {ligada
+                      ? "Soltar"
+                      : maximo <= 0
+                        ? "Sin cupo"
+                        : aQuitar > 0
+                          ? `Ligar ${elegida} (quita ${aQuitar} de la solicitud)`
+                          : elegida < p.cantidad
+                            ? `Ligar ${elegida}`
+                            : "Ligar"}
                   </button>
                 </span>
               </div>
@@ -276,6 +304,8 @@ function DetalleRow({
   // Decants (solo venta): la línea guarda ml y precio por ml, pero se ve y se edita por presentación.
   const factor = tipo === "VENTA" ? mlPorPresentacion(detalle) : 1;
   const cantidadVista = tipo === "VENTA" ? unidadesLinea(detalle) : detalle.cantidad;
+  // Una línea de combo no se edita ni se quita sola: el combo se cambia o se quita completo desde su encabezado.
+  const enCombo = tipo === "VENTA" && Boolean(detalle.comboId);
 
   return (
     <>
@@ -322,7 +352,7 @@ function DetalleRow({
           </td>
         )}
         <td className="num">
-          {editable ? (
+          {editable && !enCombo ? (
             <EditableNumber value={cantidadVista} min={1} step="1" onCommit={(v) => commit({ cantidad: Math.round(v) * factor })} />
           ) : (
             cantidadVista
@@ -398,9 +428,13 @@ function DetalleRow({
         )}
         {editable && (
           <td className="num">
-            <button type="button" className="action-btn danger" onClick={handleRemove} disabled={removing}>
-              Quitar
-            </button>
+            {enCombo ? (
+              <span className="cell-muted" title="Quita el combo completo desde su encabezado">—</span>
+            ) : (
+              <button type="button" className="action-btn danger" onClick={handleRemove} disabled={removing}>
+                Quitar
+              </button>
+            )}
           </td>
         )}
       </tr>
@@ -415,6 +449,75 @@ function DetalleRow({
       {ligando &&
         createPortal(<LigarNotasModal detalle={detalle} onClose={() => setLigando(false)} onChanged={() => router.refresh()} />, document.body)}
     </>
+  );
+}
+
+/** Encabezado de un combo dentro de la nota: cuántos combos lleva, lo que ahorra el cliente y, en borrador, cambiar o quitar el combo completo. */
+function ComboCabecera({ proformaId, lineas, editable, colSpan }: { proformaId: string; lineas: ProformaDetalle[]; editable: boolean; colSpan: number }) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const primera = lineas[0];
+  const combos = Math.max(1, Math.round(primera.cantidad / (primera.comboUnidades ?? 1)));
+  const ahorro = lineas.reduce((n, l) => n + l.cantidad * Number(l.descuentoUnitario || 0), 0);
+
+  async function cambiar(cantidad: number) {
+    setBusy(true);
+    setError("");
+    try {
+      await setComboCantidad(proformaId, primera.comboId as string, cantidad);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function quitar() {
+    if (!confirm(`¿Quitar el combo "${primera.comboNombre}" de la nota?`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await removeComboFromProforma(proformaId, primera.comboId as string);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <tr className="reg-group">
+      <td colSpan={colSpan}>
+        <span style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span>
+            Combo · <strong>{primera.comboNombre}</strong>
+            <span className="cell-muted" style={{ fontWeight: 400 }}>
+              {" "}
+              · {combos} {combos === 1 ? "combo" : "combos"} · ahorro Bs {ahorro.toFixed(2)}
+            </span>
+          </span>
+          {editable && (
+            <>
+              <span className="qty-stepper">
+                <button type="button" aria-label="Menos combos" disabled={busy || combos <= 1} onClick={() => cambiar(combos - 1)}>
+                  −
+                </button>
+                <input type="number" readOnly value={combos} aria-label="Cantidad de combos" />
+                <button type="button" aria-label="Más combos" disabled={busy || combos >= 99} onClick={() => cambiar(combos + 1)}>
+                  +
+                </button>
+              </span>
+              <button type="button" className="action-btn danger" disabled={busy} onClick={quitar}>
+                Quitar combo
+              </button>
+            </>
+          )}
+          {error && <span className="error-text" style={{ fontSize: 12 }}>{error}</span>}
+        </span>
+      </td>
+    </tr>
   );
 }
 
@@ -481,19 +584,29 @@ export function ProformaDetalleTable({
           </tr>
         </thead>
         <tbody>
-          {detalles.map((detalle) => (
-            <DetalleRow
-              key={`${detalle.id}-${detalle.updatedAt}`}
-              proformaId={proforma.id}
-              detalle={detalle}
-              tipo={tipo}
-              editable={editable}
-              tipoCambioProf={proforma.tipoCambioProf}
-              proveedores={proveedores}
-              mostrarProveedor={mostrarProveedor}
-              puedeLigar={proforma.estado === "BORRADOR" || proforma.estado === "APROBADA"}
-              mostrarRecogido={mostrarRecogido}
-            />
+          {detalles.map((detalle, i) => (
+            <Fragment key={`${detalle.id}-${detalle.updatedAt}`}>
+              {/* Las líneas de un combo vienen juntas: antes de la primera va su encabezado. */}
+              {tipo === "VENTA" && detalle.comboId && detalle.comboId !== detalles[i - 1]?.comboId && (
+                <ComboCabecera
+                  proformaId={proforma.id}
+                  lineas={detalles.filter((d) => d.comboId === detalle.comboId)}
+                  editable={editable}
+                  colSpan={totalCols}
+                />
+              )}
+              <DetalleRow
+                proformaId={proforma.id}
+                detalle={detalle}
+                tipo={tipo}
+                editable={editable}
+                tipoCambioProf={proforma.tipoCambioProf}
+                proveedores={proveedores}
+                mostrarProveedor={mostrarProveedor}
+                puedeLigar={proforma.estado === "BORRADOR" || proforma.estado === "APROBADA"}
+                mostrarRecogido={mostrarRecogido}
+              />
+            </Fragment>
           ))}
         </tbody>
         <tfoot>

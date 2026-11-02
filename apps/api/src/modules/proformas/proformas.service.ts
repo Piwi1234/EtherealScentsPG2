@@ -4,6 +4,7 @@ import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { SettingsService } from "../../settings/settings.service";
+import { ComboService } from "../../catalog/combo/combo.service";
 import { computeBsPrices, computeCatalogPrice } from "../../catalog/product-price";
 import { generateUniqueEntityCode } from "../../catalog/entity-code";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -13,6 +14,7 @@ import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
 import { AddDetalleVentaDto } from "./dto/add-detalle-venta.dto";
+import { AddComboVentaDto, SetComboCantidadDto } from "./dto/combo-venta.dto";
 import { AddDetalleCompraDto } from "./dto/add-detalle-compra.dto";
 import { UpdateDetalleDto } from "./dto/update-detalle.dto";
 
@@ -27,7 +29,10 @@ export const includeDetails = {
     // orden), que cambia con cada UPDATE — una línea "saltaba" al final apenas se editaba cualquier
     // valor. Alfabético por marca y luego por producto, de paso: mismo criterio pedido para el orden
     // de visualización de las líneas.
+    // Las líneas de un combo van juntas y al final (las normales, sin combo, primero).
     orderBy: [
+      { comboNombre: { sort: "asc" as const, nulls: "first" as const } },
+      { comboId: { sort: "asc" as const, nulls: "first" as const } },
       { variante: { product: { brand: { name: "asc" as const } } } },
       { variante: { product: { name: "asc" as const } } },
     ],
@@ -94,6 +99,7 @@ export class ProformasService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly historial: ProformaHistorialService,
+    private readonly combos: ComboService,
   ) {}
 
   async findAll(query: QueryProformaDto) {
@@ -371,7 +377,7 @@ export class ProformasService {
     }
 
     // Mismo producto (y misma presentación) → se acumula en la línea existente, no se duplica la fila.
-    const existente = proforma.detalles.find((d) => d.varianteId === dto.varianteId && (d.presentacionVentaId ?? null) === presentacionVentaId);
+    const existente = proforma.detalles.find((d) => !d.comboId && d.varianteId === dto.varianteId && (d.presentacionVentaId ?? null) === presentacionVentaId);
     if (existente) {
       const nuevaCantidad = existente.cantidad + cantidad;
       try {
@@ -397,6 +403,91 @@ export class ProformasService {
       return this.findOne(id);
     } catch (error) {
       rethrowPrismaError(error, "Línea de proforma");
+    }
+  }
+
+  /**
+   * Vende combos completos: una línea por producto del combo (productos normales, así el stock, las reservas, las entregas y las
+   * devoluciones funcionan igual), con el descuento del combo repartido en el descuento unitario de cada una en proporción a su
+   * precio (descuento unitario = descuento del combo × precio del producto / suma de precios del combo). Así el descuento total de
+   * la nota suma justo el del combo por cada combo vendido, sin importar cuántos se lleven.
+   */
+  async addCombo(id: string, dto: AddComboVentaDto) {
+    const proforma = await this.findOne(id);
+    this.assertBorrador(proforma);
+    if (proforma.tipo !== TipoProforma.VENTA) {
+      throw new BadRequestException("Esta proforma no es de venta.");
+    }
+    const combo = await this.combos.paraVenta(dto.comboId);
+    if (combo.sumaBs <= 0 || combo.descuentoBs >= combo.sumaBs) {
+      throw new BadRequestException("El combo tiene un descuento mayor o igual a la suma de sus productos: revísalo en Inventario → Combos.");
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        for (const item of combo.items) {
+          const unidades = item.cantidad * dto.cantidad;
+          const existente = proforma.detalles.find((d) => d.comboId === combo.id && d.varianteId === item.varianteId);
+          if (existente) {
+            // Mismo combo otra vez: se suma a la línea (con el precio y el descuento con los que ya estaba).
+            const cantidad = existente.cantidad + unidades;
+            await tx.proformaDetalle.update({ where: { id: existente.id }, data: { cantidad, subtotal: cantidad * Number(existente.precioUnitario) } });
+            continue;
+          }
+          const descuentoUnitario = Math.round(((combo.descuentoBs * item.precioUnitarioBs) / combo.sumaBs) * 10000) / 10000;
+          await tx.proformaDetalle.create({
+            data: {
+              proformaId: id,
+              varianteId: item.varianteId,
+              cantidad: unidades,
+              precioUnitario: item.precioUnitarioBs,
+              descuentoUnitario,
+              subtotal: unidades * item.precioUnitarioBs,
+              comboId: combo.id,
+              comboNombre: combo.nombre,
+              comboUnidades: item.cantidad,
+            },
+          });
+        }
+        await recalcularDescuentoGeneral(tx, id);
+      });
+      return this.findOne(id);
+    } catch (error) {
+      rethrowPrismaError(error, "Combo de proforma");
+    }
+  }
+
+  /** Cambia cuántos combos completos lleva la nota: todas las líneas del combo se reescalan juntas. */
+  async setComboCantidad(id: string, comboId: string, dto: SetComboCantidadDto) {
+    const proforma = await this.findOne(id);
+    this.assertBorrador(proforma);
+    const lineas = proforma.detalles.filter((d) => d.comboId === comboId);
+    if (lineas.length === 0) throw new NotFoundException("Ese combo no está en la nota.");
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        for (const l of lineas) {
+          const cantidad = (l.comboUnidades ?? 1) * dto.cantidad;
+          await tx.proformaDetalle.update({ where: { id: l.id }, data: { cantidad, subtotal: cantidad * Number(l.precioUnitario) } });
+        }
+        await recalcularDescuentoGeneral(tx, id);
+      });
+      return this.findOne(id);
+    } catch (error) {
+      rethrowPrismaError(error, "Combo de proforma");
+    }
+  }
+
+  /** Quita el combo completo (todas sus líneas). */
+  async removeCombo(id: string, comboId: string) {
+    const proforma = await this.findOne(id);
+    this.assertBorrador(proforma);
+    if (!proforma.detalles.some((d) => d.comboId === comboId)) throw new NotFoundException("Ese combo no está en la nota.");
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.proformaDetalle.deleteMany({ where: { proformaId: id, comboId } });
+        await recalcularDescuentoGeneral(tx, id);
+      });
+    } catch (error) {
+      rethrowPrismaError(error, "Combo de proforma");
     }
   }
 
@@ -462,6 +553,9 @@ export class ProformasService {
       throw new NotFoundException("Línea no encontrada.");
     }
 
+    if (detalle.comboId && dto.cantidad !== undefined && dto.cantidad !== detalle.cantidad) {
+      throw new BadRequestException(`Esta línea es parte del combo "${detalle.comboNombre}": cambia la cantidad del combo completo.`);
+    }
     const cantidad = dto.cantidad ?? detalle.cantidad;
     // Unchecked (no Update a secas): para poder setear proveedorId directo como FK escalar en vez
     // de por `proveedor: { connect: ... }`.
@@ -554,8 +648,12 @@ export class ProformasService {
   async removeDetalle(id: string, detalleId: string) {
     const proforma = await this.findOne(id);
     this.assertBorrador(proforma);
-    if (!proforma.detalles.some((d) => d.id === detalleId)) {
+    const linea = proforma.detalles.find((d) => d.id === detalleId);
+    if (!linea) {
       throw new NotFoundException("Línea no encontrada.");
+    }
+    if (linea.comboId) {
+      throw new BadRequestException(`Esta línea es parte del combo "${linea.comboNombre}": quita el combo completo.`);
     }
     try {
       await this.prisma.$transaction(async (tx) => {
