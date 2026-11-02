@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { SettingsModule } from "../../settings/settings.module";
 import { CategoryModule } from "../../catalog/category/category.module";
+import { ComboModule } from "../../catalog/combo/combo.module";
 import { ProformasController } from "./proformas.controller";
 import { ProformasService } from "./proformas.service";
 import { ProformaHistorialService } from "./proforma-historial.service";
@@ -25,7 +26,7 @@ import { SolicitudesStockController } from "./solicitudes-stock/solicitudes-stoc
 import { SolicitudesStockService } from "./solicitudes-stock/solicitudes-stock.service";
 
 @Module({
-  imports: [SettingsModule, CategoryModule],
+  imports: [SettingsModule, CategoryModule, ComboModule],
   // SeguimientoResumenController/RegistrosController (rutas estáticas "proformas/seguimiento" y
   // "proformas/registros") van ANTES que ProformasController: Nest/Express matchea rutas en orden de
   // registro, y "GET proformas/:id" capturaría esos segmentos como :id si quedaran primero.

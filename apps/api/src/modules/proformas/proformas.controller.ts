@@ -19,6 +19,7 @@ import { CreateProformaDto } from "./dto/create-proforma.dto";
 import { UpdateProformaDto } from "./dto/update-proforma.dto";
 import { QueryProformaDto } from "./dto/query-proforma.dto";
 import { AddDetalleVentaDto } from "./dto/add-detalle-venta.dto";
+import { AddComboVentaDto, SetComboCantidadDto } from "./dto/combo-venta.dto";
 import { AddDetalleCompraDto } from "./dto/add-detalle-compra.dto";
 import { UpdateDetalleDto } from "./dto/update-detalle.dto";
 import { TransitionProformaDto } from "./dto/transition-proforma.dto";
@@ -98,6 +99,25 @@ export class ProformasController {
   @ApiOperation({ summary: "Agrega una línea a una proforma de VENTA. precioUnitario nace de precioFinalBs si se omite." })
   addDetalleVenta(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AddDetalleVentaDto) {
     return this.proformas.addDetalleVenta(id, dto);
+  }
+
+  @Post(":id/detalles/combo")
+  @ApiOperation({ summary: "Agrega combos completos a una proforma de VENTA: una línea por producto, con el descuento del combo repartido." })
+  addCombo(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AddComboVentaDto) {
+    return this.proformas.addCombo(id, dto);
+  }
+
+  @Patch(":id/combos/:comboId")
+  @ApiOperation({ summary: "Cambia cuántos combos completos lleva la nota (reescala todas sus líneas)." })
+  setComboCantidad(@Param("id", ParseUUIDPipe) id: string, @Param("comboId", ParseUUIDPipe) comboId: string, @Body() dto: SetComboCantidadDto) {
+    return this.proformas.setComboCantidad(id, comboId, dto);
+  }
+
+  @Delete(":id/combos/:comboId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Quita el combo completo de la nota. Solo en BORRADOR." })
+  removeCombo(@Param("id", ParseUUIDPipe) id: string, @Param("comboId", ParseUUIDPipe) comboId: string) {
+    return this.proformas.removeCombo(id, comboId);
   }
 
   @Post(":id/detalles/compra")

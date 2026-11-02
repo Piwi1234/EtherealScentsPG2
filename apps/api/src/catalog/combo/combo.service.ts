@@ -230,6 +230,27 @@ export class ComboService {
     return this.findOne(id);
   }
 
+  /**
+   * Lo que hace falta para vender el combo en una nota de venta: sus componentes con el precio de venta actual y el descuento.
+   * No exige que esté publicado (la web pública y las notas internas son cosas distintas).
+   */
+  async paraVenta(id: string) {
+    const [combo, rate] = await Promise.all([this.prisma.combo.findUnique({ where: { id }, include: comboInclude }), this.settings.getExchangeRate()]);
+    if (!combo) throw new NotFoundException("Combo no encontrado.");
+    const items = combo.items.map((it) => ({
+      varianteId: it.varianteId,
+      cantidad: it.cantidad,
+      precioUnitarioBs: precioFinalBs(it.variante, rate).finalBs,
+    }));
+    return {
+      id: combo.id,
+      nombre: combo.nombre,
+      items,
+      sumaBs: items.reduce((n, i) => n + i.precioUnitarioBs * i.cantidad, 0),
+      descuentoBs: Number(combo.descuentoBs),
+    };
+  }
+
   // ---- web pública ----
 
   async findPublic(query: { categoryId?: string }) {

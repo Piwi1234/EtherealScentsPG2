@@ -785,6 +785,10 @@ export type ProformaDetalle = {
   /** VENTA de una variante unidad=ML: qué presentación (subvariante) se vendió en esta línea. */
   presentacionVentaId: string | null;
   presentacionVenta: PresentacionVenta | null;
+  /** Línea de un combo vendido: el combo, su nombre (copia de cuando se agregó) y las unidades de esta variante por combo. */
+  comboId?: string | null;
+  comboNombre?: string | null;
+  comboUnidades?: number | null;
   /** VENTA: nace de precioFinalBs, editable. */
   precioUnitario: string | null;
   /** VENTA: descuento por unidad (Bs). El descuento total de la nota es la suma de cantidad × este valor. */

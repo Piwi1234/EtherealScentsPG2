@@ -105,6 +105,7 @@ export function AjustarVentaModal({
                     {d.variante.product.name}
                     {d.variante.product.brand?.name && <span className="cell-muted" style={{ fontWeight: 400 }}> · {d.variante.product.brand.name}</span>}
                     {d.presentacionVenta && <span className="cell-muted" style={{ fontWeight: 400 }}> · {d.presentacionVenta.cantidadMl} ml</span>}
+                    {d.comboNombre && <span className="cell-muted" style={{ fontWeight: 400 }}> · Combo {d.comboNombre}</span>}
                   </td>
                   <td className="num">{maxVista}</td>
                   <td className="num">

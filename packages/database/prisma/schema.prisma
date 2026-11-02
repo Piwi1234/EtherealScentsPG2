@@ -590,6 +590,8 @@ model Combo {
   publicado   Boolean     @default(false)
   orden       Int         @default(0)
   items       ComboItem[]
+  // Líneas de notas de venta que vendieron este combo (se conservan con su copia del nombre si el combo se borra).
+  lineasVenta ProformaDetalle[]
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -1163,6 +1165,14 @@ model ProformaDetalle {
   // aprobación, completación) no sabe ni le importa que exista una presentación detrás.
   presentacionVentaId String?            @map("presentacion_venta_id") @db.Uuid
   presentacionVenta   PresentacionVenta? @relation(fields: [presentacionVentaId], references: [id], onDelete: Restrict)
+
+  // VENTA de un combo (ver Combo): las líneas del combo son productos normales (stock, reservas y entregas funcionan igual) con el
+  // descuento del combo repartido en su descuento unitario; estos campos solo las agrupan. comboNombre y comboUnidades (unidades de
+  // esta variante por cada combo) son copia de cuando se agregó, para que la nota no cambie si luego se edita o se borra el combo.
+  comboId       String? @map("combo_id") @db.Uuid
+  combo         Combo?  @relation(fields: [comboId], references: [id], onDelete: SetNull)
+  comboNombre   String? @map("combo_nombre")
+  comboUnidades Int?    @map("combo_unidades")
   // Costo de empaque (Bs) de UNA presentación al momento de agregar la línea (copia de PresentacionVenta.costoEmpaqueBs,
   // para que cambiar el costo después no altere el margen de ventas ya hechas). 0 en líneas sin presentación.
   costoEmpaqueBs Decimal @default(0) @map("costo_empaque_bs") @db.Decimal(12, 2)
@@ -1220,6 +1230,7 @@ model ProformaDetalle {
   // VENTA: lo que ya se entregó al cliente, entrega por entrega (ver EntregaVenta).
   entregas              EntregaVenta[]
 
+  @@index([comboId])
   @@map("proforma_detalles")
 }
 

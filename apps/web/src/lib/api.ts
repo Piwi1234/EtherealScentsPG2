@@ -1033,6 +1033,19 @@ export function addDetalleVenta(proformaId: string, data: DetalleVentaInput) {
   return apiPost<Proforma>(`/proformas/${proformaId}/detalles/venta`, data);
 }
 
+/** Agrega combos completos a una nota de venta en borrador: una línea por producto, con el descuento del combo repartido. */
+export function addComboToProforma(proformaId: string, comboId: string, cantidad: number) {
+  return apiPost<Proforma>(`/proformas/${proformaId}/detalles/combo`, { comboId, cantidad });
+}
+
+export function setComboCantidad(proformaId: string, comboId: string, cantidad: number) {
+  return apiPatch<Proforma>(`/proformas/${proformaId}/combos/${comboId}`, { cantidad });
+}
+
+export function removeComboFromProforma(proformaId: string, comboId: string) {
+  return apiDelete<void>(`/proformas/${proformaId}/combos/${comboId}`);
+}
+
 export function getPresentaciones(varianteId: string) {
   return apiGet<PresentacionVenta[]>(`/products/variants/${varianteId}/presentaciones`);
 }

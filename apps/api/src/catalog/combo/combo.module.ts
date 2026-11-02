@@ -8,5 +8,6 @@ import { ComboService } from "./combo.service";
   imports: [CategoryModule, SettingsModule],
   controllers: [ComboController, ComboPublicController],
   providers: [ComboService],
+  exports: [ComboService],
 })
 export class ComboModule {}
