@@ -10801,3 +10801,23 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   gap: 6px;
   margin-top: auto;
 }
+
+/* Solicitudes de stock: el código de cada solicitud es un botón que abre su detalle. */
+.solicitud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.solicitud-btn span {
+  opacity: 0.6;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.solicitud-btn:hover span {
+  opacity: 1;
+  transform: translateX(2px);
+}
