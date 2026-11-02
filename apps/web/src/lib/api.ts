@@ -15,6 +15,7 @@ import type {
   ClienteImportReport,
   Combo,
   ComboInput,
+  ComboVentas,
   ClienteInput,
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
@@ -1451,6 +1452,14 @@ export function getCombos(query: { categoryId?: string; search?: string } = {}) 
   if (query.search) params.set("search", query.search);
   const qs = params.toString();
   return apiGet<Combo[]>(`/combos${qs ? `?${qs}` : ""}`);
+}
+
+export function getComboVentas(query: { fechaDesde?: string; fechaHasta?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
+  const qs = params.toString();
+  return apiGet<ComboVentas>(`/combos/ventas${qs ? `?${qs}` : ""}`);
 }
 
 export function getCombo(id: string) {

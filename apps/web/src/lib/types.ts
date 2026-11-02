@@ -1416,12 +1416,32 @@ export type Combo = {
   descuentoBs: number;
   totalBs: number;
   ahorroBs: number;
+  /** Solo en gestión: cuántos combos completos se pueden armar hoy con el stock disponible (null si no hay stock que contar). */
+  armables?: number | null;
   /** Algún componente no tiene stock suficiente o no está disponible. */
   agotado: boolean;
   /** Algún componente está en Preventa (y ninguno agotado). */
   preventa: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+/** Combos vendidos (notas aprobadas o completadas), por combo. */
+export type ComboVentas = {
+  items: {
+    comboId: string;
+    nombre: string;
+    /** false si el combo se borró después de venderse. */
+    existe: boolean;
+    combos: number;
+    notas: number;
+    ingresosBs: number;
+    descuentoBs: number;
+    ultimaVenta: string | null;
+  }[];
+  totalCombos: number;
+  totalIngresosBs: number;
+  totalDescuentoBs: number;
 };
 
 export type ComboInput = {

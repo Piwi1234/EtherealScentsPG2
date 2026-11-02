@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoVariante, Prisma, UnidadVariante } from "@app/database";
+import { EstadoProforma, EstadoVariante, Prisma, TipoProforma, UnidadVariante } from "@app/database";
 import { slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -78,6 +78,12 @@ export class ComboService {
     const sumaBs = items.reduce((n, i) => n + i.subtotalBs, 0);
     const descuentoBs = Number(combo.descuentoBs);
     const totalBs = Math.max(0, redondear2(sumaBs - descuentoBs));
+    // Cuántos combos completos se pueden armar hoy con el stock disponible (el componente que menos rinde manda); una variante en
+    // Preventa no limita. null si ninguno tiene stock que contar. Solo en gestión.
+    const limitantes = combo.items
+      .filter((it) => it.variante.estado !== EstadoVariante.PREVENTA)
+      .map((it) => Math.floor(Math.max(0, it.variante.stock.reduce((n, s) => n + s.cantidadFisica - s.cantidadReservada, 0)) / it.cantidad));
+    const armables = limitantes.length > 0 ? Math.min(...limitantes) : null;
     const noDisponible = combo.items.some((it) => it.variante.estado === EstadoVariante.NO_DISPONIBLE);
     const agotado = noDisponible || items.some((i) => !i.hayStock);
     const preventa = !agotado && combo.items.some((it) => it.variante.estado === EstadoVariante.PREVENTA);
@@ -98,6 +104,7 @@ export class ComboService {
       descuentoBs,
       totalBs,
       ahorroBs: redondear2(sumaBs - totalBs),
+      ...(admin ? { armables } : {}),
       agotado,
       preventa,
       createdAt: combo.createdAt,
@@ -128,6 +135,68 @@ export class ComboService {
     const [combo, rate] = await Promise.all([this.prisma.combo.findUnique({ where: { id }, include: comboInclude }), this.settings.getExchangeRate()]);
     if (!combo) throw new NotFoundException("Combo no encontrado.");
     return this.presentar(combo, rate, true);
+  }
+
+  /**
+   * Combos vendidos en notas de venta aprobadas o completadas (las anuladas y los borradores no cuentan): por combo, cuántos combos
+   * completos se vendieron, en cuántas notas, lo ingresado (ya con el descuento) y lo descontado. Agrupa por el combo de la línea,
+   * así sigue apareciendo aunque el combo se haya borrado después (con el nombre que tenía al venderse).
+   */
+  async ventas(query: { fechaDesde?: string; fechaHasta?: string }) {
+    const lineas = await this.prisma.proformaDetalle.findMany({
+      where: {
+        comboId: { not: null },
+        proforma: {
+          tipo: TipoProforma.VENTA,
+          estado: { in: [EstadoProforma.APROBADA, EstadoProforma.COMPLETADA] },
+          fecha: {
+            gte: query.fechaDesde ? new Date(query.fechaDesde) : undefined,
+            lte: query.fechaHasta ? new Date(`${query.fechaHasta}T23:59:59.999`) : undefined,
+          },
+        },
+      },
+      select: {
+        comboId: true,
+        comboNombre: true,
+        comboUnidades: true,
+        cantidad: true,
+        subtotal: true,
+        descuentoUnitario: true,
+        proformaId: true,
+        proforma: { select: { fecha: true } },
+        combo: { select: { id: true } },
+      },
+    });
+
+    type Fila = { comboId: string; nombre: string; existe: boolean; combos: number; notas: Set<string>; ingresosBs: number; descuentoBs: number; ultima: Date | null };
+    const filas = new Map<string, Fila>();
+    // Combos completos por nota: las líneas del mismo combo en una misma nota llevan el mismo múltiplo, se toma el de la primera.
+    const contadas = new Set<string>();
+    for (const l of lineas) {
+      const comboId = l.comboId as string;
+      const fila = filas.get(comboId) ?? { comboId, nombre: l.comboNombre ?? "Combo", existe: Boolean(l.combo), combos: 0, notas: new Set<string>(), ingresosBs: 0, descuentoBs: 0, ultima: null };
+      const descuento = l.cantidad * Number(l.descuentoUnitario);
+      fila.ingresosBs += Number(l.subtotal) - descuento;
+      fila.descuentoBs += descuento;
+      const clave = `${l.proformaId}:${comboId}`;
+      if (!contadas.has(clave)) {
+        contadas.add(clave);
+        fila.combos += Math.round(l.cantidad / (l.comboUnidades ?? 1));
+      }
+      fila.notas.add(l.proformaId);
+      if (!fila.ultima || l.proforma.fecha > fila.ultima) fila.ultima = l.proforma.fecha;
+      filas.set(comboId, fila);
+    }
+
+    const items = [...filas.values()]
+      .map((f) => ({ comboId: f.comboId, nombre: f.nombre, existe: f.existe, combos: f.combos, notas: f.notas.size, ingresosBs: redondear2(f.ingresosBs), descuentoBs: redondear2(f.descuentoBs), ultimaVenta: f.ultima }))
+      .sort((a, b) => b.combos - a.combos || a.nombre.localeCompare(b.nombre));
+    return {
+      items,
+      totalCombos: items.reduce((n, i) => n + i.combos, 0),
+      totalIngresosBs: redondear2(items.reduce((n, i) => n + i.ingresosBs, 0)),
+      totalDescuentoBs: redondear2(items.reduce((n, i) => n + i.descuentoBs, 0)),
+    };
   }
 
   /** 2 a 4 variantes distintas, en piezas, de la categoría del combo (o sus subcategorías), y descuento menor que la suma. */

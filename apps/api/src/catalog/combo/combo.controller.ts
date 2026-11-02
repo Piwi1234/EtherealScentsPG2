@@ -36,6 +36,13 @@ export class ComboController {
     return this.combos.findAll({ categoryId, search });
   }
 
+  // Antes de ":id": "ventas" no es un uuid y esa ruta lo rechazaría.
+  @Get("ventas")
+  @ApiOperation({ summary: "Combos vendidos en notas de venta aprobadas o completadas, por combo y rango de fechas." })
+  ventas(@Query("fechaDesde") fechaDesde?: string, @Query("fechaHasta") fechaHasta?: string) {
+    return this.combos.ventas({ fechaDesde, fechaHasta });
+  }
+
   @Get(":id")
   findOne(@Param("id", ParseUUIDPipe) id: string) {
     return this.combos.findOne(id);

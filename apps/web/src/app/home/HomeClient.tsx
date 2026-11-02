@@ -3,15 +3,16 @@
 import { CategoryExplorer } from "../../components/landing/CategoryExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages } from "../../lib/api";
+import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages, getPublicCombos } from "../../lib/api";
 import { brandLinkHref, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
-import type { Attribute, Brand, CarouselImage, Category, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
+import type { Attribute, Brand, CarouselImage, Category, Combo, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
 import { ProductCard } from "../../components/landing/ProductCard";
 import { HomeCombos } from "../../components/landing/HomeCombos";
+import { ComboCard } from "../../components/landing/ComboCard";
 
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
@@ -86,6 +87,14 @@ export function HomeClient({
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categoryFilter, setCategoryFilter] = useState(initialOffers?.defaultCategoryId ?? "");
   const [offersMode, setOffersMode] = useState<OffersMode>("discount");
+  // Combos publicados: entran al filtro de "Descuento y Ofertas" como una opción más (traen un descuento sobre la suma de sus productos).
+  const [ofertasCombos, setOfertasCombos] = useState<Combo[]>([]);
+  const [verCombosEnOfertas, setVerCombosEnOfertas] = useState(false);
+  useEffect(() => {
+    getPublicCombos()
+      .then(setOfertasCombos)
+      .catch(() => setOfertasCombos([]));
+  }, []);
   // null = todavía no se sabe si hay ofertas flash vigentes (se está consultando al montar). Hasta
   // que se resuelva, el pill "Ofertas Flash" queda oculto y el fetch de productos de abajo espera —
   // así arranca directo en el filtro correcto sin parpadeo.
@@ -517,16 +526,22 @@ export function HomeClient({
           <div className="landing-filter-pills landing-filter-pills--row1">
             <button
               type="button"
-              className={`landing-pill${offersMode === "discount" ? " landing-pill-active" : ""}`}
-              onClick={() => setOffersMode("discount")}
+              className={`landing-pill${offersMode === "discount" && !verCombosEnOfertas ? " landing-pill-active" : ""}`}
+              onClick={() => {
+                setOffersMode("discount");
+                setVerCombosEnOfertas(false);
+              }}
             >
               Descuentos
             </button>
             {hasFlashOffers && (
               <button
                 type="button"
-                className={`landing-pill landing-pill-flash${offersMode === "flash" ? " landing-pill-flash-active" : ""}`}
-                onClick={() => setOffersMode("flash")}
+                className={`landing-pill landing-pill-flash${offersMode === "flash" && !verCombosEnOfertas ? " landing-pill-flash-active" : ""}`}
+                onClick={() => {
+                  setOffersMode("flash");
+                  setVerCombosEnOfertas(false);
+                }}
               >
                 Ofertas Flash
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -540,15 +555,39 @@ export function HomeClient({
             {hasPreventaProducts && (
               <button
                 type="button"
-                className={`landing-pill${offersMode === "preventa" ? " landing-pill-active" : ""}`}
-                onClick={() => setOffersMode("preventa")}
+                className={`landing-pill${offersMode === "preventa" && !verCombosEnOfertas ? " landing-pill-active" : ""}`}
+                onClick={() => {
+                  setOffersMode("preventa");
+                  setVerCombosEnOfertas(false);
+                }}
               >
                 Preventa
               </button>
             )}
+            {ofertasCombos.length > 0 && (
+              <button type="button" className={`landing-pill${verCombosEnOfertas ? " landing-pill-active" : ""}`} onClick={() => setVerCombosEnOfertas(true)}>
+                Combos
+              </button>
+            )}
           </div>
 
+          {verCombosEnOfertas && (
+            <>
+              <div className="landing-product-grid landing-product-grid--carousel">
+                {ofertasCombos.slice(0, 4).map((combo) => (
+                  <ComboCard key={combo.id} combo={combo} />
+                ))}
+              </div>
+              <div className="landing-offers-channel-cta">
+                <Link className="landing-offers-channel-btn" href="/combos">
+                  Ver todos los combos
+                </Link>
+              </div>
+            </>
+          )}
+
           {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. */}
+          {!verCombosEnOfertas && (<>
           <div className="landing-filter-pills">
             {rootCategories.map((cat) => (
               <button
@@ -646,6 +685,7 @@ export function HomeClient({
               </a>
             </div>
           )}
+          </>)}
         </div>
       </section>
 

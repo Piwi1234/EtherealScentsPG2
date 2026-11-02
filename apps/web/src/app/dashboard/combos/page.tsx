@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ApiError, deleteCombo, getCategories, getCombos, updateCombo } from "../../../lib/api";
+import { ApiError, deleteCombo, getCategories, getComboVentas, getCombos, updateCombo } from "../../../lib/api";
 import { productImageSrc } from "../../../lib/catalog-display";
-import type { Category, Combo } from "../../../lib/types";
+import type { Category, Combo, ComboVentas } from "../../../lib/types";
+import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
+
+const TODO_EL_TIEMPO: DateSelection = { label: "Todo el tiempo" };
+
+function formatFecha(value: string | null): string {
+  return value ? new Date(value).toLocaleDateString("es-VE", { year: "numeric", month: "short", day: "numeric" }) : "—";
+}
 
 function bs(n: number): string {
   return `Bs ${n.toFixed(2)}`;
@@ -25,6 +32,14 @@ export default function CombosPage() {
   const [search, setSearch] = useState("");
   const [buscar, setBuscar] = useState("");
   const [error, setError] = useState("");
+  const [ventas, setVentas] = useState<ComboVentas | null>(null);
+  const [fechas, setFechas] = useState<DateSelection>(TODO_EL_TIEMPO);
+
+  useEffect(() => {
+    getComboVentas({ fechaDesde: fechas.fechaDesde, fechaHasta: fechas.fechaHasta })
+      .then(setVentas)
+      .catch(() => setVentas(null));
+  }, [fechas]);
 
   useEffect(() => {
     getCategories()
@@ -131,6 +146,7 @@ export default function CombosPage() {
                   <th className="num">Suma</th>
                   <th className="num">Descuento</th>
                   <th className="num">Precio combo</th>
+                  <th className="num" title="Cuántos combos completos se pueden armar hoy con el stock disponible">Se arman</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
@@ -161,6 +177,9 @@ export default function CombosPage() {
                       <td className="num cell-muted">{bs(combo.sumaBs)}</td>
                       <td className="num cell-muted">− {bs(combo.descuentoBs)}</td>
                       <td className="num cell-primary">{bs(combo.totalBs)}</td>
+                      <td className="num" style={combo.armables === 0 ? { color: "#e5736a", fontWeight: 600 } : undefined}>
+                        {combo.armables === null || combo.armables === undefined ? <span className="cell-muted">—</span> : combo.armables}
+                      </td>
                       <td>
                         <span className={`badge ${combo.publicado ? "badge-success" : "badge-muted"}`}>{combo.publicado ? "Publicado" : "Borrador"}</span>
                         {combo.agotado && <span className="badge badge-danger" style={{ marginLeft: 6 }}>Sin stock</span>}
@@ -187,6 +206,66 @@ export default function CombosPage() {
           </div>
         </section>
       ))}
+
+      <section style={{ marginTop: 28, borderTop: "1px solid var(--line)", paddingTop: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>Combos vendidos</h2>
+          <DateRangeDropdown onApply={setFechas} initialSelection={fechas} />
+        </div>
+        <p className="cell-muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+          Combos completos vendidos en notas aprobadas o completadas ({fechas.label.toLowerCase()}). Los ingresos ya llevan el descuento del combo.
+        </p>
+        {!ventas ? (
+          <p className="cell-muted">Cargando...</p>
+        ) : ventas.items.length === 0 ? (
+          <p className="cell-muted">Todavía no se vendió ningún combo en este período.</p>
+        ) : (
+          <div className="table-scroll">
+            <table className="table table-minimal table-compact">
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 200 }}>Combo</th>
+                  <th className="num">Combos vendidos</th>
+                  <th className="num">Notas</th>
+                  <th className="num">Ingresos</th>
+                  <th className="num">Descuento dado</th>
+                  <th>Última venta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventas.items.map((v) => (
+                  <tr key={v.comboId}>
+                    <td className="cell-primary">
+                      {v.existe ? (
+                        <Link href={`/dashboard/combos/${v.comboId}`} className="link-button">
+                          {v.nombre}
+                        </Link>
+                      ) : (
+                        <>
+                          {v.nombre} <span className="badge badge-muted">Eliminado</span>
+                        </>
+                      )}
+                    </td>
+                    <td className="num cell-primary">{v.combos}</td>
+                    <td className="num">{v.notas}</td>
+                    <td className="num">{bs(v.ingresosBs)}</td>
+                    <td className="num cell-muted">{bs(v.descuentoBs)}</td>
+                    <td className="cell-muted">{formatFecha(v.ultimaVenta)}</td>
+                  </tr>
+                ))}
+                <tr className="reg-total">
+                  <td>Total</td>
+                  <td className="num">{ventas.totalCombos}</td>
+                  <td />
+                  <td className="num">{bs(ventas.totalIngresosBs)}</td>
+                  <td className="num">{bs(ventas.totalDescuentoBs)}</td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
