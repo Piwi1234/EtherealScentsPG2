@@ -80,7 +80,6 @@ const GROUPS: NavGroup[] = [
       {
         items: [
           { href: "/dashboard/contabilidad/cuentas-por-cobrar", label: "Cuentas por cobrar", desc: "Saldos pendientes de clientes" },
-          { href: "/dashboard/contabilidad/cuentas-por-pagar", label: "Cuentas por pagar", desc: "Saldos pendientes con proveedores" },
           { href: "/dashboard/contabilidad/cuenta-bs", label: "Cuenta Bs" },
           { href: "/dashboard/contabilidad/cuenta-usdt", label: "Cuenta USDT" },
           { href: "/dashboard/contabilidad/cuenta-gs", label: "Cuenta Gs" },

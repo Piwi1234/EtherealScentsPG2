@@ -846,7 +846,8 @@ function RegistrosPanel({
                           <span className="reg-chevron">{abiertas.has(g.proforma.id) ? "▾" : "▸"}</span>
                           <Link
                             href={`/dashboard/proformas/${g.proforma.id}`}
-                            className="link-button"
+                            className="action-btn solicitud-btn"
+                            title="Abrir la proforma"
                             onClick={(e) => {
                               e.stopPropagation();
                               try {
@@ -857,6 +858,7 @@ function RegistrosPanel({
                             }}
                           >
                             {g.proforma.codigo}
+                            <span aria-hidden="true">→</span>
                           </Link>
                         </td>
                         <td className="cell-muted" style={{ fontWeight: 400 }}>

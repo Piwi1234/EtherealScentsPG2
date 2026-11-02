@@ -14,6 +14,7 @@ import { Modal } from "../Modal";
 export function CarterasList({ moneda, titulo }: { moneda: MonedaCartera; titulo: string }) {
   const [carteras, setCarteras] = useState<Cartera[] | null>(null);
   const [error, setError] = useState("");
+  const [verInactivas, setVerInactivas] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Cartera | null>(null);
@@ -75,6 +76,11 @@ export function CarterasList({ moneda, titulo }: { moneda: MonedaCartera; titulo
     }
   }
 
+  const activas = (carteras ?? []).filter((c) => c.activo);
+  const inactivas = (carteras ?? []).filter((c) => !c.activo);
+  const visibles = verInactivas ? [...activas, ...inactivas] : activas;
+  const saldoTotal = activas.reduce((n, c) => n + Number(c.saldoActual), 0);
+
   if (error) {
     return (
       <div className="card">
@@ -92,33 +98,44 @@ export function CarterasList({ moneda, titulo }: { moneda: MonedaCartera; titulo
         </button>
       </div>
       {!carteras && <p>Cargando...</p>}
-      {carteras && carteras.length === 0 && <p>No hay carteras todavía.</p>}
+      {carteras && carteras.length === 0 && <p className="cell-muted">No hay carteras todavía.</p>}
       {carteras && carteras.length > 0 && (
-        <table className="table table-minimal table-compact">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th className="num">Saldo actual</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {carteras.map((cartera) => (
-              <tr key={cartera.id}>
-                <td className="cell-primary">
-                  <Link href={`/dashboard/contabilidad/carteras/${cartera.id}`} className="link-button">
-                    {cartera.nombre}
-                  </Link>
-                </td>
-                <td className="num">{formatMonto(cartera.saldoActual, moneda)}</td>
-                <td>
-                  <span className={`badge ${cartera.activo ? "badge-accent" : "badge-muted"}`}>
-                    {cartera.activo ? "Activa" : "Inactiva"}
-                  </span>
-                </td>
-                <td>
-                  <div className="row-actions">
+        <>
+          <div className="cartera-resumen">
+            <div>
+              <span className="cartera-label">Saldo total · {titulo}</span>
+              <span className="cartera-total">{formatMonto(saldoTotal, moneda)}</span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span className="cartera-label">{activas.length === 1 ? "1 cartera activa" : `${activas.length} carteras activas`}</span>
+              {inactivas.length > 0 && (
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, justifyContent: "flex-end" }}>
+                  <input type="checkbox" checked={verInactivas} onChange={(e) => setVerInactivas(e.target.checked)} />
+                  Mostrar inactivas ({inactivas.length})
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="cartera-grid">
+            {visibles.map((cartera) => {
+              const saldo = Number(cartera.saldoActual);
+              return (
+                <article key={cartera.id} className={`cartera-card${cartera.activo ? "" : " is-inactiva"}`}>
+                  <div className="cartera-card-head">
+                    <Link href={`/dashboard/contabilidad/carteras/${cartera.id}`} className="cartera-nombre">
+                      {cartera.nombre}
+                    </Link>
+                    <span className={`badge ${cartera.activo ? "badge-accent" : "badge-muted"}`}>{cartera.activo ? "Activa" : "Inactiva"}</span>
+                  </div>
+                  <div>
+                    <span className="cartera-label">Saldo actual</span>
+                    <span className={`cartera-saldo${saldo < 0 ? " neg" : ""}`}>{formatMonto(cartera.saldoActual, moneda)}</span>
+                  </div>
+                  <div className="cartera-acciones">
+                    <Link href={`/dashboard/contabilidad/carteras/${cartera.id}`} className="action-btn">
+                      Ver libro de caja
+                    </Link>
                     <button type="button" className="action-btn" onClick={() => openEdit(cartera)}>
                       Editar
                     </button>
@@ -128,11 +145,11 @@ export function CarterasList({ moneda, titulo }: { moneda: MonedaCartera; titulo
                       </button>
                     )}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {modalOpen && (
