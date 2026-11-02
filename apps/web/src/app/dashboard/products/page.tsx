@@ -588,7 +588,7 @@ export default function ProductsPage() {
             onChange={(e) => setPresentacionPorVariante((prev) => ({ ...prev, [variant.id]: e.target.value }))}
           >
             {variant.presentaciones.map((p) => (
-              <option key={p.id} value={p.id}>{p.cantidadMl} ml</option>
+              <option key={p.id} value={p.id}>{p.cantidadMl} ML</option>
             ))}
           </select>
         );

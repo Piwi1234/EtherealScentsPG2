@@ -28,7 +28,7 @@ import { mlPorPresentacion, porUnidadLinea, unidadesLinea } from "../../lib/line
 function atributosLabel(detalle: ProformaDetalle): string | null {
   const opciones = detalle.variante.options.map((o) => `${o.optionValue.attribute.name}: ${o.optionValue.value}`);
   const heredados = formatAtributosVisibles(detalle.variante.product.attributeValues, detalle.variante.product.variantOptionValues);
-  const presentacion = detalle.presentacionVenta ? `Presentación: ${detalle.presentacionVenta.cantidadMl} ml` : null;
+  const presentacion = detalle.presentacionVenta ? `Presentación: ${detalle.presentacionVenta.cantidadMl} ML` : null;
   const partes = [...opciones, ...(heredados ? [heredados] : []), ...(presentacion ? [presentacion] : [])];
   return partes.length > 0 ? partes.join(", ") : null;
 }

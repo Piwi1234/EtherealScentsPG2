@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AttributeType, AttributeVariantMode, Prisma } from "@app/database";
+import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { filtroProductoPorPalabras, palabrasBusqueda } from "../../common/busqueda";
@@ -56,10 +56,16 @@ function finalizeProduct(product: RawProduct, exchangeRate: number) {
   return {
     ...priced,
     hasStock,
-    variants: priced.variants.map(({ stock, ...rest }) => ({
-      ...rest,
-      hasStock: stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0),
-    })),
+    variants: priced.variants
+      // Una variante de decants (ml) sin presentaciones activas no se puede comprar: no se muestra.
+      .filter((v) => !(v.unidad === UnidadVariante.ML && v.presentaciones.length === 0))
+      .map(({ stock, ...rest }) => ({
+        ...rest,
+        // Los decants no tienen precio propio: su precio "desde" es el de su presentación más barata (así el precio de tarjeta, el
+        // filtro y el orden por precio del catálogo usan algo real); la ficha del producto muestra el de cada presentación.
+        ...(rest.unidad === UnidadVariante.ML ? { finalPriceBs: Math.min(...rest.presentaciones.map((p) => Number(p.precioVentaBs))) } : {}),
+        hasStock: stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0),
+      })),
   };
 }
 

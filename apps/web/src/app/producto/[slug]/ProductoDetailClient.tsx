@@ -12,7 +12,18 @@ import { formatCartAtributos } from "../../../components/proformas/AtributosVisi
 import { CartIcon } from "../../../components/landing/CartWidget";
 import { FlashCountdown } from "../../../components/landing/FlashCountdown";
 
-type VariantGroup = { attributeId: string; attributeName: string; options: { optionValueId: string; label: string }[] };
+// Una opción del selector: el valor de una variante con precio propio (ej. "90 ML") o, en una variante de decants (ml), una de sus
+// presentaciones (ej. "DECANT 5 ML") — esas reemplazan al nombre de la variante ("DECANTS"), que no le dice nada al cliente.
+type VariantOption = { key: string; optionValueId: string; label: string; presentacionId?: string; varianteId?: string };
+type VariantGroup = { attributeId: string; attributeName: string; options: VariantOption[] };
+
+/** Variante con la que abre la página: la más barata disponible, pero sin contar los decants (ml) si hay algún frasco — un perfume
+ * se abre en el frasco, y los decants se eligen después entre sus presentaciones. */
+function defaultVariantId(product: Product): string | null {
+  const frascos = product.variants.filter((v) => v.unidad !== "ML" && v.estado !== "NO_DISPONIBLE");
+  if (frascos.length > 0) return frascos.reduce((min, v) => (v.finalPriceBs < min.finalPriceBs ? v : min), frascos[0]).id;
+  return displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null;
+}
 
 /** Parte interactiva de la página de producto (selector de variante, cantidad, carrito) — el
  * producto ya viene resuelto del servidor (ver page.tsx, que hace notFound() si no existe), así
@@ -33,9 +44,14 @@ export function ProductoDetailClient({
 }) {
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    () => initialVariantId ?? displayPrice(product).variant?.id ?? product.variants[0]?.id ?? null,
+    () => initialVariantId ?? defaultVariantId(product),
   );
   const [qty, setQty] = useState(1);
+  // Presentación elegida cuando la variante es de decants (ml); null en el resto. Al abrir un decants arranca en la más barata.
+  const [selectedPresentacionId, setSelectedPresentacionId] = useState<string | null>(() => {
+    const inicial = product.variants.find((v) => v.id === (initialVariantId ?? defaultVariantId(product)));
+    return inicial?.unidad === "ML" ? (inicial.presentaciones?.[0]?.id ?? null) : null;
+  });
 
   // Vuelve a 1 cada vez que se cambia de variante, para no arrastrar una cantidad pensada para otra.
   useEffect(() => {
@@ -51,8 +67,15 @@ export function ProductoDetailClient({
         const attr = opt.optionValue.attribute;
         if (!byAttribute.has(attr.id)) byAttribute.set(attr.id, { attributeId: attr.id, attributeName: attr.name, options: [] });
         const group = byAttribute.get(attr.id)!;
-        if (!group.options.some((o) => o.optionValueId === opt.optionValueId)) {
-          group.options.push({ optionValueId: opt.optionValueId, label: opt.optionValue.value });
+        if (variant.unidad === "ML" && variant.presentaciones && variant.presentaciones.length > 0) {
+          // Decants: en lugar del valor de la variante, una opción por cada presentación (5 ml, 10 ml...).
+          for (const p of variant.presentaciones) {
+            if (!group.options.some((o) => o.presentacionId === p.id)) {
+              group.options.push({ key: `pres:${p.id}`, optionValueId: opt.optionValueId, label: `DECANT ${p.cantidadMl} ML`, presentacionId: p.id, varianteId: variant.id });
+            }
+          }
+        } else if (!group.options.some((o) => o.optionValueId === opt.optionValueId && !o.presentacionId)) {
+          group.options.push({ key: opt.optionValueId, optionValueId: opt.optionValueId, label: opt.optionValue.value });
         }
       }
     }
@@ -78,13 +101,24 @@ export function ProductoDetailClient({
 
   function selectOption(attributeId: string, optionValueId: string) {
     const match = findVariantForOption(attributeId, optionValueId);
-    if (match) setSelectedVariantId(match.id);
+    if (match) {
+      setSelectedVariantId(match.id);
+      setSelectedPresentacionId(null);
+    }
+  }
+
+  function selectPresentacion(option: VariantOption) {
+    setSelectedVariantId(option.varianteId ?? null);
+    setSelectedPresentacionId(option.presentacionId ?? null);
   }
 
   const parentCategory = product.category.parentId ? categories.find((c) => c.id === product.category.parentId) ?? null : null;
   const image = productImageSrc(selectedVariant?.imageUrl ?? product.imageUrl ?? null);
-  const priceBs = selectedVariant ? selectedVariant.finalPriceBs : product.finalPriceBs;
-  const discountBs = Number(selectedVariant ? selectedVariant.discountBs : product.discountBs);
+  // Variante de decants: el precio es el de la presentación elegida (la variante en sí no tiene precio propio).
+  const presentacion =
+    selectedVariant?.unidad === "ML" ? (selectedVariant.presentaciones?.find((p) => p.id === selectedPresentacionId) ?? selectedVariant.presentaciones?.[0] ?? null) : null;
+  const priceBs = presentacion ? Number(presentacion.precioVentaBs) : selectedVariant ? selectedVariant.finalPriceBs : product.finalPriceBs;
+  const discountBs = presentacion ? 0 : Number(selectedVariant ? selectedVariant.discountBs : product.discountBs);
   const estado = selectedVariant ? selectedVariant.estado : "DISPONIBLE";
   // PREVENTA cuenta como disponible para comprar/mostrar precio (ver isSoldOut en catalog-display.ts):
   // solo NO_DISPONIBLE oculta el precio y el botón de agregar al carrito.
@@ -99,8 +133,10 @@ export function ProductoDetailClient({
   // que el botón no tiene sentido mostrarlo. En la práctica, solo perfumes (Vapes/Cuidado Personal no
   // tienen este atributo cargado).
   const acordesCount = product.attributeValues.filter((av) => av.attribute.name === "Acordes" && av.option).length;
-  const atributos = formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? []);
-  const flashUntil = flashUntilFor(product, selectedVariant);
+  const atributos = presentacion
+    ? [`DECANT ${presentacion.cantidadMl} ML`, formatCartAtributos(product.attributeValues, product.variantOptionValues, [])].filter(Boolean).join(", ")
+    : formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? []);
+  const flashUntil = presentacion ? null : flashUntilFor(product, selectedVariant);
 
   return (
     <div className="landing-page landing-product-page">
@@ -169,15 +205,20 @@ export function ProductoDetailClient({
                 <p className="landing-product-detail-variant-label">{group.attributeName}</p>
                 <div className="landing-product-detail-variant-options">
                   {group.options.map((option) => {
-                    const isActive = selectedVariant?.options.some((o) => o.optionValueId === option.optionValueId) ?? false;
-                    const optionVariant = findVariantForOption(group.attributeId, option.optionValueId);
+                    const isPresentacion = Boolean(option.presentacionId);
+                    const isActive = isPresentacion
+                      ? presentacion?.id === option.presentacionId
+                      : (selectedVariant?.options.some((o) => o.optionValueId === option.optionValueId) ?? false);
+                    const optionVariant = isPresentacion
+                      ? (product.variants.find((v) => v.id === option.varianteId) ?? null)
+                      : findVariantForOption(group.attributeId, option.optionValueId);
                     const isUnavailable = optionVariant ? optionVariant.estado === "NO_DISPONIBLE" : false;
                     return (
                       <button
                         type="button"
-                        key={option.optionValueId}
+                        key={option.key}
                         className={`landing-product-detail-variant-btn${isActive ? " landing-product-detail-variant-btn--active" : ""}${isUnavailable ? " landing-product-detail-variant-btn--unavailable" : ""}`}
-                        onClick={() => selectOption(group.attributeId, option.optionValueId)}
+                        onClick={() => (isPresentacion ? selectPresentacion(option) : selectOption(group.attributeId, option.optionValueId))}
                       >
                         {option.label}
                       </button>
@@ -233,7 +274,7 @@ export function ProductoDetailClient({
                   onClick={() =>
                     addItem(
                       {
-                        key: `${product.id}:${selectedVariant?.id ?? "base"}`,
+                        key: `${product.id}:${selectedVariant?.id ?? "base"}${presentacion ? `:${presentacion.id}` : ""}`,
                         productId: product.id,
                         productSlug: product.slug,
                         variantId: selectedVariant?.id ?? null,
