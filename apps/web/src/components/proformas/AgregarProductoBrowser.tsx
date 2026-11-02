@@ -517,7 +517,7 @@ export function AgregarProductoBrowser({
                             >
                               <option value="">— Presentación —</option>
                               {presentacionActiva.map((p) => (
-                                <option key={p.id} value={p.id}>{p.cantidadMl} ml — Bs {p.precioVentaBs}</option>
+                                <option key={p.id} value={p.id}>{p.cantidadMl} ML — Bs {p.precioVentaBs}</option>
                               ))}
                             </select>
                           ) : (

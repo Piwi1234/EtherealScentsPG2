@@ -687,7 +687,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   }
 
   async function handleDeactivatePresentacion(presentacion: PresentacionVenta) {
-    if (!presentacionesVarianteId || !confirm(`¿Desactivar la presentación de ${presentacion.cantidadMl} ml?`)) return;
+    if (!presentacionesVarianteId || !confirm(`¿Desactivar la presentación de ${presentacion.cantidadMl} ML?`)) return;
     try {
       await updatePresentacion(presentacion.id, { activo: false });
       loadPresentaciones(presentacionesVarianteId);
@@ -1546,7 +1546,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                     return (
                       <tr key={`${p.id}-${p.precioVentaBs}-${p.costoEmpaqueBs}`} style={p.activo ? undefined : { opacity: 0.5 }}>
                         <td>
-                          {p.cantidadMl} ml
+                          {p.cantidadMl} ML
                           {!p.activo && <span className="badge badge-muted" style={{ marginLeft: 8 }}>Inactiva</span>}
                         </td>
                         <td className="num">

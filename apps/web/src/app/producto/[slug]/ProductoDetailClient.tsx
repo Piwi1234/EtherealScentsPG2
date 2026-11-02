@@ -13,7 +13,7 @@ import { CartIcon } from "../../../components/landing/CartWidget";
 import { FlashCountdown } from "../../../components/landing/FlashCountdown";
 
 // Una opción del selector: el valor de una variante con precio propio (ej. "90 ML") o, en una variante de decants (ml), una de sus
-// presentaciones (ej. "Decant 5 ml") — esas reemplazan al nombre de la variante ("DECANTS"), que no le dice nada al cliente.
+// presentaciones (ej. "DECANT 5 ML") — esas reemplazan al nombre de la variante ("DECANTS"), que no le dice nada al cliente.
 type VariantOption = { key: string; optionValueId: string; label: string; presentacionId?: string; varianteId?: string };
 type VariantGroup = { attributeId: string; attributeName: string; options: VariantOption[] };
 
@@ -71,7 +71,7 @@ export function ProductoDetailClient({
           // Decants: en lugar del valor de la variante, una opción por cada presentación (5 ml, 10 ml...).
           for (const p of variant.presentaciones) {
             if (!group.options.some((o) => o.presentacionId === p.id)) {
-              group.options.push({ key: `pres:${p.id}`, optionValueId: opt.optionValueId, label: `Decant ${p.cantidadMl} ml`, presentacionId: p.id, varianteId: variant.id });
+              group.options.push({ key: `pres:${p.id}`, optionValueId: opt.optionValueId, label: `DECANT ${p.cantidadMl} ML`, presentacionId: p.id, varianteId: variant.id });
             }
           }
         } else if (!group.options.some((o) => o.optionValueId === opt.optionValueId && !o.presentacionId)) {
@@ -134,7 +134,7 @@ export function ProductoDetailClient({
   // tienen este atributo cargado).
   const acordesCount = product.attributeValues.filter((av) => av.attribute.name === "Acordes" && av.option).length;
   const atributos = presentacion
-    ? [`Decant ${presentacion.cantidadMl} ml`, formatCartAtributos(product.attributeValues, product.variantOptionValues, [])].filter(Boolean).join(", ")
+    ? [`DECANT ${presentacion.cantidadMl} ML`, formatCartAtributos(product.attributeValues, product.variantOptionValues, [])].filter(Boolean).join(", ")
     : formatCartAtributos(product.attributeValues, product.variantOptionValues, selectedVariant?.options ?? []);
   const flashUntil = presentacion ? null : flashUntilFor(product, selectedVariant);
 
