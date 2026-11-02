@@ -81,7 +81,11 @@ export function ProductCard({
   // tarjeta por producto).
   const atributos = forcedVariant
     ? formatCartAtributos(product.attributeValues, product.variantOptionValues, forcedVariant.options)
-    : formatAtributosTarjeta(product.attributeValues, product.variantOptionValues);
+    : formatAtributosTarjeta(
+        product.attributeValues,
+        // El valor de una variante de decants (ej. "DECANTS") no es un tamaño que se compre: no se lista (en la ficha salen sus presentaciones).
+        product.variantOptionValues.filter((ov) => !product.variants.some((v) => v.unidad === "ML" && v.options.some((o) => o.optionValueId === ov.id))),
+      );
   const soldOut = isSoldOut(product);
   const preventa = forcedVariant ? forcedVariant.estado === "PREVENTA" : isPreventa(product);
   const codigo = variant && product.variants.length > 1 ? variant.variantCode : product.productCode;
