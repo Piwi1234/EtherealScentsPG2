@@ -11,6 +11,7 @@ import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
 import { ProductCard } from "../../components/landing/ProductCard";
+import { HomeCombos } from "../../components/landing/HomeCombos";
 
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
@@ -692,6 +693,9 @@ export function HomeClient({
           </div>
         </section>
       )}
+
+      {/* ================= 3b-2. Combos ================= */}
+      <HomeCombos />
 
       {/* ================= 3c. Explora Nuestras Marcas ================= */}
       <BrandsShowcase rootCategories={rootCategories} brands={brands} />

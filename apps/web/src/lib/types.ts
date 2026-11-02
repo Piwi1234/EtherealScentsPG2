@@ -1373,3 +1373,58 @@ export type CreateRecepcionInput = {
   nota?: string;
   items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
 };
+
+// --- Combos ---
+
+/** Un componente de un combo con su precio actual (en vivo) y si alcanza el stock. */
+export type ComboItemInfo = {
+  id: string;
+  varianteId: string;
+  cantidad: number;
+  producto: { id: string; name: string; slug: string; productCode: string; brand: { id: string; name: string } | null };
+  variante: { id: string; etiqueta: string | null; estado: EstadoVariante; isDefault: boolean };
+  imageUrl: string | null;
+  precioUnitarioBs: number;
+  subtotalBs: number;
+  /** El producto ya tiene un descuento propio (el combo suma su precio con ese descuento). */
+  conDescuento: boolean;
+  /** Alcanza el stock para las unidades que lleva el combo (o está en Preventa). */
+  hayStock: boolean;
+  /** Solo en gestión: la web pública nunca ve cantidades. */
+  stockDisponible?: number;
+};
+
+/** 2 a 4 productos de una misma categoría vendidos juntos con un descuento fijo en Bs; el precio se calcula en vivo. */
+export type Combo = {
+  id: string;
+  nombre: string;
+  slug: string;
+  comboCode: string;
+  descripcion: string | null;
+  imageUrl: string | null;
+  publicado: boolean;
+  orden: number;
+  categoryId: string;
+  category: { id: string; name: string; slug: string };
+  items: ComboItemInfo[];
+  /** Suma de los precios de venta de los componentes (× cantidad). */
+  sumaBs: number;
+  descuentoBs: number;
+  totalBs: number;
+  ahorroBs: number;
+  /** Algún componente no tiene stock suficiente o no está disponible. */
+  agotado: boolean;
+  /** Algún componente está en Preventa (y ninguno agotado). */
+  preventa: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ComboInput = {
+  nombre?: string;
+  categoryId?: string;
+  descripcion?: string | null;
+  descuentoBs?: number;
+  publicado?: boolean;
+  items?: { varianteId: string; cantidad: number }[];
+};

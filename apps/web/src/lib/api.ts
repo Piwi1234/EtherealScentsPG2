@@ -13,6 +13,8 @@ import type {
   Ciudad,
   Cliente,
   ClienteImportReport,
+  Combo,
+  ComboInput,
   ClienteInput,
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
@@ -1426,4 +1428,43 @@ export function updateNotaPieEnvio(id: string, notaPie: string) {
 
 export function cerrarEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/cerrar`, {});
+}
+
+// --- Combos ---
+
+export function getCombos(query: { categoryId?: string; search?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiGet<Combo[]>(`/combos${qs ? `?${qs}` : ""}`);
+}
+
+export function getCombo(id: string) {
+  return apiGet<Combo>(`/combos/${id}`);
+}
+
+export function createCombo(data: ComboInput) {
+  return apiPost<Combo>("/combos", data);
+}
+
+export function updateCombo(id: string, data: ComboInput) {
+  return apiPatch<Combo>(`/combos/${id}`, data);
+}
+
+export function deleteCombo(id: string) {
+  return apiDelete<{ ok: true }>(`/combos/${id}`);
+}
+
+export function uploadComboImage(id: string, file: File) {
+  return apiUpload<Combo>(`/combos/${id}/image`, file);
+}
+
+/** Web pública: combos publicados (sin cantidades de stock). */
+export function getPublicCombos(categoryId?: string) {
+  return apiGet<Combo[]>(`/catalog/combos${categoryId ? `?categoryId=${categoryId}` : ""}`);
+}
+
+export function getPublicCombo(slug: string) {
+  return apiGet<Combo>(`/catalog/combos/${slug}`);
 }

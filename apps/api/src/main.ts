@@ -14,6 +14,7 @@ async function bootstrap() {
   mkdirSync(join(UPLOADS_ROOT, "products"), { recursive: true });
   mkdirSync(join(UPLOADS_ROOT, "empresas"), { recursive: true });
   mkdirSync(join(UPLOADS_ROOT, "brands"), { recursive: true });
+  mkdirSync(join(UPLOADS_ROOT, "combos"), { recursive: true });
   mkdirSync(join(UPLOADS_ROOT, "categories"), { recursive: true });
   mkdirSync(join(UPLOADS_ROOT, "landing"), { recursive: true });
   mkdirSync(join(UPLOADS_ROOT, "carousel"), { recursive: true });

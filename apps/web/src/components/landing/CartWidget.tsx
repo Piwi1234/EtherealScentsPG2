@@ -117,7 +117,7 @@ export function CartWidget() {
                       <div className="landing-cart-item-image landing-cart-item-image-placeholder">{item.name.slice(0, 1)}</div>
                     )}
                     <div className="landing-cart-item-info">
-                      <Link href={`/producto/${item.productSlug}`} className="landing-cart-item-name" onClick={close}>
+                      <Link href={item.href ?? `/producto/${item.productSlug}`} className="landing-cart-item-name" onClick={close}>
                         {item.name}
                       </Link>
                       {item.atributos && <p className="landing-cart-item-attrs">{item.atributos}</p>}
