@@ -1130,6 +1130,10 @@ export type CompraCandidata = {
   id: string;
   cantidad: number;
   restante: number;
+  /** Unidades que hoy cubren solicitudes de stock (y todavía no llegaron): se les pueden quitar para ligar este faltante. */
+  desplazable: number;
+  /** Códigos de las solicitudes de stock ligadas a esta línea. */
+  solicitudes: string[];
   proveedor: { id: string; nombre: string } | null;
   proforma: { id: string; codigo: string; estado: EstadoProforma };
 };

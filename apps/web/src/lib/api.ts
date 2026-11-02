@@ -1113,8 +1113,13 @@ export function getProcurasParaCompra(compraDetalleId: string) {
   return apiGet<ProcuraCandidata[]>(`/proformas/seguimiento/compra/${compraDetalleId}/procuras`);
 }
 
-export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number) {
-  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, { compraDetalleId, ...(cantidad ? { cantidad } : {}) });
+/** `desplazarSolicitudes`: los pedidos tienen prioridad; si la compra no tiene cupo libre se le quitan unidades a las solicitudes de stock. */
+export function vincularPedido(asignacionId: string, compraDetalleId: string, cantidad?: number, desplazarSolicitudes?: boolean) {
+  return apiPost<SeguimientoLinea>(`/proformas/seguimiento/${asignacionId}/vincular`, {
+    compraDetalleId,
+    ...(cantidad ? { cantidad } : {}),
+    ...(desplazarSolicitudes ? { desplazarSolicitudes: true } : {}),
+  });
 }
 
 // --- Reserva manual de stock libre ---

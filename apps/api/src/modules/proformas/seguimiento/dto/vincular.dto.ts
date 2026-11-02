@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsUUID, Min } from "class-validator";
+import { IsBoolean, IsInt, IsOptional, IsUUID, Min } from "class-validator";
 
 export class VincularCompraDto {
   @ApiProperty({ description: "Línea de COMPRA que viene a cubrir este faltante." })
@@ -16,4 +16,12 @@ export class VincularCompraDto {
   @IsInt()
   @Min(1)
   cantidad?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Los pedidos tienen prioridad sobre las solicitudes de stock: con true, si la línea de compra no tiene cupo libre se le quitan unidades a las solicitudes que la cubren (vuelven a 'Sin compra') para ligar este faltante.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  desplazarSolicitudes?: boolean;
 }

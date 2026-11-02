@@ -93,7 +93,7 @@ export class SeguimientoResumenController {
   @Post(":id/vincular")
   @ApiOperation({ summary: "Liga un faltante (Procura) a la línea de compra que viene a cubrirlo." })
   vincular(@Param("id", ParseUUIDPipe) id: string, @Body() dto: VincularCompraDto) {
-    return this.seguimiento.vincular(id, dto.compraDetalleId, dto.cantidad);
+    return this.seguimiento.vincular(id, dto.compraDetalleId, dto.cantidad, dto.desplazarSolicitudes ?? false);
   }
 
   @Delete(":id/vincular")

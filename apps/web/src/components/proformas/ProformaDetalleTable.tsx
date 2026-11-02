@@ -91,7 +91,22 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
     setError("");
     try {
       if (p.compraDetalleId === detalle.id) await desvincularPedido(p.id);
-      else await vincularPedido(p.id, detalle.id, Math.min(cantidades[p.id] ?? maximo, maximo));
+      else {
+        const cantidad = Math.min(cantidades[p.id] ?? maximo, maximo);
+        // Un pedido tiene prioridad sobre las solicitudes de stock: lo que pase del cupo libre se le quita a las solicitudes.
+        const aQuitar = Math.max(0, cantidad - Math.max(0, libre));
+        if (
+          aQuitar > 0 &&
+          !confirm(
+            `Esta línea tiene ${cubiertoSolicitudes} unidad(es) ligadas a solicitudes de stock. Para ligar ${cantidad} a la nota ${p.proformaDetalle.proforma.codigo} ` +
+              `se le quitarán ${aQuitar} a la solicitud, que vuelven a "Sin compra". ¿Seguir?`,
+          )
+        ) {
+          setBusyId(null);
+          return;
+        }
+        await vincularPedido(p.id, detalle.id, cantidad, aQuitar > 0);
+      }
       load();
       onChanged();
     } catch (e) {
@@ -135,8 +150,10 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {procuras.map((p) => {
             const ligada = p.compraDetalleId === detalle.id;
-            const maximo = Math.min(p.cantidad, libre);
+            // Además del cupo libre, un pedido puede tomar lo que hoy cubren las solicitudes de stock (tiene prioridad).
+            const maximo = ligada ? Math.min(p.cantidad, libre) : Math.min(p.cantidad, libre + cubiertoSolicitudes);
             const elegida = Math.min(cantidades[p.id] ?? maximo, maximo);
+            const aQuitar = ligada ? 0 : Math.max(0, elegida - Math.max(0, libre));
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
@@ -162,7 +179,15 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
                     disabled={busyId !== null || (!ligada && maximo <= 0)}
                     onClick={() => toggle(p, maximo)}
                   >
-                    {ligada ? "Soltar" : maximo <= 0 ? "Sin cupo" : elegida < p.cantidad ? `Ligar ${elegida}` : "Ligar"}
+                    {ligada
+                      ? "Soltar"
+                      : maximo <= 0
+                        ? "Sin cupo"
+                        : aQuitar > 0
+                          ? `Ligar ${elegida} (quita ${aQuitar} de la solicitud)`
+                          : elegida < p.cantidad
+                            ? `Ligar ${elegida}`
+                            : "Ligar"}
                   </button>
                 </span>
               </div>
