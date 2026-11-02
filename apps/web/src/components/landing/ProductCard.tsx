@@ -129,7 +129,7 @@ export function ProductCard({
     else setQty(cartKey, qtyInCart - 1);
   }
 
-  const href = context && variant ? `/producto/${product.slug}?variante=${variant.id}` : `/producto/${product.slug}`;
+  const href = context && variant ? `/producto/${product.slug}?v=${variant.variantCode}` : `/producto/${product.slug}`;
 
   return (
     <Link href={href} className={`landing-product-card${className ? ` ${className}` : ""}`}>

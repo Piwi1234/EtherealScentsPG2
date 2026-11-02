@@ -37,7 +37,7 @@ export function ProductoDetailClient({
   product: Product;
   categories: Category[];
   relatedProducts: Product[];
-  /** Viene de ?variante= en la URL (ver page.tsx) — la tarjeta de "Descuento y Ofertas" del home ya
+  /** Viene de ?v=CÓDIGO (o el ?variante=ID de links viejos) en la URL (ver page.tsx) — la tarjeta de "Descuento y Ofertas" del home ya
    * la validó/resolvió contra el producto real. Si no vino ninguna (o no matchea), se cae al default
    * de siempre: la variante más barata disponible. */
   initialVariantId: string | null;
