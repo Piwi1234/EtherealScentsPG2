@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, ApiError } from "../../../lib/api";
+import { apiGet, ApiError, getPublicCombos } from "../../../lib/api";
 import { getAttributeFilterOptions } from "../../../lib/catalog-display";
 import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams, resolveSubCategorySlug } from "../../../lib/categoria-query";
 import type { SortBy, PriceRange } from "../../../lib/categoria-query";
-import type { Attribute, Category, CategoryAggregates, Page, Product } from "../../../lib/types";
+import type { Attribute, Category, CategoryAggregates, Combo, Page, Product } from "../../../lib/types";
 import { LandingNavbar } from "../../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../../components/landing/LandingFooter";
 import { ProductCard } from "../../../components/landing/ProductCard";
+import { ComboCard } from "../../../components/landing/ComboCard";
 import { FilterOptionList, type FilterOption } from "../../../components/landing/FilterOptionList";
 
 type BrandCount = { id: string; name: string; count: number };
@@ -89,6 +90,9 @@ export function CategoriaClient({
   const [discountOnly, setDiscountOnly] = useState(false);
   const [flashOnly, setFlashOnly] = useState(false);
   const [preventaOnly, setPreventaOnly] = useState(false);
+  // Filtro "Combos": en vez de productos, la lista muestra los combos de la categoría (o subcategoría) marcada.
+  const [combosOnly, setCombosOnly] = useState(false);
+  const [combos, setCombos] = useState<Combo[]>([]);
   const [inStockOnly, setInStockOnly] = useState(false);
   // priceRange: posición actual del slider (se ve en vivo). priceApplied: lo que realmente filtra
   // — se actualiza recién al tocar "Filtrar", como en el mock de referencia.
@@ -139,6 +143,7 @@ export function CategoriaClient({
     setDiscountOnly(filters.discountOnly);
     setFlashOnly(filters.flashOnly);
     setPreventaOnly(filters.preventaOnly);
+    setCombosOnly(filters.combosOnly);
     setInStockOnly(filters.inStockOnly);
     setPriceRange(null);
     // El slider en sí (priceRange) arranca en su rango completo de siempre apenas se resuelva
@@ -275,6 +280,14 @@ export function CategoriaClient({
     pageNumber,
   ]);
 
+  // Combos de la categoría (o subcategoría) marcada: dan el contador del filtro "Combos" y la lista cuando está activo.
+  useEffect(() => {
+    if (!category) return;
+    getPublicCombos(subCategoryFilter || category.id)
+      .then(setCombos)
+      .catch(() => setCombos([]));
+  }, [category, subCategoryFilter]);
+
   // Los filtros viven solo en memoria (useState) — nunca se reflejaban en la URL del navegador. Si
   // alguien tocaba un filtro acá y después entraba al detalle de un producto, el botón "Atrás" volvía
   // a esta misma entrada de historial, pero con la URL tal cual estaba ANTES de tocar nada: sin
@@ -300,6 +313,7 @@ export function CategoriaClient({
     setOrDelete("descuento", discountOnly ? "true" : null);
     setOrDelete("flash", flashOnly ? "true" : null);
     setOrDelete("preventa", preventaOnly ? "true" : null);
+    setOrDelete("combos", combosOnly ? "true" : null);
     setOrDelete("stock", inStockOnly ? "true" : null);
     setOrDelete("orden", sortBy === "recientes" ? "recientes" : null);
     setOrDelete("minPriceBs", priceApplied ? String(priceApplied[0]) : null);
@@ -325,6 +339,7 @@ export function CategoriaClient({
     discountOnly,
     flashOnly,
     preventaOnly,
+    combosOnly,
     inStockOnly,
     priceApplied,
     attributeFilters,
@@ -382,6 +397,10 @@ export function CategoriaClient({
     setPageNumber(1);
   }
 
+  function toggleCombosOnly() {
+    setCombosOnly((prev) => !prev);
+  }
+
   function toggleInStockOnly() {
     setInStockOnly((prev) => !prev);
     setPageNumber(1);
@@ -417,6 +436,7 @@ export function CategoriaClient({
     setDiscountOnly(false);
     setFlashOnly(false);
     setPreventaOnly(false);
+    setCombosOnly(false);
     setInStockOnly(false);
     setPriceRange(priceBoundsMax > 0 ? [0, priceBoundsMax] : null);
     setPriceApplied(null);
@@ -432,6 +452,7 @@ export function CategoriaClient({
     discountOnly ||
     flashOnly ||
     preventaOnly ||
+    combosOnly ||
     inStockOnly ||
     brandFilters.length > 0 ||
     priceApplied !== null;
@@ -441,6 +462,7 @@ export function CategoriaClient({
     (discountOnly ? 1 : 0) +
     (flashOnly ? 1 : 0) +
     (preventaOnly ? 1 : 0) +
+    (combosOnly ? 1 : 0) +
     (inStockOnly ? 1 : 0) +
     brandFilters.length +
     (priceApplied ? 1 : 0);
@@ -483,6 +505,7 @@ export function CategoriaClient({
   if (discountOnly) activeFilterChips.push({ key: "discount", label: "Con Descuento", onRemove: toggleDiscountOnly });
   if (flashOnly) activeFilterChips.push({ key: "flash", label: "Por tiempo limitado", onRemove: toggleFlashOnly });
   if (preventaOnly) activeFilterChips.push({ key: "preventa", label: "Preventa", onRemove: togglePreventaOnly });
+  if (combosOnly) activeFilterChips.push({ key: "combos", label: "Combos", onRemove: toggleCombosOnly });
   if (priceApplied) {
     activeFilterChips.push({
       key: "price",
@@ -526,6 +549,7 @@ export function CategoriaClient({
     discountCount > 0 ||
     flashCount > 0 ||
     preventaCount > 0 ||
+    combos.length > 0 ||
     inStockCount > 0 ||
     brandsWithCounts.length > 0 ||
     filterableAttributes.length > 0;
@@ -550,6 +574,9 @@ export function CategoriaClient({
     preventaOnly,
     onTogglePreventaOnly: togglePreventaOnly,
     preventaCount,
+    combosOnly,
+    onToggleCombosOnly: toggleCombosOnly,
+    combosCount: combos.length,
     subcategories,
     subCategoryFilter,
     onSelectSubcategory: selectSubcategory,
@@ -634,9 +661,14 @@ export function CategoriaClient({
                 </button>
               )}
               <p className="landing-toolbar-count">
-                {productsPage ? `${productsPage.total} producto${productsPage.total === 1 ? "" : "s"}` : ""}
+                {combosOnly
+                  ? `${combos.length} combo${combos.length === 1 ? "" : "s"}`
+                  : productsPage
+                    ? `${productsPage.total} producto${productsPage.total === 1 ? "" : "s"}`
+                    : ""}
               </p>
 
+              {!combosOnly && (
               <label className="landing-sort-control">
                 <span className="landing-sort-label">Ordenar por:</span>
                 <select
@@ -654,15 +686,24 @@ export function CategoriaClient({
                   <option value="nombre-asc">Nombre: A-Z</option>
                 </select>
               </label>
+              )}
             </div>
 
             {error && <p className="error-text">{error}</p>}
-            {!productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
-            {productsPage && productsPage.total === 0 && (
+            {combosOnly && (
+              <div className="landing-product-grid" id="product-grid">
+                {combos.map((combo) => (
+                  <ComboCard combo={combo} key={combo.id} />
+                ))}
+              </div>
+            )}
+            {combosOnly && combos.length === 0 && <p className="landing-empty-note">No hay combos para mostrar en esta categoría.</p>}
+            {!combosOnly && !productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
+            {!combosOnly && productsPage && productsPage.total === 0 && (
               <p className="landing-empty-note">No hay productos para mostrar con estos filtros.</p>
             )}
 
-            {productsPage && productsPage.total > 0 && (
+            {!combosOnly && productsPage && productsPage.total > 0 && (
               <>
                 <div className="landing-product-grid" id="product-grid">
                   {productsPage.items.map((product) => (
@@ -781,6 +822,9 @@ type FilterGroupsProps = {
   preventaOnly: boolean;
   onTogglePreventaOnly: () => void;
   preventaCount: number;
+  combosOnly: boolean;
+  onToggleCombosOnly: () => void;
+  combosCount: number;
   subcategories: Category[];
   subCategoryFilter: string;
   onSelectSubcategory: (id: string) => void;
@@ -823,6 +867,9 @@ function FilterGroups({
   preventaOnly,
   onTogglePreventaOnly,
   preventaCount,
+  combosOnly,
+  onToggleCombosOnly,
+  combosCount,
   subcategories,
   subCategoryFilter,
   onSelectSubcategory,
@@ -908,7 +955,9 @@ function FilterGroups({
         flashCount > 0 ||
         flashOnly ||
         preventaCount > 0 ||
-        preventaOnly) && (
+        preventaOnly ||
+        combosCount > 0 ||
+        combosOnly) && (
         <div className="landing-filter-group">
           <p className="landing-filter-group-title">Ofertas</p>
           {(inStockCount > 0 || inStockOnly) && (
@@ -959,6 +1008,13 @@ function FilterGroups({
               <input type="checkbox" checked={preventaOnly} onChange={onTogglePreventaOnly} />
               <span className="landing-filter-checkbox-label">Preventa</span>
               <span className="landing-filter-count">{preventaCount}</span>
+            </label>
+          )}
+          {(combosCount > 0 || combosOnly) && (
+            <label className="landing-filter-checkbox">
+              <input type="checkbox" checked={combosOnly} onChange={onToggleCombosOnly} />
+              <span className="landing-filter-checkbox-label">Combos</span>
+              <span className="landing-filter-count">{combosCount}</span>
             </label>
           )}
         </div>
