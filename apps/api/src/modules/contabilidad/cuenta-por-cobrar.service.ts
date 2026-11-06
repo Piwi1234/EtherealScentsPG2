@@ -29,16 +29,11 @@ const include = {
 export class CuentaPorCobrarService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: QueryCuentaPorCobrarDto) {
-    const { page, pageSize, skip, take } = getPagination({
-      page: String(query.page ?? 1),
-      pageSize: String(query.limit ?? 20),
-    });
-
+  private buildWhere(query: Pick<QueryCuentaPorCobrarDto, "estado" | "clienteId" | "codigo" | "fechaDesde" | "fechaHasta">): Prisma.CuentaPorCobrarWhereInput {
     const hasta = query.fechaHasta ? new Date(query.fechaHasta) : undefined;
     if (hasta) hasta.setUTCHours(23, 59, 59, 999);
 
-    const where: Prisma.CuentaPorCobrarWhereInput = {
+    return {
       estado: query.estado,
       proforma: {
         clienteId: query.clienteId,
@@ -49,6 +44,15 @@ export class CuentaPorCobrarService {
         },
       },
     };
+  }
+
+  async findAll(query: QueryCuentaPorCobrarDto) {
+    const { page, pageSize, skip, take } = getPagination({
+      page: String(query.page ?? 1),
+      pageSize: String(query.limit ?? 20),
+    });
+
+    const where = this.buildWhere(query);
 
     const [items, total] = await Promise.all([
       this.prisma.cuentaPorCobrar.findMany({ where, skip, take, orderBy: { createdAt: "desc" }, include }),
@@ -56,6 +60,71 @@ export class CuentaPorCobrarService {
     ]);
 
     return { items, total, page, pageSize };
+  }
+
+  /**
+   * Las mismas cuentas, pero agrupadas por cliente y paginadas POR CLIENTE (no por cuenta): así las deudas de un mismo cliente
+   * nunca quedan partidas entre dos páginas y sus totales cubren todo lo filtrado. Orden: mayor saldo pendiente primero. Una
+   * cuenta sin cliente es su propio grupo (clienteId null). Se agrupa en memoria sobre una consulta liviana (la cantidad de
+   * cuentas abiertas es chica) y recién después se trae el detalle completo de los clientes de la página.
+   */
+  async findAllPorCliente(query: QueryCuentaPorCobrarDto) {
+    const { page, pageSize, skip, take } = getPagination({
+      page: String(query.page ?? 1),
+      pageSize: String(query.limit ?? 20),
+    });
+    const where = this.buildWhere(query);
+
+    const livianas = await this.prisma.cuentaPorCobrar.findMany({
+      where,
+      select: { id: true, montoAdeudado: true, proforma: { select: { clienteId: true } } },
+    });
+    const grupos = new Map<string, { clienteId: string | null; ids: string[]; adeudado: number }>();
+    for (const c of livianas) {
+      const clave = c.proforma.clienteId ?? `sin-cliente:${c.id}`;
+      const g = grupos.get(clave) ?? { clienteId: c.proforma.clienteId, ids: [], adeudado: 0 };
+      g.ids.push(c.id);
+      g.adeudado += Number(c.montoAdeudado);
+      grupos.set(clave, g);
+    }
+    const ordenados = [...grupos.values()].sort((a, b) => b.adeudado - a.adeudado);
+    const pagina = ordenados.slice(skip, skip + take);
+
+    const cuentas = await this.prisma.cuentaPorCobrar.findMany({
+      where: { id: { in: pagina.flatMap((g) => g.ids) } },
+      orderBy: { proforma: { fecha: "desc" } },
+      include,
+    });
+    const porId = new Map(cuentas.map((c) => [c.id, c]));
+
+    const items = pagina.map((g) => {
+      const filas = g.ids.map((id) => porId.get(id)!).sort((a, b) => b.proforma.fecha.getTime() - a.proforma.fecha.getTime());
+      const montoTotal = filas.reduce((n, c) => n + Number(c.montoTotal), 0);
+      const montoAdeudado = filas.reduce((n, c) => n + Number(c.montoAdeudado), 0);
+      return {
+        clienteId: g.clienteId,
+        cliente: filas[0]?.proforma.cliente ?? null,
+        cantidad: filas.length,
+        montoTotal: montoTotal.toFixed(2),
+        montoCobrado: (montoTotal - montoAdeudado).toFixed(2),
+        montoAdeudado: montoAdeudado.toFixed(2),
+        cuentas: filas,
+      };
+    });
+
+    return { items, total: ordenados.length, page, pageSize };
+  }
+
+  /** Deudas PENDIENTES de un cliente (para su estado de cuenta en PDF), de la más antigua a la más reciente; respeta el rango de fechas. */
+  async pendientesDeCliente(clienteId: string, query: Pick<QueryCuentaPorCobrarDto, "fechaDesde" | "fechaHasta">) {
+    const cliente = await this.prisma.cliente.findUnique({ where: { id: clienteId }, select: { id: true, nombre: true } });
+    if (!cliente) throw new NotFoundException("Cliente no encontrado.");
+    const cuentas = await this.prisma.cuentaPorCobrar.findMany({
+      where: this.buildWhere({ ...query, clienteId, estado: EstadoCuentaPorCobrar.PENDIENTE }),
+      orderBy: { proforma: { fecha: "asc" } },
+      include,
+    });
+    return { cliente, cuentas };
   }
 
   async findOne(id: string) {

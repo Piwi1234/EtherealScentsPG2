@@ -9,9 +9,10 @@ import { TraspasoController } from "./traspaso.controller";
 import { TraspasoService } from "./traspaso.service";
 import { CuentaPorCobrarController } from "./cuenta-por-cobrar.controller";
 import { CuentaPorCobrarService } from "./cuenta-por-cobrar.service";
+import { CuentaPorCobrarPdfService } from "./cuenta-por-cobrar-pdf.service";
 
 @Module({
   controllers: [CarteraController, TipoMovimientoController, MovimientoController, TraspasoController, CuentaPorCobrarController],
-  providers: [CarteraService, TipoMovimientoService, MovimientoService, TraspasoService, CuentaPorCobrarService],
+  providers: [CarteraService, TipoMovimientoService, MovimientoService, TraspasoService, CuentaPorCobrarService, CuentaPorCobrarPdfService],
 })
 export class ContabilidadModule {}

@@ -19,6 +19,7 @@ import type {
   ClienteInput,
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
+  CuentaPorCobrarGrupo,
   DetalleCompraInput,
   CreateEnvioInput,
   CreateRecepcionInput,
@@ -1370,6 +1371,31 @@ export function getCuentasPorCobrar(
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
   return apiGet<Page<CuentaPorCobrarConProforma>>(`/contabilidad/cuentas-por-cobrar${qs ? `?${qs}` : ""}`);
+}
+
+/** Las mismas cuentas agrupadas por cliente (se pagina por cliente, no por cuenta). */
+export function getCuentasPorCobrarPorCliente(
+  query: { estado?: EstadoCuentaPorCobrar; clienteId?: string; codigo?: string; fechaDesde?: string; fechaHasta?: string; page?: number; limit?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.estado) params.set("estado", query.estado);
+  if (query.clienteId) params.set("clienteId", query.clienteId);
+  if (query.codigo) params.set("codigo", query.codigo);
+  if (query.fechaDesde) params.set("fechaDesde", query.fechaDesde);
+  if (query.fechaHasta) params.set("fechaHasta", query.fechaHasta);
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiGet<Page<CuentaPorCobrarGrupo>>(`/contabilidad/cuentas-por-cobrar/por-cliente${qs ? `?${qs}` : ""}`);
+}
+
+/** Descarga el estado de cuenta (PDF) con las deudas pendientes de un cliente; respeta el rango de fechas. */
+export function downloadEstadoCuenta(clienteId: string, nombre: string, rango: { fechaDesde?: string; fechaHasta?: string } = {}) {
+  const params = new URLSearchParams();
+  if (rango.fechaDesde) params.set("fechaDesde", rango.fechaDesde);
+  if (rango.fechaHasta) params.set("fechaHasta", rango.fechaHasta);
+  const qs = params.toString();
+  return apiDownload(`/contabilidad/cuentas-por-cobrar/cliente/${clienteId}/pdf${qs ? `?${qs}` : ""}`, `estado-de-cuenta-${nombre.replace(/[^\w-]+/g, "-")}.pdf`);
 }
 
 export function cobrarCuenta(id: string, data: { monto: number; carteraId: string }) {

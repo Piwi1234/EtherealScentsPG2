@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, cobrarCuenta, getCarteras, getCuentasPorCobrar } from "../../../../lib/api";
-import type { Cartera, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
+import { ApiError, cobrarCuenta, downloadEstadoCuenta, getCarteras, getCuentasPorCobrarPorCliente } from "../../../../lib/api";
+import type { Cartera, CuentaPorCobrarConProforma, CuentaPorCobrarGrupo, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { CarteraSelector } from "../../../../components/proformas/selectors";
@@ -32,7 +32,11 @@ export default function CuentasPorCobrarPage() {
   const [codigo, setCodigo] = useState("");
   const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [pageNum, setPageNum] = useState(1);
-  const [data, setData] = useState<Page<CuentaPorCobrarConProforma> | null>(null);
+  const [data, setData] = useState<Page<CuentaPorCobrarGrupo> | null>(null);
+  // Grupos (clientes con 2 o más deudas) desplegados — se identifican por clienteId.
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [descargando, setDescargando] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState("");
   const [carterasBs, setCarterasBs] = useState<Cartera[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,7 +44,7 @@ export default function CuentasPorCobrarPage() {
 
   function load() {
     setLoading(true);
-    getCuentasPorCobrar({
+    getCuentasPorCobrarPorCliente({
       estado: estado || undefined,
       clienteId: clienteId || undefined,
       codigo: codigo || undefined,
@@ -88,6 +92,66 @@ export default function CuentasPorCobrarPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
+  // Un cliente con una sola deuda se ve como una fila normal; con 2 o más es un grupo desplegable.
+  const desplegables = data ? data.items.filter((g) => g.clienteId && g.cantidad > 1).map((g) => g.clienteId as string) : [];
+  const todosAbiertos = desplegables.length > 0 && desplegables.every((id) => abiertos.has(id));
+
+  function alternar(id: string) {
+    setAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function descargarEstadoCuenta(grupo: CuentaPorCobrarGrupo) {
+    if (!grupo.clienteId) return;
+    setDescargando(grupo.clienteId);
+    setPdfError("");
+    try {
+      await downloadEstadoCuenta(grupo.clienteId, grupo.cliente?.nombre ?? "cliente", {
+        fechaDesde: dateSelection.fechaDesde,
+        fechaHasta: dateSelection.fechaHasta,
+      });
+    } catch (e) {
+      setPdfError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setDescargando(null);
+    }
+  }
+
+  function filaCuenta(cuenta: CuentaPorCobrarConProforma, opciones: { sinCliente?: boolean; extra?: React.ReactNode }) {
+    return (
+      <tr key={cuenta.id}>
+        <td className={opciones.sinCliente ? "reg-indent cell-muted" : "cell-muted"}>{formatDate(cuenta.proforma.fecha)}</td>
+        <td>
+          <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="link-button">
+            {cuenta.proforma.codigo}
+          </Link>
+        </td>
+        <td className="cell-muted">{opciones.sinCliente ? "" : (cuenta.proforma.cliente?.nombre ?? "—")}</td>
+        <td>
+          <EstadoBadge estado={cuenta.proforma.estado} />
+        </td>
+        <td className="num cell-muted">Bs {Number(cuenta.montoTotal).toFixed(2)}</td>
+        <td className="num cell-muted">Bs {(Number(cuenta.montoTotal) - Number(cuenta.montoAdeudado)).toFixed(2)}</td>
+        <td className="num cell-primary">Bs {Number(cuenta.montoAdeudado).toFixed(2)}</td>
+        <td>
+          <EstadoCuentaBadge estado={cuenta.estado} />
+        </td>
+        <td>
+          {cuenta.estado === "PENDIENTE" && (
+            <button type="button" className="action-btn" onClick={() => setCobrando(cuenta)}>
+              Cobrar
+            </button>
+          )}
+          {opciones.extra}
+        </td>
+      </tr>
+    );
+  }
+
   if (error) {
     return (
       <div className="card">
@@ -134,6 +198,14 @@ export default function CuentasPorCobrarPage() {
         <p>No hay cuentas por cobrar para estos filtros.</p>
       ) : (
         <>
+          {pdfError && <p className="error-text">{pdfError}</p>}
+          {desplegables.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+              <button type="button" className="link-button" onClick={() => setAbiertos(todosAbiertos ? new Set() : new Set(desplegables))}>
+                {todosAbiertos ? "Contraer todo" : "Expandir todo"}
+              </button>
+            </div>
+          )}
           <table className="table table-minimal table-compact">
             <thead>
               <tr>
@@ -149,33 +221,48 @@ export default function CuentasPorCobrarPage() {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((cuenta) => (
-                <tr key={cuenta.id}>
-                  <td className="cell-muted">{formatDate(cuenta.proforma.fecha)}</td>
-                  <td>
-                    <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="link-button">
-                      {cuenta.proforma.codigo}
-                    </Link>
-                  </td>
-                  <td className="cell-muted">{cuenta.proforma.cliente?.nombre ?? "—"}</td>
-                  <td>
-                    <EstadoBadge estado={cuenta.proforma.estado} />
-                  </td>
-                  <td className="num cell-muted">Bs {Number(cuenta.montoTotal).toFixed(2)}</td>
-                  <td className="num cell-muted">Bs {(Number(cuenta.montoTotal) - Number(cuenta.montoAdeudado)).toFixed(2)}</td>
-                  <td className="num cell-primary">Bs {Number(cuenta.montoAdeudado).toFixed(2)}</td>
-                  <td>
-                    <EstadoCuentaBadge estado={cuenta.estado} />
-                  </td>
-                  <td>
-                    {cuenta.estado === "PENDIENTE" && (
-                      <button type="button" className="action-btn" onClick={() => setCobrando(cuenta)}>
-                        Cobrar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {data.items.map((grupo) => {
+                const tieneSaldo = Number(grupo.montoAdeudado) > 0;
+                const botonPdf = (
+                  <button
+                    type="button"
+                    className="action-btn"
+                    style={{ marginLeft: 6 }}
+                    disabled={descargando === grupo.clienteId}
+                    title="Descargar el estado de cuenta (deudas pendientes) para entregar al cliente"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      descargarEstadoCuenta(grupo);
+                    }}
+                  >
+                    {descargando === grupo.clienteId ? "Generando..." : "PDF"}
+                  </button>
+                );
+                // Una sola deuda (o sin cliente): fila normal, como siempre.
+                if (!grupo.clienteId || grupo.cantidad === 1) {
+                  return filaCuenta(grupo.cuentas[0], { extra: grupo.clienteId && tieneSaldo ? botonPdf : null });
+                }
+                const abierto = abiertos.has(grupo.clienteId);
+                return (
+                  <Fragment key={grupo.clienteId}>
+                    <tr className="reg-group" onClick={() => alternar(grupo.clienteId as string)} aria-expanded={abierto}>
+                      <td colSpan={3} className="reg-group-code">
+                        <span className="reg-chevron">{abierto ? "▾" : "▸"}</span>
+                        <span className="cell-primary">{grupo.cliente?.nombre ?? "—"}</span>
+                      </td>
+                      <td className="cell-muted" style={{ fontWeight: 400 }}>
+                        {grupo.cantidad} deudas
+                      </td>
+                      <td className="num cell-muted">Bs {Number(grupo.montoTotal).toFixed(2)}</td>
+                      <td className="num cell-muted">Bs {Number(grupo.montoCobrado).toFixed(2)}</td>
+                      <td className="num cell-primary">Bs {Number(grupo.montoAdeudado).toFixed(2)}</td>
+                      <td></td>
+                      <td>{tieneSaldo && botonPdf}</td>
+                    </tr>
+                    {abierto && grupo.cuentas.map((cuenta) => filaCuenta(cuenta, { sinCliente: true }))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
           {totalPages > 1 && (
