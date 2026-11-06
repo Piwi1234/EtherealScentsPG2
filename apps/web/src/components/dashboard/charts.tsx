@@ -105,13 +105,18 @@ export function Legend({ items }: { items: { label: string; color: string }[] })
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** "2025-09" -> "sep 25" — bastante más corto que la fecha ISO, para que entre sin superponerse con
- * el mes de al lado. Cualquier categoría que no tenga esa forma (nombres, no fechas) se deja igual. */
-function defaultFormatCategory(cat: string): string {
+/** "2025-09" -> { mes: "sep", anio: "2025" }; null si la categoría no es un mes (nombres, no fechas). */
+function partesMes(cat: string): { mes: string; anio: string } | null {
   const match = /^(\d{4})-(\d{2})$/.exec(cat);
-  if (!match) return cat;
-  const mes = MESES_CORTOS[Number(match[2]) - 1] ?? match[2];
-  return `${mes} ${match[1].slice(2)}`;
+  if (!match) return null;
+  return { mes: MESES_CORTOS[Number(match[2]) - 1] ?? match[2], anio: match[1] };
+}
+
+/** "2025-09" -> "sep 2025". El año va completo: "sep 25" se leía como "septiembre 25" (un día). Cualquier categoría que no
+ * sea un mes (nombres, no fechas) se deja igual. */
+function defaultFormatCategory(cat: string): string {
+  const partes = partesMes(cat);
+  return partes ? `${partes.mes} ${partes.anio}` : cat;
 }
 
 /** Máximo "redondo" para el eje (1, 2, 2.5, 5 × 10^n) y 4 divisiones. */
@@ -150,7 +155,8 @@ export function BarChart({
 
   const width = 720;
   const padTop = 22;
-  const padBottom = 26;
+  // Con meses en el eje hace falta una segunda línea para el año.
+  const padBottom = categories.some((c) => partesMes(c)) ? 36 : 26;
   const padLeft = 46;
   const padRight = 8;
   const plotW = width - padLeft - padRight;
@@ -217,11 +223,34 @@ export function BarChart({
                   </g>
                 );
               })}
-              {ci % labelStep === 0 && (
-                <text x={cx} y={height - 8} fontSize={10.5} fill={ci === last && highlightLast ? INK : MUTED} textAnchor="middle" fontWeight={ci === last && highlightLast ? 600 : 400}>
-                  {formatCategory(cat)}
-                </text>
-              )}
+              {ci % labelStep === 0 &&
+                (() => {
+                  const fill = ci === last && highlightLast ? INK : MUTED;
+                  const weight = ci === last && highlightLast ? 600 : 400;
+                  const partes = partesMes(cat);
+                  // Eje de meses: el mes arriba y, debajo, el año en la primera etiqueta y cada vez que cambia.
+                  if (partes && formatCategory === defaultFormatCategory) {
+                    const anterior = ci - labelStep >= 0 ? partesMes(categories[ci - labelStep]) : null;
+                    const mostrarAnio = !anterior || anterior.anio !== partes.anio;
+                    return (
+                      <text x={cx} textAnchor="middle" fill={fill}>
+                        <tspan x={cx} y={height - 20} fontSize={10.5} fontWeight={weight}>
+                          {partes.mes}
+                        </tspan>
+                        {mostrarAnio && (
+                          <tspan x={cx} y={height - 7} fontSize={9.5} fontWeight={weight}>
+                            {partes.anio}
+                          </tspan>
+                        )}
+                      </text>
+                    );
+                  }
+                  return (
+                    <text x={cx} y={height - 8} fontSize={10.5} fill={fill} textAnchor="middle" fontWeight={weight}>
+                      {formatCategory(cat)}
+                    </text>
+                  );
+                })()}
             </g>
           );
         })}

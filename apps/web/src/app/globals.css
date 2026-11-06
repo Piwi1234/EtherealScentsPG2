@@ -10717,6 +10717,125 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   }
 }
 
+/* Cuentas por cobrar: tarjetas de resumen, filas por cliente/deuda y barra de avance del cobro. */
+.cxc-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cxc-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-divider);
+  border-radius: 12px;
+}
+
+.cxc-kpi--principal {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.cxc-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.cxc-kpi-valor {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cxc-kpi-sub {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.cxc-tabla {
+  min-width: 860px;
+}
+
+.cxc-grupo td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.cxc-cantidad {
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.cxc-hija td {
+  background: color-mix(in srgb, var(--color-text) 3%, transparent);
+}
+
+.cxc-nota {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cxc-cliente {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.cxc-antiguedad {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.cxc-antiguedad--atraso {
+  color: #e5736a;
+  font-weight: 600;
+}
+
+.cxc-avance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+
+.cxc-avance-barra {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-divider);
+}
+
+.cxc-avance-relleno {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+
+.cxc-avance-pct {
+  width: 34px;
+  text-align: right;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.cxc-acciones {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.cxc-acciones .action-btn + .action-btn {
+  margin-left: 6px;
+}
+
 /* Páginas "Cuenta X" (lista de carteras de una moneda): resumen del total y una tarjeta por cartera. */
 .cartera-resumen {
   display: flex;

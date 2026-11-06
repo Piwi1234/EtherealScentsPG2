@@ -893,6 +893,23 @@ export type CuentaPorCobrarConProforma = CuentaPorCobrar & {
   proforma: { id: string; codigo: string; estado: EstadoProforma; fecha: string; cliente: { id: string; nombre: string } | null };
 };
 
+/** GET /contabilidad/cuentas-por-cobrar/por-cliente: las deudas de un cliente juntas, con sus totales (paginado por cliente). */
+export type CuentaPorCobrarGrupo = {
+  /** null = deuda sin cliente asignado (cada una es su propio grupo). */
+  clienteId: string | null;
+  cliente: { id: string; nombre: string } | null;
+  cantidad: number;
+  montoTotal: string;
+  montoCobrado: string;
+  montoAdeudado: string;
+  cuentas: CuentaPorCobrarConProforma[];
+};
+
+/** La página de grupos más los totales de TODO lo filtrado (no solo de la página): alimentan las tarjetas de resumen. */
+export type CuentasPorCobrarPorCliente = Page<CuentaPorCobrarGrupo> & {
+  resumen: { clientes: number; cuentas: number; montoTotal: string; montoCobrado: string; montoAdeudado: string };
+};
+
 /** GET /proformas/:id/pagos: lo cobrado de una venta y los movimientos de cartera ligados. */
 export type PagoMovimiento = {
   id: string;

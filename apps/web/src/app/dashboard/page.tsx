@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { TopClientes } from "../../components/dashboard/TopClientes";
+import { SelectorMes, etiquetaMes } from "../../components/dashboard/SelectorMes";
 import { NuevaProformaBoton } from "../../components/proformas/NuevaProformaBoton";
 import { apiGet } from "../../lib/api";
 import type {
@@ -23,10 +24,10 @@ import { BarChart, MiniStats, RankedBarList, SERIES_COLORS, SplitBar, StatTile }
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** "2026-10" -> "oct 26". */
+/** "2026-10" -> "oct 2026" (el año completo: "oct 26" se leía como un día). */
 function mesCorto(key: string): string {
   const [anio, mes] = key.split("-");
-  return `${MESES_CORTOS[Number(mes) - 1] ?? mes} ${anio.slice(2)}`;
+  return `${MESES_CORTOS[Number(mes) - 1] ?? mes} ${anio}`;
 }
 
 /** Total, promedio (solo meses con movimiento) y mejor mes de una serie mensual. */
@@ -62,8 +63,17 @@ function fromRangeMonths(meses: number): Date {
   return d;
 }
 
+/** Primer y último instante de un mes "YYYY-MM" (hora local), en ISO, para pedirle a la API las ventas de ese mes. */
+function rangoDeMes(month: string): { from: string; to: string } {
+  const [anio, mes] = month.split("-").map(Number);
+  return { from: new Date(anio, mes - 1, 1, 0, 0, 0, 0).toISOString(), to: new Date(anio, mes, 0, 23, 59, 59, 999).toISOString() };
+}
+
 export default function DashboardPage() {
   const [rangeMonths, setRangeMonths] = useState(12);
+  // Mes que muestra el bloque Ventas por categoría (filtro propio, no depende del período de arriba). Arranca en el mes en curso.
+  const [ventasCategoriaMes, setVentasCategoriaMes] = useState(currentMonth());
+  const [ventasCategoriaError, setVentasCategoriaError] = useState(false);
   const [empresaId, setEmpresaId] = useState("");
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [topClientesMonth, setTopClientesMonth] = useState(currentMonth());
@@ -110,13 +120,26 @@ export default function DashboardPage() {
       .then((r) => setProformasAprobadas(r.cantidad))
       .catch(() => {});
     apiGet<DashMesTotal[]>(`/dashboard/proformas-completadas-por-mes?${params.toString()}`).then(setProformasCompletadas).catch(() => {});
-    apiGet<DashCategoriaTotal[]>(`/dashboard/ventas-por-categoria?${params.toString()}`).then(setVentasPorCategoria).catch(() => {});
     apiGet<DashMargenMes[]>(`/dashboard/margen-bruto?${params.toString()}`).then(setMargenBruto).catch(() => {});
     apiGet<DashProveedorCategoriaTotal[]>(`/dashboard/compras-por-proveedor-categoria?${params.toString()}`)
       .then(setComprasPorProveedor)
       .catch(() => {});
     apiGet<DashIngresoEgresoCartera[]>(`/dashboard/ingresos-egresos?${params.toString()}`).then(setIngresosEgresos).catch(() => {});
   }, [rangeMonths]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(rangoDeMes(ventasCategoriaMes));
+    setVentasPorCategoria(null);
+    setVentasCategoriaError(false);
+    // Un pedido más nuevo (otro mes elegido) deja sin efecto la respuesta de uno anterior que llega tarde.
+    let vigente = true;
+    apiGet<DashCategoriaTotal[]>(`/dashboard/ventas-por-categoria?${params.toString()}`)
+      .then((r) => vigente && setVentasPorCategoria(r))
+      .catch(() => vigente && setVentasCategoriaError(true));
+    return () => {
+      vigente = false;
+    };
+  }, [ventasCategoriaMes]);
 
   useEffect(() => {
     apiGet<DashClienteTotal[]>(`/dashboard/top-clientes?month=${topClientesMonth}`).then(setTopClientes).catch(() => {});
@@ -413,9 +436,18 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="card span-6">
-          <p className="dash-widget-title">Ventas por categoría</p>
-          <p className="dash-widget-note">Total en Bs en el período elegido, con su peso sobre el total.</p>
-          {ventasPorCategoria ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
+              <p className="dash-widget-title">Ventas por categoría</p>
+              <p className="dash-widget-note">Total en Bs vendido en el mes elegido, con su peso sobre el total.</p>
+            </div>
+            <SelectorMes month={ventasCategoriaMes} maxMonth={currentMonth()} onMonthChange={setVentasCategoriaMes} />
+          </div>
+          {ventasCategoriaError ? (
+            <p className="error-text">No se pudieron cargar las ventas. Vuelve a elegir el mes para reintentar.</p>
+          ) : ventasPorCategoria && ventasPorCategoria.length === 0 ? (
+            <p className="dash-empty">Sin ventas en {etiquetaMes(ventasCategoriaMes)}.</p>
+          ) : ventasPorCategoria ? (
             <RankedBarList items={ventasPorCategoria.map((c) => ({ label: c.categoria, value: c.total }))} formatValue={bs} />
           ) : (
             <p className="dash-empty">Cargando...</p>

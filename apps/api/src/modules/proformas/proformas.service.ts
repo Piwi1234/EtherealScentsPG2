@@ -35,6 +35,10 @@ export const includeDetails = {
       { comboId: { sort: "asc" as const, nulls: "first" as const } },
       { variante: { product: { brand: { name: "asc" as const } } } },
       { variante: { product: { name: "asc" as const } } },
+      // Desempate estable: dos líneas del mismo producto (ej. dos tamaños, o la misma variante con distinto proveedor) empatan en
+      // todo lo de arriba y, sin esto, se intercambiaban de lugar al editar una de ellas. Quedan en el orden en que se agregaron.
+      { createdAt: "asc" as const },
+      { id: "asc" as const },
     ],
     include: {
       // attributeValues+attribute+option: atributos NONE (un valor por producto). variantOptionValues:

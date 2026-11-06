@@ -15,8 +15,10 @@ function parseDate(value: string | undefined, fallback: Date): Date {
  * from/to opcionales — mismo rango que usan por default los gráficos mensuales del dashboard. */
 function defaultRange(fromRaw?: string, toRaw?: string): { from: Date; to: Date } {
   const defaultFrom = new Date();
-  defaultFrom.setMonth(defaultFrom.getMonth() - 11);
+  // El día 1 va primero: con setMonth antes, un día 29-31 desbordaba al mes siguiente (ej. 31 de oct → "31 de nov" = 1 de dic) y el rango
+  // arrancaba un mes tarde.
   defaultFrom.setDate(1);
+  defaultFrom.setMonth(defaultFrom.getMonth() - 11);
   defaultFrom.setHours(0, 0, 0, 0);
   return { from: parseDate(fromRaw, defaultFrom), to: parseDate(toRaw, new Date()) };
 }
