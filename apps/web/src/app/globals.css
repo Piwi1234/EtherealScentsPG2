@@ -10772,8 +10772,27 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   font-weight: 500;
 }
 
-.cxc-hija td {
-  background: color-mix(in srgb, var(--color-text) 3%, transparent);
+/* Cliente (fila del grupo) más claro y sus deudas desplegadas más oscuras, con una barra de acento a la izquierda: así se distingue
+   a simple vista dónde termina el cliente y empiezan sus deudas. */
+.cxc-tabla tr.cxc-grupo td {
+  background: color-mix(in srgb, var(--color-text) 9%, var(--color-surface));
+}
+
+.cxc-tabla tr.cxc-grupo:hover td {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+}
+
+.cxc-tabla tr.cxc-hija td {
+  background: var(--color-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.cxc-tabla tr.cxc-hija td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-accent) 70%, transparent);
+}
+
+.cxc-tabla tr.cxc-hija:hover td {
+  background: color-mix(in srgb, var(--color-text) 5%, var(--color-bg));
 }
 
 .cxc-nota {
