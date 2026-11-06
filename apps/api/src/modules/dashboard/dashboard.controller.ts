@@ -48,6 +48,12 @@ export class DashboardController {
     return this.dashboard.productosPorCategoria();
   }
 
+  @Get("stock-por-categoria")
+  @ApiOperation({ summary: "Unidades en stock por categoría (físico, disponible, reservado y en tránsito); los decants (ml) van aparte." })
+  stockPorCategoria() {
+    return this.dashboard.stockPorCategoria();
+  }
+
   @Get("proformas-aprobadas")
   @ApiOperation({ summary: "Cantidad de proformas en estado APROBADA dentro de un rango de fechas." })
   proformasAprobadas(@Query("from") from?: string, @Query("to") to?: string) {

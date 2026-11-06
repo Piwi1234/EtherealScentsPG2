@@ -17,6 +17,7 @@ import type {
   DashProveedorCategoriaTotal,
   DashSaldoCartera,
   DashStockValorizado,
+  DashStockPorCategoria,
   Empresa,
   Page,
 } from "../../lib/types";
@@ -89,6 +90,7 @@ export default function DashboardPage() {
   const [comprasPorProveedor, setComprasPorProveedor] = useState<DashProveedorCategoriaTotal[] | null>(null);
   const [productosPorCategoria, setProductosPorCategoria] = useState<DashCategoriaTotal[] | null>(null);
   const [stockValorizado, setStockValorizado] = useState<DashStockValorizado | null>(null);
+  const [stockPorCategoria, setStockPorCategoria] = useState<DashStockPorCategoria | null>(null);
   const [saldosCartera, setSaldosCartera] = useState<DashSaldoCartera[] | null>(null);
   const [ingresosEgresos, setIngresosEgresos] = useState<DashIngresoEgresoCartera[] | null>(null);
   const [cuentasPorCobrar, setCuentasPorCobrar] = useState<DashCuentasPorCobrar | null>(null);
@@ -101,6 +103,7 @@ export default function DashboardPage() {
     // Estos 4 no dependen de ningún filtro — se cargan una sola vez.
     apiGet<DashCategoriaTotal[]>("/dashboard/productos-por-categoria").then(setProductosPorCategoria).catch(() => {});
     apiGet<DashStockValorizado>("/dashboard/stock-valorizado").then(setStockValorizado).catch(() => {});
+    apiGet<DashStockPorCategoria>("/dashboard/stock-por-categoria").then(setStockPorCategoria).catch(() => {});
     apiGet<DashSaldoCartera[]>("/dashboard/saldos-cartera").then(setSaldosCartera).catch(() => {});
     apiGet<DashCuentasPorCobrar>("/dashboard/cuentas-por-cobrar").then(setCuentasPorCobrar).catch(() => {});
     apiGet<DashPendientes>("/dashboard/pendientes").then(setPendientes).catch(() => {});
@@ -497,6 +500,52 @@ export default function DashboardPage() {
         <p className="dash-section-title">Stock</p>
       </div>
       <div className="dash-g12">
+        <div className="card span-7">
+          <p className="dash-widget-title">Stock por categoría</p>
+          <p className="dash-widget-note">Unidades físicas en todos los almacenes, con su peso sobre el total.</p>
+          {stockPorCategoria ? (
+            <RankedBarList
+              items={stockPorCategoria.categorias.map((c) => ({
+                label: c.categoria,
+                sublabel: `${c.disponible} disponibles · ${c.reservado} reservadas${c.enTransito > 0 ? ` · ${c.enTransito} en tránsito` : ""}`,
+                value: c.fisico,
+              }))}
+              formatValue={(v) => `${v.toLocaleString("es-BO")} u.`}
+              emptyLabel="No hay stock cargado."
+              maxItems={10}
+            />
+          ) : (
+            <p className="dash-empty">Cargando...</p>
+          )}
+        </div>
+        <div className="card span-5">
+          <p className="dash-widget-title">Unidades en stock</p>
+          <p className="dash-widget-note">Total de todas las categorías.</p>
+          {stockPorCategoria ? (
+            <>
+              <StatTile label="Unidades físicas" value={stockPorCategoria.totales.fisico.toLocaleString("es-BO")} color={SERIES_COLORS[0]} />
+              <div style={{ marginTop: 12 }}>
+                <SplitBar
+                  formatValue={(v) => `${v.toLocaleString("es-BO")} u.`}
+                  parts={[
+                    { label: "Disponible", value: stockPorCategoria.totales.disponible, color: SERIES_COLORS[2] },
+                    { label: "Reservado", value: stockPorCategoria.totales.reservado, color: SERIES_COLORS[3] },
+                  ]}
+                />
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <MiniStats
+                  items={[
+                    { label: "En tránsito", value: `${stockPorCategoria.totales.enTransito.toLocaleString("es-BO")} u.`, note: "Todavía no son físicas" },
+                    { label: "Decants", value: `${stockPorCategoria.decantsMl.fisico.toLocaleString("es-BO")} ml`, note: `${stockPorCategoria.decantsMl.disponible.toLocaleString("es-BO")} ml disponibles` },
+                  ]}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="dash-empty">Cargando...</p>
+          )}
+        </div>
         <div className="card span-7">
           <p className="dash-widget-title">Productos por categoría</p>
           <p className="dash-widget-note">Cantidad de productos del catálogo, con su peso sobre el total.</p>
