@@ -49,8 +49,10 @@ export class StockController {
     @Query("categoryId") categoryId?: string,
     @Query("brandId") brandId?: string,
     @Query("estado") estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE",
+    @Query("sort") sort?: string,
+    @Query("dir") dir?: string,
   ) {
-    return this.stock.resumen({ page, pageSize, almacenId, search, categoryId, brandId, estado });
+    return this.stock.resumen({ page, pageSize, almacenId, search, categoryId, brandId, estado, sort, dir });
   }
 
   @Get("variante/:varianteId")

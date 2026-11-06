@@ -61,6 +61,7 @@ import type {
   PendientesPorVariante,
   RecojosCompra,
   StockDetalle,
+  StockOrden,
   StockResumen,
   SolicitudLinea,
   SolicitudLineaParaCompra,
@@ -581,7 +582,17 @@ export function deleteAlmacen(id: string) {
 // --- Stock ---
 
 export function getStockResumen(
-  query: { almacenId?: string; search?: string; categoryId?: string; brandId?: string; estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE"; page?: number; pageSize?: number } = {},
+  query: {
+    almacenId?: string;
+    search?: string;
+    categoryId?: string;
+    brandId?: string;
+    estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE";
+    sort?: StockOrden;
+    dir?: "asc" | "desc";
+    page?: number;
+    pageSize?: number;
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (query.almacenId) params.set("almacenId", query.almacenId);
@@ -589,6 +600,8 @@ export function getStockResumen(
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.brandId) params.set("brandId", query.brandId);
   if (query.estado) params.set("estado", query.estado);
+  if (query.sort) params.set("sort", query.sort);
+  if (query.dir) params.set("dir", query.dir);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();

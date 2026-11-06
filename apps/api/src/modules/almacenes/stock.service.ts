@@ -21,6 +21,8 @@ const stockInclude = {
           name: true,
           productCode: true,
           imageUrl: true,
+          categoryId: true,
+          category: { select: { id: true, name: true } },
           brand: { select: { id: true, name: true } },
           attributeValues: { include: { attribute: true, option: true } },
           variantOptionValues: { include: { attribute: true } },
@@ -148,12 +150,16 @@ export class StockService {
     categoryId?: string;
     brandId?: string;
     estado?: "SIN_DISPONIBLE" | "CON_DISPONIBLE";
+    sort?: string;
+    dir?: string;
   }) {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
     const categoryIds = query.categoryId ? await this.collectCategoryIds(query.categoryId) : undefined;
 
+    // La categoría NO entra en este filtro: se aplica más abajo, en memoria, para poder contar cuántos productos hay en cada
+    // categoría con el resto de los filtros puestos (los conteos de los chips de categoría).
     const varianteWhere: Prisma.ProductVariantWhereInput = {
-      product: { categoryId: categoryIds ? { in: categoryIds } : undefined, brandId: query.brandId },
+      product: { brandId: query.brandId },
       ...(query.search
         ? {
             OR: [
@@ -235,28 +241,68 @@ export class StockService {
       : [];
     const valorPorVariante = new Map(valores.map((v) => [v.varianteId, Math.round((v.valor ?? 0) * 100) / 100]));
 
-    const indicadores = {
-      productos: filas.length,
-      unidadesFisicas: filas.reduce((n, f) => n + f.cantidadFisica, 0),
-      reservadas: filas.reduce((n, f) => n + f.cantidadReservada, 0),
-      enTransito: filas.reduce((n, f) => n + f.cantidadEnTransito, 0),
-      reservadoTransito: filas.reduce((n, f) => n + f.cantidadReservadaTransito, 0),
-      sinDisponible: filas.filter((f) => f.disponible <= 0).length,
-      valorBs: Math.round(Array.from(valorPorVariante.values()).reduce((n, v) => n + v, 0) * 100) / 100,
-    };
-
     const variantes = await this.prisma.productVariant.findMany({ where: { id: { in: ids } }, select: stockInclude.variante.select });
     const porId = new Map(variantes.map((v) => [v.id, v]));
-    const ordenadas = filas
+    const conVariante = filas
       .map((f) => ({ ...f, variante: porId.get(f.varianteId)!, valorBs: valorPorVariante.get(f.varianteId) ?? 0 }))
-      .filter((f) => f.variante)
-      .sort(
-        (a, b) =>
-          (a.variante.product.brand?.name ?? "").localeCompare(b.variante.product.brand?.name ?? "") ||
-          a.variante.product.name.localeCompare(b.variante.product.name),
-      );
+      .filter((f) => f.variante);
 
-    return { items: ordenadas.slice(skip, skip + take), total: ordenadas.length, page, pageSize, indicadores };
+    // Productos y unidades por categoría (la propia del producto), con todos los filtros menos el de categoría.
+    const conteo = new Map<string, { categoryId: string; productos: number; unidades: number }>();
+    for (const f of conVariante) {
+      const c = conteo.get(f.variante.product.categoryId) ?? { categoryId: f.variante.product.categoryId, productos: 0, unidades: 0 };
+      c.productos += 1;
+      c.unidades += f.cantidadFisica;
+      conteo.set(f.variante.product.categoryId, c);
+    }
+
+    const categoriaSet = categoryIds ? new Set(categoryIds) : null;
+    const filtradas = categoriaSet ? conVariante.filter((f) => categoriaSet.has(f.variante.product.categoryId)) : conVariante;
+
+    const indicadores = {
+      productos: filtradas.length,
+      unidadesFisicas: filtradas.reduce((n, f) => n + f.cantidadFisica, 0),
+      reservadas: filtradas.reduce((n, f) => n + f.cantidadReservada, 0),
+      enTransito: filtradas.reduce((n, f) => n + f.cantidadEnTransito, 0),
+      reservadoTransito: filtradas.reduce((n, f) => n + f.cantidadReservadaTransito, 0),
+      sinDisponible: filtradas.filter((f) => f.disponible <= 0).length,
+      valorBs: Math.round(filtradas.reduce((n, f) => n + f.valorBs, 0) * 100) / 100,
+    };
+
+    // Orden: por la columna pedida y, a igualdad, por marca y producto (que también es el orden por defecto).
+    const dir = query.dir === "desc" ? -1 : 1;
+    const porProducto = (a: (typeof filtradas)[number], b: (typeof filtradas)[number]) =>
+      (a.variante.product.brand?.name ?? "").localeCompare(b.variante.product.brand?.name ?? "", "es", { sensitivity: "base" }) ||
+      a.variante.product.name.localeCompare(b.variante.product.name, "es", { sensitivity: "base" });
+    const valorDe = (f: (typeof filtradas)[number]): number | string => {
+      switch (query.sort) {
+        case "categoria":
+          return f.variante.product.category.name;
+        case "disponible":
+          return f.disponible;
+        case "fisica":
+          return f.cantidadFisica;
+        case "reservada":
+          return f.cantidadReservada;
+        case "transito":
+          return f.cantidadEnTransito;
+        case "valor":
+          return f.valorBs;
+        case "almacenes":
+          return f.almacenes;
+        default:
+          return "";
+      }
+    };
+    const ordenadas = [...filtradas].sort((a, b) => {
+      if (!query.sort || query.sort === "producto") return porProducto(a, b) * dir;
+      const va = valorDe(a);
+      const vb = valorDe(b);
+      const cmp = typeof va === "string" ? va.localeCompare(String(vb), "es", { sensitivity: "base" }) : (va as number) - (vb as number);
+      return cmp * dir || porProducto(a, b);
+    });
+
+    return { items: ordenadas.slice(skip, skip + take), total: ordenadas.length, page, pageSize, indicadores, categorias: Array.from(conteo.values()) };
   }
 
   /**
