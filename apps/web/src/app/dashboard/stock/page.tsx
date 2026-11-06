@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ApiError, convertirEnDecants, convertirEnProbador, createSolicitud, createTraspasoAlmacen, downloadStockExport, downloadStockLotesExport, getAlmacenes, getBrands, getCategories, getDecantDestinos, getLotesCompra, getStockDetalle, getStockResumen } from "../../../lib/api";
 import type { Almacen, Brand, Category, LoteCompraConDetalle, Page, ProbadorVariante, StockDetalle, StockResumen, StockResumenRow, StockRow } from "../../../lib/types";
 import { ExistenciaPanel } from "../../../components/stock/ExistenciaPanel";
+import { productImageSrc } from "../../../lib/catalog-display";
+import { ExistenciasLista, type OrdenExistencias } from "../../../components/stock/ExistenciasLista";
 import { Modal } from "../../../components/Modal";
 import { LoteAsignacionTable } from "../../../components/proformas/LoteAsignacionTable";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
@@ -56,14 +58,10 @@ export default function StockPage() {
   const [stockCategoryId, setStockCategoryId] = useState("");
   const [stockMarcaId, setStockMarcaId] = useState("");
   const [stockPageNum, setStockPageNum] = useState(1);
+  const [stockOrden, setStockOrden] = useState<OrdenExistencias>({ key: "producto", dir: "asc" });
   const [stockLoading, setStockLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingLotes, setExportingLotes] = useState(false);
-
-  const parentCategories = categories.filter((c) => c.parentId === null);
-  // Marcas enlazadas a alguna subcategoría (hija directa) de la categoría padre elegida — no al padre.
-  const subCategoryIds = categories.filter((c) => c.parentId === stockCategoryId).map((c) => c.id);
-  const marcasDisponibles = brands.filter((b) => b.categories.some((bc) => subCategoryIds.includes(bc.categoryId)));
 
   const [lotesPage, setLotesPage] = useState<Page<LoteCompraConDetalle> | null>(null);
   const [lotesAlmacenId, setLotesAlmacenId] = useState("");
@@ -116,6 +114,8 @@ export default function StockPage() {
       categoryId: stockCategoryId || undefined,
       brandId: stockMarcaId || undefined,
       estado: stockEstado || undefined,
+      sort: stockOrden.key,
+      dir: stockOrden.dir,
       page: stockPageNum,
       pageSize: PAGE_SIZE,
     })
@@ -152,7 +152,7 @@ export default function StockPage() {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadStock, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockEstado, stockPageNum]);
+  useEffect(loadStock, [stockAlmacenId, stockCategoryId, stockMarcaId, stockSearch, stockEstado, stockOrden, stockPageNum]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadLotes, [lotesCargados, lotesAlmacenId, lotesEstado, lotesVarianteId, lotesPageNum]);
@@ -398,8 +398,13 @@ export default function StockPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h1 style={{ margin: 0, fontSize: 20 }}>Existencias</h1>
+        <div className="ex-head">
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22 }}>Existencias</h1>
+            <p className="cell-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
+              {stockPage ? `${stockPage.indicadores.productos} productos` : "Cargando…"} · {almacenes.filter((a) => a.activo).length} almacenes
+            </p>
+          </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
@@ -423,183 +428,70 @@ export default function StockPage() {
         </div>
 
         {stockPage && (
-          <div className="reg-kpis" style={{ marginBottom: 16 }}>
-            <div className="dash-kpi">
-              <span className="dash-kpi-label">Valor del inventario</span>
-              <span className="dash-kpi-value">Bs {stockPage.indicadores.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="dash-kpi-note">{stockPage.indicadores.productos} productos</span>
+          <div className="ex-kpis">
+            <div>
+              <span>Valor del inventario</span>
+              <strong>Bs {stockPage.indicadores.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              <small>{stockPage.indicadores.productos} productos</small>
             </div>
-            <div className="dash-kpi">
-              <span className="dash-kpi-label">Unidades físicas</span>
-              <span className="dash-kpi-value">{stockPage.indicadores.unidadesFisicas}</span>
-              <span className="dash-kpi-note">{stockPage.indicadores.reservadas} reservadas</span>
+            <div>
+              <span>Unidades físicas</span>
+              <strong>{stockPage.indicadores.unidadesFisicas}</strong>
+              <small className="ex-nota-reservada">{stockPage.indicadores.reservadas} reservadas</small>
             </div>
-            <div className="dash-kpi">
-              <span className="dash-kpi-label">En tránsito</span>
-              <span className="dash-kpi-value">{stockPage.indicadores.enTransito}</span>
-              <span className="dash-kpi-note">en envíos despachados, sin llegar</span>
+            <div>
+              <span>En tránsito</span>
+              <strong>{stockPage.indicadores.enTransito}</strong>
+              <small className="ex-nota-transito">en envíos despachados, sin llegar</small>
             </div>
-            <div className="dash-kpi">
-              <span className="dash-kpi-label">Sin disponible</span>
-              <span className="dash-kpi-value">{stockPage.indicadores.sinDisponible}</span>
-              <span className="dash-kpi-note">todo reservado o agotado</span>
+            <div>
+              <span>Sin disponible</span>
+              <strong>{stockPage.indicadores.sinDisponible}</strong>
+              <small>todo reservado o agotado</small>
             </div>
           </div>
         )}
 
-        <div className="filters-bar" style={{ marginBottom: 16 }}>
-          <div className="filter-field">
-            <label className="filter-label">Almacén</label>
-            <select
-              className="field"
-              value={stockAlmacenId}
-              onChange={(e) => {
-                setStockAlmacenId(e.target.value);
-                setStockPageNum(1);
-              }}
-            >
-              <option value="">Todos</option>
-              {almacenes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label className="filter-label">Disponibilidad</label>
-            <div className="seg" role="group" aria-label="Disponibilidad">
-              {(
-                [
-                  ["", "Todos"],
-                  ["CON_DISPONIBLE", "Con disponible"],
-                  ["SIN_DISPONIBLE", "Sin disponible"],
-                ] as const
-              ).map(([valor, etiqueta]) => (
-                <button
-                  key={valor}
-                  type="button"
-                  className={stockEstado === valor ? "on" : undefined}
-                  onClick={() => {
-                    setStockEstado(valor);
-                    setStockPageNum(1);
-                  }}
-                >
-                  {etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="filter-field">
-            <label className="filter-label">Categoría</label>
-            <select
-              className="field"
-              value={stockCategoryId}
-              onChange={(e) => {
-                setStockCategoryId(e.target.value);
-                setStockMarcaId("");
-                setStockPageNum(1);
-              }}
-            >
-              <option value="">Todas</option>
-              {parentCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {stockCategoryId && (
-            <div className="filter-field">
-              <label className="filter-label">Marca</label>
-              <select
-                className="field"
-                value={stockMarcaId}
-                onChange={(e) => {
-                  setStockMarcaId(e.target.value);
-                  setStockPageNum(1);
-                }}
-              >
-                <option value="">Todas</option>
-                {marcasDisponibles.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="filter-field" style={{ minWidth: 220, flex: 1 }}>
-            <label className="filter-label">Buscar producto o marca</label>
-            <input className="field" placeholder="Nombre, código o marca" value={stockSearchInput} onChange={(e) => setStockSearchInput(e.target.value)} />
-          </div>
-        </div>
+        <ExistenciasLista
+          page={stockPage}
+          loading={stockLoading}
+          almacenes={almacenes}
+          categories={categories}
+          brands={brands}
+          searchInput={stockSearchInput}
+          onSearchInput={setStockSearchInput}
+          estado={stockEstado}
+          onEstado={(v) => {
+            setStockEstado(v);
+            setStockPageNum(1);
+          }}
+          almacenId={stockAlmacenId}
+          onAlmacen={(id) => {
+            setStockAlmacenId(id);
+            setStockPageNum(1);
+          }}
+          categoryId={stockCategoryId}
+          onCategory={(id) => {
+            setStockCategoryId(id);
+            setStockMarcaId("");
+            setStockPageNum(1);
+          }}
+          marcaId={stockMarcaId}
+          onMarca={(id) => {
+            setStockMarcaId(id);
+            setStockPageNum(1);
+          }}
+          orden={stockOrden}
+          onOrden={(o) => {
+            setStockOrden(o);
+            setStockPageNum(1);
+          }}
+          abiertoId={abierto?.varianteId ?? null}
+          onOpen={abrirPanel}
+        />
 
-        {stockLoading && !stockPage ? (
-          <p className="cell-muted">Cargando...</p>
-        ) : !stockPage || stockPage.items.length === 0 ? (
-          <p>No hay existencias para estos filtros.</p>
-        ) : (
+        {stockPage && stockPage.items.length > 0 && (
           <>
-            <div className="table-scroll">
-              {/* Producto y marca ocupan la mitad izquierda; las columnas numéricas, la mitad derecha. */}
-              <table className="table table-minimal table-compact" style={{ tableLayout: "fixed", width: "100%", minWidth: 960 }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: "8%" }}>Marca</th>
-                    <th style={{ width: "36%" }}>Producto</th>
-                    <th className="num" style={{ width: "7%" }}>Disponible</th>
-                    <th className="num" style={{ width: "6%" }}>Física</th>
-                    <th className="num" style={{ width: "7%" }}>Reservada</th>
-                    <th className="num" style={{ width: "7%" }}>En tránsito</th>
-                    <th className="num" style={{ width: "8%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo que todavía no está apartado ni ligado a ninguna nota">Disponible en tránsito</th>
-                    <th className="num" style={{ width: "8%", whiteSpace: "normal", lineHeight: 1.2 }} title="De lo que viaja, lo apartado por ventas o ligado a notas">Reservado de tránsito</th>
-                    <th className="num" style={{ width: "7%" }}>Valor Bs</th>
-                    <th className="num" style={{ width: "6%" }} title="Almacenes con este producto">Alm.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockPage.items.map((row) => {
-                    const etiqueta = atributosLabel(row);
-                    const ml = row.variante.unidad === "ML" ? " ml" : "";
-                    const total = Math.max(1, row.cantidadFisica + row.cantidadEnTransito);
-                    const disponibleTransito = Math.max(0, row.cantidadEnTransito - row.cantidadReservadaTransito);
-                    return (
-                      <tr key={row.varianteId} className="stock-row" onClick={() => abrirPanel(row)}>
-                        <td className="cell-muted">{row.variante.product.brand?.name ?? "—"}</td>
-                        <td className="cell-primary">
-                          {row.variante.product.name}
-                          {etiqueta && <div className="cell-muted" style={{ fontSize: 12, fontWeight: 400 }}>{etiqueta}</div>}
-                          <div className="stock-bar" aria-hidden="true">
-                            <i style={{ width: `${(Math.max(0, row.disponible) / total) * 100}%` }} />
-                            <i style={{ width: `${(row.cantidadReservada / total) * 100}%` }} />
-                            <i style={{ width: `${(row.cantidadEnTransito / total) * 100}%` }} />
-                          </div>
-                        </td>
-                        <td className="num">
-                          {row.disponible > 0 ? <strong>{row.disponible}{ml}</strong> : <span className="badge badge-warn">0{ml}</span>}
-                        </td>
-                        <td className="num">{row.cantidadFisica}{ml}</td>
-                        <td className="num">{row.cantidadReservada}{ml}</td>
-                        <td className="num">{row.cantidadEnTransito > 0 ? row.cantidadEnTransito : <span className="cell-muted">—</span>}</td>
-                        <td className="num">
-                          {disponibleTransito > 0 ? <strong>{disponibleTransito}</strong> : <span className="cell-muted">—</span>}
-                        </td>
-                        <td className="num">
-                          {row.cantidadReservadaTransito > 0 ? (
-                            <span className="badge badge-info">{Math.min(row.cantidadReservadaTransito, row.cantidadEnTransito)}</span>
-                          ) : (
-                            <span className="cell-muted">—</span>
-                          )}
-                        </td>
-                        <td className="num cell-muted">{row.valorBs > 0 ? row.valorBs.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
-                        <td className="num cell-muted">{row.almacenes}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
             {stockTotalPages > 1 && (
               <div className="pagination">
                 <button type="button" className={`pagination-btn${stockPageNum <= 1 ? " disabled" : ""}`} disabled={stockPageNum <= 1} onClick={() => setStockPageNum((p) => p - 1)}>
@@ -616,9 +508,14 @@ export default function StockPage() {
           </>
         )}
 
-        <p className="cell-muted" style={{ marginTop: 16 }}>
-          Haz clic en un producto para ver sus lotes y costos, para qué ventas está reservado y qué viene en camino. La barra muestra disponible (verde), reservado (dorado) y en tránsito (azul).
-        </p>
+        <div className="ex-pie">
+          <span className="ex-leyenda">
+            <span><i className="ex-dot ex-dot--ok" />Disponible</span>
+            <span><i className="ex-dot ex-dot--gold" />Reservado</span>
+            <span><i className="ex-dot ex-dot--info" />En tránsito</span>
+          </span>
+          <span>Haz clic en un producto para ver sus lotes y costos, para qué ventas está reservado y qué viene en camino.</span>
+        </div>
       </div>
 
       <div className="card" id="historial-lotes">
@@ -751,7 +648,10 @@ export default function StockPage() {
       {abierto && (
         <ExistenciaPanel
           titulo={abierto.variante.product.name}
-          subtitulo={[abierto.variante.product.brand?.name, atributosLabel(abierto)].filter(Boolean).join(" · ") || null}
+          marca={abierto.variante.product.brand?.name ?? null}
+          categoria={abierto.variante.product.category.name}
+          atributos={atributosLabel(abierto)}
+          imagen={productImageSrc(abierto.variante.product.imageUrl)}
           detalle={detalle}
           cargando={detalleCargando}
           onClose={() => setAbierto(null)}

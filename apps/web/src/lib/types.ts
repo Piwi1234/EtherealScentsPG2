@@ -569,6 +569,8 @@ export type StockVariante = {
     name: string;
     productCode: string;
     imageUrl: string | null;
+    categoryId: string;
+    category: { id: string; name: string };
     brand: { id: string; name: string } | null;
     attributeValues: ProductAttributeValue[];
     variantOptionValues: ProductVariantOptionValue[];
@@ -610,8 +612,13 @@ export type StockResumenRow = {
   variante: StockVariante;
 };
 
+/** Columna por la que se ordena Existencias (GET /stock/resumen?sort=). */
+export type StockOrden = "producto" | "categoria" | "disponible" | "fisica" | "reservada" | "transito" | "valor" | "almacenes";
+
 export type StockResumen = Page<StockResumenRow> & {
   indicadores: { productos: number; unidadesFisicas: number; reservadas: number; enTransito: number; reservadoTransito: number; sinDisponible: number; valorBs: number };
+  /** Productos y unidades por categoría (la propia del producto) con todos los filtros menos el de categoría: los conteos de los chips. */
+  categorias: { categoryId: string; productos: number; unidades: number }[];
 };
 
 type ClienteRef = { id: string; nombre: string } | null;
