@@ -905,6 +905,11 @@ export type CuentaPorCobrarGrupo = {
   cuentas: CuentaPorCobrarConProforma[];
 };
 
+/** La página de grupos más los totales de TODO lo filtrado (no solo de la página): alimentan las tarjetas de resumen. */
+export type CuentasPorCobrarPorCliente = Page<CuentaPorCobrarGrupo> & {
+  resumen: { clientes: number; cuentas: number; montoTotal: string; montoCobrado: string; montoAdeudado: string };
+};
+
 /** GET /proformas/:id/pagos: lo cobrado de una venta y los movimientos de cartera ligados. */
 export type PagoMovimiento = {
   id: string;

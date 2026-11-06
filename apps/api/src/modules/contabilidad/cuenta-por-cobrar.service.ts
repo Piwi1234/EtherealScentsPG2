@@ -77,7 +77,7 @@ export class CuentaPorCobrarService {
 
     const livianas = await this.prisma.cuentaPorCobrar.findMany({
       where,
-      select: { id: true, montoAdeudado: true, proforma: { select: { clienteId: true } } },
+      select: { id: true, montoTotal: true, montoAdeudado: true, proforma: { select: { clienteId: true } } },
     });
     const grupos = new Map<string, { clienteId: string | null; ids: string[]; adeudado: number }>();
     for (const c of livianas) {
@@ -88,6 +88,16 @@ export class CuentaPorCobrarService {
       grupos.set(clave, g);
     }
     const ordenados = [...grupos.values()].sort((a, b) => b.adeudado - a.adeudado);
+    // Totales de TODO lo filtrado (no solo de la página) para las tarjetas de resumen.
+    const sumaTotal = livianas.reduce((n, c) => n + Number(c.montoTotal), 0);
+    const sumaAdeudado = livianas.reduce((n, c) => n + Number(c.montoAdeudado), 0);
+    const resumen = {
+      clientes: ordenados.length,
+      cuentas: livianas.length,
+      montoTotal: sumaTotal.toFixed(2),
+      montoCobrado: (sumaTotal - sumaAdeudado).toFixed(2),
+      montoAdeudado: sumaAdeudado.toFixed(2),
+    };
     const pagina = ordenados.slice(skip, skip + take);
 
     const cuentas = await this.prisma.cuentaPorCobrar.findMany({
@@ -112,7 +122,7 @@ export class CuentaPorCobrarService {
       };
     });
 
-    return { items, total: ordenados.length, page, pageSize };
+    return { items, total: ordenados.length, page, pageSize, resumen };
   }
 
   /** Deudas PENDIENTES de un cliente (para su estado de cuenta en PDF), de la más antigua a la más reciente; respeta el rango de fechas. */

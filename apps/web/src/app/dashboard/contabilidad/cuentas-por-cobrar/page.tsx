@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { ApiError, cobrarCuenta, downloadEstadoCuenta, getCarteras, getCuentasPorCobrarPorCliente } from "../../../../lib/api";
-import type { Cartera, CuentaPorCobrarConProforma, CuentaPorCobrarGrupo, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
+import type { Cartera, CuentaPorCobrarConProforma, CuentaPorCobrarGrupo, CuentasPorCobrarPorCliente, EstadoCuentaPorCobrar } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { CarteraSelector } from "../../../../components/proformas/selectors";
@@ -25,6 +25,51 @@ function EstadoCuentaBadge({ estado }: { estado: EstadoCuentaPorCobrar }) {
   );
 }
 
+const DIA_MS = 24 * 60 * 60 * 1000;
+// Una deuda pendiente con más de esta cantidad de días se resalta como atrasada.
+const DIAS_ATRASO = 30;
+
+function bs(value: number | string): string {
+  return `Bs ${Number(value).toFixed(2)}`;
+}
+
+function diasDesde(value: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / DIA_MS));
+}
+
+function textoDias(dias: number): string {
+  return dias === 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+}
+
+/** Fecha y, debajo, hace cuánto — en rojo si la deuda pendiente ya pasó los DIAS_ATRASO. */
+function FechaConAntiguedad({ fecha, pendiente, etiqueta }: { fecha: string; pendiente: boolean; etiqueta?: string }) {
+  const dias = diasDesde(fecha);
+  return (
+    <div>
+      <div className="cell-muted">{formatDate(fecha)}</div>
+      {pendiente && (
+        <div className={`cxc-antiguedad${dias >= DIAS_ATRASO ? " cxc-antiguedad--atraso" : ""}`}>
+          {etiqueta ? `${etiqueta} · ` : ""}
+          {textoDias(dias)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Barra de avance del cobro: cuánto del total ya se cobró. */
+function AvanceCobro({ total, cobrado }: { total: number; cobrado: number }) {
+  const pct = total > 0 ? Math.min(100, Math.round((cobrado / total) * 100)) : 100;
+  return (
+    <div className="cxc-avance" title={`${pct}% cobrado`}>
+      <div className="cxc-avance-barra">
+        <div className="cxc-avance-relleno" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="cxc-avance-pct">{pct}%</span>
+    </div>
+  );
+}
+
 export default function CuentasPorCobrarPage() {
   const [estado, setEstado] = useState<"" | EstadoCuentaPorCobrar>("PENDIENTE");
   const [clienteId, setClienteId] = useState("");
@@ -32,7 +77,7 @@ export default function CuentasPorCobrarPage() {
   const [codigo, setCodigo] = useState("");
   const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
   const [pageNum, setPageNum] = useState(1);
-  const [data, setData] = useState<Page<CuentaPorCobrarGrupo> | null>(null);
+  const [data, setData] = useState<CuentasPorCobrarPorCliente | null>(null);
   // Grupos (clientes con 2 o más deudas) desplegados — se identifican por clienteId.
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const [descargando, setDescargando] = useState<string | null>(null);
@@ -121,26 +166,34 @@ export default function CuentasPorCobrarPage() {
     }
   }
 
-  function filaCuenta(cuenta: CuentaPorCobrarConProforma, opciones: { sinCliente?: boolean; extra?: React.ReactNode }) {
+  // Una fila por cuenta. Dentro de un grupo (`enGrupo`) va sangrada y sin el nombre del cliente; suelta, lo lleva debajo del código.
+  function filaCuenta(cuenta: CuentaPorCobrarConProforma, opciones: { enGrupo?: boolean; extra?: React.ReactNode }) {
+    const total = Number(cuenta.montoTotal);
+    const saldo = Number(cuenta.montoAdeudado);
     return (
-      <tr key={cuenta.id}>
-        <td className={opciones.sinCliente ? "reg-indent cell-muted" : "cell-muted"}>{formatDate(cuenta.proforma.fecha)}</td>
-        <td>
-          <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="link-button">
-            {cuenta.proforma.codigo}
-          </Link>
+      <tr key={cuenta.id} className={opciones.enGrupo ? "cxc-hija" : undefined}>
+        <td className={opciones.enGrupo ? "reg-indent" : undefined}>
+          <div className="cxc-nota">
+            <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="link-button">
+              {cuenta.proforma.codigo}
+            </Link>
+            <EstadoBadge estado={cuenta.proforma.estado} />
+          </div>
+          {!opciones.enGrupo && <div className="cell-muted cxc-cliente">{cuenta.proforma.cliente?.nombre ?? "Sin cliente"}</div>}
         </td>
-        <td className="cell-muted">{opciones.sinCliente ? "" : (cuenta.proforma.cliente?.nombre ?? "—")}</td>
         <td>
-          <EstadoBadge estado={cuenta.proforma.estado} />
+          <FechaConAntiguedad fecha={cuenta.proforma.fecha} pendiente={cuenta.estado === "PENDIENTE"} />
         </td>
-        <td className="num cell-muted">Bs {Number(cuenta.montoTotal).toFixed(2)}</td>
-        <td className="num cell-muted">Bs {(Number(cuenta.montoTotal) - Number(cuenta.montoAdeudado)).toFixed(2)}</td>
-        <td className="num cell-primary">Bs {Number(cuenta.montoAdeudado).toFixed(2)}</td>
+        <td className="num cell-muted">{bs(total)}</td>
+        <td className="num cell-muted">{bs(total - saldo)}</td>
+        <td>
+          <AvanceCobro total={total} cobrado={total - saldo} />
+        </td>
+        <td className="num cell-primary">{bs(saldo)}</td>
         <td>
           <EstadoCuentaBadge estado={cuenta.estado} />
         </td>
-        <td>
+        <td className="cxc-acciones">
           {cuenta.estado === "PENDIENTE" && (
             <button type="button" className="action-btn" onClick={() => setCobrando(cuenta)}>
               Cobrar
@@ -162,9 +215,34 @@ export default function CuentasPorCobrarPage() {
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ marginBottom: 16 }}>
         <h1 style={{ margin: 0, fontSize: 20 }}>Cuentas por Cobrar</h1>
+        <p className="cell-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
+          Lo que los clientes todavía deben, agrupado por cliente. Despliega un cliente para cobrar cada deuda o descarga su estado de cuenta en PDF.
+        </p>
       </div>
+
+      {data && (
+        <div className="cxc-kpis">
+          <div className="cxc-kpi cxc-kpi--principal">
+            <span className="cxc-kpi-label">Por cobrar</span>
+            <span className="cxc-kpi-valor">{bs(data.resumen.montoAdeudado)}</span>
+          </div>
+          <div className="cxc-kpi">
+            <span className="cxc-kpi-label">Cobrado</span>
+            <span className="cxc-kpi-valor">{bs(data.resumen.montoCobrado)}</span>
+            <span className="cxc-kpi-sub">de {bs(data.resumen.montoTotal)} facturado</span>
+          </div>
+          <div className="cxc-kpi">
+            <span className="cxc-kpi-label">Clientes</span>
+            <span className="cxc-kpi-valor">{data.resumen.clientes}</span>
+          </div>
+          <div className="cxc-kpi">
+            <span className="cxc-kpi-label">Deudas</span>
+            <span className="cxc-kpi-valor">{data.resumen.cuentas}</span>
+          </div>
+        </div>
+      )}
 
       <div className="filters-bar" style={{ marginBottom: 16 }}>
         <div className="filter-field">
@@ -206,15 +284,15 @@ export default function CuentasPorCobrarPage() {
               </button>
             </div>
           )}
-          <table className="table table-minimal table-compact">
+          <div className="table-scroll">
+          <table className="table table-minimal table-compact cxc-tabla">
             <thead>
               <tr>
+                <th>Cliente / nota</th>
                 <th>Fecha</th>
-                <th>N° proforma</th>
-                <th>Cliente</th>
-                <th>Proforma</th>
                 <th className="num">Total</th>
                 <th className="num">Cobrado</th>
+                <th>Avance</th>
                 <th className="num">Saldo</th>
                 <th>Estado</th>
                 <th></th>
@@ -227,7 +305,6 @@ export default function CuentasPorCobrarPage() {
                   <button
                     type="button"
                     className="action-btn"
-                    style={{ marginLeft: 6 }}
                     disabled={descargando === grupo.clienteId}
                     title="Descargar el estado de cuenta (deudas pendientes) para entregar al cliente"
                     onClick={(e) => {
@@ -243,28 +320,35 @@ export default function CuentasPorCobrarPage() {
                   return filaCuenta(grupo.cuentas[0], { extra: grupo.clienteId && tieneSaldo ? botonPdf : null });
                 }
                 const abierto = abiertos.has(grupo.clienteId);
+                const pendientes = grupo.cuentas.filter((c) => c.estado === "PENDIENTE");
+                const masAntigua = pendientes.length > 0 ? pendientes.map((c) => c.proforma.fecha).sort()[0] : null;
                 return (
                   <Fragment key={grupo.clienteId}>
-                    <tr className="reg-group" onClick={() => alternar(grupo.clienteId as string)} aria-expanded={abierto}>
-                      <td colSpan={3} className="reg-group-code">
+                    <tr className="reg-group cxc-grupo" onClick={() => alternar(grupo.clienteId as string)} aria-expanded={abierto}>
+                      <td className="reg-group-code">
                         <span className="reg-chevron">{abierto ? "▾" : "▸"}</span>
                         <span className="cell-primary">{grupo.cliente?.nombre ?? "—"}</span>
+                        <span className="badge badge-muted cxc-cantidad">{grupo.cantidad} deudas</span>
                       </td>
-                      <td className="cell-muted" style={{ fontWeight: 400 }}>
-                        {grupo.cantidad} deudas
+                      <td>
+                        {masAntigua ? <FechaConAntiguedad fecha={masAntigua} pendiente etiqueta="la más antigua" /> : <span className="cell-muted">—</span>}
                       </td>
-                      <td className="num cell-muted">Bs {Number(grupo.montoTotal).toFixed(2)}</td>
-                      <td className="num cell-muted">Bs {Number(grupo.montoCobrado).toFixed(2)}</td>
-                      <td className="num cell-primary">Bs {Number(grupo.montoAdeudado).toFixed(2)}</td>
+                      <td className="num cell-muted">{bs(grupo.montoTotal)}</td>
+                      <td className="num cell-muted">{bs(grupo.montoCobrado)}</td>
+                      <td>
+                        <AvanceCobro total={Number(grupo.montoTotal)} cobrado={Number(grupo.montoCobrado)} />
+                      </td>
+                      <td className="num cell-primary">{bs(grupo.montoAdeudado)}</td>
                       <td></td>
-                      <td>{tieneSaldo && botonPdf}</td>
+                      <td className="cxc-acciones">{tieneSaldo && botonPdf}</td>
                     </tr>
-                    {abierto && grupo.cuentas.map((cuenta) => filaCuenta(cuenta, { sinCliente: true }))}
+                    {abierto && grupo.cuentas.map((cuenta) => filaCuenta(cuenta, { enGrupo: true }))}
                   </Fragment>
                 );
               })}
             </tbody>
           </table>
+          </div>
           {totalPages > 1 && (
             <div className="pagination">
               <button

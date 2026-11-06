@@ -20,6 +20,7 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   CuentaPorCobrarGrupo,
+  CuentasPorCobrarPorCliente,
   DetalleCompraInput,
   CreateEnvioInput,
   CreateRecepcionInput,
@@ -1386,7 +1387,7 @@ export function getCuentasPorCobrarPorCliente(
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
   const qs = params.toString();
-  return apiGet<Page<CuentaPorCobrarGrupo>>(`/contabilidad/cuentas-por-cobrar/por-cliente${qs ? `?${qs}` : ""}`);
+  return apiGet<CuentasPorCobrarPorCliente>(`/contabilidad/cuentas-por-cobrar/por-cliente${qs ? `?${qs}` : ""}`);
 }
 
 /** Descarga el estado de cuenta (PDF) con las deudas pendientes de un cliente; respeta el rango de fechas. */
