@@ -174,8 +174,9 @@ export default function CuentasPorCobrarPage() {
       <tr key={cuenta.id} className={opciones.enGrupo ? "cxc-hija" : undefined}>
         <td className={opciones.enGrupo ? "reg-indent" : undefined}>
           <div className="cxc-nota">
-            <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="link-button">
+            <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="action-btn solicitud-btn" title="Abrir la proforma">
               {cuenta.proforma.codigo}
+              <span aria-hidden="true">→</span>
             </Link>
             <EstadoBadge estado={cuenta.proforma.estado} />
           </div>
