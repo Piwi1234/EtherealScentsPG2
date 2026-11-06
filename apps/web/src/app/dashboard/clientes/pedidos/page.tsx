@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, getBrands, getClientes, getProducts, getProformas, getRegistros } from "../../../../lib/api";
-import type { Brand, Cliente, Page, Proforma, Product, RegistroLinea } from "../../../../lib/types";
+import { ApiError, getBrands, getProducts, getProformas, getRegistros } from "../../../../lib/api";
+import type { Brand, Page, Proforma, Product, RegistroLinea } from "../../../../lib/types";
 import { formatAtributosVisibles } from "../../../../components/proformas/AtributosVisibles";
 import { ClienteSearchSelect } from "../../../../components/proformas/ClienteSearchSelect";
 import { ProductoSearchSelect } from "../../../../components/proformas/ProductoSearchSelect";
@@ -31,7 +31,6 @@ function atributosLabel(variante: RegistroLinea["variante"]): string | null {
 }
 
 export default function PedidosClientesPage() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [vista, setVista] = useState<"productos" | "proformas">("productos");
   const [dateSelection, setDateSelection] = useState<DateSelection>(TODO_EL_TIEMPO);
@@ -48,9 +47,6 @@ export default function PedidosClientesPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getClientes({ activo: "true", limit: 500 })
-      .then((page) => setClientes(page.items))
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     getBrands().then(setBrands).catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -143,7 +139,7 @@ export default function PedidosClientesPage() {
       <div className="filters-bar">
         <div className="filter-field" style={{ minWidth: 260 }}>
           <label className="filter-label">Cliente</label>
-          <ClienteSearchSelect clientes={clientes} value={clienteId} onChange={handleClienteChange} />
+          <ClienteSearchSelect value={clienteId} onChange={handleClienteChange} />
         </div>
 
         {clienteId && (

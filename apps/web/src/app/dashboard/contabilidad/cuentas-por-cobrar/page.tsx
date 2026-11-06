@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, cobrarCuenta, getCarteras, getClientes, getCuentasPorCobrar } from "../../../../lib/api";
-import type { Cartera, Cliente, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
+import { ApiError, cobrarCuenta, getCarteras, getCuentasPorCobrar } from "../../../../lib/api";
+import type { Cartera, CuentaPorCobrarConProforma, EstadoCuentaPorCobrar, Page } from "../../../../lib/types";
 import { Modal } from "../../../../components/Modal";
 import { EstadoBadge } from "../../../../components/proformas/EstadoBadge";
 import { CarteraSelector } from "../../../../components/proformas/selectors";
@@ -34,7 +34,6 @@ export default function CuentasPorCobrarPage() {
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<Page<CuentaPorCobrarConProforma> | null>(null);
   const [carterasBs, setCarterasBs] = useState<Cartera[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cobrando, setCobrando] = useState<CuentaPorCobrarConProforma | null>(null);
@@ -60,9 +59,6 @@ export default function CuentasPorCobrarPage() {
   useEffect(() => {
     getCarteras({ moneda: "BS", activo: true })
       .then(setCarterasBs)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    getClientes({ activo: "true", limit: 500 })
-      .then((page) => setClientes(page.items))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -127,7 +123,7 @@ export default function CuentasPorCobrarPage() {
         </div>
         <div className="filter-field" style={{ minWidth: 220 }}>
           <label className="filter-label">Cliente</label>
-          <ClienteSearchSelect clientes={clientes} value={clienteId} onChange={handleClienteChange} />
+          <ClienteSearchSelect value={clienteId} onChange={handleClienteChange} />
         </div>
         <DateRangeDropdown onApply={handleDateApply} />
       </div>
