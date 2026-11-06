@@ -11179,34 +11179,72 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .ex-select {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 44px;
-  padding: 0 4px 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--color-divider);
   border-radius: 12px;
   background: var(--color-surface);
   font-size: 13px;
   color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.ex-select select {
-  height: 100%;
-  max-width: 118px;
-  border: 0;
-  outline: 0;
-  background: transparent;
+.ex-select strong {
+  max-width: 150px;
+  overflow: hidden;
   color: var(--color-text);
-  font: inherit;
-  font-size: 13px;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ex-select svg {
+  flex: none;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+/* El desplegable nativo cubre toda la píldora, invisible: recibe el clic y el teclado sin dibujar su propia caja. */
+.ex-select select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
 }
 
 .ex-select select option {
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+.ex-select:focus-within {
+  border-color: var(--color-accent);
+}
+
+/* Filtro aplicado: se ve de un vistazo cuáles están puestos. */
+.ex-select--on {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.ex-select--on:hover {
+  border-color: var(--color-accent);
+}
+
+.ex-select--on .ex-select-etiqueta {
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
 }
 
 .ex-btn {

@@ -69,6 +69,39 @@ function FlechaOrden({ dir }: { dir: "asc" | "desc" | null }) {
   );
 }
 
+/**
+ * Filtro desplegable en forma de píldora: etiqueta, valor actual y flecha. El <select> nativo queda encima, invisible, para
+ * conservar el desplegable y el teclado del navegador sin su caja. Se resalta cuando el filtro está aplicado.
+ */
+function Selector({
+  etiqueta,
+  texto,
+  activo,
+  valor,
+  onChange,
+  children,
+}: {
+  etiqueta: string;
+  texto: string;
+  activo?: boolean;
+  valor: string | number;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={`ex-select${activo ? " ex-select--on" : ""}`}>
+      <span className="ex-select-etiqueta">{etiqueta}</span>
+      <strong>{texto}</strong>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+      <select aria-label={etiqueta} value={valor} onChange={(e) => onChange(e.target.value)}>
+        {children}
+      </select>
+    </label>
+  );
+}
+
 /** Encabezado de columna ordenable: un clic ordena por ella y otro invierte el sentido. */
 function Th({
   k,
@@ -246,47 +279,40 @@ export function ExistenciasLista({
           ))}
         </div>
 
-        <label className="ex-select">
-          <span>Almacén</span>
-          <select value={almacenId} onChange={(e) => onAlmacen(e.target.value)}>
-            <option value="">Todos</option>
-            {almacenes.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Selector etiqueta="Almacén" texto={almacenes.find((a) => a.id === almacenId)?.nombre ?? "Todos"} activo={Boolean(almacenId)} valor={almacenId} onChange={onAlmacen}>
+          <option value="">Todos</option>
+          {almacenes.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nombre}
+            </option>
+          ))}
+        </Selector>
 
-        <label className="ex-select">
-          <span>Marca</span>
-          <select value={marcaId} onChange={(e) => onMarca(e.target.value)}>
-            <option value="">Todas</option>
-            {marcas.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Selector etiqueta="Marca" texto={brands.find((b) => b.id === marcaId)?.name ?? "Todas"} activo={Boolean(marcaId)} valor={marcaId} onChange={onMarca}>
+          <option value="">Todas</option>
+          {marcas.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </Selector>
 
-        <label className="ex-select">
-          <span>Orden</span>
-          <select
-            value={ordenActual >= 0 ? ordenActual : -1}
-            onChange={(e) => {
-              const elegido = ORDENES[Number(e.target.value)];
-              if (elegido) onOrden(elegido.valor);
-            }}
-          >
-            {ordenActual < 0 && <option value={-1}>Por columna</option>}
-            {ORDENES.map((o, i) => (
-              <option key={o.label} value={i}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Selector
+          etiqueta="Orden"
+          texto={ordenActual >= 0 ? ORDENES[ordenActual].label : "Por columna"}
+          valor={ordenActual >= 0 ? ordenActual : -1}
+          onChange={(v) => {
+            const elegido = ORDENES[Number(v)];
+            if (elegido) onOrden(elegido.valor);
+          }}
+        >
+          {ordenActual < 0 && <option value={-1}>Por columna</option>}
+          {ORDENES.map((o, i) => (
+            <option key={o.label} value={i}>
+              {o.label}
+            </option>
+          ))}
+        </Selector>
 
         <div className="ex-menu" ref={menuRef}>
           <button type="button" className="ex-btn" aria-haspopup="true" aria-expanded={menuColumnas} onClick={() => {
