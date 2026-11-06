@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon } from "../nocturne-icons";
+import { SelectorMes } from "./SelectorMes";
 
 type Item = { cliente: string; total: number };
 
@@ -8,22 +8,9 @@ function bs(value: number): string {
   return `Bs ${value.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-/** "2026-10" → primer día de ese mes, a mediodía (evita saltos de día por la zona horaria). */
-function fechaDeMes(month: string): Date {
-  const [anio, mes] = month.split("-").map(Number);
-  return new Date(anio, (mes || 1) - 1, 1, 12);
-}
-
-function moverMes(month: string, delta: number): string {
-  const d = fechaDeMes(month);
-  d.setMonth(d.getMonth() + delta);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 /**
  * Ranking de clientes del mes: puesto, nombre, barra proporcional al líder, monto y el peso de
- * cada uno dentro del top. El mes se cambia con flechas (en vez del selector nativo, que se cortaba
- * y variaba según el navegador); no se puede avanzar más allá del mes en curso.
+ * cada uno dentro del top. El mes se cambia con flechas (ver SelectorMes); no se puede avanzar más allá del mes en curso.
  */
 export function TopClientes({
   items,
@@ -38,8 +25,6 @@ export function TopClientes({
   maxMonth: string;
   onMonthChange: (month: string) => void;
 }) {
-  const mesLargo = fechaDeMes(month).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
-  const etiqueta = mesLargo.charAt(0).toUpperCase() + mesLargo.slice(1);
   const max = Math.max(1, ...(items ?? []).map((i) => i.total));
   const suma = (items ?? []).reduce((n, i) => n + i.total, 0);
 
@@ -50,15 +35,7 @@ export function TopClientes({
           <p className="dash-widget-title">Top 10 clientes</p>
           <p className="dash-widget-note">Total comprado en el mes elegido.</p>
         </div>
-        <div className="topc-month" role="group" aria-label="Mes">
-          <button type="button" aria-label="Mes anterior" onClick={() => onMonthChange(moverMes(month, -1))}>
-            <ChevronDownIcon className="topc-arrow topc-arrow--prev" />
-          </button>
-          <span>{etiqueta}</span>
-          <button type="button" aria-label="Mes siguiente" disabled={month >= maxMonth} onClick={() => onMonthChange(moverMes(month, 1))}>
-            <ChevronDownIcon className="topc-arrow topc-arrow--next" />
-          </button>
-        </div>
+        <SelectorMes month={month} maxMonth={maxMonth} onMonthChange={onMonthChange} />
       </div>
 
       {items === null ? (
