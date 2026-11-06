@@ -70,6 +70,11 @@ function AvanceCobro({ total, cobrado }: { total: number; cobrado: number }) {
   );
 }
 
+/** Identifica un grupo para desplegarlo: el cliente, o la propia cuenta si la deuda no tiene cliente (cada una es su grupo). */
+function claveGrupo(grupo: CuentaPorCobrarGrupo): string {
+  return grupo.clienteId ?? `sin-cliente:${grupo.cuentas[0]?.id}`;
+}
+
 export default function CuentasPorCobrarPage() {
   const [estado, setEstado] = useState<"" | EstadoCuentaPorCobrar>("PENDIENTE");
   const [clienteId, setClienteId] = useState("");
@@ -137,8 +142,8 @@ export default function CuentasPorCobrarPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
-  // Un cliente con una sola deuda se ve como una fila normal; con 2 o más es un grupo desplegable.
-  const desplegables = data ? data.items.filter((g) => g.clienteId && g.cantidad > 1).map((g) => g.clienteId as string) : [];
+  // Todos los clientes son desplegables, aunque tengan una sola deuda.
+  const desplegables = data ? data.items.map(claveGrupo) : [];
   const todosAbiertos = desplegables.length > 0 && desplegables.every((id) => abiertos.has(id));
 
   function alternar(id: string) {
@@ -166,13 +171,13 @@ export default function CuentasPorCobrarPage() {
     }
   }
 
-  // Una fila por cuenta. Dentro de un grupo (`enGrupo`) va sangrada y sin el nombre del cliente; suelta, lo lleva debajo del código.
-  function filaCuenta(cuenta: CuentaPorCobrarConProforma, opciones: { enGrupo?: boolean; extra?: React.ReactNode }) {
+  // Una fila por cuenta, dentro de su grupo (sangrada: el nombre del cliente ya está en la fila del grupo).
+  function filaCuenta(cuenta: CuentaPorCobrarConProforma) {
     const total = Number(cuenta.montoTotal);
     const saldo = Number(cuenta.montoAdeudado);
     return (
-      <tr key={cuenta.id} className={opciones.enGrupo ? "cxc-hija" : undefined}>
-        <td className={opciones.enGrupo ? "reg-indent" : undefined}>
+      <tr key={cuenta.id} className="cxc-hija">
+        <td className="reg-indent">
           <div className="cxc-nota">
             <Link href={`/dashboard/proformas/${cuenta.proforma.id}`} className="action-btn solicitud-btn" title="Abrir la proforma">
               {cuenta.proforma.codigo}
@@ -180,7 +185,6 @@ export default function CuentasPorCobrarPage() {
             </Link>
             <EstadoBadge estado={cuenta.proforma.estado} />
           </div>
-          {!opciones.enGrupo && <div className="cell-muted cxc-cliente">{cuenta.proforma.cliente?.nombre ?? "Sin cliente"}</div>}
         </td>
         <td>
           <FechaConAntiguedad fecha={cuenta.proforma.fecha} pendiente={cuenta.estado === "PENDIENTE"} />
@@ -200,7 +204,6 @@ export default function CuentasPorCobrarPage() {
               Cobrar
             </button>
           )}
-          {opciones.extra}
         </td>
       </tr>
     );
@@ -316,20 +319,19 @@ export default function CuentasPorCobrarPage() {
                     {descargando === grupo.clienteId ? "Generando..." : "PDF"}
                   </button>
                 );
-                // Una sola deuda (o sin cliente): fila normal, como siempre.
-                if (!grupo.clienteId || grupo.cantidad === 1) {
-                  return filaCuenta(grupo.cuentas[0], { extra: grupo.clienteId && tieneSaldo ? botonPdf : null });
-                }
-                const abierto = abiertos.has(grupo.clienteId);
+                const clave = claveGrupo(grupo);
+                const abierto = abiertos.has(clave);
                 const pendientes = grupo.cuentas.filter((c) => c.estado === "PENDIENTE");
                 const masAntigua = pendientes.length > 0 ? pendientes.map((c) => c.proforma.fecha).sort()[0] : null;
                 return (
-                  <Fragment key={grupo.clienteId}>
-                    <tr className="reg-group cxc-grupo" onClick={() => alternar(grupo.clienteId as string)} aria-expanded={abierto}>
+                  <Fragment key={clave}>
+                    <tr className="reg-group cxc-grupo" onClick={() => alternar(clave)} aria-expanded={abierto}>
                       <td className="reg-group-code">
                         <span className="reg-chevron">{abierto ? "▾" : "▸"}</span>
-                        <span className="cell-primary">{grupo.cliente?.nombre ?? "—"}</span>
-                        <span className="badge badge-muted cxc-cantidad">{grupo.cantidad} deudas</span>
+                        <span className="cell-primary">{grupo.cliente?.nombre ?? "Sin cliente"}</span>
+                        <span className="badge badge-muted cxc-cantidad">
+                          {grupo.cantidad} {grupo.cantidad === 1 ? "deuda" : "deudas"}
+                        </span>
                       </td>
                       <td>
                         {masAntigua ? <FechaConAntiguedad fecha={masAntigua} pendiente etiqueta="la más antigua" /> : <span className="cell-muted">—</span>}
@@ -341,9 +343,9 @@ export default function CuentasPorCobrarPage() {
                       </td>
                       <td className="num cell-primary">{bs(grupo.montoAdeudado)}</td>
                       <td></td>
-                      <td className="cxc-acciones">{tieneSaldo && botonPdf}</td>
+                      <td className="cxc-acciones">{grupo.clienteId && tieneSaldo && botonPdf}</td>
                     </tr>
-                    {abierto && grupo.cuentas.map((cuenta) => filaCuenta(cuenta, { enGrupo: true }))}
+                    {abierto && grupo.cuentas.map((cuenta) => filaCuenta(cuenta))}
                   </Fragment>
                 );
               })}

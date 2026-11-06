@@ -10783,11 +10783,6 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   flex-wrap: wrap;
 }
 
-.cxc-cliente {
-  margin-top: 2px;
-  font-size: 12px;
-}
-
 .cxc-antiguedad {
   margin-top: 1px;
   font-size: 11.5px;
