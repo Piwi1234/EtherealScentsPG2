@@ -363,6 +363,13 @@ export type DashClienteTotal = { cliente: string; total: number };
 export type DashMargenMes = { mes: string; ingresos: number; costos: number; margen: number };
 export type DashProveedorCategoriaTotal = { proveedor: string; categoria: string; total: number };
 export type DashStockValorizado = { disponibleBs: number; reservadoBs: number };
+/** GET /dashboard/stock-por-categoria: unidades por categoría (todos los almacenes); los decants van aparte, en ml. */
+export type DashStockCategoria = { categoriaId: string; categoria: string; fisico: number; disponible: number; reservado: number; enTransito: number };
+export type DashStockPorCategoria = {
+  categorias: DashStockCategoria[];
+  totales: { fisico: number; disponible: number; reservado: number; enTransito: number };
+  decantsMl: { fisico: number; disponible: number; reservado: number };
+};
 export type DashSaldoCartera = { id: string; nombre: string; moneda: MonedaCartera; saldo: number };
 export type DashIngresoEgresoCartera = {
   carteraId: string;

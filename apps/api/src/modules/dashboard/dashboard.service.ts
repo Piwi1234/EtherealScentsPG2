@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, TipoProforma } from "@app/database";
+import { EstadoCuentaPorCobrar, EstadoEnvio, EstadoProforma, NaturalezaMovimiento, OrigenAsignacion, TipoProforma, UnidadVariante } from "@app/database";
 import { PrismaService } from "../../common/prisma.service";
 
 // Solo cuentan como "reales" las proformas aprobadas o completadas — ni borrador (todavía no pasó
@@ -85,6 +85,47 @@ export class DashboardService {
       else byCategory.set(p.category.id, { categoriaId: p.category.id, categoria: p.category.name, total: 1 });
     }
     return Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
+  }
+
+  /**
+   * Stock en unidades por categoría (la propia del producto, igual que "Productos por categoría"), sumando todos los almacenes:
+   * físico = disponible + reservado; "en tránsito" aparte (todavía no es físico). Las variantes de decants (unidad ML) no se mezclan
+   * con las unidades — su stock son ml — y se devuelven aparte en `decantsMl`.
+   */
+  async stockPorCategoria() {
+    const filas = await this.prisma.stock.findMany({
+      select: {
+        cantidadFisica: true,
+        cantidadReservada: true,
+        cantidadEnTransito: true,
+        variante: { select: { unidad: true, product: { select: { category: { select: { id: true, name: true } } } } } },
+      },
+    });
+    const porCategoria = new Map<string, { categoriaId: string; categoria: string; fisico: number; disponible: number; reservado: number; enTransito: number }>();
+    const decantsMl = { fisico: 0, disponible: 0, reservado: 0 };
+    for (const f of filas) {
+      if (f.variante.unidad === UnidadVariante.ML) {
+        decantsMl.fisico += f.cantidadFisica;
+        decantsMl.reservado += f.cantidadReservada;
+        decantsMl.disponible += f.cantidadFisica - f.cantidadReservada;
+        continue;
+      }
+      const cat = f.variante.product.category;
+      const actual = porCategoria.get(cat.id) ?? { categoriaId: cat.id, categoria: cat.name, fisico: 0, disponible: 0, reservado: 0, enTransito: 0 };
+      actual.fisico += f.cantidadFisica;
+      actual.reservado += f.cantidadReservada;
+      actual.disponible += f.cantidadFisica - f.cantidadReservada;
+      actual.enTransito += f.cantidadEnTransito;
+      porCategoria.set(cat.id, actual);
+    }
+    const categorias = Array.from(porCategoria.values())
+      .filter((c) => c.fisico > 0 || c.enTransito > 0)
+      .sort((a, b) => b.fisico - a.fisico || b.enTransito - a.enTransito);
+    const totales = categorias.reduce(
+      (t, c) => ({ fisico: t.fisico + c.fisico, disponible: t.disponible + c.disponible, reservado: t.reservado + c.reservado, enTransito: t.enTransito + c.enTransito }),
+      { fisico: 0, disponible: 0, reservado: 0, enTransito: 0 },
+    );
+    return { categorias, totales, decantsMl };
   }
 
   async proformasAprobadas(from: Date, to: Date) {
