@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { contieneBusqueda } from "../../../lib/busqueda";
 import {
   API_ORIGIN,
   apiDelete,
@@ -844,11 +845,12 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                         )}
                         <div className="pill-group">
                           {(() => {
-                            const term = (multiSelectSearch[def.id] ?? "").trim().toLowerCase();
+                            const term = (multiSelectSearch[def.id] ?? "").trim();
                             // Los ya elegidos quedan siempre visibles, matcheen o no la búsqueda —
-                            // ver el comentario de multiSelectSearch, más arriba.
+                            // ver el comentario de multiSelectSearch, más arriba. La búsqueda ignora mayúsculas y acentos
+                            // ("ambar" encuentra "Ámbar"); la ñ sigue siendo ñ.
                             const visible = def.options.filter(
-                              (opt) => multiSelectValues[def.id]?.has(opt.id) || !term || opt.value.toLowerCase().includes(term),
+                              (opt) => multiSelectValues[def.id]?.has(opt.id) || !term || contieneBusqueda(opt.value, term),
                             );
                             if (visible.length === 0) {
                               return <span style={{ color: "var(--muted)", fontSize: 13 }}>Sin resultados para &quot;{multiSelectSearch[def.id]}&quot;.</span>;
