@@ -90,9 +90,9 @@ export class ProformasController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Elimina una proforma. Solo mientras está en BORRADOR." })
-  remove(@Param("id", ParseUUIDPipe) id: string) {
-    return this.proformas.remove(id);
+  @ApiOperation({ summary: "Elimina una proforma: en BORRADOR (cualquiera) o ANULADA (solo ADMIN)." })
+  remove(@Param("id", ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.proformas.remove(id, { id: user.id, rol: user.rol });
   }
 
   @Post(":id/detalles/venta")
