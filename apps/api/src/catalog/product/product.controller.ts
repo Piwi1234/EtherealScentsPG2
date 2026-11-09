@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -16,6 +17,10 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
+import { Rol } from "@app/database";
+import { Roles } from "../../modules/auth/decorators/roles.decorator";
+import { CurrentUser } from "../../modules/auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../../modules/auth/strategies/jwt.strategy";
 import type { Response } from "express";
 import { WebpUploadInterceptor } from "../../common/webp-upload.interceptor";
 import { ProductService } from "./product.service";
@@ -201,8 +206,17 @@ export class ProductController {
     return this.products.removeVariantOptionValue(id, optionValueId);
   }
 
+  @Get(":id/eliminacion")
+  @Roles(Rol.ADMIN)
+  analizarEliminacion(@Param("id", ParseUUIDPipe) id: string) {
+    return this.products.analizarEliminacion(id);
+  }
+
+  /** `?limpiarAnuladas=true` (solo ADMIN): borra también las líneas de notas anuladas que lo usan, si no tiene ningún otro uso. */
   @Delete(":id")
-  remove(@Param("id", ParseUUIDPipe) id: string) {
-    return this.products.remove(id);
+  remove(@Param("id", ParseUUIDPipe) id: string, @Query("limpiarAnuladas") limpiarAnuladas: string | undefined, @CurrentUser() user: AuthenticatedUser) {
+    const limpiar = limpiarAnuladas === "true";
+    if (limpiar && user.rol !== Rol.ADMIN) throw new ForbiddenException("Solo un administrador puede limpiar las notas anuladas al eliminar un producto.");
+    return this.products.remove(id, { limpiarAnuladas: limpiar, usuarioId: user.id });
   }
 }
