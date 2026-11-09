@@ -980,6 +980,8 @@ model TraspasoAlmacenLote {
 enum TipoMovimientoProbador {
   CONVERSION
   BAJA
+  /// Probadores vertidos a la variante Decants (ml): bajan el saldo como una baja, pero los ml entran al stock ML.
+  A_DECANT
 
   @@map("tipo_movimiento_probador")
 }
@@ -1003,6 +1005,10 @@ model MovimientoProbador {
   creadoPorId String                     @map("creado_por_id") @db.Uuid
   creadoPor   Usuario                    @relation(fields: [creadoPorId], references: [id])
   createdAt   DateTime                   @default(now()) @map("created_at")
+  /// Solo A_DECANT: el movimiento de decant que recibió los ml. Si se deshace, `revertidoAt` devuelve el saldo.
+  decantMovimientoId String?              @unique @map("decant_movimiento_id") @db.Uuid
+  decantMovimiento   MovimientoDecant?    @relation(fields: [decantMovimientoId], references: [id], onDelete: Restrict)
+  revertidoAt        DateTime?            @map("revertido_at")
 
   lotes MovimientoProbadorLote[]
 
@@ -1013,6 +1019,8 @@ model MovimientoProbador {
 enum TipoMovimientoDecant {
   CONVERSION
   BAJA
+  /// ml rescatados de probadores (no consume frascos del stock: el frasco ya había salido como probador).
+  DESDE_PROBADOR
 
   @@map("tipo_movimiento_decant")
 }
@@ -1046,6 +1054,7 @@ model MovimientoDecant {
   createdAt        DateTime               @default(now()) @map("created_at")
 
   lotes MovimientoDecantLote[]
+  desdeProbador MovimientoProbador?
 
   @@index([varianteId, almacenId])
   @@map("movimientos_decant")

@@ -714,7 +714,9 @@ export type ProbadorResumen = {
 
 export type MovimientoProbador = {
   id: string;
-  tipo: "CONVERSION" | "BAJA";
+  tipo: "CONVERSION" | "BAJA" | "A_DECANT";
+  /** Solo A_DECANT: si se deshizo la conversión a decant, el saldo volvió al probador. */
+  revertidoAt?: string | null;
   fecha: string;
   varianteId: string;
   variante: ProbadorVariante;
@@ -739,7 +741,7 @@ export type DecantResumen = {
 
 export type MovimientoDecant = {
   id: string;
-  tipo: "CONVERSION" | "BAJA";
+  tipo: "CONVERSION" | "BAJA" | "DESDE_PROBADOR";
   fecha: string;
   varianteId: string;
   variante: ProbadorVariante;

@@ -926,6 +926,19 @@ export function convertirEnProbador(data: { varianteId: string; almacenId: strin
   return apiPost<MovimientoProbador>("/probadores/convertir", data);
 }
 
+/** Vierte probadores a la variante Decants (ml): hereda el costo del probador. */
+export function probadorADecant(data: {
+  varianteOrigenId: string;
+  varianteId: string;
+  almacenId: string;
+  cantidadProbadores: number;
+  mlPorFrasco: number;
+  mlRescatados: number;
+  nota?: string;
+}) {
+  return apiPost<MovimientoProbador>("/probadores/a-decant", data);
+}
+
 export function darBajaProbador(data: { varianteId: string; almacenId: string; cantidad: number; nota?: string }) {
   return apiPost<MovimientoProbador>("/probadores/baja", data);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, darBajaProbador, getAlmacenes, getMovimientosProbador, getProbadores } from "../../../../lib/api";
+import { ApiError, darBajaProbador, getAlmacenes, getDecantDestinos, getMovimientosProbador, getProbadores, probadorADecant } from "../../../../lib/api";
 import type { Almacen, MovimientoProbador, Page, ProbadorResumen, ProbadorVariante } from "../../../../lib/types";
 import { formatAtributosVisibles } from "../../../../components/proformas/AtributosVisibles";
 import { Modal } from "../../../../components/Modal";
@@ -55,6 +55,17 @@ export default function ProbadoresPage() {
   const [bajaError, setBajaError] = useState("");
   const [bajando, setBajando] = useState(false);
 
+  // Pasar probadores a decant (ml).
+  const [decant, setDecant] = useState<ProbadorResumen | null>(null);
+  const [decantDestinos, setDecantDestinos] = useState<ProbadorVariante[] | null>(null);
+  const [decantDestinoId, setDecantDestinoId] = useState("");
+  const [decantCantidad, setDecantCantidad] = useState("1");
+  const [decantMlFrasco, setDecantMlFrasco] = useState("");
+  const [decantMl, setDecantMl] = useState("");
+  const [decantNota, setDecantNota] = useState("");
+  const [decantError, setDecantError] = useState("");
+  const [vertiendo, setVertiendo] = useState(false);
+
   useEffect(() => {
     getAlmacenes({ pageSize: 200 })
       .then((p) => setAlmacenes(p.items))
@@ -103,6 +114,54 @@ export default function ProbadoresPage() {
       setBajaError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
     } finally {
       setBajando(false);
+    }
+  }
+
+  function abrirDecant(fila: ProbadorResumen) {
+    setDecant(fila);
+    setDecantDestinos(null);
+    setDecantDestinoId("");
+    setDecantCantidad("1");
+    setDecantMlFrasco("");
+    setDecantMl("");
+    setDecantNota("");
+    setDecantError("");
+    getDecantDestinos(fila.varianteId)
+      .then((d) => {
+        setDecantDestinos(d);
+        if (d.length === 1) setDecantDestinoId(d[0].id);
+      })
+      .catch((e) => setDecantError(e instanceof Error ? e.message : String(e)));
+  }
+
+  async function confirmarDecant() {
+    if (!decant) return;
+    const cantidad = parseInt(decantCantidad, 10);
+    const mlFrasco = parseInt(decantMlFrasco, 10);
+    const ml = parseInt(decantMl, 10);
+    if (!decantDestinoId) return setDecantError("Elige la variante Decants que recibe los ml.");
+    if (!cantidad || cantidad < 1 || cantidad > decant.saldo) return setDecantError(`La cantidad de probadores debe estar entre 1 y ${decant.saldo}.`);
+    if (!mlFrasco || mlFrasco < 1) return setDecantError("Indica los ml de fábrica del frasco.");
+    if (!ml || ml < 1) return setDecantError("Indica cuántos ml rescatas.");
+    if (ml > cantidad * mlFrasco) return setDecantError(`No pueden ser más de ${cantidad * mlFrasco} ml (${cantidad} × ${mlFrasco} ml).`);
+    setVertiendo(true);
+    setDecantError("");
+    try {
+      await probadorADecant({
+        varianteOrigenId: decant.varianteId,
+        varianteId: decantDestinoId,
+        almacenId: decant.almacenId,
+        cantidadProbadores: cantidad,
+        mlPorFrasco: mlFrasco,
+        mlRescatados: ml,
+        nota: decantNota.trim() || undefined,
+      });
+      setDecant(null);
+      cargar();
+    } catch (e) {
+      setDecantError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setVertiendo(false);
     }
   }
 
@@ -184,9 +243,14 @@ export default function ProbadoresPage() {
                   <td className="cell-muted">{r.ultimoMovimiento ? formatDateTime(r.ultimoMovimiento) : "—"}</td>
                   <td>
                     {r.saldo > 0 && (
-                      <button type="button" className="action-btn" onClick={() => abrirBaja(r)}>
-                        Dar de baja
-                      </button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button type="button" className="action-btn" onClick={() => abrirDecant(r)}>
+                          Pasar a decant
+                        </button>
+                        <button type="button" className="action-btn" onClick={() => abrirBaja(r)}>
+                          Dar de baja
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -201,6 +265,7 @@ export default function ProbadoresPage() {
         <select className="field" style={{ width: "auto" }} value={tipo} onChange={(e) => { setTipo(e.target.value); setPagina(1); }}>
           <option value="">Conversiones y bajas</option>
           <option value="CONVERSION">Solo conversiones</option>
+          <option value="A_DECANT">Solo pasados a decant</option>
           <option value="BAJA">Solo bajas</option>
         </select>
       </div>
@@ -230,9 +295,10 @@ export default function ProbadoresPage() {
                   <tr key={m.id}>
                     <td className="cell-muted">{formatDateTime(m.fecha)}</td>
                     <td>
-                      <span className={m.tipo === "CONVERSION" ? "badge badge-info" : "badge badge-muted"}>
-                        {m.tipo === "CONVERSION" ? "Convertido" : "Baja"}
+                      <span className={m.tipo === "BAJA" ? "badge badge-muted" : "badge badge-info"}>
+                        {m.tipo === "CONVERSION" ? "Convertido" : m.tipo === "A_DECANT" ? "A decant" : "Baja"}
                       </span>
+                      {m.revertidoAt && <span className="badge badge-muted" style={{ marginLeft: 6 }}>Deshecho</span>}
                     </td>
                     <td className="cell-muted">{m.variante.product.brand?.name ?? "—"}</td>
                     <td className="cell-primary">
@@ -240,7 +306,7 @@ export default function ProbadoresPage() {
                     </td>
                     <td>{m.almacen.nombre}</td>
                     <td className="num">{m.cantidad}</td>
-                    <td className="num">{m.tipo === "CONVERSION" ? usd(m.costoTotal) : "—"}</td>
+                    <td className="num">{m.tipo === "BAJA" ? "—" : usd(m.costoTotal)}</td>
                     <td className="cell-muted">{m.nota ?? "—"}</td>
                     <td className="cell-muted">{m.creadoPor.nombre}</td>
                   </tr>
@@ -262,6 +328,59 @@ export default function ProbadoresPage() {
             </div>
           )}
         </>
+      )}
+
+      {decant && (
+        <Modal title={`Pasar a decant: ${decant.variante.product.name}`} onClose={() => setDecant(null)} maxWidth={480}>
+          <div className="form-grid">
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Vierte lo que queda de los probadores en los decants (ml) del mismo producto. Los ml entran al stock de decants con el costo por ml del frasco; los
+              probadores salen del conteo.
+            </p>
+            <div>
+              <label>Variante Decants que recibe los ml</label>
+              {decantDestinos === null ? (
+                <p className="cell-muted" style={{ margin: 0 }}>Cargando...</p>
+              ) : decantDestinos.length === 0 ? (
+                <p className="error-text" style={{ margin: 0 }}>Este producto no tiene una variante en ml (Decants). Créala en la ficha del producto.</p>
+              ) : (
+                <select className="field" value={decantDestinoId} onChange={(e) => setDecantDestinoId(e.target.value)}>
+                  <option value="">Elige...</option>
+                  {decantDestinos.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {atributosLabel(d) ?? d.variantCode}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <label>Probadores que se vierten (hay {decant.saldo})</label>
+              <input className="field" type="number" min={1} max={decant.saldo} value={decantCantidad} onChange={(e) => setDecantCantidad(e.target.value)} />
+            </div>
+            <div>
+              <label>ml de fábrica de cada frasco</label>
+              <input className="field" type="number" min={1} value={decantMlFrasco} onChange={(e) => setDecantMlFrasco(e.target.value)} placeholder="Ej. 100" />
+            </div>
+            <div>
+              <label>ml que rescatas en total</label>
+              <input className="field" type="number" min={1} value={decantMl} onChange={(e) => setDecantMl(e.target.value)} placeholder="Ej. 35" />
+            </div>
+            <div>
+              <label>Nota (opcional)</label>
+              <input className="field" value={decantNota} maxLength={300} onChange={(e) => setDecantNota(e.target.value)} />
+            </div>
+            {decantError && <p className="error-text">{decantError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setDecant(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="button" disabled={vertiendo || decantDestinos?.length === 0} onClick={confirmarDecant}>
+                {vertiendo ? "Guardando..." : "Pasar a decant"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {baja && (
