@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import ExcelJS from "exceljs";
-import { AttributeType, AttributeVariantMode, Prisma, UnidadVariante } from "@app/database";
+import { AttributeType, AttributeVariantMode, EstadoProforma, Prisma, UnidadVariante } from "@app/database";
 import { getPagination, slugify } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { filtroProductoPorPalabras, palabrasBusqueda } from "../../common/busqueda";
@@ -80,6 +80,8 @@ export type AttributeValueWrite = {
 
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly categories: CategoryService,
@@ -935,16 +937,112 @@ export class ProductService {
     }
   }
 
-  async remove(id: string) {
+  /**
+   * Qué impide borrar un producto y qué se llevaría por delante. Las líneas de notas ANULADAS (que conservan lo que se pidió, pero ya
+   * no mueven stock ni plata) se pueden limpiar; cualquier otro uso —notas vivas, stock, lotes, combos, movimientos, solicitudes,
+   * envíos— lo bloquea. `puede` = no hay ningún bloqueo (solo notas anuladas, o nada).
+   */
+  async analizarEliminacion(id: string) {
+    const product = await this.findOne(id);
+    const varianteIds = product.variants.map((v) => v.id);
+    const porVariante = { varianteId: { in: varianteIds } };
+
+    const [detalles, stockConDatos, lotes, combos, presentaciones, traspasos, probadores, decants, recepciones, solicitudes] = await Promise.all([
+      this.prisma.proformaDetalle.findMany({
+        where: porVariante,
+        select: { id: true, proforma: { select: { id: true, codigo: true, tipo: true, estado: true } } },
+      }),
+      this.prisma.stock.count({
+        where: { ...porVariante, OR: [{ cantidadFisica: { gt: 0 } }, { cantidadReservada: { gt: 0 } }, { cantidadEnTransito: { gt: 0 } }, { cantidadReservadaTransito: { gt: 0 } }] },
+      }),
+      this.prisma.loteCompra.count({ where: porVariante }),
+      this.prisma.comboItem.count({ where: porVariante }),
+      this.prisma.presentacionVenta.count({ where: porVariante }),
+      this.prisma.traspasoAlmacen.count({ where: porVariante }),
+      this.prisma.movimientoProbador.count({ where: porVariante }),
+      this.prisma.movimientoDecant.count({ where: porVariante }),
+      this.prisma.envioRecepcionItem.count({ where: { varianteRecibidaId: { in: varianteIds } } }),
+      this.prisma.solicitudStockLinea.count({ where: porVariante }),
+    ]);
+
+    const vivas = detalles.filter((d) => d.proforma.estado !== EstadoProforma.ANULADA);
+    const anuladas = detalles.filter((d) => d.proforma.estado === EstadoProforma.ANULADA);
+    // Una compra anulada cuya línea llegó a estar en un envío no se puede limpiar (el envío guarda la referencia).
+    const enEnvio = anuladas.length > 0 ? await this.prisma.envioItem.count({ where: { compraDetalleId: { in: anuladas.map((d) => d.id) } } }) : 0;
+
+    const codigos = (lista: typeof vivas) => Array.from(new Set(lista.map((d) => d.proforma.codigo))).slice(0, 5).join(", ");
+    const bloqueos: string[] = [];
+    if (vivas.length > 0) bloqueos.push(`Está en ${new Set(vivas.map((d) => d.proforma.id)).size} nota(s) que no están anuladas (${codigos(vivas)}).`);
+    if (stockConDatos > 0) bloqueos.push("Tiene stock, reservas o mercadería en camino.");
+    if (lotes > 0) bloqueos.push("Tiene lotes de compra (historial de costos).");
+    if (combos > 0) bloqueos.push("Forma parte de uno o más combos.");
+    if (presentaciones > 0) bloqueos.push("Tiene presentaciones de decants.");
+    if (traspasos > 0 || probadores > 0 || decants > 0) bloqueos.push("Tiene movimientos de traspaso, probador o decants.");
+    if (recepciones > 0) bloqueos.push("Aparece en recepciones de envíos.");
+    if (solicitudes > 0) bloqueos.push("Está en solicitudes de stock.");
+    if (enEnvio > 0) bloqueos.push("Una compra anulada que lo incluye estuvo en un envío.");
+
+    const porNota = new Map<string, { id: string; codigo: string; tipo: string; lineas: number }>();
+    for (const d of anuladas) {
+      const nota = porNota.get(d.proforma.id) ?? { id: d.proforma.id, codigo: d.proforma.codigo, tipo: d.proforma.tipo, lineas: 0 };
+      nota.lineas += 1;
+      porNota.set(d.proforma.id, nota);
+    }
+
+    return {
+      producto: { id: product.id, name: product.name },
+      variantes: varianteIds.length,
+      puede: bloqueos.length === 0,
+      bloqueos,
+      notasAnuladas: Array.from(porNota.values()),
+    };
+  }
+
+  /**
+   * Elimina el producto. Con `limpiarAnuladas`, si lo único que lo usa son notas anuladas, quita sus líneas de esas notas (y las filas
+   * de stock en cero) y lo borra, todo en una transacción; si tiene cualquier otro uso, no toca nada y dice cuál. Sin `limpiarAnuladas`
+   * es el borrado de siempre, pero cuando falla explica por qué en lugar del aviso genérico.
+   */
+  async remove(id: string, opciones: { limpiarAnuladas?: boolean; usuarioId?: string } = {}) {
     const existing = await this.findOne(id);
-    try {
-      await this.prisma.product.delete({ where: { id } });
-      const imageUrls = [existing.imageUrl, ...existing.variants.map((v) => v.imageUrl)].filter((url): url is string => Boolean(url));
-      for (const imageUrl of imageUrls) {
-        await deleteFromR2(imageUrl).catch(() => {});
+    const imageUrls = [existing.imageUrl, ...existing.variants.map((v) => v.imageUrl)].filter((url): url is string => Boolean(url));
+    const varianteIds = existing.variants.map((v) => v.id);
+
+    if (opciones.limpiarAnuladas) {
+      const analisis = await this.analizarEliminacion(id);
+      if (!analisis.puede) throw new ConflictException(`No se puede eliminar el producto. ${analisis.bloqueos.join(" ")}`);
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.proformaDetalle.deleteMany({ where: { varianteId: { in: varianteIds }, proforma: { estado: EstadoProforma.ANULADA } } });
+          // Filas de stock en cero (ya verificado: ninguna con unidades): son solo contadores, no historial.
+          await tx.stock.deleteMany({ where: { varianteId: { in: varianteIds } } });
+          await tx.product.delete({ where: { id } });
+        });
+      } catch (error) {
+        rethrowPrismaError(error, "Producto");
       }
-    } catch (error) {
-      rethrowPrismaError(error, "Producto");
+      this.logger.warn(
+        `Producto eliminado "${existing.name}" (${id}) por ${opciones.usuarioId ?? "?"}; se quitaron sus líneas de ${analisis.notasAnuladas.length} nota(s) anulada(s): ${analisis.notasAnuladas.map((n) => n.codigo).join(", ") || "ninguna"}.`,
+      );
+    } else {
+      try {
+        await this.prisma.product.delete({ where: { id } });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+          const analisis = await this.analizarEliminacion(id);
+          if (analisis.puede && analisis.notasAnuladas.length > 0) {
+            throw new ConflictException(
+              `No se puede eliminar: solo lo usan notas anuladas (${analisis.notasAnuladas.map((n) => n.codigo).join(", ")}). Elimínalo desde Registros, en una línea de una nota anulada, para limpiarlas.`,
+            );
+          }
+          if (analisis.bloqueos.length > 0) throw new ConflictException(`No se puede eliminar el producto. ${analisis.bloqueos.join(" ")}`);
+        }
+        rethrowPrismaError(error, "Producto");
+      }
+    }
+
+    for (const imageUrl of imageUrls) {
+      await deleteFromR2(imageUrl).catch(() => {});
     }
   }
 }

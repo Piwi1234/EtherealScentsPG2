@@ -1227,6 +1227,16 @@ export type RegistroLinea = {
   variante: ProformaDetalleVariante;
 };
 
+/** GET /products/:id/eliminacion: qué impide borrar un producto y de qué notas anuladas se le quitarían líneas. */
+export type EliminacionProducto = {
+  producto: { id: string; name: string };
+  variantes: number;
+  /** true = nada lo bloquea (como mucho lo usan notas anuladas). */
+  puede: boolean;
+  bloqueos: string[];
+  notasAnuladas: { id: string; codigo: string; tipo: string; lineas: number }[];
+};
+
 /** Totales de TODO el filtro de Registros (no solo de la página visible). */
 export type RegistroResumen = {
   totalBs: number;

@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { ApiError, deleteProforma, getBrands, getCategories, getEmpresas, getProducts, getProveedores, getRegistros } from "../../../lib/api";
 import type { Brand, Category, Empresa, EstadoPedido, Product, Proveedor, RegistroLinea, RegistroResumen, TipoProforma } from "../../../lib/types";
 import { NuevaProformaBoton } from "../../../components/proformas/NuevaProformaBoton";
+import { EliminarProductoModal } from "../../../components/proformas/EliminarProductoModal";
+import { getAuthUser } from "../../../lib/auth";
 import { EstadoBadge } from "../../../components/proformas/EstadoBadge";
 import { formatAtributosVisibles } from "../../../components/proformas/AtributosVisibles";
 import { DateRangeDropdown, type DateSelection } from "../../../components/DateRangeDropdown";
@@ -353,6 +355,12 @@ function RegistrosPanel({
   const [error, setError] = useState("");
   // Se incrementa al eliminar un borrador vacío para volver a pedir la lista.
   const [recarga, setRecarga] = useState(0);
+  // Eliminar un producto desde la línea de una nota anulada (solo ADMIN).
+  const [esAdmin, setEsAdmin] = useState(false);
+  const [eliminarProducto, setEliminarProducto] = useState<{ id: string; nombre: string } | null>(null);
+  useEffect(() => {
+    setEsAdmin(getAuthUser()?.rol === "ADMIN");
+  }, []);
 
   const parentCategories = categories.filter((c) => c.parentId === null);
   const subCategoryIds = categories.filter((c) => c.parentId === categoryId).map((c) => c.id);
@@ -928,6 +936,16 @@ function RegistrosPanel({
                             <td className="num">{tipo === "VENTA" ? linea.cantidad / (linea.presentacionVenta?.cantidadMl ?? 1) : linea.cantidad}</td>
                             <td>
                               <EstadoProducto linea={linea} tipo={tipo} />
+                              {linea.proforma.estado === "ANULADA" && esAdmin && (
+                                <button
+                                  type="button"
+                                  className="action-btn danger"
+                                  title="Eliminar este producto del catálogo (solo si lo usan únicamente notas anuladas)"
+                                  onClick={() => setEliminarProducto({ id: linea.variante.product.id, nombre: linea.variante.product.name })}
+                                >
+                                  Eliminar producto
+                                </button>
+                              )}
                             </td>
                             <td className="num cell-muted">{money(unitarioBs(linea, tipo))}</td>
                             <td className="num">{money(subtotalBs(linea, tipo))}</td>
@@ -976,6 +994,18 @@ function RegistrosPanel({
             </div>
           )}
         </>
+      )}
+
+      {eliminarProducto && (
+        <EliminarProductoModal
+          productoId={eliminarProducto.id}
+          nombre={eliminarProducto.nombre}
+          onClose={() => setEliminarProducto(null)}
+          onDone={() => {
+            setEliminarProducto(null);
+            setRecarga((n) => n + 1);
+          }}
+        />
       )}
     </>
   );
