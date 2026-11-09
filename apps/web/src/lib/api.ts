@@ -20,7 +20,6 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   CuentaPorCobrarGrupo,
-  EliminacionProducto,
   CuentasPorCobrarPorCliente,
   DetalleCompraInput,
   CreateEnvioInput,
@@ -1086,15 +1085,6 @@ export function updateDetalle(proformaId: string, detalleId: string, data: Updat
 
 export function removeDetalle(proformaId: string, detalleId: string) {
   return apiDelete<void>(`/proformas/${proformaId}/detalles/${detalleId}`);
-}
-
-export function getEliminacionProducto(id: string) {
-  return apiGet<EliminacionProducto>(`/products/${id}/eliminacion`);
-}
-
-/** Elimina el producto y, de paso, sus líneas en notas anuladas (solo si ningún otro uso lo bloquea; solo ADMIN). */
-export function deleteProductoConAnuladas(id: string) {
-  return apiDelete<void>(`/products/${id}?limpiarAnuladas=true`);
 }
 
 export function deleteProforma(id: string) {

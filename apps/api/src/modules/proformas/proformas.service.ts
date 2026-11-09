@@ -1,5 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { EstadoProforma, OrigenAsignacion, Prisma, TipoProforma } from "@app/database";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { EstadoProforma, OrigenAsignacion, Prisma, Rol, TipoProforma } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
@@ -99,6 +99,8 @@ export const includeDetails = {
  */
 @Injectable()
 export class ProformasService {
+  private readonly logger = new Logger(ProformasService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
@@ -669,11 +671,33 @@ export class ProformasService {
     }
   }
 
-  /** Solo se puede eliminar una proforma mientras está en BORRADOR — nunca tocó stock, así que no hay
-   * nada que revertir; la cascada (detalles + historial) ya está cubierta por el schema. */
-  async remove(id: string) {
+  /**
+   * Se puede eliminar una proforma en BORRADOR (nunca tocó stock: no hay nada que revertir) o ANULADA (solo un administrador): la
+   * anulación ya devolvió el stock y la plata, y la nota solo queda como constancia. La cascada (detalles, asignaciones, historial,
+   * entregas, recojos) está en el schema. Los movimientos de caja ligados a una venta anulada (el cobro y su reversión) NO se borran:
+   * son el libro de caja; solo pierden el vínculo con la nota (su detalle ya dice el código).
+   */
+  async remove(id: string, usuario?: { id: string; rol: Rol }) {
     const proforma = await this.findOne(id);
-    this.assertBorrador(proforma);
+    if (proforma.estado === EstadoProforma.ANULADA) {
+      if (usuario?.rol !== Rol.ADMIN) throw new ForbiddenException("Solo un administrador puede eliminar una nota anulada.");
+      // Una compra anulada cuya línea estuvo en un envío (anulado) no se puede borrar: el envío guarda la referencia.
+      const enEnvio = await this.prisma.envioItem.count({ where: { compraDetalle: { proformaId: id } } });
+      if (enEnvio > 0) throw new ConflictException("No se puede eliminar: la compra estuvo en un envío. Elimina o revisa ese envío primero.");
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.movimientoCartera.updateMany({ where: { proformaId: id }, data: { proformaId: null } });
+          await tx.proforma.delete({ where: { id } });
+        });
+      } catch (error) {
+        rethrowPrismaError(error, "Proforma");
+      }
+      this.logger.warn(`Nota anulada ${proforma.codigo} (${proforma.tipo}) eliminada por ${usuario.id}.`);
+      return;
+    }
+    if (proforma.estado !== EstadoProforma.BORRADOR) {
+      throw new ConflictException(`No se puede eliminar: la nota está ${proforma.estado}. Solo se eliminan notas en borrador o anuladas.`);
+    }
     try {
       await this.prisma.proforma.delete({ where: { id } });
     } catch (error) {
