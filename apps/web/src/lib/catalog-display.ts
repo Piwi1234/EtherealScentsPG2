@@ -94,6 +94,9 @@ export function displayPrice(
     // PREVENTA cuenta como disponible acá (se puede reservar): solo NO_DISPONIBLE queda afuera.
     const available = product.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
     let pool = available.length > 0 ? available : product.variants;
+    // Un decant (ml) no es el precio del perfume: si hay frascos, el "desde" sale de ellos.
+    const frascos = pool.filter((v) => v.unidad !== "ML");
+    if (frascos.length > 0) pool = frascos;
     if (context) {
       const matching = pool.filter((v) => variantMatchesContext(product, v, context));
       if (matching.length > 0) pool = matching;

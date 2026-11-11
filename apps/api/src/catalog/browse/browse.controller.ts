@@ -28,6 +28,8 @@ export class CatalogBrowseController {
     @Query("onlyFlash") onlyFlash?: string,
     @Query("onlyPreventa") onlyPreventa?: string,
     @Query("onlyInStock") onlyInStock?: string,
+    @Query("onlyDecants") onlyDecants?: string,
+    @Query("ml") ml?: string,
     @Query("minPriceBs") minPriceBs?: string,
     @Query("maxPriceBs") maxPriceBs?: string,
     @Query("sortBy") sortBy?: string,
@@ -44,10 +46,18 @@ export class CatalogBrowseController {
       onlyFlash,
       onlyPreventa,
       onlyInStock,
+      onlyDecants,
+      ml,
       minPriceBs,
       maxPriceBs,
       sortBy,
     });
+  }
+
+  /** Tamaños (ml) y marcas disponibles para los filtros de la página pública de decants. */
+  @Get("decants/filtros")
+  getDecantFiltros() {
+    return this.browse.getDecantFiltros();
   }
 
   @Get("categories/:categoryId/filters")

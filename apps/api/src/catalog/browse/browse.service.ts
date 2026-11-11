@@ -43,7 +43,14 @@ type RawProduct = Prisma.ProductGetPayload<{ include: typeof includeDetails }>;
 
 /** true si alguna variante (incluidas las de precio propio) tiene stock disponible (física - reservada > 0). */
 function hasAvailableStock(variants: RawProduct["variants"]): boolean {
-  return variants.some((v) => v.stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0));
+  return variants.some((v) => {
+    // Decants (ml): hay stock solo si alcanza para vender al menos la presentación más chica.
+    if (v.unidad === UnidadVariante.ML) {
+      const ml = v.stock.reduce((n, s) => n + (s.cantidadFisica - s.cantidadReservada), 0);
+      return v.presentaciones.some((p) => ml >= p.cantidadMl);
+    }
+    return v.stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0);
+  });
 }
 
 /** Adjunta `hasStock` (a nivel producto y por cada variante) y saca el detalle crudo de stock antes
@@ -59,13 +66,22 @@ function finalizeProduct(product: RawProduct, exchangeRate: number) {
     variants: priced.variants
       // Una variante de decants (ml) sin presentaciones activas no se puede comprar: no se muestra.
       .filter((v) => !(v.unidad === UnidadVariante.ML && v.presentaciones.length === 0))
-      .map(({ stock, ...rest }) => ({
-        ...rest,
-        // Los decants no tienen precio propio: su precio "desde" es el de su presentación más barata (así el precio de tarjeta, el
-        // filtro y el orden por precio del catálogo usan algo real); la ficha del producto muestra el de cada presentación.
-        ...(rest.unidad === UnidadVariante.ML ? { finalPriceBs: Math.min(...rest.presentaciones.map((p) => Number(p.precioVentaBs))) } : {}),
-        hasStock: stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0),
-      })),
+      .map(({ stock, ...rest }) => {
+        const esMl = rest.unidad === UnidadVariante.ML;
+        const mlDisponibles = stock.reduce((n, s) => n + (s.cantidadFisica - s.cantidadReservada), 0);
+        return {
+          ...rest,
+          // Los decants no tienen precio propio: su precio "desde" es el de su presentación más barata; la ficha del producto y la
+          // página de decants muestran el de cada presentación. Cada presentación dice si alcanzan los ml (nunca cuántos hay).
+          ...(esMl
+            ? {
+                finalPriceBs: Math.min(...rest.presentaciones.map((p) => Number(p.precioVentaBs))),
+                presentaciones: rest.presentaciones.map((p) => ({ ...p, disponible: mlDisponibles >= p.cantidadMl })),
+              }
+            : {}),
+          hasStock: esMl ? rest.presentaciones.some((p) => mlDisponibles >= p.cantidadMl) : stock.some((s) => s.cantidadFisica - s.cantidadReservada > 0),
+        };
+      }),
   };
 }
 
@@ -81,13 +97,16 @@ function finalizeProduct(product: RawProduct, exchangeRate: number) {
  * que TS angoste el tipo ahí sin ninguna forma práctica de evitarlo (ni separando genéricos, ni
  * anotando el retorno, ni evitando la desestructuración — se probaron las tres). */
 function cheapestFinalPriceBs(item: unknown): number {
-  const typed = item as { finalPriceBs: number; variants: { finalPriceBs: number; estado: string }[] };
+  const typed = item as { finalPriceBs: number; variants: { finalPriceBs: number; estado: string; unidad?: string }[] };
   if (typed.variants.length === 0) {
     return typed.finalPriceBs;
   }
+  // Un decant (ml) no es el precio del perfume: si hay frascos, el "desde" sale de ellos.
+  const frascos = typed.variants.filter((v) => v.unidad !== UnidadVariante.ML);
+  const variantes = frascos.length > 0 ? frascos : typed.variants;
   // PREVENTA cuenta como disponible acá (se puede reservar): solo NO_DISPONIBLE queda afuera.
-  const available = typed.variants.filter((v) => v.estado !== "NO_DISPONIBLE");
-  const pool = available.length > 0 ? available : typed.variants;
+  const available = variantes.filter((v) => v.estado !== "NO_DISPONIBLE");
+  const pool = available.length > 0 ? available : variantes;
   return pool.reduce((min, v) => Math.min(min, v.finalPriceBs), pool[0].finalPriceBs);
 }
 
@@ -121,6 +140,11 @@ export interface FindCatalogProductsQuery {
   /** "true": solo productos con stock disponible (física - reservada > 0) en alguna variante,
    * incluidas las de precio propio. Nunca informa cantidades, solo disponibilidad. */
   onlyInStock?: string;
+  /** "true": página pública de decants — solo perfumes con una variante en ml con presentaciones activas. Cambia el significado de
+   * `onlyInStock`, `minPriceBs`/`maxPriceBs` y `sortBy` precio: se miran las presentaciones (no los frascos). Ver `findDecants`. */
+  onlyDecants?: string;
+  /** Con `onlyDecants`: tamaños de presentación (ml) separados por coma; el perfume entra si tiene alguno. */
+  ml?: string;
   /** Rango de precio en Bs, contra el mismo precio que se muestra en la tarjeta (ver `cheapestFinalPriceBs`). */
   minPriceBs?: string;
   maxPriceBs?: string;
@@ -217,6 +241,10 @@ export class CatalogBrowseService {
       andConditions.push({ variants: { some: { estado: "PREVENTA" } } });
     }
 
+    if (query.onlyDecants === "true") {
+      andConditions.push({ variants: { some: { unidad: UnidadVariante.ML, presentaciones: { some: { activo: true } } } } });
+    }
+
     const where: Prisma.ProductWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
     const orderBy: Prisma.ProductOrderByWithRelationInput =
       query.sortBy === "actualizados"
@@ -233,6 +261,10 @@ export class CatalogBrowseService {
     const maxPriceBs = query.maxPriceBs !== undefined && query.maxPriceBs !== "" ? Number(query.maxPriceBs) : undefined;
     const isPriceSort = query.sortBy === "precio-asc" || query.sortBy === "precio-desc";
     const isRelevanciaSort = query.sortBy === "relevancia";
+
+    if (query.onlyDecants === "true") {
+      return this.findDecants(where, orderBy, query, exchangeRate, { page, pageSize, skip, take }, { minPriceBs, maxPriceBs });
+    }
 
     if (query.onlyInStock === "true" || minPriceBs !== undefined || maxPriceBs !== undefined || isPriceSort || isRelevanciaSort) {
       // Ni "física - reservada > 0" ni el precio final (calculado en vivo a partir de la categoría y
@@ -278,6 +310,77 @@ export class CatalogBrowseService {
     ]);
 
     return { items: items.map((item) => finalizeProduct(item, exchangeRate)), total, page, pageSize };
+  }
+
+  /**
+   * Página pública de decants. Cada perfume trae `decant`: su variante en ml con las presentaciones activas (precio y si alcanzan los
+   * ml). Los filtros de tamaño, disponibilidad y precio se miran contra las presentaciones, no contra los frascos; el perfume entra si
+   * AL MENOS UNA presentación cumple todo a la vez, y se devuelven todas (la tarjeta muestra todas sus presentaciones).
+   */
+  private async findDecants(
+    where: Prisma.ProductWhereInput,
+    orderBy: Prisma.ProductOrderByWithRelationInput,
+    query: FindCatalogProductsQuery,
+    exchangeRate: number,
+    paginacion: { page: number; pageSize: number; skip: number; take: number },
+    precio: { minPriceBs?: number; maxPriceBs?: number },
+  ) {
+    const tamanos = (query.ml ?? "").split(",").map((v) => Number(v.trim())).filter((n) => Number.isInteger(n) && n > 0);
+    const soloDisponibles = query.onlyInStock === "true";
+    type Pres = { id: string; cantidadMl: number; precioVentaBs: unknown; disponible: boolean };
+    type Var = { id: string; variantCode: string; unidad: string; presentaciones?: Pres[] };
+
+    const all = await this.prisma.product.findMany({ where, orderBy, include: includeDetails });
+    const conDecant = all
+      .map((item) => finalizeProduct(item, exchangeRate))
+      .flatMap((item) => {
+        const variante = (item.variants as unknown as Var[]).find((v) => v.unidad === UnidadVariante.ML && (v.presentaciones?.length ?? 0) > 0);
+        if (!variante) return [];
+        const presentaciones = variante.presentaciones!;
+        const cumple = presentaciones.some(
+          (p) =>
+            (tamanos.length === 0 || tamanos.includes(p.cantidadMl)) &&
+            (!soloDisponibles || p.disponible) &&
+            (precio.minPriceBs === undefined || Number(p.precioVentaBs) >= precio.minPriceBs) &&
+            (precio.maxPriceBs === undefined || Number(p.precioVentaBs) <= precio.maxPriceBs),
+        );
+        if (!cumple) return [];
+        const desde = Math.min(...presentaciones.map((p) => Number(p.precioVentaBs)));
+        return [{ ...item, decant: { varianteId: variante.id, variantCode: variante.variantCode, presentaciones, desdeBs: desde } }];
+      });
+
+    if (query.sortBy === "precio-asc") conDecant.sort((a, b) => a.decant.desdeBs - b.decant.desdeBs);
+    if (query.sortBy === "precio-desc") conDecant.sort((a, b) => b.decant.desdeBs - a.decant.desdeBs);
+
+    const { page, pageSize, skip, take } = paginacion;
+    return { items: conDecant.slice(skip, skip + take), total: conDecant.length, page, pageSize };
+  }
+
+  /** Opciones de los filtros de la página de decants: tamaños (ml, de menor a mayor) y marcas que hay ahora, con cuántos perfumes. */
+  async getDecantFiltros() {
+    const productos = await this.prisma.product.findMany({
+      where: { variants: { some: { unidad: UnidadVariante.ML, presentaciones: { some: { activo: true } } } } },
+      select: {
+        brand: { select: { id: true, name: true } },
+        variants: { where: { unidad: UnidadVariante.ML }, select: { presentaciones: { where: { activo: true }, select: { cantidadMl: true } } } },
+      },
+    });
+    const tamanos = new Map<number, number>();
+    const marcas = new Map<string, { id: string; name: string; count: number }>();
+    for (const p of productos) {
+      const ml = new Set(p.variants.flatMap((v) => v.presentaciones.map((x) => x.cantidadMl)));
+      for (const t of ml) tamanos.set(t, (tamanos.get(t) ?? 0) + 1);
+      if (p.brand) {
+        const actual = marcas.get(p.brand.id) ?? { id: p.brand.id, name: p.brand.name, count: 0 };
+        actual.count += 1;
+        marcas.set(p.brand.id, actual);
+      }
+    }
+    return {
+      total: productos.length,
+      tamanos: [...tamanos.entries()].sort((a, b) => a[0] - b[0]).map(([ml, count]) => ({ ml, count })),
+      marcas: [...marcas.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    };
   }
 
   /** Total histórico de unidades vendidas por producto ("Relevancia" del catálogo público) — solo

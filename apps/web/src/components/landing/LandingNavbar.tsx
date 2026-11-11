@@ -445,6 +445,7 @@ export function LandingNavbar({
             </div>
             <Link href="/marcas" onClick={() => setMobileMenuOpen(false)}>Marcas</Link>
             <Link href="/combos" onClick={() => setMobileMenuOpen(false)}>Combos</Link>
+            <Link href="/decants" onClick={() => setMobileMenuOpen(false)}>Decants</Link>
             <Link href="/historias" onClick={() => setMobileMenuOpen(false)}>Historias</Link>
           </nav>
         </div>
@@ -575,6 +576,7 @@ export function LandingNavbar({
 
               <Link className="landing-navbar-mobile-link" href="/marcas" onClick={closeMobileMenu}>Marcas</Link>
               <Link className="landing-navbar-mobile-link" href="/combos" onClick={closeMobileMenu}>Combos</Link>
+              <Link className="landing-navbar-mobile-link" href="/decants" onClick={closeMobileMenu}>Decants</Link>
               <Link className="landing-navbar-mobile-link" href="/historias" onClick={closeMobileMenu}>Historias</Link>
 
               <div className="landing-navbar-mobile-divider" />

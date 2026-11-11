@@ -233,6 +233,9 @@ export function ProductCard({
         {product.brand && <span className="landing-product-brand">{product.brand.name}</span>}
         <p className="landing-product-name">{product.name}</p>
         {atributos && <p className="landing-product-attrs">{atributos}</p>}
+        {!forcedVariant && product.variants.some((v) => v.unidad === "ML" && (v.presentaciones?.length ?? 0) > 0) && (
+          <span className="landing-product-decant-tag">También en decants</span>
+        )}
         {soldOut ? (
           <span className="landing-product-price-soldout">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
