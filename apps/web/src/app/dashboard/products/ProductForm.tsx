@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TAMANOS_DECANT_ML } from "@app/shared";
 import { contieneBusqueda } from "../../../lib/busqueda";
 import {
   API_ORIGIN,
@@ -212,9 +213,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
   // Presentaciones (subvariantes) de una variante ML — se gestionan en un modal aparte, por variante.
   const [presentacionesVarianteId, setPresentacionesVarianteId] = useState<string | null>(null);
   const [presentaciones, setPresentaciones] = useState<PresentacionVenta[]>([]);
-  const [nuevaCantidadMl, setNuevaCantidadMl] = useState("");
-  const [nuevoPrecioBs, setNuevoPrecioBs] = useState("");
-  const [nuevoEmpaqueBs, setNuevoEmpaqueBs] = useState("");
+  // Tamaños marcados para crear de una vez (de la lista fija TAMANOS_DECANT_ML), con su precio y empaque.
+  const [nuevosTamanos, setNuevosTamanos] = useState<Record<number, { precio: string; empaque: string }>>({});
   // Costo promedio por ml (Bs) de los ml que hay en la variante Decants: sirve para mostrar el margen de cada presentación.
   const [costoMlBs, setCostoMlBs] = useState<number | null>(null);
   const [presentacionError, setPresentacionError] = useState("");
@@ -640,9 +640,7 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
 
   function openPresentaciones(varianteId: string) {
     setPresentacionesVarianteId(varianteId);
-    setNuevaCantidadMl("");
-    setNuevoPrecioBs("");
-    setNuevoEmpaqueBs("");
+    setNuevosTamanos({});
     setCostoMlBs(null);
     setPresentacionError("");
     loadPresentaciones(varianteId);
@@ -665,26 +663,38 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     e.preventDefault();
     if (!presentacionesVarianteId) return;
     setPresentacionError("");
-    if (!nuevaCantidadMl || !nuevoPrecioBs) {
-      setPresentacionError("Completá la cantidad en ml y el precio.");
+    const elegidos = TAMANOS_DECANT_ML.filter((ml) => nuevosTamanos[ml]);
+    if (elegidos.length === 0) {
+      setPresentacionError("Marcá al menos un tamaño.");
+      return;
+    }
+    const sinPrecio = elegidos.filter((ml) => !nuevosTamanos[ml].precio.trim());
+    if (sinPrecio.length > 0) {
+      setPresentacionError(`Falta el precio de: ${sinPrecio.map((ml) => `${ml} ML`).join(", ")}.`);
       return;
     }
     setPresentacionSubmitting(true);
-    try {
-      await createPresentacion(presentacionesVarianteId, {
-        cantidadMl: Number(nuevaCantidadMl),
-        precioVentaBs: Number(nuevoPrecioBs),
-        costoEmpaqueBs: nuevoEmpaqueBs.trim() === "" ? 0 : Number(nuevoEmpaqueBs),
-      });
-      setNuevaCantidadMl("");
-      setNuevoPrecioBs("");
-      setNuevoEmpaqueBs("");
-      loadPresentaciones(presentacionesVarianteId);
-    } catch (e) {
-      setPresentacionError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
-    } finally {
-      setPresentacionSubmitting(false);
+    const fallidos: string[] = [];
+    for (const ml of elegidos) {
+      const { precio, empaque } = nuevosTamanos[ml];
+      try {
+        await createPresentacion(presentacionesVarianteId, {
+          cantidadMl: ml,
+          precioVentaBs: Number(precio),
+          costoEmpaqueBs: empaque.trim() === "" ? 0 : Number(empaque),
+        });
+        // Lo creado sale de la selección; lo que falle se queda para reintentar.
+        setNuevosTamanos((prev) => {
+          const { [ml]: _creado, ...resto } = prev;
+          return resto;
+        });
+      } catch (e) {
+        fallidos.push(`${ml} ML: ${e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)}`);
+      }
     }
+    if (fallidos.length > 0) setPresentacionError(fallidos.join(" · "));
+    loadPresentaciones(presentacionesVarianteId);
+    setPresentacionSubmitting(false);
   }
 
   async function handleDeactivatePresentacion(presentacion: PresentacionVenta) {
@@ -1607,46 +1617,81 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
             </div>
           )}
           <form className="form-grid" onSubmit={handleAddPresentacion}>
-            <div className="grid-3">
-              <div>
-                <label>Cantidad (ml)</label>
-                <input
-                  className="field"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={nuevaCantidadMl}
-                  onChange={(e) => setNuevaCantidadMl(e.target.value)}
-                />
-              </div>
-              <div>
-                <label>Empaque Bs</label>
-                <input
-                  className="field"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={nuevoEmpaqueBs}
-                  onChange={(e) => setNuevoEmpaqueBs(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label>Precio de venta Bs</label>
-                <input
-                  className="field"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={nuevoPrecioBs}
-                  onChange={(e) => setNuevoPrecioBs(e.target.value)}
-                />
-              </div>
-            </div>
+            {(() => {
+              // Tamaños que esta variante aún no tiene (activos o no: no se puede repetir un tamaño).
+              const libres = TAMANOS_DECANT_ML.filter((ml) => !presentaciones.some((p) => p.cantidadMl === ml));
+              if (libres.length === 0) return <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>Ya están todos los tamaños de decant creados.</p>;
+              return (
+                <>
+                  <div>
+                    <label>Tamaños a crear</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {libres.map((ml) => {
+                        const marcado = Boolean(nuevosTamanos[ml]);
+                        return (
+                          <button
+                            key={ml}
+                            type="button"
+                            className={marcado ? "button" : "action-btn"}
+                            aria-pressed={marcado}
+                            onClick={() =>
+                              setNuevosTamanos((prev) => {
+                                if (prev[ml]) {
+                                  const { [ml]: _quitado, ...resto } = prev;
+                                  return resto;
+                                }
+                                return { ...prev, [ml]: { precio: "", empaque: "" } };
+                              })
+                            }
+                          >
+                            {ml} ML
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {libres.filter((ml) => nuevosTamanos[ml]).map((ml) => (
+                    <div key={ml} className="grid-3" style={{ alignItems: "end" }}>
+                      <div>
+                        <label>Tamaño</label>
+                        <div className="field" style={{ display: "flex", alignItems: "center" }}>{ml} ML</div>
+                      </div>
+                      <div>
+                        <label>Empaque Bs</label>
+                        <input
+                          className="field"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={nuevosTamanos[ml].empaque}
+                          onChange={(e) => setNuevosTamanos((prev) => ({ ...prev, [ml]: { ...prev[ml], empaque: e.target.value } }))}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label>Precio de venta Bs</label>
+                        <input
+                          className="field"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={nuevosTamanos[ml].precio}
+                          onChange={(e) => setNuevosTamanos((prev) => ({ ...prev, [ml]: { ...prev[ml], precio: e.target.value } }))}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
             {presentacionError && <p className="error-text">{presentacionError}</p>}
             <div className="form-actions">
               <button type="submit" className="button" disabled={presentacionSubmitting}>
-                {presentacionSubmitting ? "Agregando..." : "+ Agregar presentación"}
+                {presentacionSubmitting
+                  ? "Agregando..."
+                  : Object.keys(nuevosTamanos).length > 1
+                    ? `+ Agregar ${Object.keys(nuevosTamanos).length} presentaciones`
+                    : "+ Agregar presentación"}
               </button>
             </div>
           </form>

@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from "@nestjs/swagger";
-import { IsBoolean, IsInt, IsNumber, IsOptional, Min } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, Min } from "class-validator";
+import { TAMANOS_DECANT_ML } from "@app/shared";
 
 export class CreatePresentacionVentaDto {
-  @ApiProperty({ example: 10, description: "Cantidad en ml que representa esta presentación." })
+  @ApiProperty({ example: 10, enum: TAMANOS_DECANT_ML, description: "Cantidad en ml que representa esta presentación (uno de los tamaños fijos de decant)." })
   @IsInt()
-  @Min(1)
+  @IsIn([...TAMANOS_DECANT_ML], { message: `cantidadMl debe ser uno de los tamaños de decant: ${TAMANOS_DECANT_ML.join(", ")} ml.` })
   cantidadMl!: number;
 
   @ApiProperty({ example: 150, description: "Precio de venta en Bs de esta presentación (manual, no calculado)." })
