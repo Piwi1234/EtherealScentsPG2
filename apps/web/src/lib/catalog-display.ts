@@ -41,13 +41,12 @@ export type OfferContext = "discount" | "flash" | "preventa";
  * producto, igual que en flashUntilFor/hasDiscount. */
 export function variantMatchesContext(product: Product, variant: ProductVariant, context: OfferContext): boolean {
   if (context === "preventa") return variant.estado === "PREVENTA";
-  // Una variante en Preventa tiene su propia sección (ver más arriba) — aunque tenga descuento o
-  // temporizador cargado, no cuenta para "discount"/"flash" (mismo criterio que el backend, ver
-  // onlyDiscounted/onlyFlash en browse.service.ts).
-  if (variant.estado === "PREVENTA") return false;
+  // Una variante en Preventa con descuento también sale en "discount" (además de en su sección de Preventa). Con temporizador
+  // ("flash") sigue sin contar (mismo criterio que el backend, ver onlyDiscounted/onlyFlash en browse.service.ts).
   if (context === "discount") {
     return variant.isDefault ? Number(product.discountBs) > 0 : Number(variant.discountBs) > 0;
   }
+  if (variant.estado === "PREVENTA") return false;
   const until = variant.isDefault ? product.ofertaFlashHasta : variant.ofertaFlashHasta;
   return until !== null && new Date(until).getTime() > Date.now();
 }

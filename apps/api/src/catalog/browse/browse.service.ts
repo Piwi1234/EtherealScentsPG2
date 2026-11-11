@@ -125,17 +125,16 @@ export interface FindCatalogProductsQuery {
   attr?: Record<string, string>;
   /** "true": solo productos con descuento (descuento propio, o el de alguna de sus variantes con
    * precio propio — no se mira la variante "default" auto-provista, su descuento queda congelado al
-   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). La exclusión de
-   * Preventa (ver `onlyPreventa`) es por variante: si la variante con el descuento específicamente
-   * está en Preventa no cuenta acá, pero una variante hermana disponible con descuento propio sí
-   * sigue calificando aunque otra variante del mismo producto esté en Preventa. */
+   * crearse y el producto sigue siendo la fuente de verdad para catálogo simple). Una variante en
+   * Preventa con descuento SÍ cuenta (aparece también en "Descuentos"); solo NO_DISPONIBLE no se
+   * muestra en el carrusel (lo resuelve el frontend, ver offerVariantEntries). */
   onlyDiscounted?: string;
   /** "true": solo productos con un temporizador de "Ofertas Flash" todavía vigente
-   * (ofertaFlashHasta en el futuro). Mismo criterio de exclusión por variante que `onlyDiscounted`
-   * — ver `onlyPreventa`. */
+   * (ofertaFlashHasta en el futuro). A diferencia de `onlyDiscounted`, una variante en Preventa
+   * NO cuenta acá (la exclusión es por variante, no por producto — ver `onlyPreventa`). */
   onlyFlash?: string;
-  /** "true": solo productos con alguna variante en estado PREVENTA — mutuamente excluyente con
-   * `onlyDiscounted`/`onlyFlash` en el bloque "Descuento y Ofertas" del home (ver EstadoVariante). */
+  /** "true": solo productos con alguna variante en estado PREVENTA — excluyente con `onlyFlash` en el bloque "Descuento y Ofertas"
+   * del home; con `onlyDiscounted` ya no: una preventa con descuento aparece en las dos secciones (ver EstadoVariante). */
   onlyPreventa?: string;
   /** "true": solo productos con stock disponible (física - reservada > 0) en alguna variante,
    * incluidas las de precio propio. Nunca informa cantidades, solo disponibilidad. */
@@ -204,14 +203,11 @@ export class CatalogBrowseService {
     }
 
     if (query.onlyDiscounted === "true") {
-      // La exclusión de Preventa es por variante, no por producto: una variante en Preventa con
-      // descuento no cuenta (tiene su propio filtro aparte, ver onlyPreventa), pero si otra variante
-      // del mismo producto SÍ está disponible/no-disponible-por-stock y tiene descuento propio, el
-      // producto entra igual (y displayPrice en el frontend elige esa variante, no la de Preventa).
+      // Una variante en Preventa con descuento también cuenta (además de salir en su sección de Preventa).
       andConditions.push({
         OR: [
-          { AND: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: true, estado: { not: "PREVENTA" } } } }] },
-          { variants: { some: { isDefault: false, discountBs: { gt: 0 }, estado: { not: "PREVENTA" } } } },
+          { AND: [{ discountBs: { gt: 0 } }, { variants: { some: { isDefault: true } } }] },
+          { variants: { some: { isDefault: false, discountBs: { gt: 0 } } } },
         ],
       });
     }

@@ -262,9 +262,9 @@ export function HomeClient({
 
     // Se guarda el modo pedido en esta misma corrida del efecto (no el `offersMode` "en vivo" de más
     // arriba) — mientras este fetch todavía está en vuelo, `productsPage` sigue teniendo los items del
-    // modo ANTERIOR. Ej.: Descuentos → Preventa, ningún item de Descuentos es de Preventa (son
-    // mutuamente excluyentes, ver variantMatchesContext), así que filtrarlos ya con offersMode =
-    // "preventa" los vaciaba a todos de golpe — el bloque se achicaba a "vacío" y volvía a crecer
+    // modo ANTERIOR. Ej.: Descuentos → Preventa, casi ningún item de Descuentos es de Preventa
+    // (solo los que tienen descuento, ver variantMatchesContext), así que filtrarlos ya con offersMode =
+    // "preventa" los vaciaba casi a todos de golpe — el bloque se achicaba a "vacío" y volvía a crecer
     // apenas llegaba la respuesta real. Ver su uso en offerEntries.
     const requestedMode = offersMode;
 
@@ -547,8 +547,8 @@ export function HomeClient({
           <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
 
           {/* 1ra fila: modo (Ofertas Flash = temporizador vigente / Descuentos = precio rebajado /
-              Preventa = variantes en preventa, excluidas de las otras dos aunque tengan descuento o
-              temporizador — ver onlyPreventa en browse.service.ts) — independiente de la categoría,
+              Preventa = variantes en preventa; las que además tienen descuento también salen en Descuentos,
+              las de temporizador no salen en Ofertas Flash — ver onlyPreventa en browse.service.ts) — independiente de la categoría,
               que se elige aparte en la 2da fila de acá abajo. */}
           <div className="landing-filter-pills landing-filter-pills--row1">
             <button
