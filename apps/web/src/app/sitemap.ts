@@ -32,6 +32,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_ORIGIN}/home`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_ORIGIN}/marcas`, changeFrequency: "weekly", priority: 0.6 },
     { url: `${SITE_ORIGIN}/combos`, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${SITE_ORIGIN}/decants`, changeFrequency: "weekly", priority: 0.6 },
   ];
 
   let categories: Category[] = [];

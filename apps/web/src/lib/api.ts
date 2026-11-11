@@ -20,6 +20,8 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   CuentaPorCobrarGrupo,
+  DecantItem,
+  DecantFiltros,
   CuentasPorCobrarPorCliente,
   DetalleCompraInput,
   CreateEnvioInput,
@@ -926,6 +928,19 @@ export function convertirEnProbador(data: { varianteId: string; almacenId: strin
   return apiPost<MovimientoProbador>("/probadores/convertir", data);
 }
 
+/** Vierte probadores a la variante Decants (ml): hereda el costo del probador. */
+export function probadorADecant(data: {
+  varianteOrigenId: string;
+  varianteId: string;
+  almacenId: string;
+  cantidadProbadores: number;
+  mlPorFrasco: number;
+  mlRescatados: number;
+  nota?: string;
+}) {
+  return apiPost<MovimientoProbador>("/probadores/a-decant", data);
+}
+
 export function darBajaProbador(data: { varianteId: string; almacenId: string; cantidad: number; nota?: string }) {
   return apiPost<MovimientoProbador>("/probadores/baja", data);
 }
@@ -1526,6 +1541,24 @@ export function uploadComboImage(id: string, file: File) {
 /** Web pública: combos publicados (sin cantidades de stock). */
 export function getPublicCombos(categoryId?: string) {
   return apiGet<Combo[]>(`/catalog/combos${categoryId ? `?categoryId=${categoryId}` : ""}`);
+}
+
+/** Web pública: perfumes con decants (página /decants). `ml` = tamaños separados por coma. */
+export function getPublicDecants(query: { ml?: string; brandId?: string; search?: string; onlyInStock?: boolean; maxPriceBs?: string; sortBy?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams({ onlyDecants: "true" });
+  if (query.ml) params.set("ml", query.ml);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.search) params.set("search", query.search);
+  if (query.onlyInStock) params.set("onlyInStock", "true");
+  if (query.maxPriceBs) params.set("maxPriceBs", query.maxPriceBs);
+  if (query.sortBy) params.set("sortBy", query.sortBy);
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(query.pageSize ?? 24));
+  return apiGet<Page<DecantItem>>(`/catalog/products?${params.toString()}`);
+}
+
+export function getDecantFiltros() {
+  return apiGet<DecantFiltros>("/catalog/decants/filtros");
 }
 
 export function getPublicCombo(slug: string) {

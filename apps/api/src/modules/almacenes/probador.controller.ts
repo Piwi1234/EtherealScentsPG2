@@ -5,7 +5,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { ProbadorService } from "./probador.service";
-import { BajaProbadorDto, ConvertirProbadorDto } from "./dto/probador.dto";
+import { BajaProbadorDto, ConvertirProbadorDto, ProbadorADecantDto } from "./dto/probador.dto";
 
 @ApiTags("probadores")
 @ApiBearerAuth()
@@ -42,6 +42,12 @@ export class ProbadorController {
   @ApiOperation({ summary: "Convierte stock disponible en probadores (sin venta ni ganancia); guarda el costo real de los lotes." })
   convertir(@Body() dto: ConvertirProbadorDto, @CurrentUser() user: AuthenticatedUser) {
     return this.probadores.convertir(dto, user.id);
+  }
+
+  @Post("a-decant")
+  @ApiOperation({ summary: "Vierte probadores a la variante Decants (ml) del mismo producto, heredando su costo." })
+  aDecant(@Body() dto: ProbadorADecantDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.probadores.aDecant(dto, user.id);
   }
 
   @Post("baja")

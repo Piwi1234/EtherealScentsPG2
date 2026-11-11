@@ -204,6 +204,7 @@ export default function DecantsPage() {
         <select className="field" style={{ width: "auto" }} value={tipo} onChange={(e) => { setTipo(e.target.value); setPagina(1); }}>
           <option value="">Conversiones y bajas</option>
           <option value="CONVERSION">Solo conversiones</option>
+          <option value="DESDE_PROBADOR">Solo desde probadores</option>
           <option value="BAJA">Solo bajas de ml</option>
         </select>
       </div>
@@ -235,8 +236,8 @@ export default function DecantsPage() {
                   <tr key={m.id} style={m.revertidoAt ? { opacity: 0.55 } : undefined}>
                     <td className="cell-muted">{formatDateTime(m.fecha)}</td>
                     <td>
-                      <span className={m.tipo === "CONVERSION" ? "badge badge-info" : "badge badge-muted"}>
-                        {m.tipo === "CONVERSION" ? "Convertido" : "Baja de ml"}
+                      <span className={m.tipo === "BAJA" ? "badge badge-muted" : "badge badge-info"}>
+                        {m.tipo === "CONVERSION" ? "Convertido" : m.tipo === "DESDE_PROBADOR" ? "Desde probador" : "Baja de ml"}
                       </span>
                       {m.revertidoAt && <span className="badge badge-muted" style={{ marginLeft: 6 }}>Deshecho</span>}
                     </td>
@@ -244,13 +245,15 @@ export default function DecantsPage() {
                       <Producto variante={m.varianteOrigen ?? m.variante} />
                     </td>
                     <td>{m.almacen.nombre}</td>
-                    <td className="num">{m.tipo === "CONVERSION" ? `${m.cantidadFrascos} × ${m.mlPorFrasco} ml` : "—"}</td>
-                    <td className="num">{m.tipo === "CONVERSION" ? `+${m.cantidadMl}` : `−${m.cantidadMl}`}</td>
+                    <td className="num">
+                      {m.tipo === "CONVERSION" ? `${m.cantidadFrascos} × ${m.mlPorFrasco} ml` : m.tipo === "DESDE_PROBADOR" ? `${m.cantidadFrascos} probador(es)` : "—"}
+                    </td>
+                    <td className="num">{m.tipo === "BAJA" ? `−${m.cantidadMl}` : `+${m.cantidadMl}`}</td>
                     <td className="num">{usd(m.costoTotal)}</td>
                     <td className="cell-muted">{m.nota ?? "—"}</td>
                     <td className="cell-muted">{m.creadoPor.nombre}</td>
                     <td>
-                      {m.tipo === "CONVERSION" && !m.revertidoAt && (
+                      {m.tipo !== "BAJA" && !m.revertidoAt && (
                         <button type="button" className="action-btn" onClick={() => deshacer(m)}>
                           Deshacer
                         </button>

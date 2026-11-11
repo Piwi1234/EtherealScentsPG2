@@ -1,11 +1,11 @@
 import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
-import { Prisma, TipoMovimientoProbador } from "@app/database";
+import { Prisma, TipoMovimientoDecant, TipoMovimientoProbador, UnidadVariante } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { normalizarBusqueda } from "../../common/busqueda";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { lockStockRows, stockKey } from "../proformas/stock-lock.util";
-import { BajaProbadorDto, ConvertirProbadorDto } from "./dto/probador.dto";
+import { BajaProbadorDto, ConvertirProbadorDto, ProbadorADecantDto } from "./dto/probador.dto";
 
 const varianteSelect = {
   id: true,
@@ -56,6 +56,7 @@ export class ProbadorService {
     const search = query.search?.trim();
     const where: Prisma.MovimientoProbadorWhereInput = {
       almacenId: query.almacenId,
+      revertidoAt: null,
       variante: {
         product: {
           categoryId: categoryIds ? { in: categoryIds } : undefined,
@@ -74,6 +75,7 @@ export class ProbadorService {
     });
 
     const filas = new Map<string, { varianteId: string; almacenId: string; convertidos: number; bajas: number; costoConvertido: number; ultimo: Date | null }>();
+    // A_DECANT descuenta del saldo igual que una baja (los ml pasaron a Decants); se cuenta dentro de "bajas".
     for (const g of grupos) {
       const key = stockKey(g.varianteId, g.almacenId);
       const fila = filas.get(key) ?? { varianteId: g.varianteId, almacenId: g.almacenId, convertidos: 0, bajas: 0, costoConvertido: 0, ultimo: null };
@@ -115,7 +117,7 @@ export class ProbadorService {
 
   async movimientos(query: { page?: string; pageSize?: string; varianteId?: string; almacenId?: string; tipo?: string }) {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
-    const tipo = query.tipo === "CONVERSION" || query.tipo === "BAJA" ? query.tipo : undefined;
+    const tipo = query.tipo === "CONVERSION" || query.tipo === "BAJA" || query.tipo === "A_DECANT" ? query.tipo : undefined;
     const where: Prisma.MovimientoProbadorWhereInput = { varianteId: query.varianteId, almacenId: query.almacenId, tipo };
     const [items, total] = await Promise.all([
       this.prisma.movimientoProbador.findMany({ where, skip, take, orderBy: { fecha: "desc" }, include: movimientoInclude }),
@@ -186,6 +188,112 @@ export class ProbadorService {
     }
   }
 
+  /**
+   * Vierte probadores a la variante Decants (ML) del mismo producto: baja el saldo de probadores y suma los ml rescatados al stock
+   * ML. Hereda el costo del probador (promedio de lo convertido en ese almacén) repartido sobre los ml de fábrica del frasco: lo que
+   * se desperdició ya estaba "gastado" como probador, así que los ml rescatados cuestan lo mismo por ml que el resto del frasco.
+   */
+  async aDecant(dto: ProbadorADecantDto, usuarioId: string) {
+    const almacen = await this.prisma.almacen.findUnique({ where: { id: dto.almacenId } });
+    if (!almacen || !almacen.activo) throw new BadRequestException("almacenId inválido o inactivo.");
+    const [origen, destino] = await Promise.all([
+      this.prisma.productVariant.findUnique({ where: { id: dto.varianteOrigenId }, select: { id: true, productId: true, unidad: true } }),
+      this.prisma.productVariant.findUnique({ where: { id: dto.varianteId }, select: { id: true, productId: true, unidad: true } }),
+    ]);
+    if (!origen) throw new BadRequestException(`varianteOrigenId inválido: ${dto.varianteOrigenId}`);
+    if (!destino) throw new BadRequestException(`varianteId inválido: ${dto.varianteId}`);
+    if (origen.unidad !== UnidadVariante.PZA) throw new BadRequestException("Solo se pueden verter probadores de frascos (variantes en piezas).");
+    if (destino.unidad !== UnidadVariante.ML) throw new BadRequestException("La variante destino debe ser de unidad ML (Decants).");
+    if (origen.productId !== destino.productId) throw new BadRequestException("El probador y los decants deben ser del mismo producto.");
+    if (dto.mlRescatados > dto.cantidadProbadores * dto.mlPorFrasco) {
+      throw new BadRequestException(`No pueden rescatarse más de ${dto.cantidadProbadores * dto.mlPorFrasco} ml (${dto.cantidadProbadores} × ${dto.mlPorFrasco} ml).`);
+    }
+
+    try {
+      const id = await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          // Se bloquean las filas de stock de ambas variantes: serializa contra otras conversiones, bajas y ventas de ml.
+          await lockStockRows(tx, [
+            { varianteId: dto.varianteOrigenId, almacenId: dto.almacenId },
+            { varianteId: dto.varianteId, almacenId: dto.almacenId },
+          ]);
+
+          const agg = await tx.movimientoProbador.groupBy({
+            by: ["tipo"],
+            where: { varianteId: dto.varianteOrigenId, almacenId: dto.almacenId, revertidoAt: null },
+            _sum: { cantidad: true, costoTotal: true },
+          });
+          const cant = (t: TipoMovimientoProbador) => agg.find((a) => a.tipo === t)?._sum.cantidad ?? 0;
+          const convertidos = cant(TipoMovimientoProbador.CONVERSION);
+          const saldo = convertidos - cant(TipoMovimientoProbador.BAJA) - cant(TipoMovimientoProbador.A_DECANT);
+          if (dto.cantidadProbadores > saldo) {
+            throw new BadRequestException(`Solo hay ${saldo} probador(es) de este producto en el almacén.`);
+          }
+          const costoConvertido = Number(agg.find((a) => a.tipo === TipoMovimientoProbador.CONVERSION)?._sum.costoTotal ?? 0);
+          const costoFrasco = convertidos > 0 ? costoConvertido / convertidos : 0;
+
+          // El lote de ml necesita colgar de una línea de compra: se toma la del lote más reciente que alimentó esos probadores.
+          const ultimoLote = await tx.movimientoProbadorLote.findFirst({
+            where: { movimiento: { varianteId: dto.varianteOrigenId, almacenId: dto.almacenId, tipo: TipoMovimientoProbador.CONVERSION } },
+            orderBy: { movimiento: { fecha: "desc" } },
+            include: { loteCompra: true },
+          });
+          if (!ultimoLote) throw new BadRequestException("No hay conversiones a probador registradas para este producto en el almacén.");
+
+          const costoPorMl = new Prisma.Decimal(costoFrasco).div(dto.mlPorFrasco).toDecimalPlaces(4);
+          const loteMl = await tx.loteCompra.create({
+            data: {
+              varianteId: dto.varianteId,
+              almacenId: dto.almacenId,
+              proformaDetalleId: ultimoLote.loteCompra.proformaDetalleId,
+              costoUnitario: costoPorMl,
+              cantidadInicial: dto.mlRescatados,
+              cantidadDisponible: dto.mlRescatados,
+            },
+          });
+          const costoTotal = Math.round(Number(costoPorMl) * dto.mlRescatados * 100) / 100;
+          const movDecant = await tx.movimientoDecant.create({
+            data: {
+              tipo: TipoMovimientoDecant.DESDE_PROBADOR,
+              varianteId: dto.varianteId,
+              varianteOrigenId: dto.varianteOrigenId,
+              almacenId: dto.almacenId,
+              cantidadFrascos: dto.cantidadProbadores,
+              mlPorFrasco: dto.mlPorFrasco,
+              cantidadMl: dto.mlRescatados,
+              costoTotal,
+              nota: dto.nota?.trim() || null,
+              creadoPorId: usuarioId,
+              lotes: { create: [{ loteOrigenId: ultimoLote.loteCompraId, loteDestinoId: loteMl.id, cantidad: dto.cantidadProbadores, costoUnitario: costoFrasco }] },
+            },
+          });
+          const movProbador = await tx.movimientoProbador.create({
+            data: {
+              tipo: TipoMovimientoProbador.A_DECANT,
+              varianteId: dto.varianteOrigenId,
+              almacenId: dto.almacenId,
+              cantidad: dto.cantidadProbadores,
+              costoTotal,
+              nota: dto.nota?.trim() || null,
+              creadoPorId: usuarioId,
+              decantMovimientoId: movDecant.id,
+            },
+          });
+          await tx.stock.update({
+            where: { varianteId_almacenId: { varianteId: dto.varianteId, almacenId: dto.almacenId } },
+            data: { cantidadFisica: { increment: dto.mlRescatados } },
+          });
+          return movProbador.id;
+        },
+        { timeout: 15000, maxWait: 5000 },
+      );
+      return await this.prisma.movimientoProbador.findUniqueOrThrow({ where: { id }, include: movimientoInclude });
+    } catch (error) {
+      rethrowPrismaError(error, "Probador");
+    }
+  }
+
   /** Probadores que ya no están (se agotaron, se perdieron, se rompieron): bajan el saldo, sin tocar el stock. */
   async baja(dto: BajaProbadorDto, usuarioId: string) {
     try {
@@ -196,11 +304,11 @@ export class ProbadorService {
           await lockStockRows(tx, [{ varianteId: dto.varianteId, almacenId: dto.almacenId }]);
           const agg = await tx.movimientoProbador.groupBy({
             by: ["tipo"],
-            where: { varianteId: dto.varianteId, almacenId: dto.almacenId },
+            where: { varianteId: dto.varianteId, almacenId: dto.almacenId, revertidoAt: null },
             _sum: { cantidad: true },
           });
           const suma = (t: TipoMovimientoProbador) => agg.find((a) => a.tipo === t)?._sum.cantidad ?? 0;
-          const saldo = suma(TipoMovimientoProbador.CONVERSION) - suma(TipoMovimientoProbador.BAJA);
+          const saldo = suma(TipoMovimientoProbador.CONVERSION) - suma(TipoMovimientoProbador.BAJA) - suma(TipoMovimientoProbador.A_DECANT);
           if (dto.cantidad > saldo) {
             throw new BadRequestException(`Solo hay ${saldo} probador(es) de este producto en el almacén.`);
           }

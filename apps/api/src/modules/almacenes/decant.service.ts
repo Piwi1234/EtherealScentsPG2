@@ -98,7 +98,7 @@ export class DecantService {
 
   async movimientos(query: { page?: string; pageSize?: string; almacenId?: string; tipo?: string }) {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
-    const tipo = query.tipo === "CONVERSION" || query.tipo === "BAJA" ? query.tipo : undefined;
+    const tipo = query.tipo === "CONVERSION" || query.tipo === "BAJA" || query.tipo === "DESDE_PROBADOR" ? query.tipo : undefined;
     const where: Prisma.MovimientoDecantWhereInput = { almacenId: query.almacenId, tipo };
     const [items, total] = await Promise.all([
       this.prisma.movimientoDecant.findMany({ where, skip, take, orderBy: { fecha: "desc" }, include: movimientoInclude }),
@@ -262,11 +262,15 @@ export class DecantService {
     }
   }
 
-  /** Deshace una conversión: devuelve los frascos al stock y quita los ml. Solo si esos ml siguen intactos (sin ventas ni bajas). */
+  /**
+   * Deshace una conversión: devuelve los frascos al stock y quita los ml. Solo si esos ml siguen intactos (sin ventas ni bajas).
+   * Si vino de probadores (DESDE_PROBADOR), en vez de devolver frascos al stock devuelve el saldo al conteo de probadores.
+   */
   async deshacer(id: string) {
     const mov = await this.prisma.movimientoDecant.findUnique({ where: { id }, include: { lotes: true } });
     if (!mov) throw new NotFoundException("Movimiento no encontrado.");
-    if (mov.tipo !== TipoMovimientoDecant.CONVERSION) throw new BadRequestException("Solo se pueden deshacer conversiones.");
+    const desdeProbador = mov.tipo === TipoMovimientoDecant.DESDE_PROBADOR;
+    if (mov.tipo !== TipoMovimientoDecant.CONVERSION && !desdeProbador) throw new BadRequestException("Solo se pueden deshacer conversiones.");
     if (mov.revertidoAt) throw new BadRequestException("Esta conversión ya se deshizo.");
     if (!mov.varianteOrigenId) throw new BadRequestException("La conversión no tiene variante de origen.");
     const varianteOrigenId = mov.varianteOrigenId;
@@ -291,12 +295,17 @@ export class DecantService {
               throw new ConflictException("Parte de esos ml ya se vendió, se dio de baja o se movió: no se puede deshacer.");
             }
             await tx.loteCompra.update({ where: { id: loteMl.id }, data: { cantidadDisponible: 0 } });
-            await tx.loteCompra.update({ where: { id: l.loteOrigenId }, data: { cantidadDisponible: { increment: l.cantidad } } });
+            // Desde probadores el frasco no vuelve al lote: nunca estuvo "en stock" al convertir, solo se devuelve el saldo del probador.
+            if (!desdeProbador) await tx.loteCompra.update({ where: { id: l.loteOrigenId }, data: { cantidadDisponible: { increment: l.cantidad } } });
           }
-          await tx.stock.update({
-            where: { varianteId_almacenId: { varianteId: varianteOrigenId, almacenId: mov.almacenId } },
-            data: { cantidadFisica: { increment: mov.cantidadFrascos } },
-          });
+          if (desdeProbador) {
+            await tx.movimientoProbador.updateMany({ where: { decantMovimientoId: id }, data: { revertidoAt: new Date() } });
+          } else {
+            await tx.stock.update({
+              where: { varianteId_almacenId: { varianteId: varianteOrigenId, almacenId: mov.almacenId } },
+              data: { cantidadFisica: { increment: mov.cantidadFrascos } },
+            });
+          }
           await tx.stock.update({
             where: { varianteId_almacenId: { varianteId: mov.varianteId, almacenId: mov.almacenId } },
             data: { cantidadFisica: { decrement: mov.cantidadMl } },

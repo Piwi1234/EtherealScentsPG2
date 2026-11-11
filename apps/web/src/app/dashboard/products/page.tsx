@@ -427,7 +427,7 @@ export default function ProductsPage() {
   // dentro de la celda) para que nunca quede recortado por el overflow-x:auto de .table-scroll,
   // pase lo que pase con el scroll horizontal o con cuán abajo esté la fila. Un solo panel
   // compartido (no uno por fila) para no tener que preocuparse de cerrar los demás al abrir uno.
-  const [openActionsMenu, setOpenActionsMenu] = useState<{ product: Product; top: number; left: number } | null>(null);
+  const [openActionsMenu, setOpenActionsMenu] = useState<{ product: Product; top?: number; bottom?: number; right: number } | null>(null);
 
   function handleToggleActionsMenu(e: React.MouseEvent<HTMLButtonElement>, product: Product) {
     if (openActionsMenu?.product.id === product.id) {
@@ -435,7 +435,10 @@ export default function ProductsPage() {
       return;
     }
     const rect = e.currentTarget.getBoundingClientRect();
-    setOpenActionsMenu({ product, top: rect.bottom + 4, left: Math.max(8, rect.right - 140) });
+    // El panel se alinea por su borde derecho con el botón (su ancho depende del texto) y se abre hacia arriba si abajo no cabe.
+    const right = Math.max(8, window.innerWidth - rect.right);
+    const abajo = window.innerHeight - rect.bottom;
+    setOpenActionsMenu(abajo < 90 ? { product, bottom: window.innerHeight - rect.top + 4, right } : { product, top: rect.bottom + 4, right });
   }
 
   // La posición se calcula una sola vez al abrir — si la página scrollea (incluido el scroll
@@ -1167,7 +1170,7 @@ export default function ProductsPage() {
       {openActionsMenu && (
         <>
           <div className="row-actions-overlay" onClick={() => setOpenActionsMenu(null)} />
-          <div className="row-actions-panel" style={{ top: openActionsMenu.top, left: openActionsMenu.left }}>
+          <div className="row-actions-panel" style={{ top: openActionsMenu.top, bottom: openActionsMenu.bottom, right: openActionsMenu.right }}>
             <button
               type="button"
               className="action-btn danger"

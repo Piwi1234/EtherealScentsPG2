@@ -936,7 +936,7 @@ a {
   color: var(--color-text);
 }
 
-.products-table .row-actions-panel {
+.row-actions-panel {
   position: fixed;
   z-index: 50;
   min-width: 140px;
@@ -944,13 +944,13 @@ a {
   padding: 4px;
 }
 
-.nocturne-theme .products-table .row-actions-panel {
+.nocturne-theme .row-actions-panel {
   background: var(--color-surface);
   border: 1px solid var(--color-divider);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
 }
 
-.products-table .row-actions-overlay {
+.row-actions-overlay {
   position: fixed;
   inset: 0;
   z-index: 49;
@@ -12083,3 +12083,89 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   position: relative;
   z-index: 1;
 }
+
+
+/* ---- Decants (página pública /decants y etiqueta en las tarjetas de perfume) ---- */
+.landing-product-decant-tag {
+  display: inline-block;
+  margin: 2px 0 4px;
+  padding: 1px 8px;
+  font-size: 11px;
+  border: 1px solid var(--lp-border);
+  color: var(--lp-text);
+  opacity: 0.75;
+  align-self: flex-start;
+}
+
+.landing-decant-name {
+  text-decoration: none;
+  color: inherit;
+}
+
+.landing-decant-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.landing-decant-size {
+  min-width: 48px;
+  padding: 6px 10px;
+  border-radius: 0;
+  border: 1.5px solid var(--lp-border);
+  background: transparent;
+  color: var(--lp-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.landing-decant-size--active {
+  background: var(--lp-text);
+  border-color: var(--lp-text);
+  color: #ffffff;
+}
+
+.landing-decant-size:disabled {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.landing-decant-add {
+  margin-top: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: var(--es-navy-900);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.landing-decant-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.landing-decant-qty {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1.5px solid var(--es-navy-900);
+  padding: 2px;
+}
+
+.landing-decant-qty button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--es-navy-900);
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+}
+

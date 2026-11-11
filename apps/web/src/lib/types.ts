@@ -252,7 +252,26 @@ export type ProductVariant = {
   hasStock: boolean;
   options: ProductVariantOption[];
   /** Variantes unidad=ML (decants): presentaciones activas, de menor a mayor, sin el costo de empaque (interno). */
-  presentaciones?: Pick<PresentacionVenta, "id" | "varianteId" | "cantidadMl" | "precioVentaBs">[];
+  presentaciones?: (Pick<PresentacionVenta, "id" | "varianteId" | "cantidadMl" | "precioVentaBs"> & {
+    /** Calculado por el backend: true si alcanzan los ml para vender esta presentación (nunca informa cuántos hay). */
+    disponible?: boolean;
+  })[];
+};
+
+/** Perfume en la página pública de decants: el producto más su variante en ml con las presentaciones activas. */
+export type DecantItem = Product & {
+  decant: {
+    varianteId: string;
+    variantCode: string;
+    desdeBs: number;
+    presentaciones: { id: string; varianteId: string; cantidadMl: number; precioVentaBs: string; disponible: boolean }[];
+  };
+};
+
+export type DecantFiltros = {
+  total: number;
+  tamanos: { ml: number; count: number }[];
+  marcas: { id: string; name: string; count: number }[];
 };
 
 /** Subvariante con precio propio de una ProductVariant con unidad = ML (ej. decant de 10ml). */
@@ -714,7 +733,9 @@ export type ProbadorResumen = {
 
 export type MovimientoProbador = {
   id: string;
-  tipo: "CONVERSION" | "BAJA";
+  tipo: "CONVERSION" | "BAJA" | "A_DECANT";
+  /** Solo A_DECANT: si se deshizo la conversión a decant, el saldo volvió al probador. */
+  revertidoAt?: string | null;
   fecha: string;
   varianteId: string;
   variante: ProbadorVariante;
@@ -739,7 +760,7 @@ export type DecantResumen = {
 
 export type MovimientoDecant = {
   id: string;
-  tipo: "CONVERSION" | "BAJA";
+  tipo: "CONVERSION" | "BAJA" | "DESDE_PROBADOR";
   fecha: string;
   varianteId: string;
   variante: ProbadorVariante;
