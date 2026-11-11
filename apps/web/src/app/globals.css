@@ -936,7 +936,7 @@ a {
   color: var(--color-text);
 }
 
-.products-table .row-actions-panel {
+.row-actions-panel {
   position: fixed;
   z-index: 50;
   min-width: 140px;
@@ -944,13 +944,13 @@ a {
   padding: 4px;
 }
 
-.nocturne-theme .products-table .row-actions-panel {
+.nocturne-theme .row-actions-panel {
   background: var(--color-surface);
   border: 1px solid var(--color-divider);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
 }
 
-.products-table .row-actions-overlay {
+.row-actions-overlay {
   position: fixed;
   inset: 0;
   z-index: 49;

@@ -1224,6 +1224,16 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                         const values = currentProduct.variantOptionValues
                           .filter((v) => v.attributeId === def.id)
                           .sort((a, b) => a.value.localeCompare(b.value, "es", { numeric: true, sensitivity: "base" }));
+                        // Solo se ofrecen los valores que aún no tienen variante: una variante es una combinación exacta de valores
+                        // (el servidor rechaza repetirla), así que un valor se oculta si, junto con lo ya elegido en los demás atributos,
+                        // formaría una combinación que ya existe. El valor elegido en este select siempre se mantiene visible.
+                        const key = (ids: string[]) => [...ids].sort().join("|");
+                        const combinacionesCreadas = new Set(currentProduct.variants.map((variant) => key(variant.options.map((o) => o.optionValueId))));
+                        const otrosElegidos = pricedVariantAttrs
+                          .filter((other) => other.id !== def.id && variantForm.optionsByAttribute[other.id])
+                          .map((other) => variantForm.optionsByAttribute[other.id]);
+                        const elegido = variantForm.optionsByAttribute[def.id];
+                        const disponibles = values.filter((v) => v.id === elegido || !combinacionesCreadas.has(key([...otrosElegidos, v.id])));
                         return (
                           <div key={def.id}>
                             <label style={{ fontSize: 12, color: "var(--muted)" }}>{def.name}</label>
@@ -1237,8 +1247,8 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                                 }))
                               }
                             >
-                              <option value="">— Elegir —</option>
-                              {values.map((v) => (
+                              <option value="">{disponibles.length === 0 ? "— Todas creadas —" : "— Elegir —"}</option>
+                              {disponibles.map((v) => (
                                 <option key={v.id} value={v.id}>{v.value}</option>
                               ))}
                             </select>
