@@ -697,6 +697,16 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
     setPresentacionSubmitting(false);
   }
 
+  async function handleActivatePresentacion(presentacion: PresentacionVenta) {
+    if (!presentacionesVarianteId) return;
+    try {
+      await updatePresentacion(presentacion.id, { activo: true });
+      loadPresentaciones(presentacionesVarianteId);
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : String(e));
+    }
+  }
+
   async function handleDeactivatePresentacion(presentacion: PresentacionVenta) {
     if (!presentacionesVarianteId || !confirm(`¿Desactivar la presentación de ${presentacion.cantidadMl} ML?`)) return;
     try {
@@ -1598,9 +1608,13 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                           {margen === null ? "—" : margen.toFixed(2)}
                         </td>
                         <td>
-                          {p.activo && (
+                          {p.activo ? (
                             <button type="button" className="link-button" onClick={() => handleDeactivatePresentacion(p)}>
                               Desactivar
+                            </button>
+                          ) : (
+                            <button type="button" className="link-button" onClick={() => handleActivatePresentacion(p)}>
+                              Activar
                             </button>
                           )}
                         </td>
@@ -1650,8 +1664,15 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                       })}
                     </div>
                   </div>
-                  {libres.filter((ml) => nuevosTamanos[ml]).map((ml) => (
-                    <div key={ml} className="grid-3" style={{ alignItems: "end" }}>
+                  {libres.filter((ml) => nuevosTamanos[ml]).map((ml) => {
+                    // Costo de los ml de esta presentación (ml × costo promedio por ml) y precio base = ese costo + el empaque.
+                    const costoMl = costoMlBs === null ? null : costoMlBs * ml;
+                    const empaque = Number(nuevosTamanos[ml].empaque || 0);
+                    const precioBase = costoMl === null ? null : costoMl + empaque;
+                    const precio = Number(nuevosTamanos[ml].precio || 0);
+                    return (
+                    <div key={ml} style={{ display: "grid", gap: 6 }}>
+                    <div className="grid-3" style={{ alignItems: "end" }}>
                       <div>
                         <label>Tamaño</label>
                         <div className="field" style={{ display: "flex", alignItems: "center" }}>{ml} ML</div>
@@ -1680,7 +1701,24 @@ export function ProductForm({ initialProduct }: { initialProduct?: Product }) {
                         />
                       </div>
                     </div>
-                  ))}
+                    <p className="cell-muted" style={{ margin: 0, fontSize: 12 }}>
+                      {costoMl === null || precioBase === null ? (
+                        "Costo y precio base aparecen cuando hay ml en stock (convierte un frasco a decants)."
+                      ) : (
+                        <>
+                          Costo de {ml} ml: <strong>Bs {costoMl.toFixed(2)}</strong> · Precio base (ml + empaque): <strong>Bs {precioBase.toFixed(2)}</strong>
+                          {precio > 0 && (
+                            <>
+                              {" "}· Margen:{" "}
+                              <strong style={precio - precioBase < 0 ? { color: "var(--danger, #c64232)" } : undefined}>Bs {(precio - precioBase).toFixed(2)}</strong>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </p>
+                    </div>
+                    );
+                  })}
                 </>
               );
             })()}
