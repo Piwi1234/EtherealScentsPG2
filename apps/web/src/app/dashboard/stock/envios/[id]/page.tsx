@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ApiError,
+  actualizarTiposCambioEnvio,
   agregarItemEnvio,
   anularEnvio,
   cerrarEnvio,
@@ -21,6 +22,7 @@ import {
 import type { Envio, EnvioDisponible, EnvioItem, EnvioVariante, Product } from "../../../../../lib/types";
 import { ESTADO_ENVIO_CLASE, ESTADO_ENVIO_LABEL } from "../../../../../lib/envio-estados";
 import { Modal } from "../../../../../components/Modal";
+import { getAuthUser } from "../../../../../lib/auth";
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString("es-VE", { dateStyle: "medium", timeStyle: "short" }) : "—";
@@ -119,6 +121,80 @@ function costoUnitario(item: EnvioItem, l: LineaRecepcion): number {
   return num(d.precioCompra) + (l.envio !== undefined ? num(l.envio) : num(d.costoEnvio)) + (l.seguridad !== undefined ? num(l.seguridad) : num(d.costoSeguridad)) + (l.logistica !== undefined ? num(l.logistica) : num(d.costoLogistica));
 }
 
+type CompraTc = { id: string; codigo: string; proveedor: string | null; actual: string | null };
+
+/** Compras distintas del envío con su tipo de cambio actual. */
+function comprasDelEnvio(envio: Envio): CompraTc[] {
+  const porId = new Map<string, CompraTc>();
+  for (const i of envio.items) {
+    const p = i.compraDetalle.proforma;
+    if (!porId.has(p.id)) porId.set(p.id, { id: p.id, codigo: p.codigo, proveedor: i.compraDetalle.proveedor?.nombre ?? null, actual: p.tipoCambioProf });
+  }
+  return Array.from(porId.values()).sort((a, b) => a.codigo.localeCompare(b.codigo));
+}
+
+/** Lo que cambió respecto al tipo de cambio actual de cada compra; `error` si algún valor no es válido. */
+function cambiosTc(compras: CompraTc[], valores: Record<string, string>): { cambios: { compraId: string; tipoCambio: number }[]; error: string | null } {
+  const cambios: { compraId: string; tipoCambio: number }[] = [];
+  for (const c of compras) {
+    const texto = (valores[c.id] ?? "").trim();
+    if (texto === "") continue;
+    const n = Number(texto);
+    if (!Number.isFinite(n) || n <= 0) return { cambios: [], error: `El tipo de cambio de ${c.codigo} no es válido.` };
+    if (c.actual === null || Number(c.actual) !== n) cambios.push({ compraId: c.id, tipoCambio: n });
+  }
+  return { cambios, error: null };
+}
+
+/** Un tipo de cambio por compra (Bs por $), con «Aplicar a todas» para copiar un valor a todas las filas. */
+function TiposCambioEditor({ compras, valores, onChange }: { compras: CompraTc[]; valores: Record<string, string>; onChange: (valores: Record<string, string>) => void }) {
+  const [paraTodas, setParaTodas] = useState("");
+  return (
+    <div style={{ border: "1px solid var(--color-divider)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
+      {compras.map((c) => (
+        <div key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(160px, 1fr) 110px 120px", gap: 10, alignItems: "center" }}>
+          <div>
+            <strong style={{ fontSize: 13 }}>{c.codigo}</strong>
+            {c.proveedor && <span className="cell-muted" style={{ fontSize: 12 }}> · {c.proveedor}</span>}
+          </div>
+          <span className="cell-muted" style={{ fontSize: 12.5 }}>Actual: {c.actual ? `Bs ${Number(c.actual)}` : "—"}</span>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="0.0001"
+            value={valores[c.id] ?? ""}
+            aria-label={`Tipo de cambio de ${c.codigo}`}
+            onChange={(e) => onChange({ ...valores, [c.id]: e.target.value })}
+          />
+        </div>
+      ))}
+      {compras.length > 1 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="0.0001"
+            value={paraTodas}
+            placeholder="Mismo valor para todas"
+            aria-label="Tipo de cambio para todas las compras"
+            onChange={(e) => setParaTodas(e.target.value)}
+            style={{ width: 190 }}
+          />
+          <button type="button" className="action-btn" disabled={paraTodas.trim() === ""} onClick={() => onChange(Object.fromEntries(compras.map((c) => [c.id, paraTodas])))}>
+            Aplicar a todas
+          </button>
+        </div>
+      )}
+      <p className="cell-muted" style={{ margin: 0, fontSize: 12 }}>
+        Al guardar se recalcula en Bs el costo de lo recibido de estas compras (Existencias, dashboard y Registros) y el margen de las ventas ya hechas con esos lotes.
+        Cada cambio queda anotado en el historial de la compra.
+      </p>
+    </div>
+  );
+}
+
 export default function EnvioDetallePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -137,6 +213,14 @@ export default function EnvioDetallePage() {
   const [lineas, setLineas] = useState<Record<string, LineaRecepcion>>({});
   const [notaRecepcion, setNotaRecepcion] = useState("");
   const [recError, setRecError] = useState("");
+
+  // Corrección del tipo de cambio de las compras del envío (solo ADMIN): dentro de la recepción o aparte.
+  const [esAdmin, setEsAdmin] = useState(false);
+  const [tcValores, setTcValores] = useState<Record<string, string>>({});
+  const [corrigiendoTc, setCorrigiendoTc] = useState(false);
+  const [tcMotivo, setTcMotivo] = useState("");
+  const [tcError, setTcError] = useState("");
+  useEffect(() => setEsAdmin(getAuthUser()?.rol === "ADMIN"), []);
 
   const load = useCallback(() => {
     getEnvio(id)
@@ -208,7 +292,36 @@ export default function EnvioDetallePage() {
     }
   }
 
+  const comprasTc = comprasDelEnvio(envio);
+  const valoresActuales = () => Object.fromEntries(comprasTc.map((c) => [c.id, c.actual ? String(Number(c.actual)) : ""]));
+
+  function abrirCorreccionTc() {
+    setTcValores(valoresActuales());
+    setTcMotivo("");
+    setTcError("");
+    setCorrigiendoTc(true);
+  }
+
+  async function handleCorregirTc(e: React.FormEvent) {
+    e.preventDefault();
+    const { cambios, error: invalido } = cambiosTc(comprasTc, tcValores);
+    if (invalido) return setTcError(invalido);
+    if (cambios.length === 0) return setTcError("No cambiaste ningún valor.");
+    setBusy(true);
+    setTcError("");
+    try {
+      setEnvio(await actualizarTiposCambioEnvio(id, { compras: cambios, motivo: tcMotivo.trim() || undefined }));
+      setCorrigiendoTc(false);
+      router.refresh();
+    } catch (err) {
+      setTcError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function abrirRecepcion() {
+    setTcValores(valoresActuales());
     setLineas({});
     setNotaRecepcion("");
     setRecError("");
@@ -231,10 +344,15 @@ export default function EnvioDetallePage() {
       setRecError("Ingresá cuántas unidades llegaron de al menos un producto.");
       return;
     }
+    const { cambios, error: invalido } = esAdmin ? cambiosTc(comprasTc, tcValores) : { cambios: [], error: null };
+    if (invalido) {
+      setRecError(invalido);
+      return;
+    }
     setBusy(true);
     setRecError("");
     try {
-      setEnvio(await recibirEnvio(id, { nota: notaRecepcion.trim() || undefined, items }));
+      setEnvio(await recibirEnvio(id, { nota: notaRecepcion.trim() || undefined, items, tiposCambio: cambios.length > 0 ? cambios : undefined }));
       setRecibiendo(false);
       router.refresh();
     } catch (err) {
@@ -284,6 +402,14 @@ export default function EnvioDetallePage() {
             {envio.estado === "RECIBIDO" ? formatDate(envio.fechaRecepcion) : `${recibidas} de ${total} unidades llegaron`}
           </p>
         </div>
+        {comprasTc.length > 0 && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <span className="filter-label">Tipo de cambio de las compras</span>
+            <p style={{ margin: "4px 0 0" }}>
+              {comprasTc.map((c) => `${c.codigo}: ${c.actual ? `Bs ${Number(c.actual)}` : "—"}`).join(" · ")}
+            </p>
+          </div>
+        )}
         {envio.nota && (
           <div style={{ gridColumn: "1 / -1" }}>
             <span className="filter-label">Nota</span>
@@ -476,6 +602,11 @@ export default function EnvioDetallePage() {
             Cerrar con lo recibido
           </button>
         )}
+        {esAdmin && envio.estado !== "ANULADO" && comprasTc.length > 0 && (
+          <button type="button" className="action-btn" disabled={busy} onClick={abrirCorreccionTc}>
+            Corregir tipo de cambio
+          </button>
+        )}
         {(armando || (enCamino && !hayRecepciones)) && (
           <button
             type="button"
@@ -591,6 +722,14 @@ export default function EnvioDetallePage() {
                 Llegó todo lo que falta
               </button>
             </div>
+            {esAdmin && comprasTc.length > 0 && (
+              <details>
+                <summary style={{ cursor: "pointer", fontSize: 13 }}>Corregir el tipo de cambio de las compras (solo si se registró mal)</summary>
+                <div style={{ marginTop: 8 }}>
+                  <TiposCambioEditor compras={comprasTc} valores={tcValores} onChange={setTcValores} />
+                </div>
+              </details>
+            )}
             <div>
               <label>Nota (opcional)</label>
               <input className="field" value={notaRecepcion} maxLength={300} onChange={(e) => setNotaRecepcion(e.target.value)} placeholder="Ej. llegó la primera caja" />
@@ -602,6 +741,30 @@ export default function EnvioDetallePage() {
               </button>
               <button type="submit" className="button" disabled={busy}>
                 {busy ? "Guardando..." : "Registrar recepción"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {corrigiendoTc && (
+        <Modal title="Corregir tipo de cambio" onClose={() => setCorrigiendoTc(false)} maxWidth={620}>
+          <form className="form-grid" onSubmit={handleCorregirTc}>
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Si el tipo de cambio de alguna compra de este envío se registró mal, corrígelo aquí. Es un tipo de cambio por compra (Bs por dólar).
+            </p>
+            <TiposCambioEditor compras={comprasTc} valores={tcValores} onChange={setTcValores} />
+            <div>
+              <label>Motivo (opcional)</label>
+              <input className="field" value={tcMotivo} maxLength={300} onChange={(e) => setTcMotivo(e.target.value)} placeholder="Ej. se cargó 6.86 en vez de 6.96" />
+            </div>
+            {tcError && <p className="error-text">{tcError}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setCorrigiendoTc(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="button" disabled={busy}>
+                {busy ? "Guardando..." : "Guardar tipo de cambio"}
               </button>
             </div>
           </form>

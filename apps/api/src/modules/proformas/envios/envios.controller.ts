@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from "@nestjs/common";
+import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Rol } from "@app/database";
@@ -7,7 +7,7 @@ import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../../auth/strategies/jwt.strategy";
 import { EnviosService } from "./envios.service";
 import { EnvioPdfService } from "./envio-pdf.service";
-import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto, UpdateNotaPieDto } from "./dto/envio.dto";
+import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto, UpdateNotaPieDto, UpdateTiposCambioDto } from "./dto/envio.dto";
 
 @ApiTags("envios")
 @ApiBearerAuth()
@@ -97,7 +97,17 @@ export class EnviosController {
   @Post(":id/recepciones")
   @ApiOperation({ summary: "Registra lo que llegó (parcial o total): crea lotes/stock; el resto sigue en camino." })
   recibir(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CreateRecepcionDto, @CurrentUser() user: AuthenticatedUser) {
+    if (dto.tiposCambio && dto.tiposCambio.length > 0 && user.rol !== Rol.ADMIN) {
+      throw new ForbiddenException("Solo un administrador puede corregir el tipo de cambio.");
+    }
     return this.envios.recibir(id, dto, user.id);
+  }
+
+  @Patch(":id/tipos-cambio")
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: "Corrige el tipo de cambio de las compras del envío (solo ADMIN); recalcula en Bs los costos de lo recibido." })
+  actualizarTiposCambio(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateTiposCambioDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.envios.actualizarTiposCambio(id, dto, user.id);
   }
 
   @Post(":id/cerrar")

@@ -747,7 +747,10 @@ export type MovimientoProbador = {
   creadoPor: { id: string; nombre: string };
 };
 
-/** ml que hay ahora en una variante Decants y almacén. */
+/** Presentación de venta de un decant (precio y empaque son del panel de gestión: nunca se exponen en la web pública). */
+export type DecantPresentacionFila = { id: string; varianteId?: string; cantidadMl: number; precioVentaBs: string; costoEmpaqueBs: string; activo: boolean };
+
+/** ml que hay ahora en una variante Decants y almacén, con su costo por ml (Bs) y sus presentaciones. */
 export type DecantResumen = {
   varianteId: string;
   almacenId: string;
@@ -756,6 +759,30 @@ export type DecantResumen = {
   mlFisicos: number;
   mlReservados: number;
   mlDisponibles: number;
+  /** Costo promedio por ml en Bs (lotes con el tipo de cambio de cada compra); null si no hay costo. */
+  costoMlBs: number | null;
+  /** Valor de lo que hay a costo, en Bs. */
+  valorBs: number;
+  presentaciones: DecantPresentacionFila[];
+};
+
+export type DecantResumenRespuesta = {
+  items: DecantResumen[];
+  marcas: { id: string; name: string }[];
+  totalMl: number;
+  resumen: { mlDisponibles: number; valorBs: number; costoMlBs: number | null; sinPresentaciones: number };
+};
+
+/** Detalle de un perfume en un almacén (panel lateral de Decants). */
+export type DecantDetalle = {
+  lotes: { id: string; fecha: string; cantidadInicial: number; cantidadDisponible: number; costoMlBs: number | null; origen: "CONVERSION" | "DESDE_PROBADOR" | "BAJA" | null }[];
+  presentaciones: DecantPresentacionFila[];
+  movimientos: Pick<MovimientoDecant, "id" | "tipo" | "fecha" | "cantidadMl" | "cantidadFrascos" | "revertidoAt" | "costoTotal" | "creadoPor">[];
+};
+
+export type MovimientosDecantRespuesta = Page<MovimientoDecant> & {
+  /** Sobre TODO lo filtrado (no solo la página), sin contar lo deshecho. costoPerdido en USD. */
+  totales: { mlEntraron: number; mlPerdidos: number; costoPerdido: number };
 };
 
 export type MovimientoDecant = {
@@ -1374,7 +1401,7 @@ export type EnvioItem = {
     id: string;
     cantidad: number;
     proveedor: { id: string; nombre: string } | null;
-    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    proforma: { id: string; codigo: string; estado: EstadoProforma; tipoCambioProf: string | null };
     variante: EnvioVariante;
     /** Estimados de la compra (USD por unidad): el precio de compra no se edita, los costos se corrigen al recibir. */
     precioCompra: string | null;
@@ -1427,6 +1454,8 @@ export type EnvioDisponible = {
 export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?: { compraDetalleId: string; cantidad: number }[] };
 export type CreateRecepcionInput = {
   nota?: string;
+  /** Corrección del tipo de cambio de compras del envío al recibir (solo ADMIN). */
+  tiposCambio?: { compraId: string; tipoCambio: number }[];
   items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
 };
 

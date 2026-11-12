@@ -3,6 +3,7 @@ import { Prisma, TipoMovimientoDecant, UnidadVariante } from "@app/database";
 import { getPagination } from "@app/shared";
 import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
+import { normalizarBusqueda } from "../../common/busqueda";
 import { lockStockRows, stockKey } from "../proformas/stock-lock.util";
 import { BajaMlDto, ConvertirDecantDto } from "./dto/decant.dto";
 
@@ -71,18 +72,53 @@ export class DecantService {
     return { mlDisponibles: ml, costoMlBs: ml > 0 ? Math.round((valor / ml) * 10000) / 10000 : null };
   }
 
-  /** ml que hay ahora en cada variante Decants y almacén. */
-  async resumen(query: { almacenId?: string; search?: string }) {
+  /**
+   * ml que hay ahora en cada variante Decants y almacén, con su costo por ml (Bs, promedio de los lotes con el tipo de cambio de cada
+   * compra), su valor y sus presentaciones (precio, empaque y si están activas). `estado`: "RESERVADOS" (con ml reservados) o
+   * "SIN_PRESENTACIONES" (con ml pero sin ninguna presentación activa: no se pueden vender en la web). `marcas` son las que hay
+   * antes de filtrar por marca, para armar el desplegable.
+   */
+  async resumen(query: { almacenId?: string; search?: string; brandId?: string; estado?: string }) {
+    const search = query.search?.trim();
     const filas = await this.prisma.stock.findMany({
       where: {
         almacenId: query.almacenId,
-        variante: { unidad: UnidadVariante.ML },
+        variante: {
+          unidad: UnidadVariante.ML,
+          ...(search
+            ? { product: { OR: [{ nameSearch: { contains: normalizarBusqueda(search) } }, { brand: { nameSearch: { contains: normalizarBusqueda(search) } } }] } }
+            : {}),
+        },
         cantidadFisica: { gt: 0 },
       },
       include: { variante: { select: varianteSelect }, almacen: { select: { id: true, nombre: true } } },
     });
-    const items = filas
-      .map((f) => ({
+
+    const varianteIds = Array.from(new Set(filas.map((f) => f.varianteId)));
+    const [lotes, presentaciones] = await Promise.all([
+      this.prisma.loteCompra.findMany({
+        where: { varianteId: { in: varianteIds }, cantidadDisponible: { gt: 0 } },
+        select: { varianteId: true, almacenId: true, cantidadDisponible: true, costoUnitario: true, proformaDetalle: { select: { proforma: { select: { tipoCambioProf: true } } } } },
+      }),
+      this.prisma.presentacionVenta.findMany({
+        where: { varianteId: { in: varianteIds } },
+        orderBy: { cantidadMl: "asc" },
+        select: { id: true, varianteId: true, cantidadMl: true, precioVentaBs: true, costoEmpaqueBs: true, activo: true },
+      }),
+    ]);
+    const costoPorPar = new Map<string, { ml: number; valor: number }>();
+    for (const l of lotes) {
+      const tc = Number(l.proformaDetalle.proforma.tipoCambioProf ?? 0);
+      const acum = costoPorPar.get(stockKey(l.varianteId, l.almacenId)) ?? { ml: 0, valor: 0 };
+      acum.ml += l.cantidadDisponible;
+      acum.valor += l.cantidadDisponible * Number(l.costoUnitario) * tc;
+      costoPorPar.set(stockKey(l.varianteId, l.almacenId), acum);
+    }
+
+    const conTodo = filas.map((f) => {
+      const c = costoPorPar.get(stockKey(f.varianteId, f.almacenId));
+      const suyas = presentaciones.filter((p) => p.varianteId === f.varianteId);
+      return {
         varianteId: f.varianteId,
         almacenId: f.almacenId,
         variante: f.variante,
@@ -90,21 +126,117 @@ export class DecantService {
         mlFisicos: f.cantidadFisica,
         mlReservados: f.cantidadReservada,
         mlDisponibles: f.cantidadFisica - f.cantidadReservada,
-      }))
-      .filter((f) => !query.search?.trim() || f.variante.product.name.toLowerCase().includes(query.search.trim().toLowerCase()))
+        costoMlBs: c && c.ml > 0 && c.valor > 0 ? Math.round((c.valor / c.ml) * 10000) / 10000 : null,
+        valorBs: c ? Math.round(c.valor * 100) / 100 : 0,
+        presentaciones: suyas,
+      };
+    });
+
+    const marcas = Array.from(new Map(conTodo.filter((i) => i.variante.product.brand).map((i) => [i.variante.product.brand!.id, i.variante.product.brand!])).values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const brandIds = (query.brandId ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+    const items = conTodo
+      .filter((i) => brandIds.length === 0 || (i.variante.product.brand && brandIds.includes(i.variante.product.brand.id)))
+      .filter((i) => query.estado !== "RESERVADOS" || i.mlReservados > 0)
+      .filter((i) => query.estado !== "SIN_PRESENTACIONES" || !i.presentaciones.some((p) => p.activo))
       .sort((a, b) => a.variante.product.name.localeCompare(b.variante.product.name) || a.almacen.nombre.localeCompare(b.almacen.nombre));
-    return { items, totalMl: items.reduce((n, i) => n + i.mlFisicos, 0) };
+
+    const valorBs = items.reduce((n, i) => n + i.valorBs, 0);
+    const mlConCosto = items.filter((i) => i.costoMlBs !== null).reduce((n, i) => n + i.mlDisponibles, 0);
+    return {
+      items,
+      marcas,
+      totalMl: items.reduce((n, i) => n + i.mlFisicos, 0),
+      resumen: {
+        mlDisponibles: items.reduce((n, i) => n + i.mlDisponibles, 0),
+        valorBs: Math.round(valorBs * 100) / 100,
+        costoMlBs: mlConCosto > 0 ? Math.round((valorBs / mlConCosto) * 10000) / 10000 : null,
+        sinPresentaciones: items.filter((i) => !i.presentaciones.some((p) => p.activo)).length,
+      },
+    };
   }
 
-  async movimientos(query: { page?: string; pageSize?: string; almacenId?: string; tipo?: string }) {
+  /** Detalle de un perfume en un almacén: lotes de ml (con su origen y costo por ml), presentaciones y últimos movimientos. */
+  async detalle(varianteId: string, almacenId: string) {
+    const [lotes, presentaciones, movimientos] = await Promise.all([
+      this.prisma.loteCompra.findMany({
+        where: { varianteId, almacenId, cantidadDisponible: { gt: 0 } },
+        orderBy: [{ fecha: "asc" }, { id: "asc" }],
+        select: { id: true, fecha: true, cantidadInicial: true, cantidadDisponible: true, costoUnitario: true, proformaDetalle: { select: { proforma: { select: { tipoCambioProf: true } } } } },
+      }),
+      this.prisma.presentacionVenta.findMany({
+        where: { varianteId },
+        orderBy: { cantidadMl: "asc" },
+        select: { id: true, cantidadMl: true, precioVentaBs: true, costoEmpaqueBs: true, activo: true },
+      }),
+      this.prisma.movimientoDecant.findMany({
+        where: { varianteId, almacenId },
+        orderBy: { fecha: "desc" },
+        take: 6,
+        include: { creadoPor: { select: { id: true, nombre: true } } },
+      }),
+    ]);
+    const origenes = await this.prisma.movimientoDecantLote.findMany({
+      where: { loteDestinoId: { in: lotes.map((l) => l.id) } },
+      select: { loteDestinoId: true, movimiento: { select: { tipo: true } } },
+    });
+    const origenDe = new Map(origenes.map((o) => [o.loteDestinoId, o.movimiento.tipo]));
+    return {
+      lotes: lotes.map((l) => ({
+        id: l.id,
+        fecha: l.fecha,
+        cantidadInicial: l.cantidadInicial,
+        cantidadDisponible: l.cantidadDisponible,
+        costoMlBs: l.proformaDetalle.proforma.tipoCambioProf ? Math.round(Number(l.costoUnitario) * Number(l.proformaDetalle.proforma.tipoCambioProf) * 10000) / 10000 : null,
+        origen: origenDe.get(l.id) ?? null,
+      })),
+      presentaciones,
+      movimientos,
+    };
+  }
+
+  /** Usuarios que han hecho algún movimiento de decants (para el filtro del historial). */
+  usuarios() {
+    return this.prisma.usuario.findMany({ where: { movimientosDecant: { some: {} } }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } });
+  }
+
+  /**
+   * Historial paginado. Filtros: almacén, tipo, usuario, perfume (nombre o marca, del frasco o de los ml) y rango de fechas
+   * (`desde`/`hasta` como AAAA-MM-DD, ambos inclusive). `totales` suma los ml que entraron y los perdidos de TODO lo filtrado
+   * (no solo la página), sin contar lo ya deshecho.
+   */
+  async movimientos(query: { page?: string; pageSize?: string; almacenId?: string; tipo?: string; usuarioId?: string; search?: string; desde?: string; hasta?: string }) {
     const { page, pageSize, skip, take } = getPagination({ page: query.page ?? "1", pageSize: query.pageSize ?? "20" });
     const tipo = query.tipo === "CONVERSION" || query.tipo === "BAJA" || query.tipo === "DESDE_PROBADOR" ? query.tipo : undefined;
-    const where: Prisma.MovimientoDecantWhereInput = { almacenId: query.almacenId, tipo };
-    const [items, total] = await Promise.all([
+    const search = query.search?.trim();
+    const dia = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+    const desde = dia(query.desde);
+    const hasta = dia(query.hasta);
+    const productoCoincide = (): Prisma.ProductVariantWhereInput => ({
+      product: { OR: [{ nameSearch: { contains: normalizarBusqueda(search!) } }, { brand: { nameSearch: { contains: normalizarBusqueda(search!) } } }] },
+    });
+    const where: Prisma.MovimientoDecantWhereInput = {
+      almacenId: query.almacenId,
+      tipo,
+      creadoPorId: query.usuarioId || undefined,
+      ...(desde || hasta ? { fecha: { ...(desde ? { gte: new Date(`${desde}T00:00:00`) } : {}), ...(hasta ? { lte: new Date(`${hasta}T23:59:59.999`) } : {}) } } : {}),
+      ...(search ? { OR: [{ variante: productoCoincide() }, { varianteOrigen: productoCoincide() }] } : {}),
+    };
+    const [items, total, agrupado] = await Promise.all([
       this.prisma.movimientoDecant.findMany({ where, skip, take, orderBy: { fecha: "desc" }, include: movimientoInclude }),
       this.prisma.movimientoDecant.count({ where }),
+      this.prisma.movimientoDecant.groupBy({ by: ["tipo"], where: { ...where, revertidoAt: null }, _sum: { cantidadMl: true, costoTotal: true } }),
     ]);
-    return { items, total, page, pageSize };
+    const suma = (t: TipoMovimientoDecant) => agrupado.find((a) => a.tipo === t)?._sum;
+    const mlEntraron = (suma(TipoMovimientoDecant.CONVERSION)?.cantidadMl ?? 0) + (suma(TipoMovimientoDecant.DESDE_PROBADOR)?.cantidadMl ?? 0);
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totales: { mlEntraron, mlPerdidos: suma(TipoMovimientoDecant.BAJA)?.cantidadMl ?? 0, costoPerdido: Number(suma(TipoMovimientoDecant.BAJA)?.costoTotal ?? 0) },
+    };
   }
 
   /** Saca frascos del stock disponible y suma sus ml a la variante Decants, con el costo real de cada lote (costo / ml). */

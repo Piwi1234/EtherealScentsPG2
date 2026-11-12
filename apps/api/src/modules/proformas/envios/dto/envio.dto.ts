@@ -145,11 +145,46 @@ export class RecepcionItemDto {
   costoLogistica?: number;
 }
 
+export class TipoCambioCompraDto {
+  @ApiProperty({ description: "Compra del envío cuyo tipo de cambio se corrige." })
+  @IsUUID()
+  compraId!: string;
+
+  @ApiProperty({ example: 6.96, description: "Tipo de cambio correcto (Bs por dólar) de esa compra." })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0.0001)
+  tipoCambio!: number;
+}
+
+/** Corrige el tipo de cambio de las compras de un envío fuera de la recepción (solo ADMIN). */
+export class UpdateTiposCambioDto {
+  @ApiProperty({ type: [TipoCambioCompraDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => TipoCambioCompraDto)
+  compras!: TipoCambioCompraDto[];
+
+  @ApiPropertyOptional({ description: "Por qué se corrige (queda en el historial de cada compra)." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  motivo?: string;
+}
+
 export class CreateRecepcionDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   nota?: string;
+
+  @ApiPropertyOptional({ type: [TipoCambioCompraDto], description: "Corrección del tipo de cambio de las compras del envío al recibir (solo ADMIN)." })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TipoCambioCompraDto)
+  tiposCambio?: TipoCambioCompraDto[];
 
   @ApiProperty({ type: [RecepcionItemDto] })
   @IsArray()

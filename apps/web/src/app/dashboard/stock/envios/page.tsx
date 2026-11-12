@@ -267,8 +267,9 @@ function EnviosContenido() {
                       <tr className="reg-group" aria-expanded={abierto} onClick={() => alternar(envio.id)} style={{ cursor: "pointer" }}>
                         <td className="reg-group-code">
                           <span className="reg-chevron">{abierto ? "▾" : "▸"}</span>
-                          <Link href={`/dashboard/stock/envios/${envio.id}`} className="link-button" onClick={(e) => e.stopPropagation()}>
+                          <Link href={`/dashboard/stock/envios/${envio.id}`} className="action-btn solicitud-btn" title="Abrir el envío" onClick={(e) => e.stopPropagation()}>
                             {envio.codigo}
+                            <span aria-hidden="true">→</span>
                           </Link>
                         </td>
                         <td>

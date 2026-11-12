@@ -20,6 +20,9 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   CuentaPorCobrarGrupo,
+  DecantDetalle,
+  DecantResumenRespuesta,
+  MovimientosDecantRespuesta,
   DecantItem,
   DecantFiltros,
   CuentasPorCobrarPorCliente,
@@ -945,12 +948,22 @@ export function darBajaProbador(data: { varianteId: string; almacenId: string; c
   return apiPost<MovimientoProbador>("/probadores/baja", data);
 }
 
-export function getDecants(query: { almacenId?: string; search?: string } = {}) {
+export function getDecants(query: { almacenId?: string; search?: string; brandId?: string; estado?: string } = {}) {
   const params = new URLSearchParams();
   if (query.almacenId) params.set("almacenId", query.almacenId);
   if (query.search) params.set("search", query.search);
+  if (query.brandId) params.set("brandId", query.brandId);
+  if (query.estado) params.set("estado", query.estado);
   const qs = params.toString();
-  return apiGet<{ items: DecantResumen[]; totalMl: number }>(`/decants${qs ? `?${qs}` : ""}`);
+  return apiGet<DecantResumenRespuesta>(`/decants${qs ? `?${qs}` : ""}`);
+}
+
+export function getDecantDetalle(varianteId: string, almacenId: string) {
+  return apiGet<DecantDetalle>(`/decants/detalle?varianteId=${varianteId}&almacenId=${almacenId}`);
+}
+
+export function getDecantUsuarios() {
+  return apiGet<{ id: string; nombre: string }[]>("/decants/usuarios");
 }
 
 export function getDecantDestinos(varianteOrigenId: string) {
@@ -961,14 +974,20 @@ export function getDecantCostoMl(varianteId: string) {
   return apiGet<{ mlDisponibles: number; costoMlBs: number | null }>(`/decants/costo-ml?varianteId=${varianteId}`);
 }
 
-export function getMovimientosDecant(query: { almacenId?: string; tipo?: string; page?: number; pageSize?: number } = {}) {
+export function getMovimientosDecant(
+  query: { almacenId?: string; tipo?: string; usuarioId?: string; search?: string; desde?: string; hasta?: string; page?: number; pageSize?: number } = {},
+) {
   const params = new URLSearchParams();
   if (query.almacenId) params.set("almacenId", query.almacenId);
   if (query.tipo) params.set("tipo", query.tipo);
+  if (query.usuarioId) params.set("usuarioId", query.usuarioId);
+  if (query.search) params.set("search", query.search);
+  if (query.desde) params.set("desde", query.desde);
+  if (query.hasta) params.set("hasta", query.hasta);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const qs = params.toString();
-  return apiGet<Page<MovimientoDecant>>(`/decants/movimientos${qs ? `?${qs}` : ""}`);
+  return apiGet<MovimientosDecantRespuesta>(`/decants/movimientos${qs ? `?${qs}` : ""}`);
 }
 
 export function convertirEnDecants(data: {
@@ -1482,6 +1501,11 @@ export function marcarEnvioEnTransito(id: string) {
 
 export function anularEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/anular`, {});
+}
+
+/** Corrige el tipo de cambio de compras del envío (solo ADMIN): recalcula en Bs el costo de lo recibido. */
+export function actualizarTiposCambioEnvio(id: string, data: { compras: { compraId: string; tipoCambio: number }[]; motivo?: string }) {
+  return apiPatch<Envio>(`/envios/${id}/tipos-cambio`, data);
 }
 
 export function recibirEnvio(id: string, data: CreateRecepcionInput) {

@@ -73,7 +73,7 @@ function FlechaOrden({ dir }: { dir: "asc" | "desc" | null }) {
  * Filtro desplegable en forma de píldora: etiqueta, valor actual y flecha. El <select> nativo queda encima, invisible, para
  * conservar el desplegable y el teclado del navegador sin su caja. Se resalta cuando el filtro está aplicado.
  */
-function Selector({
+export function Selector({
   etiqueta,
   texto,
   activo,
