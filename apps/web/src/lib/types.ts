@@ -557,6 +557,8 @@ export type ProformaDetalleAsignacion = {
   origen: OrigenAsignacion;
   /** Solo tiene sentido mientras origen=PROCURA y cantidad>0 — ver módulo Seguimiento. */
   estadoSeguimiento: EstadoSeguimientoProcura;
+  /** Solo PROCURA: true = el administrador la pasó de stock a pedido a propósito (las reservas automáticas no la toman). */
+  soloPedido?: boolean;
   createdAt: string;
   /** Faltante (Procura) con compra ligada: la compra que lo cubre y cómo va (derivado, se actualiza solo). */
   compraDetalle?: { id: string; cantidad: number; proforma: { id: string; codigo: string; estado: EstadoProforma } } | null;
@@ -1069,6 +1071,8 @@ export type CompletarProformaInput = { almacenId?: string; asignaciones?: Asigna
 export type SeguimientoLinea = {
   id: string;
   cantidad: number;
+  /** true = pasada a pedido a propósito desde una venta que tenía stock. */
+  soloPedido?: boolean;
   estadoSeguimiento: EstadoSeguimientoProcura;
   /** Derivado de la compra/envío ligados (ya no es una etiqueta manual). */
   estadoPedido: EstadoPedido;

@@ -35,7 +35,7 @@ export async function resolverProcuraPendiente(
     where: {
       origen: OrigenAsignacion.PROCURA,
       cantidad: { gt: 0 },
-      ...(params.soloLibres ? { compraDetalleId: null } : {}),
+      ...(params.soloLibres ? { compraDetalleId: null, soloPedido: false } : {}),
       ...(params.soloPreferidas ? { compraDetalleId: { in: params.preferirCompraDetalleIds ?? [] } } : {}),
       proformaDetalle: {
         varianteId: params.varianteId,

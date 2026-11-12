@@ -41,6 +41,7 @@ export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
                     </span>
                   ) : asig.estadoPedido && asig.estadoPedido !== "SIN_COMPRA" && asig.compraDetalle ? (
                     <span>
+                      {asig.soloPedido && <span className="badge badge-info" style={{ marginRight: 6 }}>Pedido a propósito</span>}
                       <span className={CLASES_PEDIDO[asig.estadoPedido]}>{LABELS_PEDIDO[asig.estadoPedido]}</span>
                       <div className="cell-muted" style={{ fontSize: 12 }}>
                         {asig.estadoPedido === "EN_PREPARACION" ? "Compra " : `${asig.recogidas ?? 0} de ${asig.cantidad} recogidas · ${asig.enviadas ?? 0} enviadas · compra `}
@@ -51,8 +52,11 @@ export function AsignacionAlmacenTable({ proforma }: { proforma: Proforma }) {
                     </span>
                   ) : (
                     <span>
+                      {asig.soloPedido && <span className="badge badge-info" style={{ marginRight: 6 }}>Pedido a propósito</span>}
                       <span className="badge badge-muted">Sin compra</span>
-                      <div className="cell-muted" style={{ fontSize: 12 }}>Falta comprarlo.</div>
+                      <div className="cell-muted" style={{ fontSize: 12 }}>
+                        {asig.soloPedido ? "Pasado a pedido a mano: no toma stock del almacén. Ligalo a una compra o devuélvelo a stock con «Cambiar origen»." : "Falta comprarlo."}
+                      </div>
                     </span>
                   )}
                 </td>

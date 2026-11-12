@@ -1263,6 +1263,11 @@ model ProformaDetalleAsignacion {
 
   consumos LoteCompraConsumo[]
 
+  // Solo PROCURA: true = el administrador pasó estas unidades de stock a pedido a propósito (no es un faltante por falta de
+  // stock): las reservas automáticas (Reservar stock, tránsito) no las toman; solo las cubre la compra a la que se ligan,
+  // o se devuelven a stock a mano.
+  soloPedido Boolean @default(false) @map("solo_pedido")
+
   // Solo PROCURA: la línea de COMPRA (destino PEDIDO) que viene a cubrir este faltante. Null = todavía
   // sin compra ligada. Si esa línea se borra, el vínculo se suelta solo.
   compraDetalleId String?          @map("compra_detalle_id") @db.Uuid

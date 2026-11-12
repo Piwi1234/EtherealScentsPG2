@@ -4,12 +4,14 @@ import { PrismaService } from "../../common/prisma.service";
 import { rethrowPrismaError } from "../../common/prisma-errors";
 import { lockCarteras } from "../contabilidad/cartera-lock.util";
 import { AjustarVentaDto } from "./dto/ajustar-venta.dto";
+import { CambiarOrigenDto } from "./dto/cambiar-origen.dto";
+import { resolverProcuraPendiente } from "./procura.util";
 import { ProformaHistorialService } from "./proforma-historial.service";
 import { ProformasService } from "./proformas.service";
 import { totalPagado } from "./proforma-pagos.service";
 import { sumarDescuentos } from "./proforma-totales.util";
 import { lockStockRows, stockKey } from "./stock-lock.util";
-import { recalcularTransitoLinea } from "./transito.util";
+import { pasarTransitoAStock, recalcularTransitoLinea, reservarTransitoParaProcuras, sumarAsignacion } from "./transito.util";
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
@@ -26,6 +28,124 @@ export class ProformaAjusteService {
     private readonly historial: ProformaHistorialService,
     private readonly proformas: ProformasService,
   ) {}
+
+  /**
+   * Cambia el ORIGEN de unidades sueltas de una venta aprobada (solo administrador, ver el controlador). `pasarAPedido` libera
+   * lo reservado en el almacén (primero stock físico, luego tránsito) y lo deja como pedido de Seguimiento marcado «a
+   * propósito» (`soloPedido`): las reservas automáticas no lo vuelven a tomar. `volverAStock` revierte unidades de pedido a
+   * propósito que todavía no están ligadas a una compra y trata de reservarles stock enseguida. No toca el total ni los
+   * pagos. Lo liberado queda como stock libre; otras ventas lo toman con «Reservar stock», como al anular.
+   */
+  async cambiarOrigen(id: string, dto: CambiarOrigenDto, usuarioId: string) {
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+          const rows = await tx.$queryRaw<{ estado: EstadoProforma; tipo: TipoProforma }[]>`
+            SELECT "estado", "tipo" FROM "proformas" WHERE "id" = ${id}::uuid FOR UPDATE
+          `;
+          const lock = rows[0];
+          if (!lock) throw new NotFoundException("Proforma no encontrada.");
+          if (lock.tipo !== TipoProforma.VENTA) throw new BadRequestException("Solo se cambia el origen en notas de venta.");
+          if (lock.estado !== EstadoProforma.APROBADA) throw new ConflictException(`Solo se cambia el origen en una nota aprobada (está ${lock.estado}).`);
+
+          const proforma = await tx.proforma.findUniqueOrThrow({
+            where: { id },
+            include: { detalles: { include: { asignaciones: true, variante: { include: { product: { select: { name: true } } } } } } },
+          });
+          const almacenId = proforma.almacenId;
+          if (!almacenId) throw new ConflictException("La nota no tiene almacén.");
+          const porId = new Map(proforma.detalles.map((d) => [d.id, d]));
+
+          const cambios = dto.lineas
+            .map((l) => ({ ...l, pasar: l.pasarAPedido ?? 0, volver: l.volverAStock ?? 0 }))
+            .filter((l) => l.pasar > 0 || l.volver > 0);
+          if (cambios.length === 0) throw new BadRequestException("No hay cambios para aplicar.");
+          for (const l of cambios) {
+            if (!porId.has(l.detalleId)) throw new BadRequestException("Una de las líneas no pertenece a esta nota.");
+            if (l.pasar > 0 && l.volver > 0) throw new BadRequestException("En una misma línea no se puede pasar a pedido y volver a stock a la vez.");
+          }
+
+          const pares = Array.from(new Set(cambios.map((l) => porId.get(l.detalleId)!.varianteId))).map((varianteId) => ({ varianteId, almacenId }));
+          await lockStockRows(tx, pares);
+
+          const resumen: string[] = [];
+          const aReservar = new Set<string>();
+          for (const l of cambios) {
+            const d = porId.get(l.detalleId)!;
+            const producto = d.variante.product.name;
+
+            if (l.pasar > 0) {
+              // Primero el stock físico (lo que se quiere dejar libre en el almacén), después lo reservado en tránsito.
+              const filas = [
+                ...d.asignaciones.filter((a) => a.origen === OrigenAsignacion.STOCK && a.cantidad > 0),
+                ...d.asignaciones.filter((a) => a.origen === OrigenAsignacion.EN_TRANSITO && a.cantidad > 0),
+              ];
+              const movible = filas.reduce((n, a) => n + a.cantidad, 0);
+              if (l.pasar > movible) throw new BadRequestException(`${producto}: solo hay ${movible} unidad(es) reservadas que se puedan pasar a pedido.`);
+              let falta = l.pasar;
+              for (const a of filas) {
+                if (falta <= 0) break;
+                const tomar = Math.min(falta, a.cantidad);
+                // No se borra la fila: las que ya tuvieron entregas guardan consumos de lote. Queda en 0 (historial interno).
+                await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { cantidad: { decrement: tomar } } });
+                await tx.stock.update({
+                  where: { varianteId_almacenId: { varianteId: d.varianteId, almacenId } },
+                  data: a.origen === OrigenAsignacion.STOCK ? { cantidadReservada: { decrement: tomar } } : { cantidadReservadaTransito: { decrement: tomar } },
+                });
+                falta -= tomar;
+              }
+              const existente = await tx.proformaDetalleAsignacion.findFirst({
+                where: { proformaDetalleId: d.id, origen: OrigenAsignacion.PROCURA, compraDetalleId: null, soloPedido: true },
+              });
+              if (existente) await tx.proformaDetalleAsignacion.update({ where: { id: existente.id }, data: { cantidad: { increment: l.pasar } } });
+              else await tx.proformaDetalleAsignacion.create({ data: { proformaDetalleId: d.id, almacenId: null, cantidad: l.pasar, origen: OrigenAsignacion.PROCURA, soloPedido: true } });
+              resumen.push(`${l.pasar} unidad(es) de ${producto} pasadas a pedido`);
+            }
+
+            if (l.volver > 0) {
+              const pedidos = d.asignaciones.filter((a) => a.origen === OrigenAsignacion.PROCURA && a.soloPedido && a.cantidad > 0);
+              const libres = pedidos.filter((a) => !a.compraDetalleId);
+              const disponibles = libres.reduce((n, a) => n + a.cantidad, 0);
+              const ligadas = pedidos.filter((a) => a.compraDetalleId).reduce((n, a) => n + a.cantidad, 0);
+              if (l.volver > disponibles) {
+                throw new ConflictException(
+                  ligadas > 0
+                    ? `${producto}: solo hay ${disponibles} unidad(es) de pedido sin compra ligada para volver a stock (${ligadas} ya están ligadas a una compra: suéltalas en Seguimiento primero).`
+                    : `${producto}: solo hay ${disponibles} unidad(es) de pedido para volver a stock.`,
+                );
+              }
+              let falta = l.volver;
+              for (const a of libres) {
+                if (falta <= 0) break;
+                const tomar = Math.min(falta, a.cantidad);
+                await tx.proformaDetalleAsignacion.update({ where: { id: a.id }, data: { cantidad: { decrement: tomar } } });
+                falta -= tomar;
+              }
+              // Vuelve a ser un faltante normal: las reservas automáticas pueden tomarlo.
+              await sumarAsignacion(tx, d.id, OrigenAsignacion.PROCURA, null, l.volver);
+              aReservar.add(d.varianteId);
+              resumen.push(`${l.volver} unidad(es) de ${producto} vueltas a stock`);
+            }
+          }
+
+          // Lo que volvió a stock intenta reservar enseguida el stock libre (solo para esta nota y estos productos).
+          for (const varianteId of aReservar) {
+            const stock = await tx.stock.findUniqueOrThrow({ where: { varianteId_almacenId: { varianteId, almacenId } } });
+            await resolverProcuraPendiente(tx, { varianteId, almacenId, disponible: stock.cantidadFisica - stock.cantidadReservada, soloLibres: true, soloProformaId: id });
+            await pasarTransitoAStock(tx, { varianteId, almacenId, soloProformaId: id });
+            await reservarTransitoParaProcuras(tx, { varianteId, almacenId, soloProformaId: id });
+          }
+
+          await this.historial.registrar(tx, id, EstadoProforma.APROBADA, usuarioId, `Origen cambiado: ${resumen.join("; ")}.${dto.motivo?.trim() ? ` Motivo: ${dto.motivo.trim()}.` : ""}`);
+        },
+        { timeout: 30000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Proforma");
+    }
+    return this.proformas.findOne(id);
+  }
 
   async ajustar(id: string, dto: AjustarVentaDto, usuarioId: string) {
     try {
