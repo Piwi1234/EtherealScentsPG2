@@ -13,6 +13,7 @@ import { RegistrarPagoDto } from "./dto/registrar-pago.dto";
 import { ProformaPdfService } from "./proforma-pdf.service";
 import { ProformaAjusteService } from "./proforma-ajuste.service";
 import { AjustarVentaDto } from "./dto/ajustar-venta.dto";
+import { CambiarOrigenDto } from "./dto/cambiar-origen.dto";
 import { ProformaEntregaService } from "./proforma-entrega.service";
 import { EntregarVentaDto } from "./dto/entregar-venta.dto";
 import { CreateProformaDto } from "./dto/create-proforma.dto";
@@ -159,6 +160,17 @@ export class ProformasController {
   })
   ajustar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AjustarVentaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.ajuste.ajustar(id, dto, user.id);
+  }
+
+  @Post(":id/cambiar-origen")
+  @Roles(Rol.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Solo ADMIN. En una venta APROBADA pasa unidades sueltas de stock a pedido de Seguimiento (sin tomar stock del almacén) o las devuelve a stock.",
+  })
+  cambiarOrigen(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CambiarOrigenDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.ajuste.cambiarOrigen(id, dto, user.id);
   }
 
   @Post(":id/entregar")

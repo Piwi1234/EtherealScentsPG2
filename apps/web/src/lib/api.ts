@@ -1133,6 +1133,11 @@ export function ajustarVenta(id: string, data: { lineas: { detalleId: string; ca
   return apiPost<Proforma>(`/proformas/${id}/ajustar`, data);
 }
 
+/** Solo ADMIN: pasa unidades sueltas de una venta aprobada de stock a pedido de Seguimiento (o las devuelve a stock). */
+export function cambiarOrigenVenta(id: string, data: { lineas: { detalleId: string; pasarAPedido?: number; volverAStock?: number }[]; motivo?: string }) {
+  return apiPost<Proforma>(`/proformas/${id}/cambiar-origen`, data);
+}
+
 export function anularProforma(id: string, nota?: string) {
   return apiPost<Proforma>(`/proformas/${id}/anular`, { nota });
 }

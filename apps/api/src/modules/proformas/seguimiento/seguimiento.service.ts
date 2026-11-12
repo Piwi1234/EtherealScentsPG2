@@ -379,7 +379,7 @@ export class SeguimientoService {
       const ligar = async () => {
       // Si este mismo faltante ya tiene una fila ligada a esa compra, lo que se liga se suma a ella.
       const existente = await tx.proformaDetalleAsignacion.findFirst({
-        where: { proformaDetalleId: asignacion.proformaDetalleId, origen: OrigenAsignacion.PROCURA, compraDetalleId, id: { not: asignacionId } },
+        where: { proformaDetalleId: asignacion.proformaDetalleId, origen: OrigenAsignacion.PROCURA, compraDetalleId, soloPedido: asignacion.soloPedido, id: { not: asignacionId } },
       });
 
       if (aLigar === asignacion.cantidad) {
@@ -402,6 +402,7 @@ export class SeguimientoService {
           cantidad: aLigar,
           origen: OrigenAsignacion.PROCURA,
           estadoSeguimiento: asignacion.estadoSeguimiento,
+          soloPedido: asignacion.soloPedido,
           compraDetalleId,
         },
         include: includeLinea,
@@ -627,6 +628,7 @@ export class SeguimientoService {
           proformaDetalleId: asignacion.proformaDetalleId,
           origen: OrigenAsignacion.PROCURA,
           compraDetalleId: null,
+          soloPedido: asignacion.soloPedido,
           id: { not: asignacionId },
         },
       });
@@ -683,6 +685,7 @@ export class SeguimientoService {
           cantidad: dto.cantidad,
           origen: asignacion.origen,
           estadoSeguimiento: dto.estado,
+          soloPedido: asignacion.soloPedido,
           compraDetalleId: asignacion.compraDetalleId,
         },
         include: includeLinea,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,8 @@ import type { Almacen, Cartera, EstadoProforma, Proforma, TipoProforma } from ".
 import { Modal } from "../Modal";
 import { AlmacenSelector, CarteraSelector } from "./selectors";
 import { AjustarVentaModal } from "./AjustarVentaModal";
+import { CambiarOrigenModal } from "./CambiarOrigenModal";
+import { getAuthUser } from "../../lib/auth";
 
 type Transicion = "aprobar" | "anular" | "eliminar";
 
@@ -61,6 +63,9 @@ export function ProformaAcciones({
   const [descargando, setDescargando] = useState(false);
   const [errorPdf, setErrorPdf] = useState("");
   const [ajustando, setAjustando] = useState(false);
+  const [cambiandoOrigen, setCambiandoOrigen] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
+  useEffect(() => setEsAdmin(getAuthUser()?.rol === "ADMIN"), []);
 
   async function handleDescargarPdf() {
     setDescargando(true);
@@ -181,6 +186,11 @@ export function ProformaAcciones({
             Ajustar nota
           </button>
         )}
+        {estado === "APROBADA" && tipo === "VENTA" && proforma && esAdmin && (
+          <button type="button" className="action-btn" onClick={() => setCambiandoOrigen(true)} disabled={submitting !== null} title="Pasar unidades de stock a pedido, o devolverlas a stock">
+            Cambiar origen
+          </button>
+        )}
         {estado === "APROBADA" && tipo === "VENTA" && (
           <button type="button" className="action-btn" onClick={handleReservar} disabled={submitting !== null || reservando}>
             {reservando ? "Reservando..." : "Reservar stock"}
@@ -215,6 +225,7 @@ export function ProformaAcciones({
       {errorPdf && <p className="error-text" style={{ marginTop: 8 }}>{errorPdf}</p>}
       {error && !modal && <p className="error-text" style={{ marginTop: 8 }}>{error}</p>}
 
+      {cambiandoOrigen && proforma && <CambiarOrigenModal proforma={proforma} onClose={() => setCambiandoOrigen(false)} />}
       {ajustando && proforma && <AjustarVentaModal proforma={proforma} carterasBs={carterasBs} onClose={() => setAjustando(false)} />}
 
       {modal === "aprobar" && (
