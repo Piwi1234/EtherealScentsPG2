@@ -1484,6 +1484,11 @@ export function anularEnvio(id: string) {
   return apiPost<Envio>(`/envios/${id}/anular`, {});
 }
 
+/** Corrige el tipo de cambio de compras del envío (solo ADMIN): recalcula en Bs el costo de lo recibido. */
+export function actualizarTiposCambioEnvio(id: string, data: { compras: { compraId: string; tipoCambio: number }[]; motivo?: string }) {
+  return apiPatch<Envio>(`/envios/${id}/tipos-cambio`, data);
+}
+
 export function recibirEnvio(id: string, data: CreateRecepcionInput) {
   return apiPost<Envio>(`/envios/${id}/recepciones`, data);
 }

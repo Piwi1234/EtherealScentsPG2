@@ -1374,7 +1374,7 @@ export type EnvioItem = {
     id: string;
     cantidad: number;
     proveedor: { id: string; nombre: string } | null;
-    proforma: { id: string; codigo: string; estado: EstadoProforma };
+    proforma: { id: string; codigo: string; estado: EstadoProforma; tipoCambioProf: string | null };
     variante: EnvioVariante;
     /** Estimados de la compra (USD por unidad): el precio de compra no se edita, los costos se corrigen al recibir. */
     precioCompra: string | null;
@@ -1427,6 +1427,8 @@ export type EnvioDisponible = {
 export type CreateEnvioInput = { almacenDestinoId: string; nota?: string; items?: { compraDetalleId: string; cantidad: number }[] };
 export type CreateRecepcionInput = {
   nota?: string;
+  /** Corrección del tipo de cambio de compras del envío al recibir (solo ADMIN). */
+  tiposCambio?: { compraId: string; tipoCambio: number }[];
   items: { envioItemId: string; cantidad: number; varianteRecibidaId?: string; nota?: string; costoEnvio?: number; costoSeguridad?: number; costoLogistica?: number }[];
 };
 

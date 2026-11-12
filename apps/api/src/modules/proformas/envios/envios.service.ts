@@ -10,7 +10,7 @@ import { ProformaHistorialService } from "../proforma-historial.service";
 import { lockStockRows, stockKey } from "../stock-lock.util";
 import { resolverProcuraPendiente } from "../procura.util";
 import { recalcularTransitoLinea } from "../transito.util";
-import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, UpdateEnvioDto, UpdateEnvioItemDto } from "./dto/envio.dto";
+import { CreateEnvioDto, CreateRecepcionDto, EnvioItemDto, QueryEnvioDto, TipoCambioCompraDto, UpdateEnvioDto, UpdateEnvioItemDto, UpdateTiposCambioDto } from "./dto/envio.dto";
 
 const varianteInclude = {
   product: { include: { brand: true } },
@@ -23,7 +23,7 @@ const itemInclude = {
       id: true,
       cantidad: true,
       proveedor: { select: { id: true, nombre: true } },
-      proforma: { select: { id: true, codigo: true, estado: true } },
+      proforma: { select: { id: true, codigo: true, estado: true, tipoCambioProf: true } },
       variante: { include: varianteInclude },
       // Costos estimados de la compra: se corrigen con los reales al recibir (el precio de compra no se edita).
       precioCompra: true,
@@ -376,6 +376,11 @@ export class EnviosService {
           });
           const porId = new Map(envio.items.map((i) => [i.id, i]));
 
+          // Corrección del tipo de cambio de las compras (solo ADMIN, ver el controlador): antes de crear nada, en la misma transacción.
+          if (dto.tiposCambio && dto.tiposCambio.length > 0) {
+            await this.aplicarTiposCambio(tx, envio, new Set(envio.items.map((i) => i.compraDetalle.proformaId)), dto.tiposCambio, usuarioId);
+          }
+
           // Un mismo ítem puede venir repetido (p. ej. parte llegó correcta y parte "otro producto"): se valida el total.
           const totalPorItem = new Map<string, number>();
           for (const l of dto.items) {
@@ -508,6 +513,55 @@ export class EnviosService {
           }
         },
         { timeout: 30000, maxWait: 5000 },
+      );
+    } catch (error) {
+      rethrowPrismaError(error, "Envío");
+    }
+    return this.findOne(id);
+  }
+
+  /**
+   * Corrige el tipo de cambio (`tipoCambioProf`) de compras de un envío, por si se registró mal al crearlas. No toca lotes ni stock:
+   * los costos en Bs se calculan en vivo con ese valor, así que se corrigen solos en Existencias, dashboard, Registros y decants.
+   * Deja una línea en el historial de cada compra con el valor anterior y el nuevo.
+   */
+  private async aplicarTiposCambio(
+    tx: Prisma.TransactionClient,
+    envio: { codigo: string },
+    compraIdsDelEnvio: Set<string>,
+    lista: TipoCambioCompraDto[],
+    usuarioId: string,
+    motivo?: string,
+  ) {
+    for (const { compraId, tipoCambio } of lista) {
+      if (!compraIdsDelEnvio.has(compraId)) throw new BadRequestException("Una de las compras no pertenece a este envío.");
+      const compra = await tx.proforma.findUniqueOrThrow({ where: { id: compraId }, select: { codigo: true, tipo: true, estado: true, tipoCambioProf: true } });
+      if (compra.tipo !== TipoProforma.COMPRA) throw new BadRequestException(`${compra.codigo} no es una compra.`);
+      const anterior = compra.tipoCambioProf === null ? null : Number(compra.tipoCambioProf);
+      if (anterior !== null && anterior === tipoCambio) continue;
+      await tx.proforma.update({ where: { id: compraId }, data: { tipoCambioProf: tipoCambio } });
+      // Solo una línea de historial (misma etapa): no es un cambio de estado, así que no se toca estadoActualizadoAt.
+      await tx.proformaHistorial.create({
+        data: {
+          proformaId: compraId,
+          estado: compra.estado,
+          usuarioId,
+          nota: `Tipo de cambio corregido de ${anterior ?? "—"} a ${tipoCambio} (envío ${envio.codigo}).${motivo?.trim() ? ` Motivo: ${motivo.trim()}` : ""}`,
+        },
+      });
+    }
+  }
+
+  /** Corrige el tipo de cambio de las compras de un envío en cualquier momento (solo ADMIN, ver el controlador). */
+  async actualizarTiposCambio(id: string, dto: UpdateTiposCambioDto, usuarioId: string) {
+    const envio = await this.prisma.envio.findUnique({ where: { id }, select: { codigo: true, estado: true, items: { select: { compraDetalle: { select: { proformaId: true } } } } } });
+    if (!envio) throw new NotFoundException("Envío no encontrado.");
+    if (envio.estado === EstadoEnvio.ANULADO) throw new ConflictException("El envío está anulado.");
+    try {
+      await this.prisma.$transaction(
+        (tx) =>
+          this.aplicarTiposCambio(tx, envio, new Set(envio.items.map((i) => i.compraDetalle.proformaId)), dto.compras, usuarioId, dto.motivo),
+        { timeout: 15000, maxWait: 5000 },
       );
     } catch (error) {
       rethrowPrismaError(error, "Envío");
