@@ -16,8 +16,20 @@ export class DecantController {
 
   @Get()
   @ApiOperation({ summary: "ml que hay ahora en cada variante Decants y almacén." })
-  resumen(@Query("almacenId") almacenId?: string, @Query("search") search?: string) {
-    return this.decants.resumen({ almacenId, search });
+  resumen(@Query("almacenId") almacenId?: string, @Query("search") search?: string, @Query("brandId") brandId?: string, @Query("estado") estado?: string) {
+    return this.decants.resumen({ almacenId, search, brandId, estado });
+  }
+
+  @Get("detalle")
+  @ApiOperation({ summary: "Detalle de un perfume en un almacén: lotes de ml, presentaciones y últimos movimientos." })
+  detalle(@Query("varianteId", ParseUUIDPipe) varianteId: string, @Query("almacenId", ParseUUIDPipe) almacenId: string) {
+    return this.decants.detalle(varianteId, almacenId);
+  }
+
+  @Get("usuarios")
+  @ApiOperation({ summary: "Usuarios con movimientos de decants (filtro del historial)." })
+  usuarios() {
+    return this.decants.usuarios();
   }
 
   @Get("costo-ml")
@@ -39,8 +51,12 @@ export class DecantController {
     @Query("pageSize") pageSize?: string,
     @Query("almacenId") almacenId?: string,
     @Query("tipo") tipo?: string,
+    @Query("usuarioId") usuarioId?: string,
+    @Query("search") search?: string,
+    @Query("desde") desde?: string,
+    @Query("hasta") hasta?: string,
   ) {
-    return this.decants.movimientos({ page, pageSize, almacenId, tipo });
+    return this.decants.movimientos({ page, pageSize, almacenId, tipo, usuarioId, search, desde, hasta });
   }
 
   @Post("convertir")
