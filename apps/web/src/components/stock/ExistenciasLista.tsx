@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Children, isValidElement, useEffect, useId, useMemo, useRef, useState } from "react";
+import { contieneBusqueda } from "../../lib/busqueda";
 import { productImageSrc } from "../../lib/catalog-display";
 import type { Almacen, Brand, Category, StockOrden, StockResumen, StockResumenRow } from "../../lib/types";
 import { formatAtributosVisibles } from "../proformas/AtributosVisibles";
@@ -69,9 +70,14 @@ function FlechaOrden({ dir }: { dir: "asc" | "desc" | null }) {
   );
 }
 
+type OpcionSelector = { valor: string; texto: string; deshabilitada: boolean };
+
+const OPCIONES_CON_BUSQUEDA = 8;
+
 /**
- * Filtro desplegable en forma de píldora: etiqueta, valor actual y flecha. El <select> nativo queda encima, invisible, para
- * conservar el desplegable y el teclado del navegador sin su caja. Se resalta cuando el filtro está aplicado.
+ * Filtro desplegable en forma de píldora: etiqueta, valor actual y flecha. Al abrirlo muestra una lista propia (no la del navegador): la opción
+ * elegida va marcada con un check, la que tiene el foco se resalta, y con más de 8 opciones aparece un buscador que ignora acentos. Se maneja con
+ * teclado (flechas, Enter, Escape, Inicio/Fin) y se cierra al hacer clic afuera. Las opciones se declaran como `<option>`, igual que un `<select>`.
  */
 export function Selector({
   etiqueta,
@@ -91,17 +97,163 @@ export function Selector({
   disabled?: boolean;
   children: React.ReactNode;
 }) {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [foco, setFoco] = useState(0);
+  const [derecha, setDerecha] = useState(false);
+  const [arriba, setArriba] = useState(false);
+  const raiz = useRef<HTMLDivElement>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+  const id = useId();
+
+  const opciones: OpcionSelector[] = Children.toArray(children).flatMap((hijo) => {
+    if (!isValidElement(hijo)) return [];
+    const props = hijo.props as { value?: string | number; disabled?: boolean; children?: React.ReactNode };
+    return [{ valor: String(props.value ?? ""), texto: Children.toArray(props.children).join(""), deshabilitada: Boolean(props.disabled) }];
+  });
+  const conBusqueda = opciones.length > OPCIONES_CON_BUSQUEDA;
+  const term = busqueda.trim();
+  const visibles = term ? opciones.filter((o) => contieneBusqueda(o.texto, term)) : opciones;
+  const actual = String(valor);
+
+  function abrir() {
+    if (disabled) return;
+    const rect = raiz.current?.getBoundingClientRect();
+    if (rect) {
+      setDerecha(rect.left + 300 > window.innerWidth);
+      setArriba(window.innerHeight - rect.bottom < 340 && rect.top > window.innerHeight - rect.bottom);
+    }
+    const i = opciones.findIndex((o) => o.valor === actual);
+    setFoco(Math.max(0, i));
+    setBusqueda("");
+    setAbierto(true);
+  }
+
+  function cerrar(devolverFoco = false) {
+    setAbierto(false);
+    if (devolverFoco) boton.current?.focus();
+  }
+
+  function elegir(o: OpcionSelector) {
+    if (o.deshabilitada) return;
+    onChange(o.valor);
+    cerrar(true);
+  }
+
+  useEffect(() => {
+    if (!abierto) return;
+    function alClickAfuera(e: MouseEvent) {
+      if (raiz.current && !raiz.current.contains(e.target as Node)) setAbierto(false);
+    }
+    document.addEventListener("mousedown", alClickAfuera);
+    return () => document.removeEventListener("mousedown", alClickAfuera);
+  }, [abierto]);
+
+  // La opción con el foco siempre queda a la vista dentro de la lista.
+  useEffect(() => {
+    if (!abierto) return;
+    listaRef.current?.querySelector<HTMLElement>('[data-foco="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [abierto, foco, term]);
+
+  function alTeclado(e: React.KeyboardEvent) {
+    if (disabled) return;
+    if (!abierto) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        abrir();
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cerrar(true);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFoco((f) => Math.min(visibles.length - 1, f + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFoco((f) => Math.max(0, f - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setFoco(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setFoco(Math.max(0, visibles.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const o = visibles[foco];
+      if (o) elegir(o);
+    } else if (e.key === "Tab") {
+      setAbierto(false);
+    }
+  }
+
   return (
-    <label className={`ex-select${activo ? " ex-select--on" : ""}${disabled ? " ex-select--off" : ""}`}>
-      <span className="ex-select-etiqueta">{etiqueta}</span>
-      <strong>{texto}</strong>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-      <select aria-label={etiqueta} value={valor} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        {children}
-      </select>
-    </label>
+    <div ref={raiz} className={`ex-select${activo ? " ex-select--on" : ""}${disabled ? " ex-select--off" : ""}${abierto ? " ex-select--abierto" : ""}`} onKeyDown={alTeclado}>
+      <button
+        ref={boton}
+        type="button"
+        className="ex-select-btn"
+        aria-haspopup="listbox"
+        aria-expanded={abierto}
+        aria-controls={abierto ? id : undefined}
+        aria-label={`${etiqueta}: ${texto}`}
+        disabled={disabled}
+        onClick={() => (abierto ? cerrar() : abrir())}
+      >
+        <span className="ex-select-etiqueta">{etiqueta}</span>
+        <strong>{texto}</strong>
+        <svg className="ex-select-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      {abierto && (
+        <div className={`ex-drop${derecha ? " ex-drop--der" : ""}${arriba ? " ex-drop--arriba" : ""}`}>
+          {conBusqueda && (
+            <input
+              className="ex-drop-busqueda"
+              type="search"
+              autoFocus
+              placeholder={`Buscar ${etiqueta.toLowerCase()}…`}
+              aria-label={`Buscar en ${etiqueta}`}
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                setFoco(0);
+              }}
+            />
+          )}
+          <div ref={listaRef} id={id} className="ex-drop-lista" role="listbox" aria-label={etiqueta}>
+            {visibles.map((o, i) => {
+              const seleccionada = o.valor === actual;
+              return (
+                <button
+                  key={o.valor || "__todas"}
+                  type="button"
+                  role="option"
+                  aria-selected={seleccionada}
+                  data-foco={i === foco}
+                  disabled={o.deshabilitada}
+                  className={`ex-drop-op${seleccionada ? " ex-drop-op--sel" : ""}${i === foco ? " ex-drop-op--foco" : ""}`}
+                  onMouseEnter={() => setFoco(i)}
+                  onClick={() => elegir(o)}
+                >
+                  <span>{o.texto}</span>
+                  {seleccionada && (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m5 12 5 5 9-10" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+            {visibles.length === 0 && <p className="ex-drop-vacio">Sin resultados.</p>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
