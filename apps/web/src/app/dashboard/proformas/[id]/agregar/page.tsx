@@ -4,7 +4,7 @@ import { apiGetServer } from "../../../../../lib/api-server";
 import { ApiError } from "../../../../../lib/api";
 import type { Proforma } from "../../../../../lib/types";
 import { AgregarProductoBrowser } from "../../../../../components/proformas/AgregarProductoBrowser";
-import { AgregarComboPanel } from "../../../../../components/proformas/AgregarComboPanel";
+import { AgregarVentaTabs } from "../../../../../components/proformas/AgregarVentaTabs";
 
 export default async function AgregarProductoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,6 +28,9 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
     cantidadesIniciales[d.varianteId] = (cantidadesIniciales[d.varianteId] ?? 0) + d.cantidad;
   }
 
+  // Total de la nota: suma de líneas menos el descuento (el descuento ya viene repartido en descuentoGeneral).
+  const totalNota = Math.max(0, proforma.detalles.reduce((n, d) => n + Number(d.subtotal ?? 0), 0) - Number(proforma.descuentoGeneral ?? 0));
+
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -38,8 +41,11 @@ export default async function AgregarProductoPage({ params }: { params: Promise<
           ← Volver a la proforma
         </Link>
       </div>
-      {proforma.tipo === "VENTA" && <AgregarComboPanel proformaId={id} />}
-      <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} cantidadesIniciales={cantidadesIniciales} />
+      {proforma.tipo === "VENTA" ? (
+        <AgregarVentaTabs proformaId={id} tipo={proforma.tipo} cantidadesIniciales={cantidadesIniciales} lineas={proforma.detalles.length} total={totalNota} />
+      ) : (
+        <AgregarProductoBrowser proformaId={id} tipo={proforma.tipo} cantidadesIniciales={cantidadesIniciales} />
+      )}
     </div>
   );
 }

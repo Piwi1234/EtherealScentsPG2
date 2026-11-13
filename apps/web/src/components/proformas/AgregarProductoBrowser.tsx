@@ -15,6 +15,7 @@ import type {
 } from "../../lib/types";
 import { ordenarVariantes } from "../../lib/variant-order";
 import { StockCell } from "../StockCell";
+import { Selector } from "../stock/ExistenciasLista";
 
 const DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
@@ -86,6 +87,7 @@ export function AgregarProductoBrowser({
   tipo,
   modo,
   cantidadesIniciales = {},
+  onAgregado,
 }: {
   /** Id de la proforma, o de la solicitud de stock cuando `modo` es "SOLICITUD". */
   proformaId: string;
@@ -94,6 +96,8 @@ export function AgregarProductoBrowser({
   modo?: "SOLICITUD";
   /** Piezas que la proforma ya tiene por variante (varianteId → cantidad), para no duplicar líneas. */
   cantidadesIniciales?: Record<string, number>;
+  /** Se llama después de cada producto agregado (la página de ventas refresca con eso el total de la nota). */
+  onAgregado?: () => void;
 }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -342,6 +346,7 @@ export function AgregarProductoBrowser({
         });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
+      onAgregado?.();
       setAddedFlash((prev) => ({ ...prev, [rowKey]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [rowKey]: false })), FLASH_MS);
       setCantidadByProduct((prev) => ({ ...prev, [rowKey]: 1 }));
@@ -358,66 +363,49 @@ export function AgregarProductoBrowser({
 
   return (
     <div>
-      <div className="filters-bar">
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Categoría</label>
-          <select className="field" value={rootCategoryId} onChange={(e) => handleRootCategoryChange(e.target.value)}>
-            <option value="">Todas</option>
-            {rootCategoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Subcategoría</label>
-          <select
-            className="field"
-            value={subCategoryId}
-            onChange={(e) => handleSubCategoryChange(e.target.value)}
-            disabled={!rootCategoryId}
-          >
-            <option value="">Todas</option>
-            {subCategoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Marca</label>
-          <select
-            className="field"
-            value={brandId}
-            onChange={(e) => setBrandId(e.target.value)}
-            disabled={!effectiveCategoryId}
-          >
-            <option value="">Todas</option>
-            {availableBrands.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 240, flex: 1 }}>
-          <label className="filter-label">Realiza tu búsqueda aquí . . .</label>
-          <input
-            className="field"
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Nombre, código o marca"
-          />
-        </div>
+      <div className="ex-toolbar">
+        <label className="ex-search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Buscar por nombre, código o marca…" aria-label="Buscar productos" />
+        </label>
+        <Selector etiqueta="Categoría" texto={rootCategoryOptions.find((c) => c.id === rootCategoryId)?.name ?? "Todas"} activo={Boolean(rootCategoryId)} valor={rootCategoryId} onChange={handleRootCategoryChange}>
+          <option value="">Todas</option>
+          {rootCategoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Selector>
+        <Selector
+          etiqueta="Subcategoría"
+          texto={subCategoryOptions.find((c) => c.id === subCategoryId)?.name ?? "Todas"}
+          activo={Boolean(subCategoryId)}
+          valor={subCategoryId}
+          onChange={handleSubCategoryChange}
+          disabled={!rootCategoryId}
+        >
+          <option value="">Todas</option>
+          {subCategoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Selector>
+        <Selector etiqueta="Marca" texto={availableBrands.find((b) => b.id === brandId)?.name ?? "Todas"} activo={Boolean(brandId)} valor={brandId} onChange={setBrandId} disabled={!effectiveCategoryId}>
+          <option value="">Todas</option>
+          {availableBrands.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </Selector>
         {tipo === "VENTA" && (
-          <div className="filter-field">
-            <label className="filter-label">Precio a enviar a la proforma</label>
-            <div className="pill-group">
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="precioTipo" checked={precioTipo === "FINAL"} onChange={() => setPrecioTipo("FINAL")} />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span className="cell-muted" style={{ fontSize: 12.5 }}>Precio a la nota</span>
+            <div className="seg" role="group" aria-label="Precio a enviar a la proforma">
+              <button type="button" className={precioTipo === "FINAL" ? "on" : undefined} onClick={() => setPrecioTipo("FINAL")}>
                 Final Bs
-              </label>
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="precioTipo" checked={precioTipo === "MAY"} onChange={() => setPrecioTipo("MAY")} />
+              </button>
+              <button type="button" className={precioTipo === "MAY" ? "on" : undefined} onClick={() => setPrecioTipo("MAY")}>
                 May Bs
-              </label>
+              </button>
             </div>
           </div>
         )}

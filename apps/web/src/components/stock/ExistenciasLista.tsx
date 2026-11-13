@@ -79,6 +79,7 @@ export function Selector({
   activo,
   valor,
   onChange,
+  disabled,
   children,
 }: {
   etiqueta: string;
@@ -86,16 +87,18 @@ export function Selector({
   activo?: boolean;
   valor: string | number;
   onChange: (value: string) => void;
+  /** Filtro que depende de otro (ej. Subcategoría sin Categoría): se ve atenuado y no se abre. */
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <label className={`ex-select${activo ? " ex-select--on" : ""}`}>
+    <label className={`ex-select${activo ? " ex-select--on" : ""}${disabled ? " ex-select--off" : ""}`}>
       <span className="ex-select-etiqueta">{etiqueta}</span>
       <strong>{texto}</strong>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="m6 9 6 6 6-6" />
       </svg>
-      <select aria-label={etiqueta} value={valor} onChange={(e) => onChange(e.target.value)}>
+      <select aria-label={etiqueta} value={valor} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
         {children}
       </select>
     </label>
