@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addLineaSolicitud, API_ORIGIN, ApiError, addDetalleCompra, addDetalleVenta, apiGet, getPresentaciones, getProductsStockSummary, type ProductStock } from "../../lib/api";
 import type {
   AttributeType,
@@ -15,6 +15,7 @@ import type {
 } from "../../lib/types";
 import { ordenarVariantes } from "../../lib/variant-order";
 import { StockCell } from "../StockCell";
+import { Selector } from "../stock/ExistenciasLista";
 
 const DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
@@ -86,6 +87,7 @@ export function AgregarProductoBrowser({
   tipo,
   modo,
   cantidadesIniciales = {},
+  onAgregado,
 }: {
   /** Id de la proforma, o de la solicitud de stock cuando `modo` es "SOLICITUD". */
   proformaId: string;
@@ -94,6 +96,8 @@ export function AgregarProductoBrowser({
   modo?: "SOLICITUD";
   /** Piezas que la proforma ya tiene por variante (varianteId → cantidad), para no duplicar líneas. */
   cantidadesIniciales?: Record<string, number>;
+  /** Se llama después de cada producto agregado (la página de ventas refresca con eso el total de la nota). */
+  onAgregado?: () => void;
 }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -112,8 +116,8 @@ export function AgregarProductoBrowser({
   const [selectedMultiValueByCell, setSelectedMultiValueByCell] = useState<Record<string, string>>({});
   const [enProforma, setEnProforma] = useState<Record<string, number>>(cantidadesIniciales);
   const [cantidadByProduct, setCantidadByProduct] = useState<Record<string, number>>({});
-  // Productos cuya cantidad se está eligiendo: el botón "Agregar" pasa a - n + y aparece "Confirmar".
-  const [editando, setEditando] = useState<Record<string, boolean>>({});
+  // Tras agregar, el foco vuelve al buscador para escribir el siguiente producto sin tocar el mouse.
+  const buscadorRef = useRef<HTMLInputElement>(null);
   // Venta de variantes unidad=ML: se elige una presentación (subvariante) en vez de cantidad+precio
   // libres — ver AgregarProductoBrowser.tsx en el plan de "Variantes fraccionadas por ml".
   const [presentacionesByVariant, setPresentacionesByVariant] = useState<Record<string, PresentacionVenta[]>>({});
@@ -198,8 +202,35 @@ export function AgregarProductoBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, tipo]);
 
-  function renderAttributeCell(product: Product, column: ExtraColumn, variant: ProductVariant | undefined) {
+  /** Presentación de una variante en ml: la que se eligió en su fila o, si no, la primera activa. */
+  function presentacionEfectiva(rowKey: string, varianteId: string | undefined): PresentacionVenta | undefined {
+    const activas = (varianteId ? presentacionesByVariant[varianteId] ?? [] : []).filter((p) => p.activo);
+    return activas.find((p) => p.id === presentacionIdByProduct[rowKey]) ?? activas[0];
+  }
+
+  /** Desplegable de presentaciones (5 ML, 10 ML…) de una variante en ml; el precio de la fila cambia con la elegida. */
+  function selectorPresentacion(rowKey: string, variant: ProductVariant) {
+    const activas = (presentacionesByVariant[variant.id] ?? []).filter((p) => p.activo);
+    if (activas.length === 0) return <span className="cell-muted">…</span>;
+    return (
+      <select
+        className="field"
+        style={{ minWidth: 90 }}
+        aria-label="Presentación"
+        value={presentacionEfectiva(rowKey, variant.id)?.id}
+        onChange={(e) => setPresentacionIdByProduct((prev) => ({ ...prev, [rowKey]: e.target.value }))}
+      >
+        {activas.map((p) => (
+          <option key={p.id} value={p.id}>{p.cantidadMl} ML</option>
+        ))}
+      </select>
+    );
+  }
+
+  function renderAttributeCell(product: Product, column: ExtraColumn, variant: ProductVariant | undefined, rowKey: string) {
     if (column.variantMode === "PRICED_VARIANT") {
+      // Decants (ml) en una venta: en lugar del valor de la variante ("DECANT") se elige la presentación, igual que en Productos.
+      if (tipo === "VENTA" && variant?.unidad === "ML") return selectorPresentacion(rowKey, variant);
       // Cada variante con precio propio es su propia fila: se muestra el valor de ESTA variante, sin desplegable.
       return variant?.options.find((o) => o.optionValue.attributeId === column.id)?.optionValue.value ?? "—";
     }
@@ -315,7 +346,7 @@ export function AgregarProductoBrowser({
         await addLineaSolicitud(proformaId, { varianteId: variant.id, cantidad });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       } else if (tipo === "VENTA" && variant.unidad === "ML") {
-        const presentacionVentaId = presentacionIdByProduct[rowKey];
+        const presentacionVentaId = presentacionEfectiva(rowKey, variant.id)?.id;
         const numPresentaciones = numPresentacionesByProduct[rowKey] ?? 1;
         if (!presentacionVentaId) {
           setRowError((prev) => ({ ...prev, [rowKey]: "Elegí una presentación." }));
@@ -342,10 +373,12 @@ export function AgregarProductoBrowser({
         });
         setEnProforma((prev) => ({ ...prev, [variant.id]: (prev[variant.id] ?? 0) + cantidad }));
       }
+      onAgregado?.();
       setAddedFlash((prev) => ({ ...prev, [rowKey]: true }));
       setTimeout(() => setAddedFlash((prev) => ({ ...prev, [rowKey]: false })), FLASH_MS);
       setCantidadByProduct((prev) => ({ ...prev, [rowKey]: 1 }));
-      setEditando((prev) => ({ ...prev, [rowKey]: false }));
+      buscadorRef.current?.focus();
+      buscadorRef.current?.select();
       setNumPresentacionesByProduct((prev) => ({ ...prev, [rowKey]: 1 }));
     } catch (e) {
       setRowError((prev) => ({ ...prev, [rowKey]: e instanceof ApiError ? e.message : String(e) }));
@@ -358,66 +391,49 @@ export function AgregarProductoBrowser({
 
   return (
     <div>
-      <div className="filters-bar">
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Categoría</label>
-          <select className="field" value={rootCategoryId} onChange={(e) => handleRootCategoryChange(e.target.value)}>
-            <option value="">Todas</option>
-            {rootCategoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Subcategoría</label>
-          <select
-            className="field"
-            value={subCategoryId}
-            onChange={(e) => handleSubCategoryChange(e.target.value)}
-            disabled={!rootCategoryId}
-          >
-            <option value="">Todas</option>
-            {subCategoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 200 }}>
-          <label className="filter-label">Marca</label>
-          <select
-            className="field"
-            value={brandId}
-            onChange={(e) => setBrandId(e.target.value)}
-            disabled={!effectiveCategoryId}
-          >
-            <option value="">Todas</option>
-            {availableBrands.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field" style={{ minWidth: 240, flex: 1 }}>
-          <label className="filter-label">Realiza tu búsqueda aquí . . .</label>
-          <input
-            className="field"
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Nombre, código o marca"
-          />
-        </div>
+      <div className="ex-toolbar">
+        <label className="ex-search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input ref={buscadorRef} type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Buscar por nombre, código o marca…" aria-label="Buscar productos" />
+        </label>
+        <Selector etiqueta="Categoría" texto={rootCategoryOptions.find((c) => c.id === rootCategoryId)?.name ?? "Todas"} activo={Boolean(rootCategoryId)} valor={rootCategoryId} onChange={handleRootCategoryChange}>
+          <option value="">Todas</option>
+          {rootCategoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Selector>
+        <Selector
+          etiqueta="Subcategoría"
+          texto={subCategoryOptions.find((c) => c.id === subCategoryId)?.name ?? "Todas"}
+          activo={Boolean(subCategoryId)}
+          valor={subCategoryId}
+          onChange={handleSubCategoryChange}
+          disabled={!rootCategoryId}
+        >
+          <option value="">Todas</option>
+          {subCategoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </Selector>
+        <Selector etiqueta="Marca" texto={availableBrands.find((b) => b.id === brandId)?.name ?? "Todas"} activo={Boolean(brandId)} valor={brandId} onChange={setBrandId} disabled={!effectiveCategoryId}>
+          <option value="">Todas</option>
+          {availableBrands.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </Selector>
         {tipo === "VENTA" && (
-          <div className="filter-field">
-            <label className="filter-label">Precio a enviar a la proforma</label>
-            <div className="pill-group">
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="precioTipo" checked={precioTipo === "FINAL"} onChange={() => setPrecioTipo("FINAL")} />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span className="cell-muted" style={{ fontSize: 12.5 }}>Precio a la nota</span>
+            <div className="seg" role="group" aria-label="Precio a enviar a la proforma">
+              <button type="button" className={precioTipo === "FINAL" ? "on" : undefined} onClick={() => setPrecioTipo("FINAL")}>
                 Final Bs
-              </label>
-              <label className="checkbox-row" style={{ cursor: "pointer" }}>
-                <input type="radio" name="precioTipo" checked={precioTipo === "MAY"} onChange={() => setPrecioTipo("MAY")} />
+              </button>
+              <button type="button" className={precioTipo === "MAY" ? "on" : undefined} onClick={() => setPrecioTipo("MAY")}>
                 May Bs
-              </label>
+              </button>
             </div>
           </div>
         )}
@@ -458,12 +474,10 @@ export function AgregarProductoBrowser({
                       {group.columns.map((column) => (
                         <th key={column.id}>{column.name}</th>
                       ))}
-                      {tipo === "VENTA" && <th>Presentación</th>}
                       <th className="num">Descuento Bs</th>
                       <th className="num">{tipo === "VENTA" && precioTipo === "MAY" ? "▸ " : ""}May Bs</th>
                       <th className="num">{tipo === "VENTA" && precioTipo === "FINAL" ? "▸ " : ""}Precio Final Bs</th>
                       <th className="num">Cantidad</th>
-                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -474,9 +488,9 @@ export function AgregarProductoBrowser({
                   const esCompraMl = tipo === "COMPRA" && selectedVariant?.unidad === "ML";
                   const presentacionesDeVariante = selectedVariant ? presentacionesByVariant[selectedVariant.id] ?? [] : [];
                   const presentacionActiva = presentacionesDeVariante.filter((p) => p.activo);
-                  const presentacionSeleccionada = presentacionesDeVariante.find(
-                    (p) => p.id === presentacionIdByProduct[rowKey],
-                  );
+                  const presentacionSeleccionada = esVentaMl ? presentacionEfectiva(rowKey, selectedVariant?.id) : undefined;
+                  // Si la categoría no muestra la columna del tamaño, el desplegable de presentaciones va junto al nombre.
+                  const sinColumnaTamano = !group.columns.some((c) => c.variantMode === "PRICED_VARIANT");
                   return (
                     <tr
                       key={rowKey}
@@ -502,29 +516,13 @@ export function AgregarProductoBrowser({
                       </td>
                       <td className="cell-code">{esPrimera ? product.productCode : ""}</td>
                       <td className="cell-muted">{esPrimera ? (product.brand?.name ?? "—") : ""}</td>
-                      <td className="cell-primary">{product.name}</td>
+                      <td className="cell-primary">
+                        {product.name}
+                        {esVentaMl && sinColumnaTamano && selectedVariant && <div style={{ marginTop: 4 }}>{selectorPresentacion(rowKey, selectedVariant)}</div>}
+                      </td>
                       {group.columns.map((column) => (
-                        <td key={column.id}>{renderAttributeCell(product, column, selectedVariant)}</td>
+                        <td key={column.id}>{renderAttributeCell(product, column, selectedVariant, rowKey)}</td>
                       ))}
-                      {tipo === "VENTA" && (
-                        <td>
-                          {esVentaMl ? (
-                            <select
-                              className="field"
-                              value={presentacionIdByProduct[rowKey] ?? ""}
-                              onChange={(e) => setPresentacionIdByProduct((prev) => ({ ...prev, [rowKey]: e.target.value }))}
-                              style={{ minWidth: 130 }}
-                            >
-                              <option value="">— Presentación —</option>
-                              {presentacionActiva.map((p) => (
-                                <option key={p.id} value={p.id}>{p.cantidadMl} ML — Bs {p.precioVentaBs}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="cell-muted">—</span>
-                          )}
-                        </td>
-                      )}
                       <td className="num"><span className="unit">Bs</span> {priceSource.discountBs}</td>
                       <td className={`num${tipo === "VENTA" && precioTipo === "MAY" ? " cell-primary" : ""}`}>
                         {esVentaMl ? "—" : (
@@ -555,39 +553,37 @@ export function AgregarProductoBrowser({
                             if (esVentaMl) setNumPresentacionesByProduct((prev) => ({ ...prev, [rowKey]: n }));
                             else setCantidadByProduct((prev) => ({ ...prev, [rowKey]: n }));
                           };
-                          if (!editando[rowKey]) {
-                            return (
-                              <button
-                                type="button"
-                                className="action-btn"
-                                onClick={() => {
-                                  fijar(1);
-                                  setRowError((prev) => ({ ...prev, [rowKey]: "" }));
-                                  setEditando((prev) => ({ ...prev, [rowKey]: true }));
-                                }}
-                              >
-                                {addedFlash[rowKey] ? "Agregada ✓" : "Agregar"}
-                              </button>
-                            );
-                          }
+                          const agregando = submittingId === rowKey;
                           return (
-                            <span className="qty-stepper">
+                            <span className="av-agregar">
+                              <span className="qty-stepper">
+                                <button type="button" aria-label="Menos" disabled={cantidadActual <= 1 || agregando} onClick={() => fijar(cantidadActual - 1)}>
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={cantidadActual}
+                                  aria-label={`Cantidad de ${product.name}`}
+                                  onChange={(e) => fijar(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      if (!agregando) handleAgregar(product, selectedVariant, rowKey);
+                                    }
+                                  }}
+                                />
+                                <button type="button" aria-label="Más" disabled={agregando} onClick={() => fijar(cantidadActual + 1)}>
+                                  +
+                                </button>
+                              </span>
                               <button
                                 type="button"
-                                aria-label="Menos"
-                                onClick={() => (cantidadActual <= 1 ? setEditando((prev) => ({ ...prev, [rowKey]: false })) : fijar(cantidadActual - 1))}
+                                className={addedFlash[rowKey] ? "button av-agregar-ok" : "button"}
+                                disabled={agregando}
+                                onClick={() => handleAgregar(product, selectedVariant, rowKey)}
                               >
-                                −
-                              </button>
-                              <input
-                                type="number"
-                                min={1}
-                                value={cantidadActual}
-                                aria-label={`Cantidad de ${product.name}`}
-                                onChange={(e) => fijar(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                              />
-                              <button type="button" aria-label="Más" onClick={() => fijar(cantidadActual + 1)}>
-                                +
+                                {agregando ? "Agregando..." : addedFlash[rowKey] ? "✓ Agregado" : "+ Agregar"}
                               </button>
                             </span>
                           );
@@ -595,20 +591,13 @@ export function AgregarProductoBrowser({
                         {esCompraMl && (
                           <span className="cell-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>ml</span>
                         )}
-                        {!esVentaMl && selectedVariant && (enProforma[selectedVariant.id] ?? 0) > 0 && (
-                          <span className="badge badge-muted" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
-                            Ya en {modo === "SOLICITUD" ? "la solicitud" : "proforma"}: {enProforma[selectedVariant.id]}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {editando[rowKey] && (
-                          <button type="button" className="button" onClick={() => handleAgregar(product, selectedVariant, rowKey)} disabled={submittingId === rowKey}>
-                            {submittingId === rowKey ? "Agregando..." : "Confirmar"}
-                          </button>
-                        )}
                         {rowError[rowKey] && (
                           <p className="error-text" style={{ fontSize: 12, margin: "4px 0 0" }}>{rowError[rowKey]}</p>
+                        )}
+                        {!esVentaMl && selectedVariant && (enProforma[selectedVariant.id] ?? 0) > 0 && (
+                          <span className="av-en-nota">
+                            ✓ Ya en {modo === "SOLICITUD" ? "la solicitud" : "proforma"}: {enProforma[selectedVariant.id]}
+                          </span>
                         )}
                       </td>
                       </tr>
