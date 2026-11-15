@@ -8,6 +8,7 @@ import { AttributeService } from "../attribute/attribute.service";
 import { SettingsService } from "../../settings/settings.service";
 import { computeBsPrices, computeCatalogPrice, withPrice } from "../product-price";
 import { expireFlashOffers } from "../expire-flash-offers";
+import { CampanaService } from "../../modules/campanas/campana.service";
 
 /** Tope de valores simultáneos para un filtro "allowMultiple" (ej. Acordes) — ver `buildAttributeFilters`:
  * ahí el producto tiene que coincidir con TODOS los seleccionados, así que permitir demasiados a la
@@ -162,10 +163,13 @@ export class CatalogBrowseService {
     private readonly categories: CategoryService,
     private readonly attributes: AttributeService,
     private readonly settings: SettingsService,
+    private readonly campanas: CampanaService,
   ) {}
 
   async findProducts(query: FindCatalogProductsQuery) {
     await expireFlashOffers(this.prisma);
+    // Campañas de descuento masivo: si una ya empezó o terminó, se aplica o se restaura antes de leer precios (con tope de 30 s).
+    await this.campanas.sincronizar();
 
     const { page, pageSize, skip, take } = getPagination({
       page: query.page ?? "1",

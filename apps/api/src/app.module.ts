@@ -15,6 +15,7 @@ import { SettingsModule } from "./settings/settings.module";
 import { CarritoWhatsappModule } from "./modules/carrito-whatsapp/carrito-whatsapp.module";
 import { RedesSocialesModule } from "./modules/redes-sociales/redes-sociales.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { CampanasModule } from "./modules/campanas/campanas.module";
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
     CarritoWhatsappModule,
     RedesSocialesModule,
     DashboardModule,
+    CampanasModule,
   ],
 })
 export class AppModule {}

@@ -9,6 +9,8 @@ import type { Attribute, Category, Page, Product } from "../../lib/types";
 import { formatCartAtributos } from "../proformas/AtributosVisibles";
 import { getCustomerUser, type CustomerUser } from "../../lib/customer-auth";
 import { getAuthUser } from "../../lib/auth";
+import { rangoCampana, useCampana } from "../../lib/campana";
+import { CampanaCountdown } from "./CampanaCountdown";
 
 /** Sin tildes y en minúsculas, para reconocer el atributo "Género" aunque se escriba distinto. */
 function normalizar(texto: string): string {
@@ -47,6 +49,7 @@ export function LandingNavbar({
   variant?: "default" | "dark";
   overlay?: boolean;
 }) {
+  const campana = useCampana();
   const [empresa, setEmpresa] = useState<{ nombre: string | null; logoUrl: string | null } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   // Por categoría raíz: su atributo "Género" (si tiene) para armar la columna POR PERFIL del menú.
@@ -250,6 +253,15 @@ export function LandingNavbar({
   return (
     <>
       <header className={navbarClass}>
+      {/* Campaña activa (Black Friday, etc.): franja con el nombre, las fechas y cuánto falta. */}
+      {campana && (
+        <div className="campana-barra">
+          <strong className="campana-barra-nombre">{campana.nombre}</strong>
+          <span className="campana-barra-fechas">{rangoCampana(campana.inicio, campana.fin)} · termina en</span>
+          <CampanaCountdown fin={campana.fin} variante="barra" />
+          <Link href="/black-friday" className="campana-barra-enlace">Ver ofertas →</Link>
+        </div>
+      )}
       {/* Fila principal: logo a la izquierda, buscador al centro, utilidades a la derecha — mismo
           orden que pontocom.com. Las categorías van en su propia fila debajo (ver
           .landing-navbar-categories), como su mega-menú separado. */}
@@ -426,7 +438,11 @@ export function LandingNavbar({
               );
             })}
             <div className="landing-navbar-item">
-              <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+              {campana ? (
+                <Link className="landing-navbar-ofertas landing-navbar-ofertas--campana" href="/black-friday">{campana.nombre}</Link>
+              ) : (
+                <a className="landing-navbar-ofertas" href="#catalogo" onClick={(e) => e.preventDefault()}>¡¡OFERTAS!!</a>
+              )}
               {/* Una columna con todas las categorías raíz: una categoría nueva aparece sola. */}
               <div className="landing-navbar-dropdown">
                 <div className="landing-container landing-navbar-mega">
@@ -546,7 +562,7 @@ export function LandingNavbar({
               <div className="landing-navbar-mobile-group">
                 <div className="landing-navbar-mobile-row">
                   <button type="button" className="landing-navbar-mobile-link landing-navbar-mobile-link--ofertas landing-navbar-mobile-link--toggle" aria-expanded={openMobileGroup === "ofertas"} onClick={() => toggleMobileGroup("ofertas")}>
-                    ¡¡OFERTAS!!
+                    {campana ? campana.nombre : "¡¡OFERTAS!!"}
                   </button>
                   <button
                     type="button"
