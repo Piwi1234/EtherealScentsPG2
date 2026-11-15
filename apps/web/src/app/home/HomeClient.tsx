@@ -4,7 +4,8 @@ import { CategoryExplorer } from "../../components/landing/CategoryExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages, getPublicCombos } from "../../lib/api";
-import { brandLinkHref, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
+import { brandLinkHref, descuentoPct, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
+import { rangoCampana, useCampana } from "../../lib/campana";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
 import type { Attribute, Brand, CarouselImage, Category, Combo, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
@@ -12,6 +13,7 @@ import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
 import { ProductCard } from "../../components/landing/ProductCard";
 import { HomeCombos } from "../../components/landing/HomeCombos";
+import { CampanaCountdown } from "../../components/landing/CampanaCountdown";
 import { ComboCard } from "../../components/landing/ComboCard";
 
 const OFFERS_SLIDE_SIZE = 5;
@@ -87,6 +89,10 @@ export function HomeClient({
   const [brands, setBrands] = useState<Brand[]>([]);
   const [categoryFilter, setCategoryFilter] = useState(initialOffers?.defaultCategoryId ?? "");
   const [offersMode, setOffersMode] = useState<OffersMode>("discount");
+  // Campaña activa (Black Friday, etc.): cambia el nombre de la pestaña, el título del bloque y le suma cuenta regresiva y filtros de porcentaje.
+  const campana = useCampana();
+  const [minPct, setMinPct] = useState(0);
+  const [ordenOfertas, setOrdenOfertas] = useState<"descuento" | "recientes">("descuento");
   // Combos publicados: entran al filtro de "Descuento y Ofertas" como una opción más (traen un descuento sobre la suma de sus productos).
   const [ofertasCombos, setOfertasCombos] = useState<Combo[]>([]);
   const [verCombosEnOfertas, setVerCombosEnOfertas] = useState(false);
@@ -292,22 +298,32 @@ export function HomeClient({
   const offersSlideSize = offersColumns ?? OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
-  const offerEntries = useMemo(
+  const offerEntries = useMemo(() => {
     // `productsPageMode` (no `offersMode`) a propósito — ver el comentario del fetch de arriba.
-    () => offerVariantEntries(productsPage?.items ?? [], productsPageMode ?? offersMode),
-    [productsPage, productsPageMode, offersMode],
-  );
+    const modo = productsPageMode ?? offersMode;
+    const base = offerVariantEntries(productsPage?.items ?? [], modo);
+    if (!campana || modo !== "discount") return base;
+    // En campaña: filtro por porcentaje mínimo y orden (por defecto, el mayor descuento primero).
+    const conPct = base.map((entrada) => ({
+      entrada,
+      pct: descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)),
+    }));
+    const filtradas = conPct.filter((x) => x.pct >= minPct);
+    if (ordenOfertas === "descuento") filtradas.sort((a, b) => b.pct - a.pct);
+    return filtradas.map((x) => x.entrada);
+  }, [productsPage, productsPageMode, offersMode, campana, minPct, ordenOfertas]);
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
   // "Combos" usa el mismo carrusel (flechas, autoplay, transición, alto medido, columnas por ancho) con sus propias páginas.
   const comboChunks = useMemo(() => chunk(ofertasCombos, offersSlideSize), [ofertasCombos, offersSlideSize]);
   const offersTotal = verCombosEnOfertas ? comboChunks.length : offersChunks.length;
-  // Al entrar o salir de "Combos" el carrusel vuelve a su primera página (el fetch de productos ya lo hace al cambiar de modo/categoría).
+  // Al entrar o salir de "Combos" (o cambiar el filtro de porcentaje / el orden) el carrusel vuelve a su primera página (el fetch de
+  // productos ya lo hace al cambiar de modo/categoría).
   useEffect(() => {
     offersCurrentRef.current = 0;
     offersAnimatingRef.current = false;
     setOffersSlide(0);
     setOffersAnim(null);
-  }, [verCombosEnOfertas]);
+  }, [verCombosEnOfertas, minPct, ordenOfertas]);
 
   // Link del botón "Ver más": la página de la categoría elegida arriba (1ra fila de pills), con el
   // mismo modo de oferta activo (Descuentos/Ofertas Flash/Preventa) ya marcado como filtro — mismo
@@ -540,11 +556,24 @@ export function HomeClient({
       </section>
 
       {/* ================= 3. Descuento y Ofertas ================= */}
-      <section id="catalogo" className="landing-section landing-section--offers-dark">
+      <section id="catalogo" className={`landing-section landing-section--offers-dark${campana ? " landing-section--campana" : ""}`}>
         <div className="landing-container">
-          <p className="landing-eyebrow">Catálogo</p>
-          <h2 className="landing-section-title">Descuento y Ofertas</h2>
-          <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
+          {campana ? (
+            <div className="campana-cabecera">
+              <div>
+                <p className="landing-eyebrow">Campaña · {rangoCampana(campana.inicio, campana.fin)}</p>
+                <h2 className="landing-section-title campana-titulo">{campana.nombre}</h2>
+                <p className="landing-section-lead">Las mejores ofertas del año, hasta agotar stock.</p>
+              </div>
+              <CampanaCountdown fin={campana.fin} variante="bloque" />
+            </div>
+          ) : (
+            <>
+              <p className="landing-eyebrow">Catálogo</p>
+              <h2 className="landing-section-title">Descuento y Ofertas</h2>
+              <p className="landing-section-lead">Los últimos productos en oferta — filtrá por categoría.</p>
+            </>
+          )}
 
           {/* 1ra fila: modo (Ofertas Flash = temporizador vigente / Descuentos = precio rebajado /
               Preventa = variantes en preventa; las que además tienen descuento también salen en Descuentos,
@@ -559,7 +588,7 @@ export function HomeClient({
                 setVerCombosEnOfertas(false);
               }}
             >
-              Descuentos
+              {campana ? campana.nombre : "Descuentos"}
             </button>
             {hasFlashOffers && (
               <button
@@ -612,6 +641,25 @@ export function HomeClient({
               </button>
             ))}
           </div>
+          )}
+
+          {/* Solo en campaña y en la pestaña de descuentos: porcentaje mínimo y orden. */}
+          {campana && offersMode === "discount" && !verCombosEnOfertas && (
+            <div className="campana-filtros">
+              <span className="campana-filtros-etiqueta">Descuento:</span>
+              {[0, 10, 20, 30].map((pct) => (
+                <button key={pct} type="button" className={`landing-pill campana-chip${minPct === pct ? " landing-pill-active" : ""}`} onClick={() => setMinPct(pct)}>
+                  {pct === 0 ? "Todos" : `+${pct}%`}
+                </button>
+              ))}
+              <label className="campana-orden">
+                Ordenar por
+                <select className="landing-select" value={ordenOfertas} onChange={(e) => setOrdenOfertas(e.target.value as "descuento" | "recientes")}>
+                  <option value="descuento">Mayor descuento</option>
+                  <option value="recientes">Más recientes</option>
+                </select>
+              </label>
+            </div>
           )}
 
           {error && <p className="error-text">{error}</p>}

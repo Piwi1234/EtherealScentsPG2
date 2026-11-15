@@ -6,6 +6,7 @@ import { useCart } from "../../lib/cart-context";
 import {
   cardFlashUntil,
   cardImageUrl,
+  descuentoPct,
   displayPrice,
   flashUntilFor,
   formatPriceBs,
@@ -148,7 +149,7 @@ export function ProductCard({
               <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
               <path d="M2.5 3h2.4l2.2 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 7H6" />
             </svg>
-            Oferta
+            {descuentoPct(bs, discountBs) >= 1 ? `−${descuentoPct(bs, discountBs)}%` : "Oferta"}
           </span>
         )}
         {preventa ? (
@@ -250,6 +251,7 @@ export function ProductCard({
             <span className="landing-product-price-new">
               {fromPrice ? "Desde " : ""}Bs {formatPriceBs(bs)}
             </span>
+            <span className="landing-product-save">Ahorras Bs {formatPriceBs(discountBs)}</span>
           </span>
         ) : (
           <span className="landing-product-price">

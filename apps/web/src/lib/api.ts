@@ -20,6 +20,10 @@ import type {
   CompletarProformaInput,
   CuentaPorCobrarConProforma,
   CuentaPorCobrarGrupo,
+  Campana,
+  CampanaInput,
+  CampanaPublica,
+  CampanaVistaPrevia,
   DecantDetalle,
   DecantResumenRespuesta,
   MovimientosDecantRespuesta,
@@ -1584,6 +1588,37 @@ export function getPublicDecants(query: { ml?: string; brandId?: string; search?
   params.set("page", String(query.page ?? 1));
   params.set("pageSize", String(query.pageSize ?? 24));
   return apiGet<Page<DecantItem>>(`/catalog/products?${params.toString()}`);
+}
+
+// --- Campañas de descuento masivo (gestión, solo ADMIN) ---
+
+export function getCampanas() {
+  return apiGet<Campana[]>("/campanas");
+}
+
+export function vistaPreviaCampana(data: Pick<CampanaInput, "tipoDescuento" | "valor" | "alcance" | "opciones">) {
+  return apiPost<CampanaVistaPrevia>("/campanas/vista-previa", data);
+}
+
+export function crearCampana(data: CampanaInput) {
+  return apiPost<Campana>("/campanas", data);
+}
+
+export function programarCampana(id: string) {
+  return apiPost<Campana>(`/campanas/${id}/programar`, {});
+}
+
+export function revertirCampana(id: string) {
+  return apiPost<Campana>(`/campanas/${id}/revertir`, {});
+}
+
+export function eliminarCampana(id: string) {
+  return apiDelete<void>(`/campanas/${id}`);
+}
+
+/** Web pública: la campaña activa (Black Friday, etc.) con su nombre y fechas. */
+export function getCampanaActiva() {
+  return apiGet<CampanaPublica>("/catalog/campana");
 }
 
 export function getDecantFiltros() {

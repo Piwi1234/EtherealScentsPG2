@@ -1765,3 +1765,68 @@ model RecojoLinea {
   @@index([compraDetalleId])
   @@map("recojo_lineas")
 }
+
+/// Ciclo de una campaña (ej. Black Friday): BORRADOR (se prepara) → PROGRAMADA (espera su inicio) → ACTIVA (aplicada y a la vista en
+/// la tienda) → TERMINADA (pasó su fin: los precios se restauraron solos) o REVERTIDA (se deshizo antes de tiempo).
+enum EstadoCampana {
+  BORRADOR
+  PROGRAMADA
+  ACTIVA
+  TERMINADA
+  REVERTIDA
+
+  @@map("estado_campana")
+}
+
+/// NINGUNO = solo vitrina: pone el nombre, las fechas y la cuenta regresiva en la tienda, sin tocar ningún precio.
+enum TipoDescuentoCampana {
+  NINGUNO
+  PORCENTAJE
+  MONTO
+
+  @@map("tipo_descuento_campana")
+}
+
+/// Campaña de descuento masivo con inicio y fin. Al empezar aplica su descuento a los productos del alcance (guardando el descuento
+/// anterior de cada uno en CampanaItem) y al terminar —o al revertirla— lo restaura. Mientras está ACTIVA la tienda muestra su nombre y
+/// su cuenta regresiva. No tiene relaciones con Product/ProductVariant a propósito: guarda los ids tal cual, y un producto borrado
+/// simplemente deja de restaurarse.
+model Campana {
+  id            String               @id @default(uuid()) @db.Uuid
+  nombre        String
+  estado        EstadoCampana        @default(BORRADOR)
+  inicio        DateTime
+  fin           DateTime
+  tipoDescuento TipoDescuentoCampana @default(NINGUNO) @map("tipo_descuento")
+  /// Porcentaje (PORCENTAJE) o monto en Bs por unidad (MONTO); null en NINGUNO.
+  valor         Decimal?             @db.Decimal(12, 2)
+  /// { categoryId?: string, brandIds?: string[], codigos?: string[] }
+  alcance       Json
+  /// { excluirConDescuento?: boolean, soloDisponibles?: boolean, margenMinimoPct?: number }
+  opciones      Json
+  creadoPorId   String               @map("creado_por_id") @db.Uuid
+  aplicadaAt    DateTime?            @map("aplicada_at")
+  terminadaAt   DateTime?            @map("terminada_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  items CampanaItem[]
+
+  @@index([estado])
+  @@map("campanas")
+}
+
+/// Un producto (o una variante con precio propio) al que la campaña le puso descuento, con el que tenía antes para poder restaurarlo.
+model CampanaItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  campanaId         String   @map("campana_id") @db.Uuid
+  campana           Campana  @relation(fields: [campanaId], references: [id], onDelete: Cascade)
+  productId         String   @map("product_id") @db.Uuid
+  /// Null = el descuento está en el producto (catálogo simple); si no, en esa variante.
+  varianteId        String?  @map("variante_id") @db.Uuid
+  descuentoAnterior Decimal  @map("descuento_anterior") @db.Decimal(12, 2)
+  descuentoNuevo    Decimal  @map("descuento_nuevo") @db.Decimal(12, 2)
+
+  @@index([campanaId])
+  @@map("campana_items")
+}

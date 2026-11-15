@@ -268,6 +268,62 @@ export type DecantItem = Product & {
   };
 };
 
+export type EstadoCampana = "BORRADOR" | "PROGRAMADA" | "ACTIVA" | "TERMINADA" | "REVERTIDA";
+export type TipoDescuentoCampana = "NINGUNO" | "PORCENTAJE" | "MONTO";
+
+/** Campaña de descuento masivo (gestión). `productos` = productos/variantes a los que ya se les aplicó el descuento. */
+export type Campana = {
+  id: string;
+  nombre: string;
+  estado: EstadoCampana;
+  inicio: string;
+  fin: string;
+  tipoDescuento: TipoDescuentoCampana;
+  valor: string | null;
+  alcance: { categoryId?: string; brandIds?: string[]; codigos?: string[] };
+  opciones: { excluirConDescuento?: boolean; soloDisponibles?: boolean; margenMinimoPct?: number };
+  productos: number;
+  aplicadaAt: string | null;
+  terminadaAt: string | null;
+};
+
+export type CampanaInput = {
+  nombre: string;
+  inicio: string;
+  fin: string;
+  tipoDescuento: TipoDescuentoCampana;
+  valor?: number;
+  alcance?: { categoryId?: string; brandIds?: string[]; codigos?: string[] };
+  opciones?: { excluirConDescuento?: boolean; soloDisponibles?: boolean; margenMinimoPct?: number };
+  programar?: boolean;
+};
+
+export type CampanaFila = {
+  productId: string;
+  varianteId: string | null;
+  codigo: string;
+  marca: string | null;
+  producto: string;
+  etiqueta: string | null;
+  precioLista: number;
+  precioActual: number;
+  descuentoActual: number;
+  descuentoNuevo: number;
+  precioNuevo: number;
+  margenPct: number | null;
+  estado: "APLICA" | "AVISO" | "EXCLUIDO";
+  motivo?: string;
+};
+
+export type CampanaVistaPrevia = {
+  resumen: { afectados: number; avisos: number; excluidos: number; descuentoPromedioPct: number | null; margenPromedioPct: number | null };
+  filas: CampanaFila[];
+  total: number;
+};
+
+/** GET /catalog/campana: la campaña activa en la tienda, si hay. */
+export type CampanaPublica = { activa: false } | { activa: true; nombre: string; inicio: string; fin: string };
+
 export type DecantFiltros = {
   total: number;
   tamanos: { ml: number; count: number }[];

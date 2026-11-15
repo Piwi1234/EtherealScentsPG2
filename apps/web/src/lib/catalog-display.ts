@@ -112,6 +112,12 @@ export function displayPrice(
   return { bs: product.finalPriceBs, usd: product.price, fromPrice: false, variant: null, discountBs: Number(product.discountBs) };
 }
 
+/** Porcentaje de descuento (entero) de un precio final y su descuento en Bs: 0 si no hay descuento o es menor a 1%. */
+export function descuentoPct(finalBs: number, discountBs: number): number {
+  const lista = finalBs + discountBs;
+  return discountBs > 0 && lista > 0 ? Math.round((discountBs / lista) * 100) : 0;
+}
+
 /** Imagen de tarjeta: la propia de la variante (más barata) si está cargada, si no la del producto. */
 export function cardImageUrl(product: Product, variant: ProductVariant | null): string | null {
   return variant?.imageUrl ?? product.imageUrl;
