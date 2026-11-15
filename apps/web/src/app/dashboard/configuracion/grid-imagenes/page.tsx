@@ -239,8 +239,9 @@ export default function GridImagenesPage() {
       hint:
         "Banner del bloque \"Colección de la semana\" del home (debajo de \"Descuento y Ofertas\"), arriba de las " +
         "últimas 5 tarjetas de la marca elegida en Marcas — ocupa todo el ancho de esa fila de tarjetas. PC: " +
-        "2000×492px o más, panorámica (relación ~4:1), 332px de alto fijo. Mobile (opcional, usa la de PC si no " +
-        "se carga): 1000×750px o más, más compacta (relación 4:3) — el marco cambia de forma en pantallas chicas.",
+        "2000×500px o más, panorámica (relación 4:1): el alto se ajusta al ancho (unos 337px en pantallas grandes). " +
+        "Mobile (opcional, usa la de PC si no se carga): 1000×750px o más, más compacta (relación 4:3) — el marco " +
+        "cambia de forma en pantallas chicas.",
     },
   ];
 
