@@ -129,6 +129,7 @@ export function HomeClient({
   // .landing-offers-carousel-frame).
   const offersFrameRef = useRef<HTMLDivElement>(null);
   const [offersHeight, setOffersHeight] = useState<number | null>(null);
+  const offersAlturaMaxRef = useRef(0);
   // null = todavía no se sabe (ver el layout effect de más abajo) — se trata igual que "sí es
   // mobile" en todo lo que decide CUÁNTOS productos entran por página del carrusel de abajo (ver
   // offersSlideSize): un server no tiene forma de saber el ancho real del dispositivo, así que el
@@ -298,13 +299,13 @@ export function HomeClient({
   const offersSlideSize = offersColumns ?? OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
-  // Las tarjetas del modo activo con su porcentaje de descuento (solo se usa en campaña y en las pestañas de descuentos y preventa).
+  // Las tarjetas del modo activo con su porcentaje de descuento (solo se usa en campaña; vale para descuentos, ofertas flash y preventa).
   const offerEntriesConPct = useMemo(() => {
     // `productsPageMode` (no `offersMode`) a propósito — ver el comentario del fetch de arriba.
     const modo = productsPageMode ?? offersMode;
     return offerVariantEntries(productsPage?.items ?? [], modo).map((entrada) => ({
       entrada,
-      pct: campana && (modo === "discount" || modo === "preventa") ? descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)) : 0,
+      pct: campana ? descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)) : 0,
     }));
   }, [productsPage, productsPageMode, offersMode, campana]);
 
@@ -313,13 +314,12 @@ export function HomeClient({
   const minPctEfectivo = minPct > 0 && chipsPct.includes(minPct) ? minPct : 0;
 
   const offerEntries = useMemo(() => {
-    const modo = productsPageMode ?? offersMode;
-    if (!campana || (modo !== "discount" && modo !== "preventa")) return offerEntriesConPct.map((x) => x.entrada);
+    if (!campana) return offerEntriesConPct.map((x) => x.entrada);
     // En campaña: filtro por porcentaje mínimo y orden (por defecto, el mayor descuento primero).
     const filtradas = offerEntriesConPct.filter((x) => x.pct >= minPctEfectivo);
     if (ordenOfertas === "descuento") filtradas.sort((a, b) => b.pct - a.pct);
     return filtradas.map((x) => x.entrada);
-  }, [offerEntriesConPct, productsPageMode, offersMode, campana, minPctEfectivo, ordenOfertas]);
+  }, [offerEntriesConPct, campana, minPctEfectivo, ordenOfertas]);
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
   // "Combos" usa el mismo carrusel (flechas, autoplay, transición, alto medido, columnas por ancho) con sus propias páginas.
   const comboChunks = useMemo(() => chunk(ofertasCombos, offersSlideSize), [ofertasCombos, offersSlideSize]);
@@ -405,13 +405,22 @@ export function HomeClient({
     if (!el) return;
     // Se mide el contenido (no el scrollHeight del marco): con un alto fijo puesto, scrollHeight nunca baja de ese alto, así que al
     // achicar la ventana el marco se quedaba con el alto viejo. También se re-mide al cambiar el ancho (las tarjetas se escalan).
+    // El alto no baja al cambiar de pestaña (productos, combos…): se conserva el mayor visto a este ancho; al cambiar el ancho de la ventana se
+    // vuelve a medir desde cero.
     const measure = () => {
       const content = el.firstElementChild as HTMLElement | null;
-      if (content) setOffersHeight(Math.ceil(content.getBoundingClientRect().height));
+      if (content) {
+        offersAlturaMaxRef.current = Math.max(offersAlturaMaxRef.current, Math.ceil(content.getBoundingClientRect().height));
+        setOffersHeight(offersAlturaMaxRef.current);
+      }
+    };
+    const alRedimensionar = () => {
+      offersAlturaMaxRef.current = 0;
+      measure();
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("resize", alRedimensionar);
+    return () => window.removeEventListener("resize", alRedimensionar);
   }, [offersChunks, comboChunks, verCombosEnOfertas, offersSlide, offersAnim, offersColumns]);
 
   function renderOffersWindow(index: number) {
@@ -636,8 +645,8 @@ export function HomeClient({
           </div>
 
           {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. No aplica a Combos. */}
-          {!verCombosEnOfertas && (
-          <div className="landing-filter-pills">
+          {/* En Combos no se usa, pero se deja su lugar (invisible) para que el bloque no cambie de alto de golpe. */}
+          <div className="landing-filter-pills" style={verCombosEnOfertas ? { visibility: "hidden" } : undefined} aria-hidden={verCombosEnOfertas}>
             {rootCategories.map((cat) => (
               <button
                 key={cat.id}
@@ -649,11 +658,10 @@ export function HomeClient({
               </button>
             ))}
           </div>
-          )}
 
-          {/* Solo en campaña y en las pestañas de descuentos y preventa: porcentaje mínimo y orden. */}
-          {campana && (offersMode === "discount" || offersMode === "preventa") && !verCombosEnOfertas && (
-            <div className="campana-filtros">
+          {/* Solo en campaña: porcentaje mínimo y orden, en descuentos, ofertas flash y preventa. En Combos se deja su lugar (invisible). */}
+          {campana && (
+            <div className="campana-filtros" style={verCombosEnOfertas ? { visibility: "hidden" } : undefined} aria-hidden={verCombosEnOfertas}>
               {chipsPct.length > 0 && (
                 <>
                   <span className="campana-filtros-etiqueta">Descuento:</span>
