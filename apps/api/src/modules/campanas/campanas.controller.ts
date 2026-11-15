@@ -6,7 +6,7 @@ import { Public } from "../auth/decorators/public.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { CampanaService } from "./campana.service";
-import { CrearCampanaDto, VistaPreviaCampanaDto } from "./dto/campana.dto";
+import { ActualizarDescripcionDto, CrearCampanaDto, VistaPreviaCampanaDto } from "./dto/campana.dto";
 
 /** Gestión de campañas de descuento (solo administrador). */
 @ApiTags("campanas")
@@ -45,6 +45,12 @@ export class CampanasController {
   @ApiOperation({ summary: "Edita una campaña en borrador." })
   actualizar(@Param("id", ParseUUIDPipe) id: string, @Body() dto: CrearCampanaDto) {
     return this.campanas.actualizar(id, dto);
+  }
+
+  @Patch(":id/descripcion")
+  @ApiOperation({ summary: "Cambia el texto de la campaña en la tienda (en cualquier estado)." })
+  actualizarDescripcion(@Param("id", ParseUUIDPipe) id: string, @Body() dto: ActualizarDescripcionDto) {
+    return this.campanas.actualizarDescripcion(id, dto.descripcion);
   }
 
   @Post(":id/programar")

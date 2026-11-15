@@ -84,8 +84,23 @@ export class CrearCampanaDto extends VistaPreviaCampanaDto {
   @IsISO8601()
   fin!: string;
 
+  @ApiPropertyOptional({ description: "Texto que acompaña al nombre en la tienda. Vacío = el texto de siempre." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  descripcion?: string;
+
   @ApiPropertyOptional({ description: "true = crearla ya programada (si el inicio ya pasó, se aplica al instante)." })
   @IsOptional()
   @IsBoolean()
   programar?: boolean;
+}
+
+/** Cambia solo el texto de la campaña (se puede en cualquier estado: no toca precios ni fechas). */
+export class ActualizarDescripcionDto {
+  @ApiPropertyOptional({ description: "Texto nuevo; vacío o ausente = volver al de siempre." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  descripcion?: string;
 }

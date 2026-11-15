@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, eliminarCampana, getCampanas, programarCampana, revertirCampana } from "../../../lib/api";
+import { ApiError, actualizarDescripcionCampana, eliminarCampana, getCampanas, programarCampana, revertirCampana } from "../../../lib/api";
+import { Modal } from "../../../components/Modal";
+import { DESCRIPCION_CAMPANA_POR_DEFECTO } from "../../../lib/campana";
 import type { Campana, EstadoCampana } from "../../../lib/types";
 
 const ESTADO: Record<EstadoCampana, { texto: string; clase: string }> = {
@@ -30,6 +32,26 @@ export default function CampanasPage() {
   const [campanas, setCampanas] = useState<Campana[] | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Edición del texto de una campaña (en cualquier estado: no toca precios ni fechas).
+  const [editando, setEditando] = useState<Campana | null>(null);
+  const [textoNuevo, setTextoNuevo] = useState("");
+  const [guardandoTexto, setGuardandoTexto] = useState(false);
+  const [errorTexto, setErrorTexto] = useState("");
+
+  async function guardarTexto() {
+    if (!editando) return;
+    setGuardandoTexto(true);
+    setErrorTexto("");
+    try {
+      await actualizarDescripcionCampana(editando.id, textoNuevo.trim());
+      setEditando(null);
+      cargar();
+    } catch (e) {
+      setErrorTexto(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
+    } finally {
+      setGuardandoTexto(false);
+    }
+  }
 
   const cargar = useCallback(() => {
     getCampanas()
@@ -114,6 +136,11 @@ export default function CampanasPage() {
                     <td className="num">{c.tipoDescuento === "NINGUNO" ? "—" : c.productos}</td>
                     <td>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        {(c.estado === "BORRADOR" || c.estado === "PROGRAMADA" || c.estado === "ACTIVA") && (
+                          <button type="button" className="action-btn" onClick={() => { setEditando(c); setTextoNuevo(c.descripcion ?? ""); setErrorTexto(""); }}>
+                            Editar texto
+                          </button>
+                        )}
                         {c.estado === "BORRADOR" && (
                           <>
                             <button type="button" className="action-btn" disabled={busyId === c.id} onClick={() => accion(c, "programar")}>
@@ -137,6 +164,28 @@ export default function CampanasPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {editando && (
+        <Modal title={`Texto de «${editando.nombre}»`} onClose={() => setEditando(null)} maxWidth={520}>
+          <div className="form-grid">
+            <p className="cell-muted" style={{ margin: 0, fontSize: 13 }}>
+              Es el texto que aparece debajo del nombre en el bloque del inicio y en la portada de la campaña. Se cambia en cualquier momento, aunque ya esté activa. Vacío =
+              el texto de siempre.
+            </p>
+            <textarea className="field" rows={3} maxLength={200} value={textoNuevo} onChange={(e) => setTextoNuevo(e.target.value)} placeholder={DESCRIPCION_CAMPANA_POR_DEFECTO} aria-label="Texto de la campaña" />
+            <p className="cell-muted" style={{ fontSize: 12, margin: 0 }}>{textoNuevo.length}/200 · en la tienda se actualiza en menos de un minuto.</p>
+            {errorTexto && <p className="error-text">{errorTexto}</p>}
+            <div className="form-actions">
+              <button type="button" className="link-button" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="button" disabled={guardandoTexto} onClick={guardarTexto}>
+                {guardandoTexto ? "Guardando..." : "Guardar texto"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

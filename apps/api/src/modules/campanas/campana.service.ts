@@ -144,6 +144,7 @@ export class CampanaService implements OnModuleInit, OnModuleDestroy {
     const c = await this.prisma.campana.create({
       data: {
         nombre: dto.nombre.trim(),
+        descripcion: dto.descripcion?.trim() || null,
         inicio,
         fin,
         tipoDescuento: p.tipoDescuento,
@@ -168,6 +169,7 @@ export class CampanaService implements OnModuleInit, OnModuleDestroy {
       where: { id },
       data: {
         nombre: dto.nombre.trim(),
+        descripcion: dto.descripcion?.trim() || null,
         inicio,
         fin,
         tipoDescuento: p.tipoDescuento,
@@ -177,6 +179,13 @@ export class CampanaService implements OnModuleInit, OnModuleDestroy {
       },
     });
     return dto.programar ? this.programar(id) : this.findOne(id);
+  }
+
+  /** El texto de la campaña se cambia en cualquier momento (no toca precios ni fechas); vacío = el de siempre. */
+  async actualizarDescripcion(id: string, descripcion?: string) {
+    await this.getOrFail(id);
+    await this.prisma.campana.update({ where: { id }, data: { descripcion: descripcion?.trim() || null } });
+    return this.findOne(id);
   }
 
   async programar(id: string) {
@@ -230,7 +239,7 @@ export class CampanaService implements OnModuleInit, OnModuleDestroy {
     const c = await this.prisma.campana.findFirst({
       where: { estado: EstadoCampana.ACTIVA, inicio: { lte: ahora }, fin: { gt: ahora } },
       orderBy: { fin: "asc" },
-      select: { nombre: true, inicio: true, fin: true },
+      select: { nombre: true, descripcion: true, inicio: true, fin: true },
     });
     return c ? { activa: true as const, ...c } : { activa: false as const };
   }

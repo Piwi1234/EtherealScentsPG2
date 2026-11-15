@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet, getPublicCombos } from "../../lib/api";
 import { descuentoPct, offerVariantEntries } from "../../lib/catalog-display";
-import { rangoCampana, useCampana } from "../../lib/campana";
+import { descripcionCampana, rangoCampana, useCampana } from "../../lib/campana";
 import type { Category, Combo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
@@ -90,7 +90,7 @@ export default function CampanaPage() {
             <div className="landing-container">
               <p className="campana-hero-eyebrow">{rangoCampana(campana.inicio, campana.fin)}</p>
               <h1 className="campana-hero-titulo">{campana.nombre}</h1>
-              <p className="campana-hero-texto">Perfumes árabes, de diseñador y de nicho a precios especiales. Solo por tiempo limitado y hasta agotar stock.</p>
+              <p className="campana-hero-texto">{descripcionCampana(campana)}</p>
               <div className="campana-hero-cuenta">
                 <CampanaCountdown fin={campana.fin} variante="bloque" />
               </div>

@@ -275,6 +275,7 @@ export type TipoDescuentoCampana = "NINGUNO" | "PORCENTAJE" | "MONTO";
 export type Campana = {
   id: string;
   nombre: string;
+  descripcion: string | null;
   estado: EstadoCampana;
   inicio: string;
   fin: string;
@@ -289,6 +290,7 @@ export type Campana = {
 
 export type CampanaInput = {
   nombre: string;
+  descripcion?: string;
   inicio: string;
   fin: string;
   tipoDescuento: TipoDescuentoCampana;
@@ -322,7 +324,7 @@ export type CampanaVistaPrevia = {
 };
 
 /** GET /catalog/campana: la campaña activa en la tienda, si hay. */
-export type CampanaPublica = { activa: false } | { activa: true; nombre: string; inicio: string; fin: string };
+export type CampanaPublica = { activa: false } | { activa: true; nombre: string; descripcion: string | null; inicio: string; fin: string };
 
 export type DecantFiltros = {
   total: number;

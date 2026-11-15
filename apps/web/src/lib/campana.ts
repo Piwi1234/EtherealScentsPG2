@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { getCampanaActiva } from "./api";
 
 /** Campaña activa ahora mismo en la tienda (ej. Black Friday): su nombre y sus fechas. */
-export type CampanaActiva = { nombre: string; inicio: string; fin: string };
+export type CampanaActiva = { nombre: string; descripcion: string | null; inicio: string; fin: string };
+
+/** El texto de la campaña en la tienda: el que se le puso o, si no, el de siempre. */
+export const DESCRIPCION_CAMPANA_POR_DEFECTO = "Las mejores ofertas del año, hasta agotar stock.";
+export const descripcionCampana = (c: Pick<CampanaActiva, "descripcion">): string => c.descripcion?.trim() || DESCRIPCION_CAMPANA_POR_DEFECTO;
 
 const TTL_MS = 30_000;
 let cache: { at: number; valor: CampanaActiva | null } | null = null;
@@ -15,7 +19,7 @@ function cargar(): Promise<CampanaActiva | null> {
   if (cache && Date.now() - cache.at < TTL_MS) return Promise.resolve(cache.valor);
   if (!pendiente) {
     pendiente = getCampanaActiva()
-      .then((r) => (r.activa ? { nombre: r.nombre, inicio: r.inicio, fin: r.fin } : null))
+      .then((r) => (r.activa ? { nombre: r.nombre, descripcion: r.descripcion, inicio: r.inicio, fin: r.fin } : null))
       .catch(() => null)
       .then((valor) => {
         cache = { at: Date.now(), valor };

@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages, getPublicCombos } from "../../lib/api";
 import { brandLinkHref, descuentoPct, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
-import { rangoCampana, useCampana } from "../../lib/campana";
+import { descripcionCampana, rangoCampana, useCampana } from "../../lib/campana";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
 import type { Attribute, Brand, CarouselImage, Category, Combo, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
@@ -571,7 +571,7 @@ export function HomeClient({
               <div>
                 <p className="landing-eyebrow">Campaña · {rangoCampana(campana.inicio, campana.fin)}</p>
                 <h2 className="landing-section-title campana-titulo">{campana.nombre}</h2>
-                <p className="landing-section-lead">Las mejores ofertas del año, hasta agotar stock.</p>
+                <p className="landing-section-lead">{descripcionCampana(campana)}</p>
               </div>
               <CampanaCountdown fin={campana.fin} variante="bloque" />
             </div>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApiError, crearCampana, getBrands, getCategories, vistaPreviaCampana } from "../../../../lib/api";
 import type { Brand, Category, CampanaInput, CampanaVistaPrevia, TipoDescuentoCampana } from "../../../../lib/types";
 import { Selector } from "../../../../components/stock/ExistenciasLista";
+import { DESCRIPCION_CAMPANA_POR_DEFECTO } from "../../../../lib/campana";
 
 type Alcance = "CATEGORIA" | "CODIGOS";
 
@@ -31,6 +32,7 @@ export default function NuevaCampanaPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
 
   const [nombre, setNombre] = useState("BLACK FRIDAY");
+  const [descripcion, setDescripcion] = useState("");
   const [tipo, setTipo] = useState<TipoDescuentoCampana>("PORCENTAJE");
   const [valor, setValor] = useState("20");
   const [alcanceTipo, setAlcanceTipo] = useState<Alcance>("CATEGORIA");
@@ -102,7 +104,7 @@ export default function NuevaCampanaPage() {
     setGuardando(true);
     setError("");
     try {
-      await crearCampana({ nombre: nombre.trim(), inicio: aIso(inicio), fin: aIso(fin), ...solicitud, programar });
+      await crearCampana({ nombre: nombre.trim(), descripcion: descripcion.trim() || undefined, inicio: aIso(inicio), fin: aIso(fin), ...solicitud, programar });
       router.push("/dashboard/campanas");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e));
@@ -238,6 +240,11 @@ export default function NuevaCampanaPage() {
             <div>
               <label className="filter-label">Nombre (sale como pestaña y título en la tienda)</label>
               <input className="field" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} />
+            </div>
+            <div>
+              <label className="filter-label">Texto de la campaña (opcional)</label>
+              <textarea className="field" rows={2} value={descripcion} maxLength={200} onChange={(e) => setDescripcion(e.target.value)} placeholder={DESCRIPCION_CAMPANA_POR_DEFECTO} />
+              <p className="cell-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Aparece debajo del nombre en el bloque del inicio y en la portada de la campaña. Vacío = el texto de siempre.</p>
             </div>
             <p className="cell-muted" style={{ fontSize: 12, margin: 0 }}>La hora es la de la tienda (GMT-4). Al terminar, los precios vuelven solos a lo que tenían.</p>
           </div>

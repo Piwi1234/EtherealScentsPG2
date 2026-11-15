@@ -1794,6 +1794,8 @@ enum TipoDescuentoCampana {
 model Campana {
   id            String               @id @default(uuid()) @db.Uuid
   nombre        String
+  /// Texto que acompaña al nombre en la tienda (bloque del home y portada de la campaña). Null = el de siempre.
+  descripcion   String?
   estado        EstadoCampana        @default(BORRADOR)
   inicio        DateTime
   fin           DateTime

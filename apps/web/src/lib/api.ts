@@ -1608,6 +1608,10 @@ export function programarCampana(id: string) {
   return apiPost<Campana>(`/campanas/${id}/programar`, {});
 }
 
+export function actualizarDescripcionCampana(id: string, descripcion: string) {
+  return apiPatch<Campana>(`/campanas/${id}/descripcion`, { descripcion });
+}
+
 export function revertirCampana(id: string) {
   return apiPost<Campana>(`/campanas/${id}/revertir`, {});
 }
