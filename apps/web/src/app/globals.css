@@ -5907,6 +5907,8 @@ a {
 
 .landing-product-image,
 .landing-product-image-placeholder {
+  /* block: un <img> en línea deja un hueco bajo la imagen (el espacio de la línea de texto) y ahí asomaba el fondo claro del marco. */
+  display: block;
   width: 100%;
   /* 15% más alta que el 5:4 original (misma base que el comentario de más abajo sobre /categoria y
      /buscar), a ancho de columna igual. */
