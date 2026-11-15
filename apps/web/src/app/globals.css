@@ -12660,7 +12660,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   justify-content: center;
   gap: 4px 16px;
   padding: 8px 16px;
-  background: #d6b56f;
+  background: var(--es-gold);
   color: #0a0a0f;
   font-size: 13px;
   line-height: 1.3;
@@ -12675,7 +12675,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   padding: 2px 10px;
   border-radius: 6px;
   background: #0a0a0f;
-  color: #d6b56f;
+  color: var(--es-gold);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -12705,7 +12705,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .landing-section--campana .campana-titulo {
-  color: #d6b56f;
+  color: var(--es-gold);
   font-size: clamp(34px, 6vw, 56px);
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -12714,7 +12714,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .landing-section--campana .landing-eyebrow {
-  color: #d6b56f;
+  color: var(--es-gold);
 }
 
 .campana-cuenta {
@@ -12744,8 +12744,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .campana-caja--seg {
-  border-color: #d6b56f;
-  color: #d6b56f;
+  border-color: var(--es-gold);
+  color: var(--es-gold);
 }
 
 .campana-etiqueta {
@@ -12783,8 +12783,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .landing-section--campana .landing-pill-active {
-  background: #d6b56f;
-  border-color: #d6b56f;
+  background: var(--es-gold);
+  border-color: var(--es-gold);
   color: #0a0a0f;
 }
 
@@ -12802,8 +12802,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .landing-section--campana .landing-offers-channel-btn {
-  border-color: #d6b56f;
-  color: #d6b56f;
+  border-color: var(--es-gold);
+  color: var(--es-gold);
 }
 
 
@@ -12817,7 +12817,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 
 .campana-hero-eyebrow {
   margin: 0;
-  color: #d6b56f;
+  color: var(--es-gold);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -12828,7 +12828,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   font-family: var(--font-heading, inherit);
   font-weight: 800 !important;
   margin: 10px 0 8px;
-  color: #d6b56f;
+  color: var(--es-gold);
   font-size: clamp(44px, 10vw, 104px);
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -12861,8 +12861,8 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 .campana-btn {
   display: inline-block;
   padding: 13px 30px;
-  border: 1.5px solid #d6b56f;
-  color: #d6b56f;
+  border: 1.5px solid var(--es-gold);
+  color: var(--es-gold);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -12871,7 +12871,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
 }
 
 .campana-btn--lleno {
-  background: #d6b56f;
+  background: var(--es-gold);
   color: #0a0a0f;
 }
 
@@ -12902,7 +12902,7 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   justify-content: space-between;
   gap: 20px;
   padding: 22px 28px;
-  border: 1.5px solid #d6b56f;
+  border: 1.5px solid var(--es-gold);
   background: #fff;
 }
 
@@ -12934,4 +12934,56 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
     min-width: 54px;
     font-size: 24px;
   }
+}
+
+.campana-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.campana-categorias-etiqueta {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6c7594;
+  margin-right: 4px;
+}
+
+.campana-categorias .landing-pill {
+  text-decoration: none;
+}
+
+/* Orden de la campaña: desplegable con el dorado de la paleta, texto oscuro y flecha propia. */
+.landing-section--campana .campana-orden .landing-select {
+  height: 40px;
+  padding: 0 40px 0 16px;
+  border: 1.5px solid var(--es-gold);
+  border-radius: 0;
+  background-color: var(--es-gold);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a0a0f' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+  color: #0a0a0f;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.landing-section--campana .campana-orden .landing-select:hover {
+  filter: brightness(1.08);
+}
+
+.landing-section--campana .campana-orden .landing-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.35);
+}
+
+.landing-section--campana .campana-orden .landing-select option {
+  background: #fff;
+  color: #0a0a0f;
+  font-weight: 600;
 }

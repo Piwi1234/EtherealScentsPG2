@@ -298,20 +298,27 @@ export function HomeClient({
   const offersSlideSize = offersColumns ?? OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
-  const offerEntries = useMemo(() => {
+  // Las tarjetas del modo activo con su porcentaje de descuento (solo se usa en campaña y en la pestaña de descuentos).
+  const offerEntriesConPct = useMemo(() => {
     // `productsPageMode` (no `offersMode`) a propósito — ver el comentario del fetch de arriba.
     const modo = productsPageMode ?? offersMode;
-    const base = offerVariantEntries(productsPage?.items ?? [], modo);
-    if (!campana || modo !== "discount") return base;
-    // En campaña: filtro por porcentaje mínimo y orden (por defecto, el mayor descuento primero).
-    const conPct = base.map((entrada) => ({
+    return offerVariantEntries(productsPage?.items ?? [], modo).map((entrada) => ({
       entrada,
-      pct: descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)),
+      pct: campana && modo === "discount" ? descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)) : 0,
     }));
-    const filtradas = conPct.filter((x) => x.pct >= minPct);
+  }, [productsPage, productsPageMode, offersMode, campana]);
+
+  // Chips de porcentaje: solo los que tienen al menos un producto (si no, al tocarlos el bloque se vaciaría y cambiaría de tamaño de golpe).
+  const chipsPct = useMemo(() => [10, 20, 30].filter((pct) => offerEntriesConPct.some((x) => x.pct >= pct)), [offerEntriesConPct]);
+  const minPctEfectivo = minPct > 0 && chipsPct.includes(minPct) ? minPct : 0;
+
+  const offerEntries = useMemo(() => {
+    if (!campana || (productsPageMode ?? offersMode) !== "discount") return offerEntriesConPct.map((x) => x.entrada);
+    // En campaña: filtro por porcentaje mínimo y orden (por defecto, el mayor descuento primero).
+    const filtradas = offerEntriesConPct.filter((x) => x.pct >= minPctEfectivo);
     if (ordenOfertas === "descuento") filtradas.sort((a, b) => b.pct - a.pct);
     return filtradas.map((x) => x.entrada);
-  }, [productsPage, productsPageMode, offersMode, campana, minPct, ordenOfertas]);
+  }, [offerEntriesConPct, productsPageMode, offersMode, campana, minPctEfectivo, ordenOfertas]);
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
   // "Combos" usa el mismo carrusel (flechas, autoplay, transición, alto medido, columnas por ancho) con sus propias páginas.
   const comboChunks = useMemo(() => chunk(ofertasCombos, offersSlideSize), [ofertasCombos, offersSlideSize]);
@@ -323,7 +330,7 @@ export function HomeClient({
     offersAnimatingRef.current = false;
     setOffersSlide(0);
     setOffersAnim(null);
-  }, [verCombosEnOfertas, minPct, ordenOfertas]);
+  }, [verCombosEnOfertas, minPctEfectivo, ordenOfertas]);
 
   // Link del botón "Ver más": la página de la categoría elegida arriba (1ra fila de pills), con el
   // mismo modo de oferta activo (Descuentos/Ofertas Flash/Preventa) ya marcado como filtro — mismo
@@ -646,12 +653,16 @@ export function HomeClient({
           {/* Solo en campaña y en la pestaña de descuentos: porcentaje mínimo y orden. */}
           {campana && offersMode === "discount" && !verCombosEnOfertas && (
             <div className="campana-filtros">
-              <span className="campana-filtros-etiqueta">Descuento:</span>
-              {[0, 10, 20, 30].map((pct) => (
-                <button key={pct} type="button" className={`landing-pill campana-chip${minPct === pct ? " landing-pill-active" : ""}`} onClick={() => setMinPct(pct)}>
-                  {pct === 0 ? "Todos" : `+${pct}%`}
-                </button>
-              ))}
+              {chipsPct.length > 0 && (
+                <>
+                  <span className="campana-filtros-etiqueta">Descuento:</span>
+                  {[0, ...chipsPct].map((pct) => (
+                    <button key={pct} type="button" className={`landing-pill campana-chip${minPctEfectivo === pct ? " landing-pill-active" : ""}`} onClick={() => setMinPct(pct)}>
+                      {pct === 0 ? "Todos" : `+${pct}%`}
+                    </button>
+                  ))}
+                </>
+              )}
               <label className="campana-orden">
                 Ordenar por
                 <select className="landing-select" value={ordenOfertas} onChange={(e) => setOrdenOfertas(e.target.value as "descuento" | "recientes")}>

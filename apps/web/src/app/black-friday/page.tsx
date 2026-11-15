@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet, getPublicCombos } from "../../lib/api";
 import { descuentoPct, offerVariantEntries } from "../../lib/catalog-display";
 import { rangoCampana, useCampana } from "../../lib/campana";
-import type { Combo, Page, Product } from "../../lib/types";
+import type { Category, Combo, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { CampanaCountdown } from "../../components/landing/CampanaCountdown";
@@ -23,12 +23,16 @@ export default function CampanaPage() {
   const [productos, setProductos] = useState<Product[] | null>(null);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [hayFlash, setHayFlash] = useState(false);
+  const [categorias, setCategorias] = useState<Category[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     apiGet<Page<Product>>("/catalog/products?onlyDiscounted=true&pageSize=100&sortBy=actualizados")
       .then((p) => setProductos(p.items))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    apiGet<Category[]>("/categories")
+      .then(setCategorias)
+      .catch(() => {});
     getPublicCombos()
       .then(setCombos)
       .catch(() => {});
@@ -45,6 +49,26 @@ export default function CampanaPage() {
     }));
     return entradas.sort((a, b) => b.pct - a.pct).slice(0, REBAJADOS);
   }, [productos]);
+
+  // Categorías raíz que tienen productos con descuento, la de más ofertas primero: «Ver todas las ofertas» abre la página de esa categoría con el
+  // filtro «Productos con Descuento» ya puesto (las demás quedan como enlaces debajo de la lista).
+  const categoriasConOfertas = useMemo(() => {
+    const porId = new Map(categorias.map((c) => [c.id, c]));
+    const raizDe = (c: Category): Category => {
+      let actual = c;
+      while (actual.parentId && porId.get(actual.parentId)) actual = porId.get(actual.parentId)!;
+      return actual;
+    };
+    const conteo = new Map<string, { categoria: Category; n: number }>();
+    for (const e of offerVariantEntries(productos ?? [], "discount")) {
+      const raiz = raizDe(e.product.category);
+      conteo.set(raiz.id, { categoria: raiz, n: (conteo.get(raiz.id)?.n ?? 0) + 1 });
+    }
+    return Array.from(conteo.values())
+      .sort((a, b) => b.n - a.n)
+      .map((x) => x.categoria);
+  }, [productos, categorias]);
+  const hrefOfertas = categoriasConOfertas[0] ? `/categoria/${categoriasConOfertas[0].slug}?descuento=true` : "/home#catalogo";
 
   return (
     <div className="landing-page">
@@ -71,7 +95,7 @@ export default function CampanaPage() {
                 <CampanaCountdown fin={campana.fin} variante="bloque" />
               </div>
               <div className="campana-hero-acciones">
-                <Link className="campana-btn campana-btn--lleno" href="/home#catalogo">
+                <Link className="campana-btn campana-btn--lleno" href={hrefOfertas}>
                   Comprar ahora
                 </Link>
                 {combos.length > 0 && (
@@ -87,7 +111,7 @@ export default function CampanaPage() {
             <div className="landing-container">
               <div className="campana-seccion-cabecera">
                 <h2 className="landing-section-title">Lo más rebajado</h2>
-                <Link className="campana-ver-todo" href="/home#catalogo">
+                <Link className="campana-ver-todo" href={hrefOfertas}>
                   Ver todas las ofertas →
                 </Link>
               </div>
@@ -99,6 +123,16 @@ export default function CampanaPage() {
                   <ProductCard key={e.variant.id} product={e.product} forcedVariant={e.variant} />
                 ))}
               </div>
+              {categoriasConOfertas.length > 1 && (
+                <div className="campana-categorias">
+                  <span className="campana-categorias-etiqueta">Ofertas por categoría:</span>
+                  {categoriasConOfertas.map((c) => (
+                    <Link key={c.id} className="landing-pill" href={`/categoria/${c.slug}?descuento=true`}>
+                      {c.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
