@@ -298,13 +298,13 @@ export function HomeClient({
   const offersSlideSize = offersColumns ?? OFFERS_SLIDE_SIZE_MOBILE;
   // Una tarjeta por cada VARIANTE que calificó para el modo activo (no una por producto) — así un
   // producto con dos tamaños en oferta sale dos veces, una por cada uno (ver offerVariantEntries).
-  // Las tarjetas del modo activo con su porcentaje de descuento (solo se usa en campaña y en la pestaña de descuentos).
+  // Las tarjetas del modo activo con su porcentaje de descuento (solo se usa en campaña y en las pestañas de descuentos y preventa).
   const offerEntriesConPct = useMemo(() => {
     // `productsPageMode` (no `offersMode`) a propósito — ver el comentario del fetch de arriba.
     const modo = productsPageMode ?? offersMode;
     return offerVariantEntries(productsPage?.items ?? [], modo).map((entrada) => ({
       entrada,
-      pct: campana && modo === "discount" ? descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)) : 0,
+      pct: campana && (modo === "discount" || modo === "preventa") ? descuentoPct(entrada.variant.finalPriceBs, Number(entrada.variant.isDefault ? entrada.product.discountBs : entrada.variant.discountBs)) : 0,
     }));
   }, [productsPage, productsPageMode, offersMode, campana]);
 
@@ -313,7 +313,8 @@ export function HomeClient({
   const minPctEfectivo = minPct > 0 && chipsPct.includes(minPct) ? minPct : 0;
 
   const offerEntries = useMemo(() => {
-    if (!campana || (productsPageMode ?? offersMode) !== "discount") return offerEntriesConPct.map((x) => x.entrada);
+    const modo = productsPageMode ?? offersMode;
+    if (!campana || (modo !== "discount" && modo !== "preventa")) return offerEntriesConPct.map((x) => x.entrada);
     // En campaña: filtro por porcentaje mínimo y orden (por defecto, el mayor descuento primero).
     const filtradas = offerEntriesConPct.filter((x) => x.pct >= minPctEfectivo);
     if (ordenOfertas === "descuento") filtradas.sort((a, b) => b.pct - a.pct);
@@ -650,8 +651,8 @@ export function HomeClient({
           </div>
           )}
 
-          {/* Solo en campaña y en la pestaña de descuentos: porcentaje mínimo y orden. */}
-          {campana && offersMode === "discount" && !verCombosEnOfertas && (
+          {/* Solo en campaña y en las pestañas de descuentos y preventa: porcentaje mínimo y orden. */}
+          {campana && (offersMode === "discount" || offersMode === "preventa") && !verCombosEnOfertas && (
             <div className="campana-filtros">
               {chipsPct.length > 0 && (
                 <>
