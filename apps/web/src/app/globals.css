@@ -12989,3 +12989,71 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   color: #0a0a0f;
   font-weight: 600;
 }
+
+
+/* ---- Decants dentro del carrusel «Descuento y Ofertas» del inicio: sobre fondo oscuro, con el dorado de la paleta y compactas para que el bloque
+   no crezca (tamaños en una fila chica, precio y botón en la misma línea). ---- */
+.landing-decant-buy {
+  display: block;
+}
+
+.landing-product-grid--carousel .landing-decant-sizes {
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+
+.landing-product-grid--carousel .landing-decant-size {
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.landing-product-grid--carousel .landing-decant-size--active {
+  background: var(--es-gold);
+  border-color: var(--es-gold);
+  color: var(--es-navy-900);
+  font-weight: 600;
+}
+
+.landing-product-grid--carousel .landing-decant-size:disabled {
+  opacity: 0.35;
+}
+
+.landing-product-grid--carousel .landing-decant-buy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.landing-product-grid--carousel .landing-decant-add {
+  margin-top: 0;
+  width: auto;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--es-gold);
+  color: var(--es-navy-900);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.landing-product-grid--carousel .landing-decant-qty {
+  margin-top: 0;
+  border-color: var(--es-gold);
+  gap: 6px;
+}
+
+.landing-product-grid--carousel .landing-decant-qty button {
+  width: 26px;
+  height: 26px;
+  background: var(--es-gold);
+  color: var(--es-navy-900);
+}
+
+.landing-product-grid--carousel .landing-decant-qty span {
+  color: #ffffff;
+  min-width: 18px;
+  text-align: center;
+}

@@ -55,10 +55,7 @@ const GROUPS: NavGroup[] = [
           { href: "/dashboard/stock/traspasos", label: "Traspasos", desc: "Mover mercadería entre almacenes" },
           { href: "/dashboard/stock/probadores", label: "Probadores", desc: "Piezas sacadas del stock para probar, con control interno" },
           { href: "/dashboard/combos", label: "Combos", desc: "Productos de una categoría vendidos juntos con descuento" },
-          { href: "/dashboard/campanas", label: "Campañas", desc: "Descuentos masivos con inicio y fin, como Black Friday" },
           { href: "/dashboard/stock/decants", label: "Decants", desc: "Perfumes convertidos a ml: conversiones y bajas" },
-          { href: "/dashboard/categories", label: "Categorías", desc: "Organización del catálogo" },
-          { href: "/dashboard/brands", label: "Marcas", desc: "Marcas de los productos" },
         ],
       },
     ],
@@ -97,7 +94,14 @@ const GROUPS: NavGroup[] = [
     label: "Ajustes",
     sections: [
       { title: "Usuarios", adminOnly: true, items: [{ href: "/dashboard/users", label: "Roles y permisos" }] },
-      { title: "Productos", items: [{ href: "/dashboard/attributes", label: "Atributos" }] },
+      {
+        title: "Productos",
+        items: [
+          { href: "/dashboard/attributes", label: "Atributos" },
+          { href: "/dashboard/categories", label: "Categorías", desc: "Organización del catálogo" },
+          { href: "/dashboard/brands", label: "Marcas", desc: "Marcas de los productos" },
+        ],
+      },
       {
         title: "Global",
         items: [
@@ -110,6 +114,7 @@ const GROUPS: NavGroup[] = [
       {
         title: "Sitio público",
         items: [
+          { href: "/dashboard/campanas", label: "Campañas", desc: "Descuentos masivos con inicio y fin, como Black Friday" },
           { href: "/dashboard/historias", label: "Historias", desc: "Contenido del sitio público" },
           { href: "/dashboard/configuracion/grid-imagenes", label: "Grid de imágenes" },
           { href: "/dashboard/configuracion/carrito-whatsapp", label: "Carrito WhatsApp" },

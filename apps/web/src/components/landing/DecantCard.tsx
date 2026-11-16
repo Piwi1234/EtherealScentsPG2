@@ -80,7 +80,7 @@ export function DecantCard({ item }: { item: DecantItem }) {
         {agotado ? (
           <span className="landing-product-price-soldout">Agotado</span>
         ) : (
-          <>
+          <div className="landing-decant-buy">
             <span className="landing-product-price">Bs {formatPriceBs(Number(elegida?.precioVentaBs ?? decant.desdeBs))}</span>
             {qtyInCart === 0 ? (
               <button type="button" className="landing-decant-add" disabled={!elegida} onClick={agregar}>
@@ -97,7 +97,7 @@ export function DecantCard({ item }: { item: DecantItem }) {
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

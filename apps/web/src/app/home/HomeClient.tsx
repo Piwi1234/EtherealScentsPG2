@@ -3,11 +3,11 @@
 import { CategoryExplorer } from "../../components/landing/CategoryExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages, getPublicCombos } from "../../lib/api";
+import { apiGet, getBrands, getCasaMatrizLogo, getHistoriaDestacada, getLandingImages, getPublicCombos, getPublicDecants } from "../../lib/api";
 import { brandLinkHref, descuentoPct, getContrastTextColor, offerVariantEntries, productImageSrc } from "../../lib/catalog-display";
 import { descripcionCampana, rangoCampana, useCampana } from "../../lib/campana";
 import { HISTORIA_CATEGORIA_LABELS, historiaImageSrc, historiaParagraphs, renderHistoriaInline } from "../../lib/historia-display";
-import type { Attribute, Brand, CarouselImage, Category, Combo, ContactoInfo, HistoriaDetalle, Page, Product } from "../../lib/types";
+import type { Attribute, Brand, CarouselImage, Category, Combo, ContactoInfo, DecantItem, HistoriaDetalle, Page, Product } from "../../lib/types";
 import { LandingNavbar } from "../../components/landing/LandingNavbar";
 import { LandingFooter } from "../../components/landing/LandingFooter";
 import { ImageCarousel } from "../../components/landing/ImageCarousel";
@@ -15,6 +15,7 @@ import { ProductCard } from "../../components/landing/ProductCard";
 import { HomeCombos } from "../../components/landing/HomeCombos";
 import { CampanaCountdown } from "../../components/landing/CampanaCountdown";
 import { ComboCard } from "../../components/landing/ComboCard";
+import { DecantCard } from "../../components/landing/DecantCard";
 
 const OFFERS_SLIDE_SIZE = 5;
 const OFFERS_SLIDE_SIZE_MOBILE = 2;
@@ -40,6 +41,7 @@ const HERO_AUTOPLAY_MS = 10000;
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 const WEEKLY_COLLECTION_BANNER_AUTOPLAY_MS = 10000;
 const WEEKLY_COLLECTION_SIZE = 5;
+const DECANTS_RECIENTES = 12;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -101,6 +103,16 @@ export function HomeClient({
       .then(setOfertasCombos)
       .catch(() => setOfertasCombos([]));
   }, []);
+  // Los últimos decants agregados: otra opción del bloque (mismo carrusel que Combos, con sus propias tarjetas).
+  const [ofertasDecants, setOfertasDecants] = useState<DecantItem[]>([]);
+  const [verDecantsEnOfertas, setVerDecantsEnOfertas] = useState(false);
+  useEffect(() => {
+    getPublicDecants({ sortBy: "decants-nuevos", pageSize: DECANTS_RECIENTES })
+      .then((p) => setOfertasDecants(p.items))
+      .catch(() => setOfertasDecants([]));
+  }, []);
+  // Combos y Decants no usan las filas de categoría ni los filtros de porcentaje: se deja su lugar (invisible) para que el bloque no cambie de alto.
+  const vistaAparte = verCombosEnOfertas || verDecantsEnOfertas;
   // null = todavía no se sabe si hay ofertas flash vigentes (se está consultando al montar). Hasta
   // que se resuelva, el pill "Ofertas Flash" queda oculto y el fetch de productos de abajo espera —
   // así arranca directo en el filtro correcto sin parpadeo.
@@ -323,7 +335,8 @@ export function HomeClient({
   const offersChunks = useMemo(() => chunk(offerEntries, offersSlideSize), [offerEntries, offersSlideSize]);
   // "Combos" usa el mismo carrusel (flechas, autoplay, transición, alto medido, columnas por ancho) con sus propias páginas.
   const comboChunks = useMemo(() => chunk(ofertasCombos, offersSlideSize), [ofertasCombos, offersSlideSize]);
-  const offersTotal = verCombosEnOfertas ? comboChunks.length : offersChunks.length;
+  const decantChunks = useMemo(() => chunk(ofertasDecants, offersSlideSize), [ofertasDecants, offersSlideSize]);
+  const offersTotal = verDecantsEnOfertas ? decantChunks.length : verCombosEnOfertas ? comboChunks.length : offersChunks.length;
   // Al entrar o salir de "Combos" (o cambiar el filtro de porcentaje / el orden) el carrusel vuelve a su primera página (el fetch de
   // productos ya lo hace al cambiar de modo/categoría).
   useEffect(() => {
@@ -331,7 +344,7 @@ export function HomeClient({
     offersAnimatingRef.current = false;
     setOffersSlide(0);
     setOffersAnim(null);
-  }, [verCombosEnOfertas, minPctEfectivo, ordenOfertas]);
+  }, [verCombosEnOfertas, verDecantsEnOfertas, minPctEfectivo, ordenOfertas]);
 
   // Link del botón "Ver más": la página de la categoría elegida arriba (1ra fila de pills), con el
   // mismo modo de oferta activo (Descuentos/Ofertas Flash/Preventa) ya marcado como filtro — mismo
@@ -421,9 +434,18 @@ export function HomeClient({
     measure();
     window.addEventListener("resize", alRedimensionar);
     return () => window.removeEventListener("resize", alRedimensionar);
-  }, [offersChunks, comboChunks, verCombosEnOfertas, offersSlide, offersAnim, offersColumns]);
+  }, [offersChunks, comboChunks, decantChunks, verCombosEnOfertas, verDecantsEnOfertas, offersSlide, offersAnim, offersColumns]);
 
   function renderOffersWindow(index: number) {
+    if (verDecantsEnOfertas) {
+      return (
+        <div className="landing-product-grid landing-product-grid--carousel">
+          {(decantChunks[index] ?? []).map((item) => (
+            <DecantCard key={item.id} item={item} />
+          ))}
+        </div>
+      );
+    }
     if (verCombosEnOfertas) {
       return (
         <div className="landing-product-grid landing-product-grid--carousel">
@@ -599,10 +621,11 @@ export function HomeClient({
           <div className="landing-filter-pills landing-filter-pills--row1">
             <button
               type="button"
-              className={`landing-pill${offersMode === "discount" && !verCombosEnOfertas ? " landing-pill-active" : ""}`}
+              className={`landing-pill${offersMode === "discount" && !vistaAparte ? " landing-pill-active" : ""}`}
               onClick={() => {
                 setOffersMode("discount");
                 setVerCombosEnOfertas(false);
+                setVerDecantsEnOfertas(false);
               }}
             >
               {campana ? campana.nombre : "Descuentos"}
@@ -610,10 +633,11 @@ export function HomeClient({
             {hasFlashOffers && (
               <button
                 type="button"
-                className={`landing-pill landing-pill-flash${offersMode === "flash" && !verCombosEnOfertas ? " landing-pill-flash-active" : ""}`}
+                className={`landing-pill landing-pill-flash${offersMode === "flash" && !vistaAparte ? " landing-pill-flash-active" : ""}`}
                 onClick={() => {
                   setOffersMode("flash");
                   setVerCombosEnOfertas(false);
+                  setVerDecantsEnOfertas(false);
                 }}
               >
                 Ofertas Flash
@@ -628,17 +652,37 @@ export function HomeClient({
             {hasPreventaProducts && (
               <button
                 type="button"
-                className={`landing-pill${offersMode === "preventa" && !verCombosEnOfertas ? " landing-pill-active" : ""}`}
+                className={`landing-pill${offersMode === "preventa" && !vistaAparte ? " landing-pill-active" : ""}`}
                 onClick={() => {
                   setOffersMode("preventa");
                   setVerCombosEnOfertas(false);
+                  setVerDecantsEnOfertas(false);
                 }}
               >
                 Preventa
               </button>
             )}
+            {ofertasDecants.length > 0 && (
+              <button
+                type="button"
+                className={`landing-pill${verDecantsEnOfertas ? " landing-pill-active" : ""}`}
+                onClick={() => {
+                  setVerCombosEnOfertas(false);
+                  setVerDecantsEnOfertas(true);
+                }}
+              >
+                Decants
+              </button>
+            )}
             {ofertasCombos.length > 0 && (
-              <button type="button" className={`landing-pill${verCombosEnOfertas ? " landing-pill-active" : ""}`} onClick={() => setVerCombosEnOfertas(true)}>
+              <button
+                type="button"
+                className={`landing-pill${verCombosEnOfertas ? " landing-pill-active" : ""}`}
+                onClick={() => {
+                  setVerDecantsEnOfertas(false);
+                  setVerCombosEnOfertas(true);
+                }}
+              >
                 Combos
               </button>
             )}
@@ -646,7 +690,7 @@ export function HomeClient({
 
           {/* 2da fila: categoría — se aplica dentro del modo elegido arriba, no lo reemplaza. No aplica a Combos. */}
           {/* En Combos no se usa, pero se deja su lugar (invisible) para que el bloque no cambie de alto de golpe. */}
-          <div className="landing-filter-pills" style={verCombosEnOfertas ? { visibility: "hidden" } : undefined} aria-hidden={verCombosEnOfertas}>
+          <div className="landing-filter-pills" style={vistaAparte ? { visibility: "hidden" } : undefined} aria-hidden={vistaAparte}>
             {rootCategories.map((cat) => (
               <button
                 key={cat.id}
@@ -661,7 +705,7 @@ export function HomeClient({
 
           {/* Solo en campaña: porcentaje mínimo y orden, en descuentos, ofertas flash y preventa. En Combos se deja su lugar (invisible). */}
           {campana && (
-            <div className="campana-filtros" style={verCombosEnOfertas ? { visibility: "hidden" } : undefined} aria-hidden={verCombosEnOfertas}>
+            <div className="campana-filtros" style={vistaAparte ? { visibility: "hidden" } : undefined} aria-hidden={vistaAparte}>
               {chipsPct.length > 0 && (
                 <>
                   <span className="campana-filtros-etiqueta">Descuento:</span>
@@ -683,8 +727,8 @@ export function HomeClient({
           )}
 
           {error && <p className="error-text">{error}</p>}
-          {!verCombosEnOfertas && !productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
-          {!verCombosEnOfertas && productsPage && productsPage.items.length === 0 && (
+          {!vistaAparte && !productsPage && !error && <p className="landing-empty-note">Cargando...</p>}
+          {!vistaAparte && productsPage && productsPage.items.length === 0 && (
             <div className="landing-offers-empty">
               <p className="landing-offers-empty-text">
                 {offersMode === "preventa" ? "No hay productos en preventa por el momento." : "No hay productos en oferta por el momento."}
@@ -751,8 +795,8 @@ export function HomeClient({
 
           {offersTotal > 0 && (
             <div className="landing-offers-channel-cta">
-              {(verCombosEnOfertas || offersViewMoreHref) && (
-                <Link className="landing-offers-channel-btn" href={verCombosEnOfertas ? "/combos" : (offersViewMoreHref as string)}>
+              {(vistaAparte || offersViewMoreHref) && (
+                <Link className="landing-offers-channel-btn" href={verDecantsEnOfertas ? "/decants" : verCombosEnOfertas ? "/combos" : (offersViewMoreHref as string)}>
                   Ver más
                 </Link>
               )}
