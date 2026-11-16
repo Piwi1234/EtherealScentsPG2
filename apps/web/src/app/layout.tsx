@@ -27,7 +27,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const SITE_TITLE = "Ethereal Scents";
-const SITE_DESCRIPTION = "Catálogo online";
+const SITE_DESCRIPTION = "Tienda online de perfumes originales en Bolivia: árabes, de nicho y de diseñador.";
 export const SITE_ORIGIN = "https://www.etherealscents-bo.com";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -62,6 +62,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${inter.variable} ${manrope.variable} ${playfairDisplay.variable}`}>
       <body>
+        {/* Le dice a Google cómo se llama el sitio y cuál es su organización (nombre en el resultado, logo). */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              { "@context": "https://schema.org", "@type": "WebSite", name: SITE_TITLE, alternateName: "Ethereal Scents Bolivia", url: SITE_ORIGIN },
+              { "@context": "https://schema.org", "@type": "Organization", name: SITE_TITLE, url: SITE_ORIGIN, logo: `${SITE_ORIGIN}/icon.png` },
+            ]),
+          }}
+        />
         <CartRoot>{children}</CartRoot>
       </body>
     </html>
