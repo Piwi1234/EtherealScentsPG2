@@ -34,7 +34,7 @@ const includeDetails = {
       presentaciones: {
         where: { activo: true },
         orderBy: { cantidadMl: "asc" },
-        select: { id: true, varianteId: true, cantidadMl: true, precioVentaBs: true },
+        select: { id: true, varianteId: true, cantidadMl: true, precioVentaBs: true, createdAt: true },
       },
     },
   },
@@ -327,7 +327,7 @@ export class CatalogBrowseService {
   ) {
     const tamanos = (query.ml ?? "").split(",").map((v) => Number(v.trim())).filter((n) => Number.isInteger(n) && n > 0);
     const soloDisponibles = query.onlyInStock === "true";
-    type Pres = { id: string; cantidadMl: number; precioVentaBs: unknown; disponible: boolean };
+    type Pres = { id: string; cantidadMl: number; precioVentaBs: unknown; disponible: boolean; createdAt?: Date };
     type Var = { id: string; variantCode: string; unidad: string; presentaciones?: Pres[] };
 
     const all = await this.prisma.product.findMany({ where, orderBy, include: includeDetails });
@@ -349,6 +349,11 @@ export class CatalogBrowseService {
         return [{ ...item, decant: { varianteId: variante.id, variantCode: variante.variantCode, presentaciones, desdeBs: desde } }];
       });
 
+    // «decants-nuevos»: el decant agregado más recientemente primero (la presentación más nueva de cada perfume).
+    if (query.sortBy === "decants-nuevos") {
+      const nuevo = (d: { presentaciones: { createdAt?: Date }[] }) => Math.max(...d.presentaciones.map((p) => p.createdAt?.getTime() ?? 0));
+      conDecant.sort((a, b) => nuevo(b.decant) - nuevo(a.decant));
+    }
     if (query.sortBy === "precio-asc") conDecant.sort((a, b) => a.decant.desdeBs - b.decant.desdeBs);
     if (query.sortBy === "precio-desc") conDecant.sort((a, b) => b.decant.desdeBs - a.decant.desdeBs);
 
