@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Ethereal Scents — Perfumes originales en Bolivia",
+  description: "Tienda online de perfumes originales en Bolivia: árabes, de nicho y de diseñador. Decants, combos, ofertas y preventas.",
+  alternates: { canonical: "https://www.etherealscents-bo.com/home" },
+};
+
 import { apiGet, getLandingImages } from "../../lib/api";
 import type { Category, Page, Product } from "../../lib/types";
 import { HomeClient } from "./HomeClient";

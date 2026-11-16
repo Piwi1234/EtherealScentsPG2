@@ -22,9 +22,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getProductBySlug(slug);
   if (!product) return {};
 
-  const title = `${product.name}${product.brand ? ` — ${product.brand.name}` : ""}`;
+  const title = `${product.name}${product.brand ? ` ${product.brand.name}` : ""} — Comprar en Bolivia | ${SITE_TITLE}`;
   const { bs, fromPrice } = displayPrice(product);
-  const description = `${fromPrice ? "Desde " : ""}Bs ${formatPriceBs(bs)} — comprá ${product.name} original en ${SITE_TITLE}.`;
+  const description = `Comprá ${product.name}${product.brand ? ` de ${product.brand.name}` : ""} original en Bolivia: ${fromPrice ? "desde " : ""}Bs ${formatPriceBs(bs)}${product.hasStock ? " (en stock)" : ""}. ${SITE_TITLE}.`;
   // Sin foto propia, cae al logo genérico en vez de no mandar ninguna imagen (WhatsApp prefiere
   // mostrar algo, aunque sea el logo, a no mostrar preview).
   const image = productImageSrc(product.imageUrl) ?? `${SITE_ORIGIN}/og-default.png`;
@@ -32,6 +32,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
+    // Una sola URL por producto: los links con ?v=... (variante) o ?variante=... apuntan a la misma página para Google.
+    alternates: { canonical: `${SITE_ORIGIN}/producto/${product.slug}` },
     openGraph: {
       title,
       description,
@@ -88,12 +90,37 @@ export default async function ProductoPage({
         .catch(() => [] as Product[])
     : [];
 
+  // Datos estructurados (schema.org/Product): permiten a Google mostrar precio y disponibilidad en el resultado de búsqueda.
+  const { bs } = displayPrice(product);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    sku: product.productCode,
+    url: `${SITE_ORIGIN}/producto/${product.slug}`,
+    ...(productImageSrc(product.imageUrl) ? { image: [productImageSrc(product.imageUrl)] } : {}),
+    ...(product.brand ? { brand: { "@type": "Brand", name: product.brand.name } } : {}),
+    category: product.category?.name,
+    offers: {
+      "@type": "Offer",
+      url: `${SITE_ORIGIN}/producto/${product.slug}`,
+      priceCurrency: "BOB",
+      price: bs,
+      availability: product.hasStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+      seller: { "@type": "Organization", name: SITE_TITLE },
+    },
+  };
+
   return (
-    <ProductoDetailClient
-      product={product}
-      categories={categories}
-      relatedProducts={relatedProducts}
-      initialVariantId={initialVariantId}
-    />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <ProductoDetailClient
+        product={product}
+        categories={categories}
+        relatedProducts={relatedProducts}
+        initialVariantId={initialVariantId}
+      />
+    </>
   );
 }

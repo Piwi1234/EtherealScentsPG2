@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
 import { apiGet, ApiError } from "../../../lib/api";
 import { buildCategoriaProductsParams, parseCategoriaFiltersFromSearchParams, resolveSubCategorySlug } from "../../../lib/categoria-query";
 import type { Category, Page, Product } from "../../../lib/types";
 import { CARDS_PER_PAGE, CategoriaClient } from "./CategoriaClient";
+
+/** Título y descripción propios de cada categoría (antes todas se llamaban «Ethereal Scents» en Google). */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await apiGet<Category>(`/categories/slug/${slug}`).catch(() => null);
+  if (!category) return {};
+  return {
+    title: `${category.name} originales en Bolivia | Ethereal Scents`,
+    description: `Compra ${category.name.toLowerCase()} originales en Ethereal Scents, Bolivia: catálogo completo con precios en bolivianos, ofertas y decants.`,
+    alternates: { canonical: `https://www.etherealscents-bo.com/categoria/${category.slug}` },
+  };
+}
 
 /** Server Component a propósito (ver historias/[slug]/page.tsx, el mismo patrón ya probado) — la
  * primera imagen del grid de productos es el elemento LCP de esta página (lo marcó Cloudflare: el

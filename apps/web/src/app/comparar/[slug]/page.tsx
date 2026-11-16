@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { apiGet, ApiError } from "../../../lib/api";
 import type { Product, SimilarByAccordsResponse } from "../../../lib/types";
@@ -11,6 +12,9 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
     throw e;
   }
 }
+
+// «Ver similares» es una lista de otros productos (sin contenido propio): que no se indexe, pero que Google siga los enlaces a cada producto.
+export const metadata: Metadata = { robots: { index: false, follow: true } };
 
 /** Server Component a propósito (igual que /producto/[slug]): resuelve el producto y sus similares
  * acá para que el primer HTML ya traiga todo — el paginado en sí (con su animación de scroll) vive
