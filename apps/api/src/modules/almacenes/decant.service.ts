@@ -182,6 +182,19 @@ export class DecantService {
       select: { loteDestinoId: true, movimiento: { select: { tipo: true } } },
     });
     const origenDe = new Map(origenes.map((o) => [o.loteDestinoId, o.movimiento.tipo]));
+    // Qué ventas se llevaron ml de cada lote (para explicar por qué un lote ya no está completo).
+    const consumos = await this.prisma.loteCompraConsumo.findMany({
+      where: { loteCompraId: { in: lotes.map((l) => l.id) } },
+      orderBy: { createdAt: "asc" },
+      select: { loteCompraId: true, cantidad: true, createdAt: true, asignacion: { select: { proformaDetalle: { select: { proforma: { select: { id: true, codigo: true, tipo: true, estado: true } } } } } } },
+    });
+    const salidasDe = new Map<string, { cantidad: number; fecha: Date; proformaId: string; codigo: string; tipo: string; estado: string }[]>();
+    for (const c of consumos) {
+      const p = c.asignacion.proformaDetalle.proforma;
+      const lista = salidasDe.get(c.loteCompraId) ?? [];
+      lista.push({ cantidad: c.cantidad, fecha: c.createdAt, proformaId: p.id, codigo: p.codigo, tipo: p.tipo, estado: p.estado });
+      salidasDe.set(c.loteCompraId, lista);
+    }
     return {
       lotes: lotes.map((l) => ({
         id: l.id,
@@ -190,6 +203,7 @@ export class DecantService {
         cantidadDisponible: l.cantidadDisponible,
         costoMlBs: l.proformaDetalle.proforma.tipoCambioProf ? Math.round(Number(l.costoUnitario) * Number(l.proformaDetalle.proforma.tipoCambioProf) * 10000) / 10000 : null,
         origen: origenDe.get(l.id) ?? null,
+        salidas: salidasDe.get(l.id) ?? [],
       })),
       presentaciones,
       movimientos,

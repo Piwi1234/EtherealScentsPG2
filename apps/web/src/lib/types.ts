@@ -835,7 +835,7 @@ export type DecantResumenRespuesta = {
 
 /** Detalle de un perfume en un almacén (panel lateral de Decants). */
 export type DecantDetalle = {
-  lotes: { id: string; fecha: string; cantidadInicial: number; cantidadDisponible: number; costoMlBs: number | null; origen: "CONVERSION" | "DESDE_PROBADOR" | "BAJA" | null }[];
+  lotes: { id: string; fecha: string; cantidadInicial: number; cantidadDisponible: number; costoMlBs: number | null; origen: "CONVERSION" | "DESDE_PROBADOR" | "BAJA" | null; salidas: { cantidad: number; fecha: string; proformaId: string; codigo: string; tipo: string; estado: string }[] }[];
   presentaciones: DecantPresentacionFila[];
   movimientos: Pick<MovimientoDecant, "id" | "tipo" | "fecha" | "cantidadMl" | "cantidadFrascos" | "revertidoAt" | "costoTotal" | "creadoPor">[];
 };
