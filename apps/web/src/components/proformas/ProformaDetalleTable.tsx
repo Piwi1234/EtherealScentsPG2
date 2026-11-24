@@ -50,7 +50,7 @@ function EditableNumber({
 }) {
   return (
     <input
-      className="field"
+      className="field field--sin-flechas"
       type="number"
       min={min}
       step={step ?? "0.01"}
@@ -166,7 +166,7 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
                 <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {!ligada && maximo > 0 && (
                     <input
-                      className="field"
+                      className="field field--sin-flechas"
                       type="number"
                       min={1}
                       max={maximo}
@@ -214,7 +214,7 @@ function LigarNotasModal({ detalle, onClose, onChanged }: { detalle: ProformaDet
                   <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     {!ligada && maximo > 0 && (
                       <input
-                        className="field"
+                        className="field field--sin-flechas"
                         type="number"
                         min={1}
                         max={maximo}

@@ -13057,3 +13057,18 @@ body:has(.landing-filters-drawer) .landing-cart-fab { display: none; }
   min-width: 18px;
   text-align: center;
 }
+
+
+/* Campos numéricos sin las flechas de subir/bajar que salen al pasar el mouse: en toda la parte de gestión (.nocturne-theme) se escribe el número. */
+.nocturne-theme input[type="number"],
+input.field--sin-flechas {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.nocturne-theme input[type="number"]::-webkit-outer-spin-button,
+.nocturne-theme input[type="number"]::-webkit-inner-spin-button,
+input.field--sin-flechas::-webkit-outer-spin-button,
+input.field--sin-flechas::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
