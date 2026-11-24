@@ -128,7 +128,12 @@ export default function DecantsPage() {
   const [resumen, setResumen] = useState<DecantResumenRespuesta | null>(null);
 
   // Panel de detalle
-  const [abierto, setAbierto] = useState<DecantResumen | null>(null);
+  const [abiertoSel, setAbierto] = useState<DecantResumen | null>(null);
+  // El panel muestra siempre la fila ACTUAL de la tabla (no la copia de cuando se abrió): al deshacer o hacer una baja los ml, el costo y el
+  // valor se actualizan solos, y si el perfume se queda sin ml el panel se cierra.
+  const abierto = abiertoSel
+    ? (resumen ? (resumen.items.find((r) => r.varianteId === abiertoSel.varianteId && r.almacenId === abiertoSel.almacenId) ?? null) : abiertoSel)
+    : null;
   const [detalle, setDetalle] = useState<DecantDetalle | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
@@ -655,6 +660,15 @@ export default function DecantsPage() {
                             <span>
                               {formatDate(l.fecha)}
                               <small>{l.origen ? ETIQUETA_ORIGEN[l.origen] : "—"}</small>
+                              {l.salidas.map((s, i) => (
+                                <small key={i}>
+                                  −{s.cantidad} ml en{" "}
+                                  <Link href={`/dashboard/proformas/${s.proformaId}`} className="link-button" style={{ fontSize: "inherit" }}>
+                                    {s.tipo === "VENTA" ? "venta" : "nota"} {s.codigo}
+                                  </Link>{" "}
+                                  ({s.estado.toLowerCase()})
+                                </small>
+                              ))}
                             </span>
                             <span className="dg-fila-num">
                               <b>{l.cantidadDisponible}</b> de {l.cantidadInicial} ml
